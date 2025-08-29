@@ -1,0 +1,714 @@
+openapi: 3.0.0
+info:
+  title: MyAnimeLog API
+  version: 1.0.0
+  description: API for MyAnimeLog application
+servers:
+  - url: /api
+paths:
+  /register:
+    post:
+      summary: 新規ユーザー作成
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                  example: "山田 太郎"
+                email:
+                  type: string
+                  format: email
+                  example: "taro@example.com"
+                password:
+                  type: string
+                  format: password
+                  minLength: 8
+                  example: "password123"
+              required:
+                - name
+                - email
+                - password
+      responses:
+        "201":
+          description: ユーザー登録が完了しました
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "ユーザー登録が完了しました。"
+                  user:
+                    $ref: "#/components/schemas/User"
+        "400":
+          description: バリデーションエラー
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: メールアドレスが既に登録済み
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /login:
+    post:
+      summary: 認証トークン発行
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+              required:
+                - email
+                - password
+      responses:
+        "200":
+          description: ログイン成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                    example: "eyJ..."
+                  token_type:
+                    type: string
+                    example: "Bearer"
+                  user:
+                    $ref: "#/components/schemas/User"
+        "401":
+          description: 認証失敗
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /users/me:
+    get:
+      summary: マイページ情報を取得
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: マイページ情報
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: 認証が必要です
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      summary: マイページ情報を更新
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                description:
+                  type: string
+                icon:
+                  type: string
+                  format: uri
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+  /users/me/export:
+    get:
+      summary: ユーザーデータのエクスポート
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: ["json", "csv"]
+            default: "json"
+      responses:
+        "200":
+          description: エクスポートデータ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user_info:
+                    $ref: "#/components/schemas/User"
+                  favorites:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Favorite"
+                  watch_history:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/WatchHistory"
+                  ratings:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Rating"
+            text/csv:
+              schema:
+                type: string
+  /animes:
+    get:
+      summary: アニメ検索・一覧取得
+      parameters:
+        - name: keyword
+          in: query
+          schema:
+            type: string
+          description: タイトル・説明で部分一致
+        - name: season
+          in: query
+          schema:
+            type: string
+          example: "2025-summer"
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: ["airing", "finished"]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: アニメ一覧
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Anime"
+                  meta:
+                    type: object
+                    properties:
+                      total_pages:
+                        type: integer
+                      current_page:
+                        type: integer
+                      per_page:
+                        type: integer
+                      total:
+                        type: integer
+  /animes/{id}:
+    get:
+      summary: 指定アニメの詳細情報取得
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: アニメ詳細情報
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Anime"
+        "404":
+          description: アニメが見つかりません
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /animes/{id}/episodes:
+    get:
+      summary: 指定アニメのエピソード一覧取得
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: エピソード一覧
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  anime_id:
+                    type: integer
+                  anime_title:
+                    type: string
+                  episodes:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Episode"
+        "404":
+          description: アニメが見つかりません
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /users/me/favorites:
+    get:
+      summary: 自分のお気に入りアニメ一覧取得
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: ["watching", "completed", "planned", "dropped"]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Anime"
+  /users/me/favorites/{anime_id}:
+    put:
+      summary: お気に入りにアニメを追加・更新
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: anime_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status:
+                  type: string
+                  enum: ["watching", "completed", "planned", "dropped"]
+              required:
+                - status
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Favorite"
+    delete:
+      summary: お気に入りからアニメを削除
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: anime_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: No Content
+  /episodes/{episode_id}/watch:
+    put:
+      summary: エピソードの視聴状態を更新
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: episode_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                viewed:
+                  type: boolean
+              required:
+                - viewed
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  viewed:
+                    type: boolean
+  /users/me/stats:
+    get:
+      summary: ユーザーの視聴統計情報取得
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: 視聴統計情報
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_episodes_watched:
+                    type: integer
+                    example: 245
+                  total_animes_completed:
+                    type: integer
+                    example: 12
+                  total_watch_time_hours:
+                    type: number
+                    format: float
+                    example: 98.5
+                  favorite_genres:
+                    type: array
+                    items:
+                      type: string
+                    example: ["アクション", "SF"]
+                  this_month_episodes:
+                    type: integer
+                    example: 15
+  /users/me/recently-watched:
+    get:
+      summary: 最近視聴したエピソード一覧
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: 最近視聴したエピソード一覧
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RecentlyWatchedEpisode"
+  /animes/{id}/rating:
+    put:
+      summary: アニメの評価を登録・更新
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rating:
+                  type: number
+                  format: float
+                  minimum: 1.0
+                  maximum: 5.0
+                comment:
+                  type: string
+                  maxLength: 1000
+              required:
+                - rating
+      responses:
+        "200":
+          description: 評価を登録しました
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  rating:
+                    $ref: "#/components/schemas/Rating"
+    delete:
+      summary: アニメの評価を削除
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: 評価を削除しました
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+  /users/me/watchlist:
+    get:
+      summary: 視聴予定リスト取得
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: 視聴予定のアニメ一覧
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WatchlistItem"
+  /search/animes:
+    get:
+      summary: 高度なアニメ検索
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+          description: 検索クエリ
+        - name: genre
+          in: query
+          schema:
+            type: string
+          description: ジャンル絞り込み
+        - name: year
+          in: query
+          schema:
+            type: integer
+          description: 放送年絞り込み
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: ["title", "rating", "year"]
+          description: ソート条件
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: 検索結果
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SearchResultAnime"
+                  meta:
+                    type: object
+                    properties:
+                      total_pages:
+                        type: integer
+                      current_page:
+                        type: integer
+                      per_page:
+                        type: integer
+                      total:
+                        type: integer
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Error:
+      type: object
+      properties:
+        error_code:
+          type: string
+          example: "VALIDATION_ERROR"
+        message:
+          type: string
+          example: "バリデーションエラーです"
+        details:
+          type: object
+      required:
+        - error_code
+        - message
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        description:
+          type: string
+        icon:
+          type: string
+          format: uri
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    Anime:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        description:
+          type: string
+        image_url:
+          type: string
+          format: uri
+        season:
+          type: string
+        status:
+          type: string
+          enum: ["airing", "finished"]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    Episode:
+      type: object
+      properties:
+        id:
+          type: integer
+        anime_id:
+          type: integer
+        title:
+          type: string
+        episode_number:
+          type: integer
+        viewed:
+          type: boolean
+    Favorite:
+      type: object
+      properties:
+        anime_id:
+          type: integer
+        status:
+          type: string
+          enum: ["watching", "completed", "planned", "dropped"]
+        added_at:
+          type: string
+          format: date-time
+    WatchHistory:
+      type: object
+      properties:
+        episode_id:
+          type: integer
+        watched_at:
+          type: string
+          format: date-time
+    Rating:
+      type: object
+      properties:
+        anime_id:
+          type: integer
+        rating:
+          type: number
+          format: float
+          minimum: 1.0
+          maximum: 5.0
+        comment:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    RecentlyWatchedEpisode:
+      type: object
+      properties:
+        episode_id:
+          type: integer
+        anime_title:
+          type: string
+        episode_title:
+          type: string
+        watched_at:
+          type: string
+          format: date-time
+    WatchlistItem:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        season:
+          type: string
+        added_at:
+          type: string
+          format: date-time
+    SearchResultAnime:
+      type: object
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        rating:
+          type: number
+          format: float
+        genre:
+          type: array
+          items:
+            type: string

@@ -1,0 +1,52 @@
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: myanimelogs_frontend
+    volumes:
+      - ./frontend:/frontend
+      - /frontend/node_modules
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./frontend/.env
+    depends_on:
+      - backend
+    command: npm run dev
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: myanimelogs_backend
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8080:8080"
+    env_file:
+      - ./backend/.env
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:16
+    container_name: myanimelogs_postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    env_file:
+      - ./backend/.env
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: myanimelogs_pgadmin
+    ports:
+      - "5050:80"
+    env_file:
+      - ./backend/.env
+    depends_on:
+      - postgres
+
+volumes:
+  postgres_data:

@@ -1,0 +1,98 @@
+.container {
+  background-color: #002a7a;
+  color: white;
+  min-height: 100vh;
+  padding: 3rem 1rem;
+  text-align: center;
+}
+
+.title {
+  font-size: 1.8rem;
+  font-weight: bold;
+  margin-bottom: 2rem;
+}
+
+.red {
+  color: #ff0000;
+}
+
+.grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: stretch;
+  gap: 2rem;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.authContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  max-width: 450px;
+  flex: none; /* ← サイズが伸びすぎないようにする */
+}
+
+.section {
+  background-color: #4569b3;
+  padding: 1.2rem 2rem 1.5rem 1rem;
+  border-radius: 10px;
+  max-width: 520px;
+
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  box-sizing: border-box;
+}
+.descriptionSection {
+  height: 100%;
+  min-height: 335px; /* 手動で合わせる！！ */
+}
+
+.sectionTitle {
+  font-size: 1.2rem;
+  border-left: 5px solid red;
+  padding-left: 0.5rem;
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  white-space: nowrap;
+}
+.list {
+  list-style: disc;
+  padding-left: 1.5rem;
+  line-height: 1.6;
+}
+
+.buttonWrapper {
+  text-align: center;
+  margin-top: 0.5rem;
+}
+.loginBtn,
+.registerBtn {
+  font-size: 1rem;
+  font-weight: bold;
+  padding: 0.8rem 2rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.loginBtn {
+  background-color: #c00;
+  color: white;
+  border: none;
+}
+
+.registerBtn {
+  background-color: white;
+  color: #c00;
+  border: 2px solid #c00;
+}
+
+@media (max-width: 768px) {
+  .grid {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

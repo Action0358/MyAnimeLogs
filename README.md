@@ -1,1 +1,1 @@
-# MyAnimeLogs
+# MyAnimeLog
