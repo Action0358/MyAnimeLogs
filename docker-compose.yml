@@ -20,7 +20,7 @@ services:
       dockerfile: Dockerfile
     container_name: myanimelogs_backend
     volumes:
-      - ./backend:/app
+      - ./backend:/backend
     ports:
       - "8080:8080"
     env_file:

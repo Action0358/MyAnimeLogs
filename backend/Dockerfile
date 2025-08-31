@@ -1,27 +1,26 @@
-# syntax=docker/dockerfile:1
+# Goがインストール済みのDebianベースイメージを使用
+FROM golang:1.22-bullseye
 
-# Build stage
-FROM golang:1.22-alpine AS builder
+# 開発ツールに必要なパッケージをインストール
+RUN apt-get update && apt-get install -y procps curl && rm -rf /var/lib/apt/lists/*
 
+# 作業ディレクトリを設定
 WORKDIR /app
 
-# Copy the source code
+# Goモジュールのファイルをコピー
+COPY go.mod go.sum ./
+
+# ソースコード全体をコピー
 COPY . .
 
-# Download dependencies and build
+# ソースコードに基づいて依存関係を自動で整理・更新
 RUN go mod tidy
-RUN CGO_ENABLED=0 GOOS=linux go build -o /main .
 
-# Final stage
-FROM alpine:latest
+# 依存関係をダウンロード
+RUN go mod download
 
-WORKDIR /root/
-
-# Copy the binary from the builder stage
-COPY --from=builder /main .
-
-# Expose port 8080
+# ポートを公開
 EXPOSE 8080
 
-# Run the binary
-CMD ["./main"]
+# 開発用に `go run` でサーバーを起動
+CMD ["go", "run", "./cmd/server"]

@@ -33,3 +33,12 @@ yarn-error.log*
 
 # Compiled binary
 /backend/main
+
+# Documentation files
+/docs/*.csv
+
+# Test files
+/test.http
+
+# Kiro configuration
+.kiro
