@@ -31,14 +31,16 @@ const nextConfig = {
     poweredByHeader: false,
   }),
 
-  // 環境変数設定
-  env: {
-    CUSTOM_KEY: process.env.CUSTOM_KEY,
-  },
+  
 
   // 画像最適化
   images: {
-    domains: ['localhost'],
+    remotePatterns: [
+      {
+        protocol: 'http',
+        hostname: 'localhost',
+      },
+    ],
     unoptimized: process.env.NODE_ENV === 'development',
   },
 

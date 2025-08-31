@@ -18,7 +18,7 @@ RUN apt-get update && apt-get install -y \
 COPY package*.json ./
 
 # 依存関係のインストール
-RUN npm ci --only=production=false
+RUN npm ci
 
 # ソースコード全体をコピー
 COPY . .
