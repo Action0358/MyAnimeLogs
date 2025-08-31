@@ -1,10 +1,10 @@
-# MyAnimeLog
+# MyAnimeLogs
 
 アニメの視聴管理・記録を行う Web アプリケーション
 
 ## 概要
 
-MyAnimeLog は、アニメファンが視聴したアニメを記録・管理し、お気に入りのアニメを整理できる Web アプリケーションです。視聴履歴の管理、評価・レビューの投稿、視聴統計の確認などの機能を提供します。
+MyAnimeLogs は、アニメファンが視聴したアニメを記録・管理し、お気に入りのアニメを整理できる Web アプリケーションです。視聴履歴の管理、評価・レビューの投稿、視聴統計の確認などの機能を提供します。
 
 ## 主要機能
 
@@ -174,7 +174,7 @@ docker compose exec backend go mod tidy
 
 - **Host**: localhost
 - **Port**: 5432
-- **Database**: myanimelog
+- **Database**: myanimelogs
 - **管理ツール**: pgAdmin (http://localhost:5050)
 
 ### 主要テーブル
