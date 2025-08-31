@@ -1,15 +1,17 @@
-# --- Builder Stage for Air ---
-FROM golang:1.22-bullseye AS air-builder
+# --- Airビルドステージ ---
+FROM golang:1.22-alpine AS air-builder
 WORKDIR /src
-# Install Air
+# Airをインストール
 RUN go install github.com/cosmtrek/air@v1.49.0
 
-# --- Main Application Stage ---
-FROM golang:1.22-bullseye
+# --- メインアプリケーションステージ ---
+FROM golang:1.22-alpine
+# パッケージを更新して脆弱性を修正
+RUN apk update && apk upgrade
 # 開発ツールに必要なパッケージをインストール
-RUN apt-get update && apt-get install -y procps curl && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache procps curl
 
-# Copy Air binary from the builder stage
+# air-builderステージからAirバイナリをコピー
 COPY --from=air-builder /go/bin/air /usr/local/bin/
 
 # 作業ディレクトリを設定
