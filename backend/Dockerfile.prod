@@ -14,15 +14,21 @@ COPY . .
 # Goアプリケーションをビルド
 # CGO_ENABLED=0はcgoを無効にし、静的にリンクされたバイナリを生成します
 # -ldflags="-s -w"はデバッグ情報とシンボルテーブルを削除し、バイナリサイズを小さくします
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o main ./cmd/server/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags="-s -w" -o main ./cmd/server/main.go
 
 # ステージ2: 最終的な本番イメージを作成
-FROM alpine:latest
+FROM alpine:3.20
 
-WORKDIR /root/
+# アプリケーション用の非rootユーザーを作成
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
-# ビルダーからコンパイル済みバイナリをコピー
-COPY --from=builder /app/main .
+WORKDIR /home/appuser
+
+# ビルダーからコンパイル済みバイナリをコピーし、所有者を変更
+COPY --from=builder --chown=appuser:appgroup /app/main .
+
+# ユーザーを切り替え
+USER appuser
 
 # Goアプリケーションがリッスンするポートを公開
 EXPOSE 8080
