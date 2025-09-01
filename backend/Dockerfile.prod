@@ -1,0 +1,37 @@
+# backend/Dockerfile.prod
+# ステージ1: Goアプリケーションをビルド
+FROM golang:1.22-alpine AS builder
+
+WORKDIR /app
+
+# go.modとgo.sumをコピーして依存関係をダウンロード
+COPY go.mod go.sum ./
+RUN go mod download
+
+# アプリケーションのソースコードの残りをコピー
+COPY . .
+
+# Goアプリケーションをビルド
+# CGO_ENABLED=0はcgoを無効にし、静的にリンクされたバイナリを生成します
+# -ldflags="-s -w"はデバッグ情報とシンボルテーブルを削除し、バイナリサイズを小さくします
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags="-s -w" -o main ./cmd/server/main.go
+
+# ステージ2: 最終的な本番イメージを作成
+FROM alpine:3.20
+
+# アプリケーション用の非rootユーザーを作成
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+WORKDIR /home/appuser
+
+# ビルダーからコンパイル済みバイナリをコピーし、所有者を変更
+COPY --from=builder --chown=appuser:appgroup /app/main .
+
+# ユーザーを切り替え
+USER appuser
+
+# Goアプリケーションがリッスンするポートを公開
+EXPOSE 8080
+
+# アプリケーションを実行するコマンド
+CMD ["./main"]
