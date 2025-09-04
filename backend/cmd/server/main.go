@@ -6,17 +6,14 @@ import (
 	"log"
 	"os"
 
-	"github.com/joho/godotenv"
+	
 	"myanimelogs/internal/config"
 	"myanimelogs/internal/database"
 	"myanimelogs/internal/router"
 )
 
 func main() {
-	// Load environment variables
-	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found")
-	}
+	
 
 	// Initialize configuration
 	cfg := config.New()
@@ -43,7 +40,7 @@ func main() {
 	}
 
 	log.Printf("Server starting on port %s", port)
-	if err := r.Run(":" + port); err != nil {
+	if err := r.Run("0.0.0.0:" + port); err != nil {
 		log.Fatal("Failed to start server:", err)
 	}
 }
