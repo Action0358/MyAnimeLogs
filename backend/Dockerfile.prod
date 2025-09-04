@@ -3,18 +3,18 @@ FROM golang:1.22-alpine AS builder
 WORKDIR /app
 
 # Copy module files and download dependencies
-COPY backend/go.mod backend/go.sum ./
+COPY go.mod go.sum ./
 RUN go mod download
 
 # Copy the rest of the source code for the backend
-COPY backend/. .
+COPY . .
 
 # Build the application as a static binary
 # Using -ldflags to reduce binary size
 RUN CGO_ENABLED=0 go build -ldflags="-w -s" -o /app/main ./cmd/server
 
 # --- Final Stage ---
-FROM alpine:latest
+FROM alpine:3.20
 
 # Install ca-certificates for HTTPS requests
 RUN apk --no-cache add ca-certificates
