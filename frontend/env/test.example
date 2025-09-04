@@ -1,0 +1,7 @@
+# frontend/.env.test.example
+# フロントエンド用の.env.test.example
+
+# Next.js テスト環境設定
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8080/api # テスト環境のバックエンドAPIのURL (必要に応じて変更)
+
+# その他のテスト固有の環境変数をここに追加

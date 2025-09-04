@@ -1,0 +1,18 @@
+# バックエンド用の.env.production.example
+
+# データベース接続設定
+DB_HOST=postgres
+DB_PORT=5432
+DB_USER=user
+DB_PASSWORD=password
+DB_NAME=myanimelogs
+
+# JWTシークレット (本番環境では強力でランダムな値である必要があります)
+JWT_SECRET=your_super_secret_jwt_key_here
+
+# CORS設定 (本番環境ではフロントエンドのドメインに合わせて調整してください)
+CORS_ALLOWED_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
+
+# その他の本番固有の環境変数
+# LOG_LEVEL=info
+# API_KEY_EXTERNAL_SERVICE=your_external_api_key
