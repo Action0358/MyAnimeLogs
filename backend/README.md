@@ -1,6 +1,6 @@
-# MyAnimeLog Backend
+# MyAnimeLogs Backend
 
-MyAnimeLogのバックエンドAPIサーバー（Go + Gin）
+MyAnimeLogsのバックエンドAPIサーバー（Go + Gin）
 
 ## ディレクトリ構成
 
@@ -63,7 +63,7 @@ backend/
 
 ```bash
 # データベース
-DATABASE_URL=postgresql://user:password@localhost/myanimelog
+DATABASE_URL=postgresql://user:password@localhost/myanimelogs
 
 # JWT設定
 JWT_SECRET=your-256-bit-secret
@@ -139,7 +139,7 @@ go run main.go
 ### Fly.io
 ```bash
 # Fly.ioアプリ作成
-fly apps create myanimelog-api
+fly apps create myanimelogs-api
 
 # デプロイ
 fly deploy
@@ -148,10 +148,10 @@ fly deploy
 ### Docker
 ```bash
 # イメージビルド
-docker build -t myanimelog-backend .
+docker build -t myanimelogs-backend .
 
 # コンテナ実行
-docker run -p 8080:8080 --env-file .env myanimelog-backend
+docker run -p 8080:8080 --env-file .env myanimelogs-backend
 ```
 
 ## 開発ガイドライン

@@ -20,9 +20,9 @@ func GenerateJWT(userID int, email, name, secret string) (string, error) {
 		Email:  email,
 		Name:   name,
 		RegisteredClaims: jwt.RegisteredClaims{
-			Issuer:    "MyAnimeLog",
-			Subject:   "MyAnimeLog-users",
-			Audience:  []string{"MyAnimeLog-users"},
+			Issuer:    "MyAnimeLogs",
+			Subject:   "MyAnimeLogs-users",
+			Audience:  []string{"MyAnimeLogs-users"},
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},

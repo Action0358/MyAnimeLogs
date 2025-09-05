@@ -20,13 +20,16 @@ type Config struct {
 // New creates a new Config struct from environment variables
 func New() *Config {
 	// Database
-	dbHost := getEnv("POSTGRES_HOST", "localhost")
-	dbPort := getEnv("POSTGRES_PORT", "5432")
-	dbUser := getEnv("POSTGRES_USER", "user")
-	dbPassword := getEnv("POSTGRES_PASSWORD", "password")
-	dbName := getEnv("POSTGRES_DB", "myanimelogs")
-	databaseURL := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
-		dbUser, dbPassword, dbHost, dbPort, dbName)
+	databaseURL := getEnv("DATABASE_URL", "")
+	if databaseURL == "" {
+		dbHost := getEnv("POSTGRES_HOST", "localhost")
+		dbPort := getEnv("POSTGRES_PORT", "5432")
+		dbUser := getEnv("POSTGRES_USER", "user")
+		dbPassword := getEnv("POSTGRES_PASSWORD", "password")
+		dbName := getEnv("POSTGRES_DB", "myanimelogs")
+		databaseURL = fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
+			dbUser, dbPassword, dbHost, dbPort, dbName)
+	}
 
 	// Server
 	port := getEnv("PORT", "8080")

@@ -39,6 +39,16 @@ func Setup(db *database.DB, cfg *config.Config) *gin.Engine {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
 
+	if gin.IsDebugging() {
+		// Hot reload test endpoint
+		r.GET("/test-hot-reload", func(c *gin.Context) {
+			c.JSON(200, gin.H{
+				"message":   "Hot reload is working! 🔥",
+				"timestamp": time.Now().Format(time.RFC3339),
+			})
+		})
+	}
+
 	// API routes
 	api := r.Group("/api")
 	{
