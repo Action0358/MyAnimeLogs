@@ -5,7 +5,7 @@ POSTGRES_HOST=postgres
 POSTGRES_PORT=5432
 POSTGRES_USER=user
 POSTGRES_PASSWORD=password
-POSTGRES_NAME=myanimelogs
+POSTGRES_DB=myanimelogs
 
 # JWTシークレット (本番環境では強力でランダムな値である必要があります)
 JWT_SECRET=your_super_secret_jwt_key_here

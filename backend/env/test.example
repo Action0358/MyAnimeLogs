@@ -6,7 +6,7 @@ POSTGRES_HOST=postgres_test # テスト用DBホスト
 POSTGRES_PORT=5432
 POSTGRES_USER=test_user
 POSTGRES_PASSWORD=test_password
-POSTGRES_NAME=myanimelogs_test # テスト用DB名
+POSTGRES_DB=myanimelogs_test # テスト用DB名
 
 # JWTシークレット (テスト環境用)
 JWT_SECRET=test_jwt_secret
