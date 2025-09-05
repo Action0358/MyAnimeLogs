@@ -4,7 +4,7 @@ module.exports = {
     output: {
       target: './src/lib/api/generated/myanimelogs.ts',
       client: 'react-query',
-      mock: true,
+      mock: false,
     },
   },
 }
