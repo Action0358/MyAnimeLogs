@@ -1,8 +1,8 @@
 const nextPlugin = require('@next/eslint-plugin-next');
-const prettierConfig = require('eslint-config-prettier');
+const prettierRecommended = require('eslint-plugin-prettier/recommended');
 
 module.exports = [
   nextPlugin.configs.recommended,
   nextPlugin.configs['core-web-vitals'],
-  prettierConfig,
+  prettierRecommended,
 ];
