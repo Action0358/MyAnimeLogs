@@ -10,9 +10,14 @@ import {
   useQuery
 } from '@tanstack/react-query';
 import type {
+  DataTag,
+  DefinedInitialDataOptions,
+  DefinedUseQueryResult,
   MutationFunction,
+  QueryClient,
   QueryFunction,
   QueryKey,
+  UndefinedInitialDataOptions,
   UseMutationOptions,
   UseMutationResult,
   UseQueryOptions,
@@ -25,16 +30,6 @@ import type {
   AxiosRequestConfig,
   AxiosResponse
 } from 'axios';
-
-import {
-  faker
-} from '@faker-js/faker';
-
-import {
-  HttpResponse,
-  delay,
-  http
-} from 'msw';
 
 export type ErrorDetails = { [key: string]: unknown };
 
@@ -389,7 +384,7 @@ const {mutation: mutationOptions, axios: axiosOptions} = options ?
  */
 export const usePostRegister = <TError = AxiosError<Error | Error>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postRegister>>, TError,{data: PostRegisterBody}, TContext>, axios?: AxiosRequestConfig}
- ): UseMutationResult<
+ , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof postRegister>>,
         TError,
         {data: PostRegisterBody},
@@ -398,7 +393,7 @@ export const usePostRegister = <TError = AxiosError<Error | Error>,
 
       const mutationOptions = getPostRegisterMutationOptions(options);
 
-      return useMutation(mutationOptions );
+      return useMutation(mutationOptions , queryClient);
     }
     
 /**
@@ -451,7 +446,7 @@ const {mutation: mutationOptions, axios: axiosOptions} = options ?
  */
 export const usePostLogin = <TError = AxiosError<Error>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postLogin>>, TError,{data: PostLoginBody}, TContext>, axios?: AxiosRequestConfig}
- ): UseMutationResult<
+ , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof postLogin>>,
         TError,
         {data: PostLoginBody},
@@ -460,7 +455,7 @@ export const usePostLogin = <TError = AxiosError<Error>,
 
       const mutationOptions = getPostLoginMutationOptions(options);
 
-      return useMutation(mutationOptions );
+      return useMutation(mutationOptions , queryClient);
     }
     
 /**
@@ -482,7 +477,7 @@ export const getGetUsersMeQueryKey = () => {
     }
 
     
-export const getGetUsersMeQueryOptions = <TData = Awaited<ReturnType<typeof getUsersMe>>, TError = AxiosError<Error>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getUsersMe>>, TError, TData>, axios?: AxiosRequestConfig}
+export const getGetUsersMeQueryOptions = <TData = Awaited<ReturnType<typeof getUsersMe>>, TError = AxiosError<Error>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMe>>, TError, TData>>, axios?: AxiosRequestConfig}
 ) => {
 
 const {query: queryOptions, axios: axiosOptions} = options ?? {};
@@ -497,25 +492,49 @@ const {query: queryOptions, axios: axiosOptions} = options ?? {};
 
       
 
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getUsersMe>>, TError, TData> & { queryKey: QueryKey }
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getUsersMe>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
 }
 
 export type GetUsersMeQueryResult = NonNullable<Awaited<ReturnType<typeof getUsersMe>>>
 export type GetUsersMeQueryError = AxiosError<Error>
 
 
+export function useGetUsersMe<TData = Awaited<ReturnType<typeof getUsersMe>>, TError = AxiosError<Error>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMe>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getUsersMe>>,
+          TError,
+          Awaited<ReturnType<typeof getUsersMe>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetUsersMe<TData = Awaited<ReturnType<typeof getUsersMe>>, TError = AxiosError<Error>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMe>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getUsersMe>>,
+          TError,
+          Awaited<ReturnType<typeof getUsersMe>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetUsersMe<TData = Awaited<ReturnType<typeof getUsersMe>>, TError = AxiosError<Error>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMe>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 /**
  * @summary マイページ情報を取得
  */
 
 export function useGetUsersMe<TData = Awaited<ReturnType<typeof getUsersMe>>, TError = AxiosError<Error>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getUsersMe>>, TError, TData>, axios?: AxiosRequestConfig}
-  
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMe>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
 
   const queryOptions = getGetUsersMeQueryOptions(options)
 
-  const query = useQuery(queryOptions ) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions , queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
 
   query.queryKey = queryOptions.queryKey ;
 
@@ -575,7 +594,7 @@ const {mutation: mutationOptions, axios: axiosOptions} = options ?
  */
 export const usePutUsersMe = <TError = AxiosError<unknown>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putUsersMe>>, TError,{data: PutUsersMeBody}, TContext>, axios?: AxiosRequestConfig}
- ): UseMutationResult<
+ , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof putUsersMe>>,
         TError,
         {data: PutUsersMeBody},
@@ -584,7 +603,7 @@ export const usePutUsersMe = <TError = AxiosError<unknown>,
 
       const mutationOptions = getPutUsersMeMutationOptions(options);
 
-      return useMutation(mutationOptions );
+      return useMutation(mutationOptions , queryClient);
     }
     
 /**
@@ -608,7 +627,7 @@ export const getGetUsersMeExportQueryKey = (params?: GetUsersMeExportParams,) =>
     }
 
     
-export const getGetUsersMeExportQueryOptions = <TData = Awaited<ReturnType<typeof getUsersMeExport>>, TError = AxiosError<unknown>>(params?: GetUsersMeExportParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getUsersMeExport>>, TError, TData>, axios?: AxiosRequestConfig}
+export const getGetUsersMeExportQueryOptions = <TData = Awaited<ReturnType<typeof getUsersMeExport>>, TError = AxiosError<unknown>>(params?: GetUsersMeExportParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeExport>>, TError, TData>>, axios?: AxiosRequestConfig}
 ) => {
 
 const {query: queryOptions, axios: axiosOptions} = options ?? {};
@@ -623,25 +642,49 @@ const {query: queryOptions, axios: axiosOptions} = options ?? {};
 
       
 
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getUsersMeExport>>, TError, TData> & { queryKey: QueryKey }
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getUsersMeExport>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
 }
 
 export type GetUsersMeExportQueryResult = NonNullable<Awaited<ReturnType<typeof getUsersMeExport>>>
 export type GetUsersMeExportQueryError = AxiosError<unknown>
 
 
+export function useGetUsersMeExport<TData = Awaited<ReturnType<typeof getUsersMeExport>>, TError = AxiosError<unknown>>(
+ params: undefined |  GetUsersMeExportParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeExport>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getUsersMeExport>>,
+          TError,
+          Awaited<ReturnType<typeof getUsersMeExport>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetUsersMeExport<TData = Awaited<ReturnType<typeof getUsersMeExport>>, TError = AxiosError<unknown>>(
+ params?: GetUsersMeExportParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeExport>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getUsersMeExport>>,
+          TError,
+          Awaited<ReturnType<typeof getUsersMeExport>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetUsersMeExport<TData = Awaited<ReturnType<typeof getUsersMeExport>>, TError = AxiosError<unknown>>(
+ params?: GetUsersMeExportParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeExport>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 /**
  * @summary ユーザーデータのエクスポート
  */
 
 export function useGetUsersMeExport<TData = Awaited<ReturnType<typeof getUsersMeExport>>, TError = AxiosError<unknown>>(
- params?: GetUsersMeExportParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getUsersMeExport>>, TError, TData>, axios?: AxiosRequestConfig}
-  
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+ params?: GetUsersMeExportParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeExport>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
 
   const queryOptions = getGetUsersMeExportQueryOptions(params,options)
 
-  const query = useQuery(queryOptions ) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions , queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
 
   query.queryKey = queryOptions.queryKey ;
 
@@ -672,7 +715,7 @@ export const getGetAnimesQueryKey = (params?: GetAnimesParams,) => {
     }
 
     
-export const getGetAnimesQueryOptions = <TData = Awaited<ReturnType<typeof getAnimes>>, TError = AxiosError<unknown>>(params?: GetAnimesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAnimes>>, TError, TData>, axios?: AxiosRequestConfig}
+export const getGetAnimesQueryOptions = <TData = Awaited<ReturnType<typeof getAnimes>>, TError = AxiosError<unknown>>(params?: GetAnimesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAnimes>>, TError, TData>>, axios?: AxiosRequestConfig}
 ) => {
 
 const {query: queryOptions, axios: axiosOptions} = options ?? {};
@@ -687,25 +730,49 @@ const {query: queryOptions, axios: axiosOptions} = options ?? {};
 
       
 
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAnimes>>, TError, TData> & { queryKey: QueryKey }
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAnimes>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
 }
 
 export type GetAnimesQueryResult = NonNullable<Awaited<ReturnType<typeof getAnimes>>>
 export type GetAnimesQueryError = AxiosError<unknown>
 
 
+export function useGetAnimes<TData = Awaited<ReturnType<typeof getAnimes>>, TError = AxiosError<unknown>>(
+ params: undefined |  GetAnimesParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAnimes>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAnimes>>,
+          TError,
+          Awaited<ReturnType<typeof getAnimes>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetAnimes<TData = Awaited<ReturnType<typeof getAnimes>>, TError = AxiosError<unknown>>(
+ params?: GetAnimesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAnimes>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAnimes>>,
+          TError,
+          Awaited<ReturnType<typeof getAnimes>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetAnimes<TData = Awaited<ReturnType<typeof getAnimes>>, TError = AxiosError<unknown>>(
+ params?: GetAnimesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAnimes>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 /**
  * @summary アニメ検索・一覧取得
  */
 
 export function useGetAnimes<TData = Awaited<ReturnType<typeof getAnimes>>, TError = AxiosError<unknown>>(
- params?: GetAnimesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAnimes>>, TError, TData>, axios?: AxiosRequestConfig}
-  
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+ params?: GetAnimesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAnimes>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
 
   const queryOptions = getGetAnimesQueryOptions(params,options)
 
-  const query = useQuery(queryOptions ) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions , queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
 
   query.queryKey = queryOptions.queryKey ;
 
@@ -734,7 +801,7 @@ export const getGetAnimesIdQueryKey = (id?: number,) => {
     }
 
     
-export const getGetAnimesIdQueryOptions = <TData = Awaited<ReturnType<typeof getAnimesId>>, TError = AxiosError<Error>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAnimesId>>, TError, TData>, axios?: AxiosRequestConfig}
+export const getGetAnimesIdQueryOptions = <TData = Awaited<ReturnType<typeof getAnimesId>>, TError = AxiosError<Error>>(id: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAnimesId>>, TError, TData>>, axios?: AxiosRequestConfig}
 ) => {
 
 const {query: queryOptions, axios: axiosOptions} = options ?? {};
@@ -749,25 +816,49 @@ const {query: queryOptions, axios: axiosOptions} = options ?? {};
 
       
 
-   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAnimesId>>, TError, TData> & { queryKey: QueryKey }
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAnimesId>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
 }
 
 export type GetAnimesIdQueryResult = NonNullable<Awaited<ReturnType<typeof getAnimesId>>>
 export type GetAnimesIdQueryError = AxiosError<Error>
 
 
+export function useGetAnimesId<TData = Awaited<ReturnType<typeof getAnimesId>>, TError = AxiosError<Error>>(
+ id: number, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAnimesId>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAnimesId>>,
+          TError,
+          Awaited<ReturnType<typeof getAnimesId>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetAnimesId<TData = Awaited<ReturnType<typeof getAnimesId>>, TError = AxiosError<Error>>(
+ id: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAnimesId>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAnimesId>>,
+          TError,
+          Awaited<ReturnType<typeof getAnimesId>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetAnimesId<TData = Awaited<ReturnType<typeof getAnimesId>>, TError = AxiosError<Error>>(
+ id: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAnimesId>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 /**
  * @summary 指定アニメの詳細情報取得
  */
 
 export function useGetAnimesId<TData = Awaited<ReturnType<typeof getAnimesId>>, TError = AxiosError<Error>>(
- id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAnimesId>>, TError, TData>, axios?: AxiosRequestConfig}
-  
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+ id: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAnimesId>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
 
   const queryOptions = getGetAnimesIdQueryOptions(id,options)
 
-  const query = useQuery(queryOptions ) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions , queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
 
   query.queryKey = queryOptions.queryKey ;
 
@@ -796,7 +887,7 @@ export const getGetAnimesIdEpisodesQueryKey = (id?: number,) => {
     }
 
     
-export const getGetAnimesIdEpisodesQueryOptions = <TData = Awaited<ReturnType<typeof getAnimesIdEpisodes>>, TError = AxiosError<Error>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAnimesIdEpisodes>>, TError, TData>, axios?: AxiosRequestConfig}
+export const getGetAnimesIdEpisodesQueryOptions = <TData = Awaited<ReturnType<typeof getAnimesIdEpisodes>>, TError = AxiosError<Error>>(id: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAnimesIdEpisodes>>, TError, TData>>, axios?: AxiosRequestConfig}
 ) => {
 
 const {query: queryOptions, axios: axiosOptions} = options ?? {};
@@ -811,25 +902,49 @@ const {query: queryOptions, axios: axiosOptions} = options ?? {};
 
       
 
-   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAnimesIdEpisodes>>, TError, TData> & { queryKey: QueryKey }
+   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAnimesIdEpisodes>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
 }
 
 export type GetAnimesIdEpisodesQueryResult = NonNullable<Awaited<ReturnType<typeof getAnimesIdEpisodes>>>
 export type GetAnimesIdEpisodesQueryError = AxiosError<Error>
 
 
+export function useGetAnimesIdEpisodes<TData = Awaited<ReturnType<typeof getAnimesIdEpisodes>>, TError = AxiosError<Error>>(
+ id: number, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAnimesIdEpisodes>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAnimesIdEpisodes>>,
+          TError,
+          Awaited<ReturnType<typeof getAnimesIdEpisodes>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetAnimesIdEpisodes<TData = Awaited<ReturnType<typeof getAnimesIdEpisodes>>, TError = AxiosError<Error>>(
+ id: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAnimesIdEpisodes>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAnimesIdEpisodes>>,
+          TError,
+          Awaited<ReturnType<typeof getAnimesIdEpisodes>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetAnimesIdEpisodes<TData = Awaited<ReturnType<typeof getAnimesIdEpisodes>>, TError = AxiosError<Error>>(
+ id: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAnimesIdEpisodes>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 /**
  * @summary 指定アニメのエピソード一覧取得
  */
 
 export function useGetAnimesIdEpisodes<TData = Awaited<ReturnType<typeof getAnimesIdEpisodes>>, TError = AxiosError<Error>>(
- id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAnimesIdEpisodes>>, TError, TData>, axios?: AxiosRequestConfig}
-  
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+ id: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAnimesIdEpisodes>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
 
   const queryOptions = getGetAnimesIdEpisodesQueryOptions(id,options)
 
-  const query = useQuery(queryOptions ) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions , queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
 
   query.queryKey = queryOptions.queryKey ;
 
@@ -860,7 +975,7 @@ export const getGetUsersMeFavoritesQueryKey = (params?: GetUsersMeFavoritesParam
     }
 
     
-export const getGetUsersMeFavoritesQueryOptions = <TData = Awaited<ReturnType<typeof getUsersMeFavorites>>, TError = AxiosError<unknown>>(params?: GetUsersMeFavoritesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getUsersMeFavorites>>, TError, TData>, axios?: AxiosRequestConfig}
+export const getGetUsersMeFavoritesQueryOptions = <TData = Awaited<ReturnType<typeof getUsersMeFavorites>>, TError = AxiosError<unknown>>(params?: GetUsersMeFavoritesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeFavorites>>, TError, TData>>, axios?: AxiosRequestConfig}
 ) => {
 
 const {query: queryOptions, axios: axiosOptions} = options ?? {};
@@ -875,25 +990,49 @@ const {query: queryOptions, axios: axiosOptions} = options ?? {};
 
       
 
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getUsersMeFavorites>>, TError, TData> & { queryKey: QueryKey }
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getUsersMeFavorites>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
 }
 
 export type GetUsersMeFavoritesQueryResult = NonNullable<Awaited<ReturnType<typeof getUsersMeFavorites>>>
 export type GetUsersMeFavoritesQueryError = AxiosError<unknown>
 
 
+export function useGetUsersMeFavorites<TData = Awaited<ReturnType<typeof getUsersMeFavorites>>, TError = AxiosError<unknown>>(
+ params: undefined |  GetUsersMeFavoritesParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeFavorites>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getUsersMeFavorites>>,
+          TError,
+          Awaited<ReturnType<typeof getUsersMeFavorites>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetUsersMeFavorites<TData = Awaited<ReturnType<typeof getUsersMeFavorites>>, TError = AxiosError<unknown>>(
+ params?: GetUsersMeFavoritesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeFavorites>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getUsersMeFavorites>>,
+          TError,
+          Awaited<ReturnType<typeof getUsersMeFavorites>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetUsersMeFavorites<TData = Awaited<ReturnType<typeof getUsersMeFavorites>>, TError = AxiosError<unknown>>(
+ params?: GetUsersMeFavoritesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeFavorites>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 /**
  * @summary 自分のお気に入りアニメ一覧取得
  */
 
 export function useGetUsersMeFavorites<TData = Awaited<ReturnType<typeof getUsersMeFavorites>>, TError = AxiosError<unknown>>(
- params?: GetUsersMeFavoritesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getUsersMeFavorites>>, TError, TData>, axios?: AxiosRequestConfig}
-  
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+ params?: GetUsersMeFavoritesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeFavorites>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
 
   const queryOptions = getGetUsersMeFavoritesQueryOptions(params,options)
 
-  const query = useQuery(queryOptions ) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions , queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
 
   query.queryKey = queryOptions.queryKey ;
 
@@ -954,7 +1093,7 @@ const {mutation: mutationOptions, axios: axiosOptions} = options ?
  */
 export const usePutUsersMeFavoritesAnimeId = <TError = AxiosError<unknown>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putUsersMeFavoritesAnimeId>>, TError,{animeId: number;data: PutUsersMeFavoritesAnimeIdBody}, TContext>, axios?: AxiosRequestConfig}
- ): UseMutationResult<
+ , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof putUsersMeFavoritesAnimeId>>,
         TError,
         {animeId: number;data: PutUsersMeFavoritesAnimeIdBody},
@@ -963,7 +1102,7 @@ export const usePutUsersMeFavoritesAnimeId = <TError = AxiosError<unknown>,
 
       const mutationOptions = getPutUsersMeFavoritesAnimeIdMutationOptions(options);
 
-      return useMutation(mutationOptions );
+      return useMutation(mutationOptions , queryClient);
     }
     
 /**
@@ -1015,7 +1154,7 @@ const {mutation: mutationOptions, axios: axiosOptions} = options ?
  */
 export const useDeleteUsersMeFavoritesAnimeId = <TError = AxiosError<unknown>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteUsersMeFavoritesAnimeId>>, TError,{animeId: number}, TContext>, axios?: AxiosRequestConfig}
- ): UseMutationResult<
+ , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof deleteUsersMeFavoritesAnimeId>>,
         TError,
         {animeId: number},
@@ -1024,7 +1163,7 @@ export const useDeleteUsersMeFavoritesAnimeId = <TError = AxiosError<unknown>,
 
       const mutationOptions = getDeleteUsersMeFavoritesAnimeIdMutationOptions(options);
 
-      return useMutation(mutationOptions );
+      return useMutation(mutationOptions , queryClient);
     }
     
 /**
@@ -1078,7 +1217,7 @@ const {mutation: mutationOptions, axios: axiosOptions} = options ?
  */
 export const usePutEpisodesEpisodeIdWatch = <TError = AxiosError<unknown>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putEpisodesEpisodeIdWatch>>, TError,{episodeId: number;data: PutEpisodesEpisodeIdWatchBody}, TContext>, axios?: AxiosRequestConfig}
- ): UseMutationResult<
+ , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof putEpisodesEpisodeIdWatch>>,
         TError,
         {episodeId: number;data: PutEpisodesEpisodeIdWatchBody},
@@ -1087,7 +1226,7 @@ export const usePutEpisodesEpisodeIdWatch = <TError = AxiosError<unknown>,
 
       const mutationOptions = getPutEpisodesEpisodeIdWatchMutationOptions(options);
 
-      return useMutation(mutationOptions );
+      return useMutation(mutationOptions , queryClient);
     }
     
 /**
@@ -1109,7 +1248,7 @@ export const getGetUsersMeStatsQueryKey = () => {
     }
 
     
-export const getGetUsersMeStatsQueryOptions = <TData = Awaited<ReturnType<typeof getUsersMeStats>>, TError = AxiosError<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getUsersMeStats>>, TError, TData>, axios?: AxiosRequestConfig}
+export const getGetUsersMeStatsQueryOptions = <TData = Awaited<ReturnType<typeof getUsersMeStats>>, TError = AxiosError<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeStats>>, TError, TData>>, axios?: AxiosRequestConfig}
 ) => {
 
 const {query: queryOptions, axios: axiosOptions} = options ?? {};
@@ -1124,25 +1263,49 @@ const {query: queryOptions, axios: axiosOptions} = options ?? {};
 
       
 
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getUsersMeStats>>, TError, TData> & { queryKey: QueryKey }
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getUsersMeStats>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
 }
 
 export type GetUsersMeStatsQueryResult = NonNullable<Awaited<ReturnType<typeof getUsersMeStats>>>
 export type GetUsersMeStatsQueryError = AxiosError<unknown>
 
 
+export function useGetUsersMeStats<TData = Awaited<ReturnType<typeof getUsersMeStats>>, TError = AxiosError<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeStats>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getUsersMeStats>>,
+          TError,
+          Awaited<ReturnType<typeof getUsersMeStats>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetUsersMeStats<TData = Awaited<ReturnType<typeof getUsersMeStats>>, TError = AxiosError<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeStats>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getUsersMeStats>>,
+          TError,
+          Awaited<ReturnType<typeof getUsersMeStats>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetUsersMeStats<TData = Awaited<ReturnType<typeof getUsersMeStats>>, TError = AxiosError<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeStats>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 /**
  * @summary ユーザーの視聴統計情報取得
  */
 
 export function useGetUsersMeStats<TData = Awaited<ReturnType<typeof getUsersMeStats>>, TError = AxiosError<unknown>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getUsersMeStats>>, TError, TData>, axios?: AxiosRequestConfig}
-  
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeStats>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
 
   const queryOptions = getGetUsersMeStatsQueryOptions(options)
 
-  const query = useQuery(queryOptions ) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions , queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
 
   query.queryKey = queryOptions.queryKey ;
 
@@ -1173,7 +1336,7 @@ export const getGetUsersMeRecentlyWatchedQueryKey = (params?: GetUsersMeRecently
     }
 
     
-export const getGetUsersMeRecentlyWatchedQueryOptions = <TData = Awaited<ReturnType<typeof getUsersMeRecentlyWatched>>, TError = AxiosError<unknown>>(params?: GetUsersMeRecentlyWatchedParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getUsersMeRecentlyWatched>>, TError, TData>, axios?: AxiosRequestConfig}
+export const getGetUsersMeRecentlyWatchedQueryOptions = <TData = Awaited<ReturnType<typeof getUsersMeRecentlyWatched>>, TError = AxiosError<unknown>>(params?: GetUsersMeRecentlyWatchedParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeRecentlyWatched>>, TError, TData>>, axios?: AxiosRequestConfig}
 ) => {
 
 const {query: queryOptions, axios: axiosOptions} = options ?? {};
@@ -1188,25 +1351,49 @@ const {query: queryOptions, axios: axiosOptions} = options ?? {};
 
       
 
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getUsersMeRecentlyWatched>>, TError, TData> & { queryKey: QueryKey }
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getUsersMeRecentlyWatched>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
 }
 
 export type GetUsersMeRecentlyWatchedQueryResult = NonNullable<Awaited<ReturnType<typeof getUsersMeRecentlyWatched>>>
 export type GetUsersMeRecentlyWatchedQueryError = AxiosError<unknown>
 
 
+export function useGetUsersMeRecentlyWatched<TData = Awaited<ReturnType<typeof getUsersMeRecentlyWatched>>, TError = AxiosError<unknown>>(
+ params: undefined |  GetUsersMeRecentlyWatchedParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeRecentlyWatched>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getUsersMeRecentlyWatched>>,
+          TError,
+          Awaited<ReturnType<typeof getUsersMeRecentlyWatched>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetUsersMeRecentlyWatched<TData = Awaited<ReturnType<typeof getUsersMeRecentlyWatched>>, TError = AxiosError<unknown>>(
+ params?: GetUsersMeRecentlyWatchedParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeRecentlyWatched>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getUsersMeRecentlyWatched>>,
+          TError,
+          Awaited<ReturnType<typeof getUsersMeRecentlyWatched>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetUsersMeRecentlyWatched<TData = Awaited<ReturnType<typeof getUsersMeRecentlyWatched>>, TError = AxiosError<unknown>>(
+ params?: GetUsersMeRecentlyWatchedParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeRecentlyWatched>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 /**
  * @summary 最近視聴したエピソード一覧
  */
 
 export function useGetUsersMeRecentlyWatched<TData = Awaited<ReturnType<typeof getUsersMeRecentlyWatched>>, TError = AxiosError<unknown>>(
- params?: GetUsersMeRecentlyWatchedParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getUsersMeRecentlyWatched>>, TError, TData>, axios?: AxiosRequestConfig}
-  
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+ params?: GetUsersMeRecentlyWatchedParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeRecentlyWatched>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
 
   const queryOptions = getGetUsersMeRecentlyWatchedQueryOptions(params,options)
 
-  const query = useQuery(queryOptions ) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions , queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
 
   query.queryKey = queryOptions.queryKey ;
 
@@ -1267,7 +1454,7 @@ const {mutation: mutationOptions, axios: axiosOptions} = options ?
  */
 export const usePutAnimesIdRating = <TError = AxiosError<unknown>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putAnimesIdRating>>, TError,{id: number;data: PutAnimesIdRatingBody}, TContext>, axios?: AxiosRequestConfig}
- ): UseMutationResult<
+ , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof putAnimesIdRating>>,
         TError,
         {id: number;data: PutAnimesIdRatingBody},
@@ -1276,7 +1463,7 @@ export const usePutAnimesIdRating = <TError = AxiosError<unknown>,
 
       const mutationOptions = getPutAnimesIdRatingMutationOptions(options);
 
-      return useMutation(mutationOptions );
+      return useMutation(mutationOptions , queryClient);
     }
     
 /**
@@ -1328,7 +1515,7 @@ const {mutation: mutationOptions, axios: axiosOptions} = options ?
  */
 export const useDeleteAnimesIdRating = <TError = AxiosError<unknown>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAnimesIdRating>>, TError,{id: number}, TContext>, axios?: AxiosRequestConfig}
- ): UseMutationResult<
+ , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof deleteAnimesIdRating>>,
         TError,
         {id: number},
@@ -1337,7 +1524,7 @@ export const useDeleteAnimesIdRating = <TError = AxiosError<unknown>,
 
       const mutationOptions = getDeleteAnimesIdRatingMutationOptions(options);
 
-      return useMutation(mutationOptions );
+      return useMutation(mutationOptions , queryClient);
     }
     
 /**
@@ -1359,7 +1546,7 @@ export const getGetUsersMeWatchlistQueryKey = () => {
     }
 
     
-export const getGetUsersMeWatchlistQueryOptions = <TData = Awaited<ReturnType<typeof getUsersMeWatchlist>>, TError = AxiosError<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getUsersMeWatchlist>>, TError, TData>, axios?: AxiosRequestConfig}
+export const getGetUsersMeWatchlistQueryOptions = <TData = Awaited<ReturnType<typeof getUsersMeWatchlist>>, TError = AxiosError<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeWatchlist>>, TError, TData>>, axios?: AxiosRequestConfig}
 ) => {
 
 const {query: queryOptions, axios: axiosOptions} = options ?? {};
@@ -1374,25 +1561,49 @@ const {query: queryOptions, axios: axiosOptions} = options ?? {};
 
       
 
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getUsersMeWatchlist>>, TError, TData> & { queryKey: QueryKey }
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getUsersMeWatchlist>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
 }
 
 export type GetUsersMeWatchlistQueryResult = NonNullable<Awaited<ReturnType<typeof getUsersMeWatchlist>>>
 export type GetUsersMeWatchlistQueryError = AxiosError<unknown>
 
 
+export function useGetUsersMeWatchlist<TData = Awaited<ReturnType<typeof getUsersMeWatchlist>>, TError = AxiosError<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeWatchlist>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getUsersMeWatchlist>>,
+          TError,
+          Awaited<ReturnType<typeof getUsersMeWatchlist>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetUsersMeWatchlist<TData = Awaited<ReturnType<typeof getUsersMeWatchlist>>, TError = AxiosError<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeWatchlist>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getUsersMeWatchlist>>,
+          TError,
+          Awaited<ReturnType<typeof getUsersMeWatchlist>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetUsersMeWatchlist<TData = Awaited<ReturnType<typeof getUsersMeWatchlist>>, TError = AxiosError<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeWatchlist>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 /**
  * @summary 視聴予定リスト取得
  */
 
 export function useGetUsersMeWatchlist<TData = Awaited<ReturnType<typeof getUsersMeWatchlist>>, TError = AxiosError<unknown>>(
-  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getUsersMeWatchlist>>, TError, TData>, axios?: AxiosRequestConfig}
-  
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeWatchlist>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
 
   const queryOptions = getGetUsersMeWatchlistQueryOptions(options)
 
-  const query = useQuery(queryOptions ) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions , queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
 
   query.queryKey = queryOptions.queryKey ;
 
@@ -1423,7 +1634,7 @@ export const getGetSearchAnimesQueryKey = (params?: GetSearchAnimesParams,) => {
     }
 
     
-export const getGetSearchAnimesQueryOptions = <TData = Awaited<ReturnType<typeof getSearchAnimes>>, TError = AxiosError<unknown>>(params?: GetSearchAnimesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSearchAnimes>>, TError, TData>, axios?: AxiosRequestConfig}
+export const getGetSearchAnimesQueryOptions = <TData = Awaited<ReturnType<typeof getSearchAnimes>>, TError = AxiosError<unknown>>(params?: GetSearchAnimesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSearchAnimes>>, TError, TData>>, axios?: AxiosRequestConfig}
 ) => {
 
 const {query: queryOptions, axios: axiosOptions} = options ?? {};
@@ -1438,297 +1649,51 @@ const {query: queryOptions, axios: axiosOptions} = options ?? {};
 
       
 
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSearchAnimes>>, TError, TData> & { queryKey: QueryKey }
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSearchAnimes>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
 }
 
 export type GetSearchAnimesQueryResult = NonNullable<Awaited<ReturnType<typeof getSearchAnimes>>>
 export type GetSearchAnimesQueryError = AxiosError<unknown>
 
 
+export function useGetSearchAnimes<TData = Awaited<ReturnType<typeof getSearchAnimes>>, TError = AxiosError<unknown>>(
+ params: undefined |  GetSearchAnimesParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSearchAnimes>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getSearchAnimes>>,
+          TError,
+          Awaited<ReturnType<typeof getSearchAnimes>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetSearchAnimes<TData = Awaited<ReturnType<typeof getSearchAnimes>>, TError = AxiosError<unknown>>(
+ params?: GetSearchAnimesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSearchAnimes>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getSearchAnimes>>,
+          TError,
+          Awaited<ReturnType<typeof getSearchAnimes>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetSearchAnimes<TData = Awaited<ReturnType<typeof getSearchAnimes>>, TError = AxiosError<unknown>>(
+ params?: GetSearchAnimesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSearchAnimes>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 /**
  * @summary 高度なアニメ検索
  */
 
 export function useGetSearchAnimes<TData = Awaited<ReturnType<typeof getSearchAnimes>>, TError = AxiosError<unknown>>(
- params?: GetSearchAnimesParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSearchAnimes>>, TError, TData>, axios?: AxiosRequestConfig}
-  
- ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+ params?: GetSearchAnimesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSearchAnimes>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
 
   const queryOptions = getGetSearchAnimesQueryOptions(params,options)
 
-  const query = useQuery(queryOptions ) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  const query = useQuery(queryOptions , queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
 
   query.queryKey = queryOptions.queryKey ;
 
   return query;
 }
-
-
-export const getPostRegisterResponseMock = (overrideResponse: Partial< PostRegister201 > = {}): PostRegister201 => ({message: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), user: faker.helpers.arrayElement([{id: faker.helpers.arrayElement([faker.number.int({min: undefined, max: undefined}), undefined]), name: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), email: faker.helpers.arrayElement([faker.internet.email(), undefined]), description: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), icon: faker.helpers.arrayElement([faker.internet.url(), undefined]), created_at: faker.helpers.arrayElement([`${faker.date.past().toISOString().split('.')[0]}Z`, undefined]), updated_at: faker.helpers.arrayElement([`${faker.date.past().toISOString().split('.')[0]}Z`, undefined])}, undefined]), ...overrideResponse})
-
-export const getPostLoginResponseMock = (overrideResponse: Partial< PostLogin200 > = {}): PostLogin200 => ({access_token: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), token_type: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), user: faker.helpers.arrayElement([{id: faker.helpers.arrayElement([faker.number.int({min: undefined, max: undefined}), undefined]), name: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), email: faker.helpers.arrayElement([faker.internet.email(), undefined]), description: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), icon: faker.helpers.arrayElement([faker.internet.url(), undefined]), created_at: faker.helpers.arrayElement([`${faker.date.past().toISOString().split('.')[0]}Z`, undefined]), updated_at: faker.helpers.arrayElement([`${faker.date.past().toISOString().split('.')[0]}Z`, undefined])}, undefined]), ...overrideResponse})
-
-export const getGetUsersMeResponseMock = (overrideResponse: Partial< User > = {}): User => ({id: faker.helpers.arrayElement([faker.number.int({min: undefined, max: undefined}), undefined]), name: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), email: faker.helpers.arrayElement([faker.internet.email(), undefined]), description: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), icon: faker.helpers.arrayElement([faker.internet.url(), undefined]), created_at: faker.helpers.arrayElement([`${faker.date.past().toISOString().split('.')[0]}Z`, undefined]), updated_at: faker.helpers.arrayElement([`${faker.date.past().toISOString().split('.')[0]}Z`, undefined]), ...overrideResponse})
-
-export const getPutUsersMeResponseMock = (overrideResponse: Partial< User > = {}): User => ({id: faker.helpers.arrayElement([faker.number.int({min: undefined, max: undefined}), undefined]), name: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), email: faker.helpers.arrayElement([faker.internet.email(), undefined]), description: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), icon: faker.helpers.arrayElement([faker.internet.url(), undefined]), created_at: faker.helpers.arrayElement([`${faker.date.past().toISOString().split('.')[0]}Z`, undefined]), updated_at: faker.helpers.arrayElement([`${faker.date.past().toISOString().split('.')[0]}Z`, undefined]), ...overrideResponse})
-
-export const getGetUsersMeExportResponseMock = (overrideResponse: Partial< GetUsersMeExport200One | string > = {}): GetUsersMeExport200One | string => (faker.helpers.arrayElement([{user_info: faker.helpers.arrayElement([{id: faker.helpers.arrayElement([faker.number.int({min: undefined, max: undefined}), undefined]), name: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), email: faker.helpers.arrayElement([faker.internet.email(), undefined]), description: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), icon: faker.helpers.arrayElement([faker.internet.url(), undefined]), created_at: faker.helpers.arrayElement([`${faker.date.past().toISOString().split('.')[0]}Z`, undefined]), updated_at: faker.helpers.arrayElement([`${faker.date.past().toISOString().split('.')[0]}Z`, undefined])}, undefined]), favorites: faker.helpers.arrayElement([Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({anime_id: faker.helpers.arrayElement([faker.number.int({min: undefined, max: undefined}), undefined]), status: faker.helpers.arrayElement([faker.helpers.arrayElement(['watching','completed','planned','dropped'] as const), undefined]), added_at: faker.helpers.arrayElement([`${faker.date.past().toISOString().split('.')[0]}Z`, undefined])})), undefined]), watch_history: faker.helpers.arrayElement([Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({episode_id: faker.helpers.arrayElement([faker.number.int({min: undefined, max: undefined}), undefined]), watched_at: faker.helpers.arrayElement([`${faker.date.past().toISOString().split('.')[0]}Z`, undefined])})), undefined]), ratings: faker.helpers.arrayElement([Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({anime_id: faker.helpers.arrayElement([faker.number.int({min: undefined, max: undefined}), undefined]), rating: faker.helpers.arrayElement([faker.number.float({min: 1, max: 5, fractionDigits: 2}), undefined]), comment: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), created_at: faker.helpers.arrayElement([`${faker.date.past().toISOString().split('.')[0]}Z`, undefined])})), undefined]), ...overrideResponse}, faker.word.sample()]))
-
-export const getGetAnimesResponseMock = (overrideResponse: Partial< GetAnimes200 > = {}): GetAnimes200 => ({data: faker.helpers.arrayElement([Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({id: faker.helpers.arrayElement([faker.number.int({min: undefined, max: undefined}), undefined]), title: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), description: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), image_url: faker.helpers.arrayElement([faker.internet.url(), undefined]), season: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), status: faker.helpers.arrayElement([faker.helpers.arrayElement(['airing','finished'] as const), undefined]), created_at: faker.helpers.arrayElement([`${faker.date.past().toISOString().split('.')[0]}Z`, undefined]), updated_at: faker.helpers.arrayElement([`${faker.date.past().toISOString().split('.')[0]}Z`, undefined])})), undefined]), meta: faker.helpers.arrayElement([{total_pages: faker.helpers.arrayElement([faker.number.int({min: undefined, max: undefined}), undefined]), current_page: faker.helpers.arrayElement([faker.number.int({min: undefined, max: undefined}), undefined]), per_page: faker.helpers.arrayElement([faker.number.int({min: undefined, max: undefined}), undefined]), total: faker.helpers.arrayElement([faker.number.int({min: undefined, max: undefined}), undefined])}, undefined]), ...overrideResponse})
-
-export const getGetAnimesIdResponseMock = (overrideResponse: Partial< Anime > = {}): Anime => ({id: faker.helpers.arrayElement([faker.number.int({min: undefined, max: undefined}), undefined]), title: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), description: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), image_url: faker.helpers.arrayElement([faker.internet.url(), undefined]), season: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), status: faker.helpers.arrayElement([faker.helpers.arrayElement(['airing','finished'] as const), undefined]), created_at: faker.helpers.arrayElement([`${faker.date.past().toISOString().split('.')[0]}Z`, undefined]), updated_at: faker.helpers.arrayElement([`${faker.date.past().toISOString().split('.')[0]}Z`, undefined]), ...overrideResponse})
-
-export const getGetAnimesIdEpisodesResponseMock = (overrideResponse: Partial< GetAnimesIdEpisodes200 > = {}): GetAnimesIdEpisodes200 => ({anime_id: faker.helpers.arrayElement([faker.number.int({min: undefined, max: undefined}), undefined]), anime_title: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), episodes: faker.helpers.arrayElement([Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({id: faker.helpers.arrayElement([faker.number.int({min: undefined, max: undefined}), undefined]), anime_id: faker.helpers.arrayElement([faker.number.int({min: undefined, max: undefined}), undefined]), title: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), episode_number: faker.helpers.arrayElement([faker.number.int({min: undefined, max: undefined}), undefined]), viewed: faker.helpers.arrayElement([faker.datatype.boolean(), undefined])})), undefined]), ...overrideResponse})
-
-export const getGetUsersMeFavoritesResponseMock = (): Anime[] => (Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({id: faker.helpers.arrayElement([faker.number.int({min: undefined, max: undefined}), undefined]), title: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), description: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), image_url: faker.helpers.arrayElement([faker.internet.url(), undefined]), season: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), status: faker.helpers.arrayElement([faker.helpers.arrayElement(['airing','finished'] as const), undefined]), created_at: faker.helpers.arrayElement([`${faker.date.past().toISOString().split('.')[0]}Z`, undefined]), updated_at: faker.helpers.arrayElement([`${faker.date.past().toISOString().split('.')[0]}Z`, undefined])})))
-
-export const getPutUsersMeFavoritesAnimeIdResponseMock = (overrideResponse: Partial< Favorite > = {}): Favorite => ({anime_id: faker.helpers.arrayElement([faker.number.int({min: undefined, max: undefined}), undefined]), status: faker.helpers.arrayElement([faker.helpers.arrayElement(['watching','completed','planned','dropped'] as const), undefined]), added_at: faker.helpers.arrayElement([`${faker.date.past().toISOString().split('.')[0]}Z`, undefined]), ...overrideResponse})
-
-export const getPutEpisodesEpisodeIdWatchResponseMock = (overrideResponse: Partial< PutEpisodesEpisodeIdWatch200 > = {}): PutEpisodesEpisodeIdWatch200 => ({viewed: faker.helpers.arrayElement([faker.datatype.boolean(), undefined]), ...overrideResponse})
-
-export const getGetUsersMeStatsResponseMock = (overrideResponse: Partial< GetUsersMeStats200 > = {}): GetUsersMeStats200 => ({total_episodes_watched: faker.helpers.arrayElement([faker.number.int({min: undefined, max: undefined}), undefined]), total_animes_completed: faker.helpers.arrayElement([faker.number.int({min: undefined, max: undefined}), undefined]), total_watch_time_hours: faker.helpers.arrayElement([faker.number.float({min: undefined, max: undefined, fractionDigits: 2}), undefined]), favorite_genres: faker.helpers.arrayElement([Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => (faker.string.alpha({length: {min: 10, max: 20}}))), undefined]), this_month_episodes: faker.helpers.arrayElement([faker.number.int({min: undefined, max: undefined}), undefined]), ...overrideResponse})
-
-export const getGetUsersMeRecentlyWatchedResponseMock = (): RecentlyWatchedEpisode[] => (Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({episode_id: faker.helpers.arrayElement([faker.number.int({min: undefined, max: undefined}), undefined]), anime_title: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), episode_title: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), watched_at: faker.helpers.arrayElement([`${faker.date.past().toISOString().split('.')[0]}Z`, undefined])})))
-
-export const getPutAnimesIdRatingResponseMock = (overrideResponse: Partial< PutAnimesIdRating200 > = {}): PutAnimesIdRating200 => ({message: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), rating: faker.helpers.arrayElement([{anime_id: faker.helpers.arrayElement([faker.number.int({min: undefined, max: undefined}), undefined]), rating: faker.helpers.arrayElement([faker.number.float({min: 1, max: 5, fractionDigits: 2}), undefined]), comment: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), created_at: faker.helpers.arrayElement([`${faker.date.past().toISOString().split('.')[0]}Z`, undefined])}, undefined]), ...overrideResponse})
-
-export const getDeleteAnimesIdRatingResponseMock = (overrideResponse: Partial< DeleteAnimesIdRating200 > = {}): DeleteAnimesIdRating200 => ({message: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), ...overrideResponse})
-
-export const getGetUsersMeWatchlistResponseMock = (): WatchlistItem[] => (Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({id: faker.helpers.arrayElement([faker.number.int({min: undefined, max: undefined}), undefined]), title: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), season: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), added_at: faker.helpers.arrayElement([`${faker.date.past().toISOString().split('.')[0]}Z`, undefined])})))
-
-export const getGetSearchAnimesResponseMock = (overrideResponse: Partial< GetSearchAnimes200 > = {}): GetSearchAnimes200 => ({data: faker.helpers.arrayElement([Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => ({id: faker.helpers.arrayElement([faker.number.int({min: undefined, max: undefined}), undefined]), title: faker.helpers.arrayElement([faker.string.alpha({length: {min: 10, max: 20}}), undefined]), rating: faker.helpers.arrayElement([faker.number.float({min: undefined, max: undefined, fractionDigits: 2}), undefined]), genre: faker.helpers.arrayElement([Array.from({ length: faker.number.int({ min: 1, max: 10 }) }, (_, i) => i + 1).map(() => (faker.string.alpha({length: {min: 10, max: 20}}))), undefined])})), undefined]), meta: faker.helpers.arrayElement([{total_pages: faker.helpers.arrayElement([faker.number.int({min: undefined, max: undefined}), undefined]), current_page: faker.helpers.arrayElement([faker.number.int({min: undefined, max: undefined}), undefined]), per_page: faker.helpers.arrayElement([faker.number.int({min: undefined, max: undefined}), undefined]), total: faker.helpers.arrayElement([faker.number.int({min: undefined, max: undefined}), undefined])}, undefined]), ...overrideResponse})
-
-
-export const getPostRegisterMockHandler = (overrideResponse?: PostRegister201 | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<PostRegister201> | PostRegister201)) => {
-  return http.post('*/register', async (info) => {await delay(1000);
-  
-    return new HttpResponse(JSON.stringify(overrideResponse !== undefined
-    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
-    : getPostRegisterResponseMock()),
-      { status: 201,
-        headers: { 'Content-Type': 'application/json' }
-      })
-  })
-}
-
-export const getPostLoginMockHandler = (overrideResponse?: PostLogin200 | ((info: Parameters<Parameters<typeof http.post>[1]>[0]) => Promise<PostLogin200> | PostLogin200)) => {
-  return http.post('*/login', async (info) => {await delay(1000);
-  
-    return new HttpResponse(JSON.stringify(overrideResponse !== undefined
-    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
-    : getPostLoginResponseMock()),
-      { status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      })
-  })
-}
-
-export const getGetUsersMeMockHandler = (overrideResponse?: User | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<User> | User)) => {
-  return http.get('*/users/me', async (info) => {await delay(1000);
-  
-    return new HttpResponse(JSON.stringify(overrideResponse !== undefined
-    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
-    : getGetUsersMeResponseMock()),
-      { status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      })
-  })
-}
-
-export const getPutUsersMeMockHandler = (overrideResponse?: User | ((info: Parameters<Parameters<typeof http.put>[1]>[0]) => Promise<User> | User)) => {
-  return http.put('*/users/me', async (info) => {await delay(1000);
-  
-    return new HttpResponse(JSON.stringify(overrideResponse !== undefined
-    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
-    : getPutUsersMeResponseMock()),
-      { status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      })
-  })
-}
-
-export const getGetUsersMeExportMockHandler = (overrideResponse?: GetUsersMeExport200One | string | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<GetUsersMeExport200One | string> | GetUsersMeExport200One | string)) => {
-  return http.get('*/users/me/export', async (info) => {await delay(1000);
-  
-    return new HttpResponse(JSON.stringify(overrideResponse !== undefined
-    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
-    : getGetUsersMeExportResponseMock()),
-      { status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      })
-  })
-}
-
-export const getGetAnimesMockHandler = (overrideResponse?: GetAnimes200 | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<GetAnimes200> | GetAnimes200)) => {
-  return http.get('*/animes', async (info) => {await delay(1000);
-  
-    return new HttpResponse(JSON.stringify(overrideResponse !== undefined
-    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
-    : getGetAnimesResponseMock()),
-      { status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      })
-  })
-}
-
-export const getGetAnimesIdMockHandler = (overrideResponse?: Anime | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<Anime> | Anime)) => {
-  return http.get('*/animes/:id', async (info) => {await delay(1000);
-  
-    return new HttpResponse(JSON.stringify(overrideResponse !== undefined
-    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
-    : getGetAnimesIdResponseMock()),
-      { status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      })
-  })
-}
-
-export const getGetAnimesIdEpisodesMockHandler = (overrideResponse?: GetAnimesIdEpisodes200 | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<GetAnimesIdEpisodes200> | GetAnimesIdEpisodes200)) => {
-  return http.get('*/animes/:id/episodes', async (info) => {await delay(1000);
-  
-    return new HttpResponse(JSON.stringify(overrideResponse !== undefined
-    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
-    : getGetAnimesIdEpisodesResponseMock()),
-      { status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      })
-  })
-}
-
-export const getGetUsersMeFavoritesMockHandler = (overrideResponse?: Anime[] | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<Anime[]> | Anime[])) => {
-  return http.get('*/users/me/favorites', async (info) => {await delay(1000);
-  
-    return new HttpResponse(JSON.stringify(overrideResponse !== undefined
-    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
-    : getGetUsersMeFavoritesResponseMock()),
-      { status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      })
-  })
-}
-
-export const getPutUsersMeFavoritesAnimeIdMockHandler = (overrideResponse?: Favorite | ((info: Parameters<Parameters<typeof http.put>[1]>[0]) => Promise<Favorite> | Favorite)) => {
-  return http.put('*/users/me/favorites/:animeId', async (info) => {await delay(1000);
-  
-    return new HttpResponse(JSON.stringify(overrideResponse !== undefined
-    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
-    : getPutUsersMeFavoritesAnimeIdResponseMock()),
-      { status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      })
-  })
-}
-
-export const getDeleteUsersMeFavoritesAnimeIdMockHandler = (overrideResponse?: null | ((info: Parameters<Parameters<typeof http.delete>[1]>[0]) => Promise<null> | null)) => {
-  return http.delete('*/users/me/favorites/:animeId', async (info) => {await delay(1000);
-  if (typeof overrideResponse === 'function') {await overrideResponse(info); }
-    return new HttpResponse(null,
-      { status: 204,
-        
-      })
-  })
-}
-
-export const getPutEpisodesEpisodeIdWatchMockHandler = (overrideResponse?: PutEpisodesEpisodeIdWatch200 | ((info: Parameters<Parameters<typeof http.put>[1]>[0]) => Promise<PutEpisodesEpisodeIdWatch200> | PutEpisodesEpisodeIdWatch200)) => {
-  return http.put('*/episodes/:episodeId/watch', async (info) => {await delay(1000);
-  
-    return new HttpResponse(JSON.stringify(overrideResponse !== undefined
-    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
-    : getPutEpisodesEpisodeIdWatchResponseMock()),
-      { status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      })
-  })
-}
-
-export const getGetUsersMeStatsMockHandler = (overrideResponse?: GetUsersMeStats200 | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<GetUsersMeStats200> | GetUsersMeStats200)) => {
-  return http.get('*/users/me/stats', async (info) => {await delay(1000);
-  
-    return new HttpResponse(JSON.stringify(overrideResponse !== undefined
-    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
-    : getGetUsersMeStatsResponseMock()),
-      { status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      })
-  })
-}
-
-export const getGetUsersMeRecentlyWatchedMockHandler = (overrideResponse?: RecentlyWatchedEpisode[] | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<RecentlyWatchedEpisode[]> | RecentlyWatchedEpisode[])) => {
-  return http.get('*/users/me/recently-watched', async (info) => {await delay(1000);
-  
-    return new HttpResponse(JSON.stringify(overrideResponse !== undefined
-    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
-    : getGetUsersMeRecentlyWatchedResponseMock()),
-      { status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      })
-  })
-}
-
-export const getPutAnimesIdRatingMockHandler = (overrideResponse?: PutAnimesIdRating200 | ((info: Parameters<Parameters<typeof http.put>[1]>[0]) => Promise<PutAnimesIdRating200> | PutAnimesIdRating200)) => {
-  return http.put('*/animes/:id/rating', async (info) => {await delay(1000);
-  
-    return new HttpResponse(JSON.stringify(overrideResponse !== undefined
-    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
-    : getPutAnimesIdRatingResponseMock()),
-      { status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      })
-  })
-}
-
-export const getDeleteAnimesIdRatingMockHandler = (overrideResponse?: DeleteAnimesIdRating200 | ((info: Parameters<Parameters<typeof http.delete>[1]>[0]) => Promise<DeleteAnimesIdRating200> | DeleteAnimesIdRating200)) => {
-  return http.delete('*/animes/:id/rating', async (info) => {await delay(1000);
-  
-    return new HttpResponse(JSON.stringify(overrideResponse !== undefined
-    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
-    : getDeleteAnimesIdRatingResponseMock()),
-      { status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      })
-  })
-}
-
-export const getGetUsersMeWatchlistMockHandler = (overrideResponse?: WatchlistItem[] | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<WatchlistItem[]> | WatchlistItem[])) => {
-  return http.get('*/users/me/watchlist', async (info) => {await delay(1000);
-  
-    return new HttpResponse(JSON.stringify(overrideResponse !== undefined
-    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
-    : getGetUsersMeWatchlistResponseMock()),
-      { status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      })
-  })
-}
-
-export const getGetSearchAnimesMockHandler = (overrideResponse?: GetSearchAnimes200 | ((info: Parameters<Parameters<typeof http.get>[1]>[0]) => Promise<GetSearchAnimes200> | GetSearchAnimes200)) => {
-  return http.get('*/search/animes', async (info) => {await delay(1000);
-  
-    return new HttpResponse(JSON.stringify(overrideResponse !== undefined
-    ? (typeof overrideResponse === "function" ? await overrideResponse(info) : overrideResponse)
-    : getGetSearchAnimesResponseMock()),
-      { status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      })
-  })
-}
-export const getMyAnimeLogsAPIMock = () => [
-  getPostRegisterMockHandler(),
-  getPostLoginMockHandler(),
-  getGetUsersMeMockHandler(),
-  getPutUsersMeMockHandler(),
-  getGetUsersMeExportMockHandler(),
-  getGetAnimesMockHandler(),
-  getGetAnimesIdMockHandler(),
-  getGetAnimesIdEpisodesMockHandler(),
-  getGetUsersMeFavoritesMockHandler(),
-  getPutUsersMeFavoritesAnimeIdMockHandler(),
-  getDeleteUsersMeFavoritesAnimeIdMockHandler(),
-  getPutEpisodesEpisodeIdWatchMockHandler(),
-  getGetUsersMeStatsMockHandler(),
-  getGetUsersMeRecentlyWatchedMockHandler(),
-  getPutAnimesIdRatingMockHandler(),
-  getDeleteAnimesIdRatingMockHandler(),
-  getGetUsersMeWatchlistMockHandler(),
-  getGetSearchAnimesMockHandler()
-]
