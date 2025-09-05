@@ -178,10 +178,7 @@ paths:
                       $ref: "#/components/schemas/Rating"
             text/csv:
               schema:
-                type: object
-                properties:
-                  csv_data:
-                    type: string
+                type: string
   /animes:
     get:
       summary: アニメ検索・一覧取得
