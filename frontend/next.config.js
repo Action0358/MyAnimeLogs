@@ -26,7 +26,7 @@ const nextConfig = {
 
   // 本番ビルド最適化
   ...(process.env.NODE_ENV === 'production' && {
-    output: 'standalone',
+    output: 'export',
     compress: true,
     poweredByHeader: false,
   }),
