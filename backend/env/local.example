@@ -1,26 +1,26 @@
-# Database Configuration
+# データベース設定
 DATABASE_URL=postgresql://postgres:password@localhost:5432/myanimelogs
 
-# JWT Configuration
+# JWT設定
 JWT_SECRET=your-256-bit-secret-key-here-make-it-long-and-random
 JWT_EXPIRATION=24h
 
-# External API
+# 外部API
 ANNICT_API_KEY=your-annict-api-key
 
-# Cache Configuration (Optional)
+# キャッシュ設定（オプション）
 REDIS_URL=redis://localhost:6379
 
-# Server Configuration
+# サーバー設定
 PORT=8080
 ENVIRONMENT=development
 RATE_LIMIT=5
 
-# pgAdmin Configuration (for Docker Compose)
+# pgAdmin設定（Docker Compose用）
 PGADMIN_DEFAULT_EMAIL=admin@myanimelogs.com
 PGADMIN_DEFAULT_PASSWORD=admin123
 
-# PostgreSQL Configuration (for Docker Compose)
+# PostgreSQL設定（Docker Compose用）
 POSTGRES_DB=myanimelogs
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=password

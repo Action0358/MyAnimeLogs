@@ -10,7 +10,7 @@ services:
     ports:
       - "3000:3000"
     env_file:
-      - ./frontend/.env
+      - ./frontend/.env.local
     depends_on:
       - backend
     command: npm run dev
@@ -24,7 +24,7 @@ services:
     ports:
       - "8080:8080"
     env_file:
-      - ./backend/.env
+      - ./backend/.env.local
     depends_on:
       - postgres
 
@@ -36,7 +36,7 @@ services:
     ports:
       - "5432:5432"
     env_file:
-      - ./backend/.env
+      - ./backend/.env.local
 
   pgadmin:
     image: dpage/pgadmin4
@@ -44,7 +44,7 @@ services:
     ports:
       - "5050:80"
     env_file:
-      - ./backend/.env
+      - ./backend/.env.local
     depends_on:
       - postgres
 

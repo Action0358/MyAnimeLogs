@@ -1,10 +1,10 @@
 openapi: 3.0.0
 info:
-  title: MyAnimeLog API
+  title: MyAnimeLogs API
   version: 1.0.0
-  description: API for MyAnimeLog application
+  description: API for MyAnimeLogs application
 servers:
-  - url: /api
+  - url: ${API_URL}
 paths:
   /register:
     post:
