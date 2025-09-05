@@ -1,32 +1,38 @@
-# --- Builder Stage ---
+# --- ビルダーステージ ---
 FROM golang:1.22-alpine AS builder
 WORKDIR /app
 
-# Copy module files and download dependencies
-COPY backend/go.mod backend/go.sum ./
+# モジュールファイルをコピーし、依存関係をダウンロード
+COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy the rest of the source code for the backend
-COPY backend/. .
+# バックエンドの残りのソースコードをコピー
+COPY . .
 
-# Build the application as a static binary
-# Using -ldflags to reduce binary size
+# アプリケーションを静的バイナリとしてビルド
+# バイナリサイズを削減するために-ldflagsを使用
 RUN CGO_ENABLED=0 go build -ldflags="-w -s" -o /app/main ./cmd/server
 
 # --- Final Stage ---
-FROM alpine:latest
+FROM alpine:3.20
 
-# Install ca-certificates for HTTPS requests
+# 非rootユーザーとグループを作成
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
+# HTTPSリクエスト用にca-certificatesをインストール
 RUN apk --no-cache add ca-certificates
 
-# Set working directory
+# 作業ディレクトリを設定
 WORKDIR /app
 
-# Copy the compiled binary from the builder stage
-COPY --from=builder /app/main /app/main
+# ビルダー段階からコンパイル済みバイナリをコピーし、所有者を設定
+COPY --from=builder --chown=appuser:appgroup /app/main /app/main
 
-# Expose the port the app runs on
+# アプリが実行されるポートを公開
 EXPOSE 8080
 
-# Set the binary as the entrypoint
+# 非rootユーザーに切り替え
+USER appuser
+
+# バイナリをエントリポイントとして設定
 CMD ["/app/main"]

@@ -2,11 +2,11 @@
 # バックエンド用の.env.test.example
 
 # データベース接続設定 (テスト環境用)
-DB_HOST=postgres_test # テスト用DBホスト
-DB_PORT=5432
-DB_USER=test_user
-DB_PASSWORD=test_password
-DB_NAME=myanimelogs_test # テスト用DB名
+POSTGRES_HOST=postgres_test # テスト用DBホスト
+POSTGRES_PORT=5432
+POSTGRES_USER=test_user
+POSTGRES_PASSWORD=test_password
+POSTGRES_DB=myanimelogs_test # テスト用DB名
 
 # JWTシークレット (テスト環境用)
 JWT_SECRET=test_jwt_secret
