@@ -21,14 +21,32 @@
 
 ## インストール手順
 
-### 1. Dockerコンテナの起動
+### 1. 依存関係のインストール
 
 ```bash
+# 依存関係のインストール
+npm install
+# または
+yarn install
+```
+
+### 2. 環境変数の設定
+
+```bash
+# 環境変数のコピー
+cp env/local.example .env.local
+# 必要に応じて .env.local を編集
+```
+
+### 3. Dockerコンテナの起動
+
+```bash
+# ビルドと起動
 docker compose build
 docker compose up -d
 ```
 
-### 2. アプリケーションへのアクセス
+### 4. アプリケーションへのアクセス
 
 - Next.jsアプリ: http://localhost:3000/
 - Storybook: http://localhost:6006/ (npm run storybook実行時)
@@ -65,40 +83,73 @@ Storybookを使用したコンポーネント駆動開発
 
 ```
 frontend/
-├── src/                         # ソースコード
-│   ├── app/                     # App Router (Next.js 13+)
-│   │   ├── anime/[id]/         # 動的ルート（アニメ詳細）
-│   │   ├── auth/signin/        # 認証ページ
-│   │   ├── profile/            # プロフィールページ
-│   │   ├── watchlist/          # ウォッチリストページ
-│   │   ├── globals.css         # グローバルスタイル
-│   │   ├── layout.tsx          # ルートレイアウト
-│   │   └── page.tsx            # ホームページ
-│   ├── features/               # 機能別コンポーネント
-│   │   └── anime-trend/        # トレンドアニメ機能
-│   │       ├── components/     # コンポーネント
-│   │       ├── fetchers/       # データフェッチャー
-│   │       └── mocks/          # モックデータ
-│   ├── lib/                    # ライブラリとユーティリティ
-│   │   ├── api/                # API関連
-│   │   │   ├── generated/      # 自動生成されたクライアント
-│   │   │   ├── fetchers/       # データフェッチャー
-│   │   │   └── schemas/        # APIスキーマ
-│   │   ├── mocks/              # モック設定
-│   │   └── utils.ts            # ユーティリティ関数
-│   ├── hooks/                  # カスタムフック
-│   ├── stores/                 # 状態管理
-│   ├── testing/                # テスト設定
-│   │   └── mocks/              # テスト用モック
-│   ├── types/                  # TypeScript型定義
-│   └── utils/                  # ユーティリティ
 ├── .storybook/                 # Storybook設定
+│   ├── main.ts                 # メイン設定
+│   └── preview.ts              # プレビュー設定
+├── env/                        # 環境変数テンプレート
+│   ├── local.example           # ローカル開発用
+│   ├── production.example      # 本番環境用
+│   └── test.example            # テスト用
 ├── public/                     # 静的ファイル
-├── .env                        # 環境変数設定
-├── Dockerfile                  # Docker設定
-├── orval.config.js             # API生成設定
-├── tailwind.config.js          # Tailwind CSS設定
-└── package.json                # プロジェクト設定
+│   ├── favicon.ico
+│   ├── logo192.png
+│   ├── logo512.png
+│   ├── manifest.json
+│   ├── mockServiceWorker.js
+│   └── robots.txt
+├── src/                        # ソースコード
+│   ├── app/                    # App Router (Next.js 13+)
+│   │   ├── anime/              # アニメ関連
+│   │   │   └── [id]/          # 動的ルート（アニメ詳細）
+│   │   ├── auth/               # 認証関連
+│   │   │   └── signin/        # サインインページ
+│   │   ├── profile/           # プロフィールページ
+│   │   ├── watchlist/         # ウォッチリストページ
+│   │   ├── globals.css        # グローバルスタイル
+│   │   ├── layout.tsx         # ルートレイアウト
+│   │   └── page.tsx           # ホームページ
+│   ├── assets/                # アセット（画像、アイコンなど）
+│   │   └── icons/             # アイコン
+│   ├── features/              # 機能別コンポーネント
+│   │   └── anime-trend/       # トレンドアニメ機能
+│   │       ├── components/    # コンポーネント
+│   │       │   ├── anime-trend-card/     # アニメカード
+│   │       │   └── anime-trend-card-list/ # アニメカードリスト
+│   │       ├── fetchers/      # データフェッチャー
+│   │       │   └── get-trending-anime/   # トレンドアニメ取得
+│   │       └── mocks/         # モックデータ
+│   │           └── get-trending-anime-mock/
+│   ├── lib/                   # ライブラリとユーティリティ
+│   │   ├── api/               # API関連
+│   │   │   ├── fetchers/      # データフェッチャー
+│   │   │   │   ├── anime/     # アニメ関連
+│   │   │   │   ├── authentication/ # 認証関連
+│   │   │   │   ├── profile/   # プロフィール関連
+│   │   │   │   └── watchlist/ # ウォッチリスト関連
+│   │   │   ├── generated/     # 自動生成されたクライアント
+│   │   │   └── schemas/       # APIスキーマ
+│   │   ├── mocks/             # モック設定
+│   │   ├── client-generate/   # クライアント生成設定
+│   │   └── utils.ts           # ユーティリティ関数
+│   ├── stores/                # 状態管理
+│   ├── testing/               # テスト設定
+│   │   └── mocks/             # テスト用モック
+│   ├── types/                 # TypeScript型定義
+│   │   └── result/            # 結果型定義
+│   └── utils/                 # ユーティリティ
+├── .dockerignore              # Docker無視設定
+├── .env.local                 # ローカル環境変数
+├── .eslintrc.json             # ESLint設定
+├── .gitignore                 # Git無視設定
+├── .prettierrc.json           # Prettier設定
+├── Dockerfile                 # Docker設定
+├── next.config.js             # Next.js設定
+├── orval.config.js            # API生成設定
+├── package-lock.json          # 依存関係ロック
+├── package.json               # プロジェクト設定
+├── postcss.config.js          # PostCSS設定
+├── tailwind.config.js         # Tailwind CSS設定
+└── tsconfig.json              # TypeScript設定
 ```
 
 ## その他の設定
@@ -108,12 +159,19 @@ frontend/
 Next.jsでは `NEXT_PUBLIC_` で始まる変数がクライアントサイドで使用できます。
 必要な場合、`.env.local`、`.env.development`、`.env.production` を作成してください。
 
-### API生成
+### APIクライアント生成
 
-OpenAPIスキーマからクライアントコードを生成：
+OpenAPIスキーマからTypeScriptクライアントを自動生成：
+
 ```bash
+# コンテナ内で実行
 docker compose exec frontend npm run generate:api
+
+# またはローカルで実行
+npm run generate:api
 ```
+
+生成されたコードは `src/lib/api/generated/` に出力されます。
 
 ### Storybook
 
