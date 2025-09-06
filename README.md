@@ -32,15 +32,16 @@ MyAnimeLogs は、アニメファンが視聴したアニメを記録・管理�
 
 - **Go 1.21**
 - **Gin** (Web フレームワーク)
-- **PostgreSQL** (データベース)
 - **JWT** (認証)
 - **bcrypt** (パスワードハッシュ化)
 
-### インフラ・開発環境
+### インフラストラクチャ & 開発環境
 
-- **Docker & Docker Compose**
-- **pgAdmin** (データベース管理)
-- **OpenAPI 3.0** (API 仕様)
+- **Frontend**: Cloudflare Pages
+- **Backend**: Fly.io
+- **Database**: Supabase (PostgreSQL)
+- **開発環境**: Docker & Docker Compose
+- **API 仕様**: OpenAPI 3.0
 
 ## プロジェクト構成
 
@@ -188,21 +189,22 @@ docker compose exec backend go mod tidy
 
 ## デプロイ
 
-### 本番環境
+本プロジェクトは、`main`ブランチを本番環境、`staging`ブランチをステージング環境として、それぞれのブランチへのプッシュをトリガーに自動でデプロイされます。
 
-- **フロントエンド**: Vercel / Netlify
-- **バックエンド**: Fly.io / Railway
-- **データベース**: Supabase / Railway
+### 本番環境 (Production)
 
-### Docker 本番ビルド
+- **Frontend**: Cloudflare Pages (`main` ブランチ)
+- **Backend**: Fly.io (`myanimelogs-production` アプリ)
+- **Database**: Supabase (本番用プロジェクト)
+- **URL**: `https://myanimelogs.com` (または設定した本番ドメイン)
 
-```bash
-# 本番用イメージビルド
-docker compose -f docker-compose.prod.yml build
+### ステージング環境 (Staging)
 
-# 本番環境起動
-docker compose -f docker-compose.prod.yml up -d
-```
+- **Frontend**: Cloudflare Pages (`staging` ブランチ, 別プロジェクト)
+- **Backend**: Fly.io (`myanimelogs-staging` アプリ)
+- **Database**: Supabase (ステージング用プロジェクト)
+- **URL**: `https://staging.myanimelogs.com`
+- **アクセス制限**: Cloudflare Accessにより、許可されたユーザーのみ閲覧可能です。
 
 ## 貢献
 
