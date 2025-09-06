@@ -1,13 +1,14 @@
-# fly.toml app configuration file generated for myanimelogs-backend on 2025-09-04T03:52:21+09:00
+# fly.toml app configuration file generated for myanimelogs-production on 2025-09-06T01:59:35+09:00
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'myanimelogs-backend'
+app = 'myanimelogs-production'
 primary_region = 'nrt'
 
 [build]
-  dockerfile = "Dockerfile.prod"
+  dockerfile = 'Dockerfile.prod'
+
 [http_service]
   internal_port = 8080
   force_https = true
