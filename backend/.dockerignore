@@ -1,0 +1,16 @@
+# Git
+.git
+.gitignore
+
+# Environment files
+.env
+.env.*
+!*.env.example
+
+# Temporary directory
+tmp/
+
+# OS / IDE files
+.DS_Store
+.idea/
+.vscode/
