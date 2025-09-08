@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, staging ]
+  pull_request:
+    branches: [ main, staging ]
+
+jobs:
+  backend-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Run tests
+        working-directory: ./backend
+        run: |
+          go mod download
+          go test -v ./...
+
+  frontend-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create .env files for Docker Compose
+        run: |
+          touch ./frontend/.env.local
+          touch ./backend/.env.local
+
+      - name: Build the Docker container
+        run: docker compose build frontend
+
+      - name: Run tests
+        run: docker compose run --rm frontend npm test
