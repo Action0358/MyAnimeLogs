@@ -30,6 +30,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Create .env.local for frontend
+        run: touch ./frontend/.env.local
+
       - name: Build the Docker container
         run: docker compose build frontend
 
