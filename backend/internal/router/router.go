@@ -29,10 +29,12 @@ func Setup(db *database.DB, cfg *config.Config) *gin.Engine {
 	// Services
 	authService := services.NewAuthService(db, cfg.JWTSecret)
 	animeService := services.NewAnimeService(db)
+	annictService := services.NewAnnictClient(cfg.AnnictAPIKey) // Annictサービスを初期化
 
 	// Handlers
 	authHandler := handlers.NewAuthHandler(authService)
 	animeHandler := handlers.NewAnimeHandler(animeService)
+	annictHandler := handlers.NewAnnictHandler(annictService) // Annictハンドラを初期化
 
 	// Health check
 	r.GET("/health", func(c *gin.Context) {
@@ -47,6 +49,8 @@ func Setup(db *database.DB, cfg *config.Config) *gin.Engine {
 				"timestamp": time.Now().Format(time.RFC3339),
 			})
 		})
+		// Annict API connection test endpoint (dev only)
+		r.GET("/annict/test", annictHandler.TestConnection)
 	}
 
 	// API routes
@@ -60,7 +64,11 @@ func Setup(db *database.DB, cfg *config.Config) *gin.Engine {
 		api.GET("/animes", middleware.OptionalAuthMiddleware(cfg.JWTSecret), animeHandler.GetAnimes)
 		api.GET("/animes/:id", middleware.OptionalAuthMiddleware(cfg.JWTSecret), animeHandler.GetAnime)
 		api.GET("/animes/:id/episodes", middleware.OptionalAuthMiddleware(cfg.JWTSecret), animeHandler.GetAnimeEpisodes)
-		api.GET("/search/animes", middleware.OptionalAuthMiddleware(cfg.JWTSecret), animeHandler.GetAnimes) // Same as /animes but different path for API spec
+		api.GET("/search/animes", middleware.OptionalAuthMiddleware(cfg.JWTSecret), animeHandler.GetAnimes)
+
+		// Annict routes
+		api.GET("/annict/works", annictHandler.GetWorksBySeason)
+		api.GET("/annict/popular-works", annictHandler.GetPopularWorks)
 
 		// Protected routes (authentication required)
 		protected := api.Group("/")
