@@ -7,9 +7,15 @@ import (
 	"myanimelogs/internal/models"
 	"net/http"
 	"net/url"
+	"time"
 )
 
 const annictAPIEndpoint = "https://api.annict.com/v1/works"
+
+const (
+	defaultSortOrder = "desc"
+	defaultPerPage   = "50"
+)
 
 type AnnictClient struct {
 	Token      string
@@ -19,7 +25,9 @@ type AnnictClient struct {
 func NewAnnictClient(token string) *AnnictClient {
 	return &AnnictClient{
 		Token:      token,
-		HTTPClient: &http.Client{},
+		HTTPClient: &http.Client{
+			Timeout: 30 * time.Second,
+		},
 	}
 }
 
@@ -36,7 +44,7 @@ func (c *AnnictClient) makeRequest(params url.Values) (*models.AnnictWorkRespons
 	}
 	fullURL.RawQuery = params.Encode()
 
-	req, err := http.NewRequest("GET", fullURL.String(), nil)
+	req, err := http.NewRequest(http.MethodGet, fullURL.String(), nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create http request: %w", err)
 	}
@@ -51,7 +59,10 @@ func (c *AnnictClient) makeRequest(params url.Values) (*models.AnnictWorkRespons
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, readErr := io.ReadAll(resp.Body)
+		if readErr != nil {
+			return nil, fmt.Errorf("annict api returned non-200 status: %d, and failed to read response body: %w", resp.StatusCode, readErr)
+		}
 		return nil, fmt.Errorf("annict api returned non-200 status: %d, body: %s", resp.StatusCode, string(body))
 	}
 
@@ -68,15 +79,15 @@ func (c *AnnictClient) makeRequest(params url.Values) (*models.AnnictWorkRespons
 func (c *AnnictClient) FetchWorksBySeason(season string) (*models.AnnictWorkResponse, error) {
 	params := url.Values{}
 	params.Add("filter_season", season)
-	params.Add("sort_watchers_count", "desc")
-	params.Add("per_page", "50")
+	params.Add("sort_watchers_count", defaultSortOrder)
+	params.Add("per_page", defaultPerPage)
 	return c.makeRequest(params)
 }
 
 func (c *AnnictClient) FetchPopularWorks() (*models.AnnictWorkResponse, error) {
 	params := url.Values{}
-	params.Add("sort_watchers_count", "desc")
-	params.Add("per_page", "50")
+	params.Add("sort_watchers_count", defaultSortOrder)
+	params.Add("per_page", defaultPerPage)
 	return c.makeRequest(params)
 }
 
@@ -86,3 +97,4 @@ func (c *AnnictClient) TestConnection() error {
 	_, err := c.makeRequest(params)
 	return err
 }
+
