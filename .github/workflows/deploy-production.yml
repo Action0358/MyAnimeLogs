@@ -1,0 +1,22 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy-production:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Fly.io CLI
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy to Fly.io Production
+        run: flyctl deploy -a myanimelogs-production
+        working-directory: ./backend
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
