@@ -6,14 +6,17 @@ import (
 	"log"
 	"os"
 
-	
+	"github.com/joho/godotenv"
 	"myanimelogs/internal/config"
 	"myanimelogs/internal/database"
 	"myanimelogs/internal/router"
 )
 
 func main() {
-	
+	// Load environment variables from .env.local file
+	if err := godotenv.Load(".env.local"); err != nil {
+		log.Println("No .env.local file found, using system environment variables")
+	}
 
 	// Initialize configuration
 	cfg := config.New()
