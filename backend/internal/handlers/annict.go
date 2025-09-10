@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"myanimelogs/internal/services"
 	"net/http"
 
@@ -8,10 +9,10 @@ import (
 )
 
 type AnnictHandler struct {
-	annictService *services.AnnictClient
+	annictService services.AnnictService
 }
 
-func NewAnnictHandler(annictService *services.AnnictClient) *AnnictHandler {
+func NewAnnictHandler(annictService services.AnnictService) *AnnictHandler {
 	return &AnnictHandler{
 		annictService: annictService,
 	}
@@ -28,8 +29,8 @@ func (h *AnnictHandler) GetWorksBySeason(c *gin.Context) {
 
 	works, err := h.annictService.FetchWorksBySeason(season)
 	if err != nil {
-		// In a real app, you might want more sophisticated error handling
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		log.Printf("Failed to fetch works by season: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch anime works by season"})
 		return
 	}
 
@@ -41,7 +42,8 @@ func (h *AnnictHandler) GetWorksBySeason(c *gin.Context) {
 func (h *AnnictHandler) GetPopularWorks(c *gin.Context) {
 	works, err := h.annictService.FetchPopularWorks()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		log.Printf("Failed to fetch popular works: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch popular anime works"})
 		return
 	}
 	c.JSON(http.StatusOK, works)
@@ -51,9 +53,10 @@ func (h *AnnictHandler) GetPopularWorks(c *gin.Context) {
 func (h *AnnictHandler) TestConnection(c *gin.Context) {
 	err := h.annictService.TestConnection()
 	if err != nil {
+		log.Printf("Failed to test Annict API connection: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"status": "error",
-			"error":  err.Error(),
+			"error":  "Failed to connect to Annict API",
 		})
 		return
 	}
