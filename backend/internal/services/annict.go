@@ -22,6 +22,13 @@ type AnnictClient struct {
 	HTTPClient *http.Client
 }
 
+// AnnictService defines the interface for Annict API interactions.
+type AnnictService interface {
+	FetchWorksBySeason(season string) (*models.AnnictWorkResponse, error)
+	FetchPopularWorks() (*models.AnnictWorkResponse, error)
+	TestConnection() error
+}
+
 func NewAnnictClient(token string) *AnnictClient {
 	return &AnnictClient{
 		Token:      token,
