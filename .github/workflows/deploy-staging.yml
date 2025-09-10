@@ -15,7 +15,5 @@ jobs:
         uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy to Fly.io Staging
-        run: flyctl deploy -a myanimelogs-staging
+        run: flyctl deploy -a myanimelogs-staging --access-token ${{ secrets.FLY_API_TOKEN }}
         working-directory: ./backend
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
