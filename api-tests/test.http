@@ -1,0 +1,143 @@
+# MyAnimeLogs API Test Cases (Dynamic Token Version)
+# VS Code REST Client Extension用のテストファイル
+# 動的にトークンを取得・使用するバージョン
+
+### Variables
+@baseUrl = http://localhost:8080
+@contentType = application/json
+
+### Health Check
+GET {{baseUrl}}/health
+
+### ===== セットアップ: ユーザー登録とログイン =====
+
+### 1. テストユーザー登録
+POST {{baseUrl}}/api/register
+Content-Type: {{contentType}}
+
+{
+  "name": "APIテストユーザー",
+  "email": "apitest@example.com",
+  "password": "testpass123"
+}
+
+### 2. ログイン（トークン取得）
+# @name login
+POST {{baseUrl}}/api/login
+Content-Type: {{contentType}}
+
+{
+  "email": "apitest@example.com",
+  "password": "testpass123"
+}
+
+### ===== 認証が必要なエンドポイント =====
+
+### 3. プロフィール取得
+GET {{baseUrl}}/api/users/me
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 4. プロフィール更新
+PUT {{baseUrl}}/api/users/me
+Content-Type: {{contentType}}
+Authorization: Bearer {{login.response.body.access_token}}
+
+{
+  "name": "更新されたAPIテストユーザー",
+  "description": "REST Clientでテスト中のユーザーです",
+  "icon": "https://example.com/test-icon.png"
+}
+
+### 5. ユーザー統計取得
+GET {{baseUrl}}/api/users/me/stats
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 6. データエクスポート（JSON）
+GET {{baseUrl}}/api/users/me/export?format=json
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 7. データエクスポート（CSV）
+GET {{baseUrl}}/api/users/me/export?format=csv
+Authorization: Bearer {{login.response.body.access_token}}
+
+### ===== エラーケーステスト =====
+
+### 8. 認証なしアクセス
+GET {{baseUrl}}/api/users/me
+
+### 9. 無効なトークン
+GET {{baseUrl}}/api/users/me
+Authorization: Bearer invalid.jwt.token
+
+### 10. 重複メール登録
+POST {{baseUrl}}/api/register
+Content-Type: {{contentType}}
+
+{
+  "name": "重複テスト",
+  "email": "apitest@example.com",
+  "password": "testpass123"
+}
+
+### 11. バリデーションエラー（短いパスワード）
+POST {{baseUrl}}/api/register
+Content-Type: {{contentType}}
+
+{
+  "name": "短パスワード",
+  "email": "short@example.com",
+  "password": "123"
+}
+
+### 12. バリデーションエラー（無効なメール）
+POST {{baseUrl}}/api/register
+Content-Type: {{contentType}}
+
+{
+  "name": "無効メール",
+  "email": "invalid-email-format",
+  "password": "validpass123"
+}
+
+### 13. 認証エラー（間違ったパスワード）
+POST {{baseUrl}}/api/login
+Content-Type: {{contentType}}
+
+{
+  "email": "apitest@example.com",
+  "password": "wrongpassword"
+}
+
+### ===== 複数ユーザーテスト =====
+
+### 14. 2番目のユーザー登録
+POST {{baseUrl}}/api/register
+Content-Type: {{contentType}}
+
+{
+  "name": "セカンドユーザー",
+  "email": "second@example.com",
+  "password": "secondpass123"
+}
+
+### 15. 2番目のユーザーログイン
+# @name login2
+POST {{baseUrl}}/api/login
+Content-Type: {{contentType}}
+
+{
+  "email": "second@example.com",
+  "password": "secondpass123"
+}
+
+### 16. 2番目のユーザーのプロフィール取得
+GET {{baseUrl}}/api/users/me
+Authorization: Bearer {{login2.response.body.access_token}}
+
+### ===== 開発用エンドポイント =====
+
+### 17. ホットリロードテスト
+GET {{baseUrl}}/test-hot-reload
+
+### 18. Annict API接続テスト
+GET {{baseUrl}}/annict/test
