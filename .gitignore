@@ -37,6 +37,7 @@ yarn-error.log*
 
 # Documentation files
 /docs/*.csv
+/docs/README.md
 
 # Kiro configuration
 .kiro
