@@ -6,23 +6,47 @@ import (
 	"log"
 	"os"
 
-	"github.com/joho/godotenv"
 	"myanimelogs/internal/config"
 	"myanimelogs/internal/database"
 	"myanimelogs/internal/router"
+
+	"github.com/joho/godotenv"
 )
 
 func main() {
-	// Load environment variables from .env.local file
-	if err := godotenv.Load(".env.local"); err != nil {
-		log.Println("No .env.local file found, using system environment variables")
+	// Load environment variables based on environment
+	env := os.Getenv("ENVIRONMENT")
+	if env == "" {
+		env = "development"
+	}
+
+	var envFile string
+	switch env {
+	case "production":
+		envFile = ".env.production"
+	case "test":
+		envFile = ".env.test"
+	default:
+		envFile = ".env.local"
+	}
+
+	if err := godotenv.Load(envFile); err != nil {
+		log.Printf("No %s file found, using system environment variables", envFile)
+	} else {
+		log.Printf("Loaded configuration from %s", envFile)
 	}
 
 	// Initialize configuration
 	cfg := config.New()
 
-	// Initialize database
-	db, err := database.New(cfg.DatabaseURL)
+	// Initialize database with connection pool configuration
+	dbConfig := database.ConnectionConfig{
+		MaxOpenConns:    cfg.DBMaxOpenConns,
+		MaxIdleConns:    cfg.DBMaxIdleConns,
+		ConnMaxLifetime: cfg.DBConnMaxLifetime,
+		ConnMaxIdleTime: cfg.DBConnMaxIdleTime,
+	}
+	db, err := database.NewWithConfig(cfg.DatabaseURL, dbConfig)
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
 	}
