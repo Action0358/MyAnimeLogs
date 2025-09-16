@@ -31,14 +31,13 @@ yarn-error.log*
 
 # Compiled binary
 /backend/main
+/backend/bin/
 /backend/tmp/
 /backend/build-errors.log
 
 # Documentation files
 /docs/*.csv
-
-# Test files
-/test.http
+/docs/README.md
 
 # Kiro configuration
 .kiro
