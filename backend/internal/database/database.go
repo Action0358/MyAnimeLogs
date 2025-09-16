@@ -13,7 +13,23 @@ type DB struct {
 	*sql.DB
 }
 
+type ConnectionConfig struct {
+	MaxOpenConns    int
+	MaxIdleConns    int
+	ConnMaxLifetime int // in minutes
+	ConnMaxIdleTime int // in minutes
+}
+
 func New(databaseURL string) (*DB, error) {
+	return NewWithConfig(databaseURL, ConnectionConfig{
+		MaxOpenConns:    25,
+		MaxIdleConns:    5,
+		ConnMaxLifetime: 5,
+		ConnMaxIdleTime: 1,
+	})
+}
+
+func NewWithConfig(databaseURL string, config ConnectionConfig) (*DB, error) {
 	var db *sql.DB
 	var err error
 
@@ -25,10 +41,18 @@ func New(databaseURL string) (*DB, error) {
 			return nil, fmt.Errorf("failed to open database: %w", err)
 		}
 
+		// Configure connection pool
+		db.SetMaxOpenConns(config.MaxOpenConns)
+		db.SetMaxIdleConns(config.MaxIdleConns)
+		db.SetConnMaxLifetime(time.Duration(config.ConnMaxLifetime) * time.Minute)
+		db.SetConnMaxIdleTime(time.Duration(config.ConnMaxIdleTime) * time.Minute)
+
 		err = db.Ping()
 		if err == nil {
 			// Connection successful
-			log.Println("Successfully connected to the database.")
+			log.Println("Successfully connected to the database with connection pool configured.")
+			log.Printf("Connection pool: MaxOpen=%d, MaxIdle=%d, MaxLifetime=%v, MaxIdleTime=%v",
+				config.MaxOpenConns, config.MaxIdleConns, time.Duration(config.ConnMaxLifetime)*time.Minute, time.Duration(config.ConnMaxIdleTime)*time.Minute)
 			return &DB{db}, nil
 		}
 

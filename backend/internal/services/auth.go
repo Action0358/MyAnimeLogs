@@ -4,12 +4,14 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
-	"golang.org/x/crypto/bcrypt"
 	"myanimelogs/internal/database"
 	"myanimelogs/internal/models"
 	"myanimelogs/internal/utils"
+
+	"golang.org/x/crypto/bcrypt"
 )
 
 var (
@@ -156,22 +158,14 @@ func (s *AuthService) UpdateUser(userID int, req models.UserUpdateRequest) (*mod
 		return s.GetUserByID(userID)
 	}
 
-	setParts = append(setParts, fmt.Sprintf("updated_at = CURRENT_TIMESTAMP"))
+	setParts = append(setParts, "updated_at = CURRENT_TIMESTAMP")
 	args = append(args, userID)
 
 	query := fmt.Sprintf(`
 		UPDATE users SET %s
 		WHERE id = $%d
 		RETURNING id, name, email, description, icon
-	`, fmt.Sprintf("%s", setParts[0]), argIndex)
-
-	for i := 1; i < len(setParts); i++ {
-		query = fmt.Sprintf(`
-			UPDATE users SET %s
-			WHERE id = $%d
-			RETURNING id, name, email, description, icon
-		`, fmt.Sprintf("%s, %s", setParts[0], setParts[i]), argIndex)
-	}
+	`, strings.Join(setParts, ", "), argIndex)
 
 	var user models.User
 	err := s.db.QueryRow(query, args...).Scan(
@@ -316,11 +310,11 @@ func (s *AuthService) ExportUserData(userID int, format string) (interface{}, er
 	}
 
 	data := map[string]interface{}{
-		"user_info":    user,
-		"favorites":    favorites,
+		"user_info":     user,
+		"favorites":     favorites,
 		"watch_history": history,
-		"ratings":      ratings,
-		"exported_at":  time.Now(),
+		"ratings":       ratings,
+		"exported_at":   time.Now(),
 	}
 
 	if format == "csv" {

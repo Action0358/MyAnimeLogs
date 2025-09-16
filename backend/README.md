@@ -1,210 +1,145 @@
 # MyAnimeLogs Backend
 
-MyAnimeLogs のバックエンド API サーバー（Go + Gin）
+MyAnimeLogs バックエンドAPI - Go + PostgreSQL + JWT認証
 
-## ディレクトリ構成
+## 🚀 セットアップ
 
-```
-backend/
-├── cmd/
-│   └── server/          # アプリケーションエントリーポイント
-│       └── main.go
-├── env/                 # 環境変数テンプレート
-│   ├── local.example
-│   ├── production.example
-│   └── test.example
-├── internal/            # プライベートアプリケーションコード
-│   ├── config/          # 設定管理
-│   ├── database/        # データベース接続・マイグレーション
-│   ├── handlers/        # HTTPハンドラー
-│   ├── middleware/      # ミドルウェア
-│   ├── models/          # データモデル・構造体
-│   ├── router/          # ルーティング設定
-│   ├── services/        # ビジネスロジック
-│   └── utils/           # ユーティリティ関数
-├── .air.toml           # Air (Live Reload) 設定
-├── Dockerfile          # 開発用Docker設定
-├── Dockerfile.prod     # 本番用Docker設定
-├── fly.toml           # Fly.io デプロイ設定
-├── go.mod             # Go modules
-└── go.sum             # 依存関係ロックファイル
-```
+### 1. 環境設定
 
-## 技術スタック
-
-- **言語**: Go 1.22+
-- **Web フレームワーク**: Gin
-- **データベース**: PostgreSQL (Supabase)
-- **認証**: JWT + bcrypt
-- **ORM**: database/sql (標準ライブラリ)
-
-## 主要機能
-
-### 認証・ユーザー管理
-
-- ユーザー登録・ログイン
-- JWT 認証
-- プロフィール管理
-- 視聴統計
-- データエクスポート
-
-### アニメ管理
-
-- アニメ検索・一覧
-- アニメ詳細情報
-- エピソード管理
-- お気に入り機能
-- 視聴状態管理
-- 評価・レビュー
-
-### セキュリティ
-
-- JWT 認証
-- パスワードハッシュ化（bcrypt）
-- CORS 設定
-- レート制限
-- 入力バリデーション
-
-## 環境変数
-
-`.env.example`を参考に`.env`ファイルを作成してください。
+環境設定ファイルをコピーして設定：
 
 ```bash
-# データベース
-DATABASE_URL=postgresql://user:password@localhost/myanimelogs
+# 開発環境
+cp .env.example .env.local
 
-# JWT設定
-JWT_SECRET=your-256-bit-secret
-JWT_EXPIRATION=24h
+# テスト環境  
+cp .env.example .env.test
 
-# 外部API
-ANNICT_API_KEY=your-annict-api-key
-
-# Redis（キャッシュ）
-REDIS_URL=redis://localhost:6379
-
-# サーバー設定
-PORT=8080
-ENVIRONMENT=development
-RATE_LIMIT=5
+# 本番環境
+cp .env.example .env.production
 ```
 
-## 開発環境セットアップ
+### 2. 必要な環境変数
 
-1. 依存関係のインストール
+各環境ファイルで以下の値を設定してください：
 
-```bash
-go mod download
-```
+#### 必須設定
+- `POSTGRES_*`: データベース接続情報
+- `JWT_SECRET`: JWT署名用秘密鍵（本番では256bit以上）
+- `ANNICT_API_KEY`: Annict API キー
 
-2. 環境変数の設定
+#### オプション設定
+- `DB_MAX_OPEN_CONNS`: 最大接続数（デフォルト: 25）
+- `RATE_LIMIT`: レート制限（デフォルト: 100req/min）
 
-```bash
-# 環境変数の設定
-cp env/local.example .env.local
-# .env.localファイルを必要に応じて編集
-```
-
-3. データベースの準備
-
-- Supabase プロジェクトを作成
-- DATABASE_URL を設定
-
-4. サーバー起動
+### 3. データベースセットアップ
 
 ```bash
-# 開発用 (Airを使用してホットリロード)
-air
+# Docker Composeでデータベース起動
+docker compose up -d postgres
 
-# または直接実行
+# マイグレーション実行（アプリ起動時に自動実行）
 go run cmd/server/main.go
 ```
 
-## API 仕様
+### 4. アプリケーション起動
 
-### 認証
+```bash
+# 開発環境
+ENVIRONMENT=development go run cmd/server/main.go
 
-- `POST /api/register` - ユーザー登録
-- `POST /api/login` - ログイン
+# テスト環境
+ENVIRONMENT=test go run cmd/server/main.go
+
+# 本番環境
+ENVIRONMENT=production go run cmd/server/main.go
+```
+
+## 🧪 テスト
+
+```bash
+# APIテスト実行
+cd ../api-tests
+# VS Code REST Client で test.http を実行
+```
+
+## 📊 データベース
+
+### 接続プール設定
+
+環境別に最適化された接続プール設定：
+
+- **Development**: MaxOpen=25, MaxIdle=5, Lifetime=5min
+- **Test**: MaxOpen=50, MaxIdle=10, Lifetime=2min
+- **Production**: MaxOpen=50, MaxIdle=10, Lifetime=10min
+
+### マイグレーション
+
+アプリケーション起動時に自動実行：
+- users テーブル
+- animes テーブル  
+- episodes テーブル
+- user_favorites テーブル
+- watch_statuses テーブル
+- user_ratings テーブル
+- watch_history テーブル
+- anime_genres テーブル
+
+## 🔐 セキュリティ
+
+- JWT認証（24時間有効期限）
+- bcryptパスワードハッシュ化
+- レート制限
+- CORS設定
+- SQL インジェクション対策
+
+## 📝 API仕様
+
+### 認証API
+- `POST /api/register` - 新規ユーザー登録
+- `POST /api/login` - ログイン・JWT取得
 - `GET /api/users/me` - プロフィール取得
 - `PUT /api/users/me` - プロフィール更新
 
-### アニメ
+### 統計・エクスポートAPI
+- `GET /api/users/me/stats` - 視聴統計取得
+- `GET /api/users/me/export` - データエクスポート
 
-- `GET /api/animes` - アニメ検索・一覧
-- `GET /api/animes/:id` - アニメ詳細
-- `GET /api/animes/:id/episodes` - エピソード一覧
+詳細なAPI仕様は `../api-tests/test.http` を参照してください。
 
-### お気に入り
+## 🛠️ 開発
 
-- `GET /api/users/me/favorites` - お気に入り一覧
-- `PUT /api/users/me/favorites/:anime_id` - お気に入り追加・更新
-- `DELETE /api/users/me/favorites/:anime_id` - お気に入り削除
+### ディレクトリ構造
 
-### 視聴管理
-
-- `PUT /api/episodes/:episode_id/watch` - 視聴状態更新
-- `GET /api/users/me/recently-watched` - 最近の視聴履歴
-- `GET /api/users/me/watchlist` - 視聴予定リスト
-
-### 評価
-
-- `PUT /api/animes/:id/rating` - 評価登録・更新
-- `DELETE /api/animes/:id/rating` - 評価削除
-
-## デプロイ
-
-### Fly.io
-
-```bash
-# Fly.ioアプリ作成
-fly apps create myanimelogs-api
-
-# デプロイ
-fly deploy
+```
+backend/
+├── cmd/server/          # アプリケーションエントリーポイント
+├── internal/
+│   ├── config/         # 設定管理
+│   ├── database/       # データベース接続・マイグレーション
+│   ├── handlers/       # HTTPハンドラー
+│   ├── middleware/     # ミドルウェア
+│   ├── models/         # データモデル
+│   ├── router/         # ルーティング
+│   ├── services/       # ビジネスロジック
+│   └── utils/          # ユーティリティ
+├── .env.example        # 環境設定テンプレート
+└── README.md
 ```
 
-### Docker
+### 依存関係
 
-```bash
-# イメージビルド
-docker build -t myanimelogs-backend .
+- **Web Framework**: Gin
+- **Database**: PostgreSQL + database/sql
+- **Authentication**: JWT (golang-jwt/jwt)
+- **Password**: bcrypt
+- **Configuration**: godotenv
+- **External API**: Annict API
 
-# コンテナ実行
-docker run -p 8080:8080 --env-file .env myanimelogs-backend
-```
+## 🚀 デプロイ
 
-## 開発ガイドライン
+GitHub Actions による自動デプロイ設定済み：
+- **Staging**: `staging` ブランチ → Fly.io staging
+- **Production**: `main` ブランチ → Fly.io production
 
-### コード構成
-
-- `cmd/`: アプリケーションエントリーポイント
-- `internal/`: プライベートコード（外部から import 不可）
-- レイヤー分離: handlers → services → database
-
-### エラーハンドリング
-
-- 統一されたエラーレスポンス形式
-- 適切な HTTP ステータスコード
-- 日本語エラーメッセージ
-
-### セキュリティ
-
-- 全てのパスワードは bcrypt でハッシュ化
-- JWT 有効期限は 24 時間
-- レート制限: 1 秒間に 5 リクエスト
-- 本番環境では HTTPS 必須
-
-## テスト
-
-```bash
-# 全テスト実行
-go test ./...
-
-# カバレッジ付き
-go test -cover ./...
-```
-
-## ライセンス
-
-MIT License
+環境変数は各デプロイ環境で設定してください。
