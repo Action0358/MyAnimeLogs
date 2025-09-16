@@ -51,7 +51,7 @@ func NewWithConfig(databaseURL string, config ConnectionConfig) (*DB, error) {
 		if err == nil {
 			// Connection successful
 			log.Println("Successfully connected to the database with connection pool configured.")
-log.Printf("Connection pool: MaxOpen=%d, MaxIdle=%d, MaxLifetime=%v, MaxIdleTime=%v",
+			log.Printf("Connection pool: MaxOpen=%d, MaxIdle=%d, MaxLifetime=%v, MaxIdleTime=%v",
 				config.MaxOpenConns, config.MaxIdleConns, time.Duration(config.ConnMaxLifetime)*time.Minute, time.Duration(config.ConnMaxIdleTime)*time.Minute)
 			return &DB{db}, nil
 		}
