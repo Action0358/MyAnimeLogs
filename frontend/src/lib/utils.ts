@@ -29,7 +29,8 @@ export const storage = {
     try {
       const item = localStorage.getItem(key);
       return item ? JSON.parse(item) : null;
-    } catch {
+    } catch (error) {
+      console.error(`Failed to get item from localStorage with key "${key}":`, error);
       return null;
     }
   },
@@ -37,12 +38,16 @@ export const storage = {
     if (typeof window === 'undefined') return;
     try {
       localStorage.setItem(key, JSON.stringify(value));
-    } catch {
-      // Handle storage errors silently
+    } catch (error) {
+      console.error(`Failed to set item in localStorage with key "${key}":`, error);
     }
   },
   remove: (key: string) => {
     if (typeof window === 'undefined') return;
-    localStorage.removeItem(key);
+    try {
+      localStorage.removeItem(key);
+    } catch (error) {
+      console.error(`Failed to remove item from localStorage with key "${key}":`, error);
+    }
   },
 };

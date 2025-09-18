@@ -4,16 +4,19 @@ import React from 'react'
 import Link from 'next/link'
 import Container from './Container'
 import Button from '../ui/Button'
+import { useAuth } from '@/hooks/useAuth'
+import type { User } from '@/types'
 
-interface HeaderProps {
-  user?: {
-    id: number
-    name: string
-    email: string
-  } | null
-}
+const Header: React.FC = () => {
+  const { user, isLoading, logout } = useAuth()
 
-const Header: React.FC<HeaderProps> = ({ user }) => {
+  const handleLogout = async () => {
+    const result = await logout()
+    if (!result.success) {
+      // エラーハンドリング（必要に応じてトースト通知など）
+      console.error('ログアウトに失敗しました:', result.error)
+    }
+  }
   return (
     <header className="bg-white shadow-sm border-b border-gray-200">
       <Container>
@@ -64,12 +67,21 @@ const Header: React.FC<HeaderProps> = ({ user }) => {
 
           {/* ユーザーメニュー */}
           <div className="flex items-center space-x-4">
-            {user ? (
+            {isLoading ? (
+              <div className="flex items-center space-x-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                <span className="text-sm text-gray-500">読み込み中...</span>
+              </div>
+            ) : user ? (
               <div className="flex items-center space-x-3">
                 <span className="text-sm text-gray-700">
                   こんにちは、{user.name}さん
                 </span>
-                <Button variant="outline" size="sm">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={handleLogout}
+                >
                   ログアウト
                 </Button>
               </div>
