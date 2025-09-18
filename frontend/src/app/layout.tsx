@@ -1,9 +1,11 @@
 import './globals.css'
 import type { Metadata } from 'next'
+import { Header, Footer } from '@/components/layout'
+import { QueryProvider } from '@/components/providers'
 
 export const metadata: Metadata = {
-  title: 'MyAnimeLog',
-  description: 'Anime tracking app',
+  title: 'MyAnimeLogs',
+  description: 'アニメ視聴管理アプリ',
 }
 
 export default function RootLayout({
@@ -13,7 +15,15 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ja">
-      <body>{children}</body>
+      <body className="min-h-screen bg-gray-50 flex flex-col">
+        <QueryProvider>
+          <Header />
+          <main className="flex-1">
+            {children}
+          </main>
+          <Footer />
+        </QueryProvider>
+      </body>
     </html>
   )
 }

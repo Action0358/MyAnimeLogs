@@ -1,0 +1,23 @@
+{
+  "version": "0.2",
+  "language": "en",
+  "words": [
+    "annict",
+    "Annict",
+    "animes",
+    "Animes",
+    "MyAnimeLogs",
+    "tailwindcss",
+    "nextjs",
+    "Kiro",
+    "kiro"
+  ],
+  "ignorePaths": [
+    "node_modules/**",
+    ".next/**",
+    "dist/**",
+    "build/**",
+    ".git/**",
+    "*.log"
+  ]
+}
