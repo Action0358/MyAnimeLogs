@@ -49,13 +49,13 @@ func getCurrentSeason() string {
 
 	var season string
 	switch {
-	case month >= 1 && month <= 3:
+case month >= time.January && month <= time.March:
 		season = "winter"
-	case month >= 4 && month <= 6:
+	case month >= time.April && month <= time.June:
 		season = "spring"
-	case month >= 7 && month <= 9:
+	case month >= time.July && month <= time.September:
 		season = "summer"
-	case month >= 10 && month <= 12:
+	case month >= time.October && month <= time.December:
 		season = "autumn"
 	}
 
