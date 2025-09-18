@@ -31,7 +31,7 @@ type AnnictService interface {
 
 func NewAnnictClient(token string) *AnnictClient {
 	return &AnnictClient{
-		Token:      token,
+		Token: token,
 		HTTPClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
@@ -88,6 +88,7 @@ func (c *AnnictClient) FetchWorksBySeason(season string) (*models.AnnictWorkResp
 	params.Add("filter_season", season)
 	params.Add("sort_watchers_count", defaultSortOrder)
 	params.Add("per_page", defaultPerPage)
+	params.Add("fields", "id,title,title_kana,title_en,media,media_text,season_name,season_year,released_on,released_on_about,official_site_url,wikipedia_url,twitter_username,twitter_hashtag,mal_anime_id,images,episodes_count,watchers_count,reviews_count,no_episodes")
 	return c.makeRequest(params)
 }
 
@@ -95,6 +96,7 @@ func (c *AnnictClient) FetchPopularWorks() (*models.AnnictWorkResponse, error) {
 	params := url.Values{}
 	params.Add("sort_watchers_count", defaultSortOrder)
 	params.Add("per_page", defaultPerPage)
+	params.Add("fields", "id,title,title_kana,title_en,media,media_text,season_name,season_year,released_on,released_on_about,official_site_url,wikipedia_url,twitter_username,twitter_hashtag,mal_anime_id,images,episodes_count,watchers_count,reviews_count,no_episodes")
 	return c.makeRequest(params)
 }
 
@@ -104,4 +106,3 @@ func (c *AnnictClient) TestConnection() error {
 	_, err := c.makeRequest(params)
 	return err
 }
-

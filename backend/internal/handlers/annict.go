@@ -1,9 +1,11 @@
 package handlers
 
 import (
+	"fmt"
 	"log"
 	"myanimelogs/internal/services"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -20,11 +22,12 @@ func NewAnnictHandler(annictService services.AnnictService) *AnnictHandler {
 
 // GetWorksBySeason handles requests to get anime works by season.
 // It expects a 'season' query parameter, e.g., ?season=2024-autumn
+// If no season is provided, it defaults to the current season
 func (h *AnnictHandler) GetWorksBySeason(c *gin.Context) {
 	season := c.Query("season")
 	if season == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "season query parameter is required"})
-		return
+		// Default to current season if not specified
+		season = getCurrentSeason()
 	}
 
 	works, err := h.annictService.FetchWorksBySeason(season)
@@ -36,6 +39,27 @@ func (h *AnnictHandler) GetWorksBySeason(c *gin.Context) {
 
 	// The response from the service is already a struct that can be marshaled to JSON
 	c.JSON(http.StatusOK, works)
+}
+
+// getCurrentSeason returns the current season in the format expected by Annict API
+func getCurrentSeason() string {
+	now := time.Now()
+	year := now.Year()
+	month := now.Month()
+
+	var season string
+	switch {
+	case month >= 1 && month <= 3:
+		season = "winter"
+	case month >= 4 && month <= 6:
+		season = "spring"
+	case month >= 7 && month <= 9:
+		season = "summer"
+	case month >= 10 && month <= 12:
+		season = "autumn"
+	}
+
+	return fmt.Sprintf("%d-%s", year, season)
 }
 
 // GetPopularWorks handles requests to get popular anime works.

@@ -141,3 +141,14 @@ GET {{baseUrl}}/test-hot-reload
 
 ### 18. Annict API接続テスト
 GET {{baseUrl}}/annict/test
+
+### ===== Annict API エンドポイント =====
+
+### 19. 今期アニメ取得
+GET {{baseUrl}}/api/annict/works
+
+### 20. 人気アニメ取得
+GET {{baseUrl}}/api/annict/popular-works
+
+### 21. 特定シーズンのアニメ取得
+GET {{baseUrl}}/api/annict/works?season=2024-autumn

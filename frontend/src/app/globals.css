@@ -22,3 +22,28 @@ body {
 * {
   box-sizing: border-box;
 }
+
+/* アニメ画像の統一スタイル */
+.anime-image-container {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+}
+
+.anime-image-container img {
+  transition: transform 0.2s ease-in-out;
+}
+
+.anime-image-container:hover img {
+  transform: scale(1.05);
+}
+
+/* 画像読み込み中のプレースホルダー */
+.anime-image-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #dbeafe 0%, #c7d2fe 100%);
+  color: #6366f1;
+  font-size: 2rem;
+}
