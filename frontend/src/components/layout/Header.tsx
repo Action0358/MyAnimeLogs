@@ -5,7 +5,6 @@ import Link from 'next/link'
 import Container from './Container'
 import Button from '../ui/Button'
 import { useAuth } from '@/hooks/useAuth'
-import type { User } from '@/types'
 
 const Header: React.FC = () => {
   const { user, isLoading, logout } = useAuth()
@@ -35,18 +34,6 @@ const Header: React.FC = () => {
 
           {/* ナビゲーション */}
           <nav className="hidden md:flex items-center space-x-8">
-            <Link
-              href={'/animes' as any}
-              className="text-gray-600 hover:text-gray-900 transition-colors"
-            >
-              アニメ
-            </Link>
-            <Link
-              href={'/search' as any}
-              className="text-gray-600 hover:text-gray-900 transition-colors"
-            >
-              検索
-            </Link>
             {user && (
               <>
                 <Link
@@ -87,14 +74,14 @@ const Header: React.FC = () => {
               </div>
             ) : (
               <div className="flex items-center space-x-3">
-                <Link href={'/login' as any}>
-                  <Button variant="ghost" size="sm">
-                    ログイン
-                  </Button>
-                </Link>
                 <Link href={'/register' as any}>
                   <Button variant="primary" size="sm">
                     新規登録
+                  </Button>
+                </Link>
+                <Link href={'/login' as any}>
+                  <Button variant="ghost" size="sm">
+                    ログイン
                   </Button>
                 </Link>
               </div>
