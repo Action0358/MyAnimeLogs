@@ -91,15 +91,6 @@ const AnimeSection: React.FC<AnimeSectionProps> = ({
               <h3 className="text-sm font-medium text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-2">
                 {anime.title}
               </h3>
-              <div className="flex items-center justify-between text-xs text-gray-500">
-                <span>{anime.media_text}</span>
-                {anime.watchers_count > 0 && (
-                  <span className="flex items-center">
-                    <span className="mr-1">👥</span>
-                    {anime.watchers_count}
-                  </span>
-                )}
-              </div>
             </div>
           </div>
         ))}

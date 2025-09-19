@@ -16,16 +16,10 @@ const HomePage: React.FC = () => {
         
         <div className="flex justify-center space-x-4">
           <Link 
-            href="/register"
+            href={"/register" as any}
             className="inline-flex items-center justify-center h-11 px-6 text-base font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 transition-colors"
           >
             今すぐ始める
-          </Link>
-          <Link 
-            href={"/login" as any}
-            className="inline-flex items-center justify-center h-11 px-6 text-base font-medium rounded-md border border-gray-300 bg-transparent text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors"
-          >
-            ログイン
           </Link>
         </div>
         
