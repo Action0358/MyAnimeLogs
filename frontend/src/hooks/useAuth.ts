@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { storage } from '@/lib/utils'
 import type { User } from '@/types'
 
 interface AuthState {
@@ -22,13 +23,12 @@ export const useAuth = () => {
     useEffect(() => {
         const initAuth = () => {
             try {
-                const token = storage.get('auth_token');
-                const userData = storage.get('user_data');
+                const token = storage.get('auth_token')
+                const userData = storage.get('user_data')
 
                 if (token && userData) {
-                    const user = JSON.parse(userData)
                     setAuthState({
-                        user,
+                        user: userData,
                         isLoading: false,
                         isAuthenticated: true,
                     })
@@ -73,8 +73,8 @@ export const useAuth = () => {
             const { token, user } = data
 
             // トークンとユーザー情報を保存
-            localStorage.setItem('auth_token', token)
-            localStorage.setItem('user_data', JSON.stringify(user))
+            storage.set('auth_token', token)
+            storage.set('user_data', user)
 
             setAuthState({
                 user,
@@ -96,7 +96,7 @@ export const useAuth = () => {
     const logout = async () => {
         try {
             // トークンがある場合はサーバーにログアウト通知
-            const token = localStorage.getItem('auth_token')
+            const token = storage.get('auth_token')
             if (token) {
                 // TODO: 実際のAPI呼び出しに置き換える（オプション）
                 await fetch('/api/auth/logout', {
@@ -111,8 +111,8 @@ export const useAuth = () => {
             }
 
             // ローカルストレージをクリア
-            localStorage.removeItem('auth_token')
-            localStorage.removeItem('user_data')
+            storage.remove('auth_token')
+            storage.remove('user_data')
 
             // 認証状態をリセット
             setAuthState({
@@ -136,7 +136,7 @@ export const useAuth = () => {
 
     // ユーザー情報を更新
     const updateUser = (userData: User) => {
-        localStorage.setItem('user_data', JSON.stringify(userData))
+        storage.set('user_data', userData)
         setAuthState(prev => ({
             ...prev,
             user: userData,
