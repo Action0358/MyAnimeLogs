@@ -56,7 +56,8 @@ export const useAuth = () => {
     const login = async (email: string, password: string) => {
         try {
             // TODO: 実際のAPI呼び出しに置き換える
-            const response = await fetch('/api/auth/login', {
+            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+            const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
