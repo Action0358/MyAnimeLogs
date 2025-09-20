@@ -46,7 +46,14 @@ export interface AnnictWorkResponse {
   prev_page?: number;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+// API_BASE_URLから末尾の/apiを安全に削除
+const getApiBaseUrl = () => {
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+  // 末尾の/apiを削除（重複を防ぐため）
+  return baseUrl.replace(/\/api\/?$/, '');
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 export const annictApi = {
   async getCurrentSeasonAnime(): Promise<AnnictWorkResponse> {
