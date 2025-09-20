@@ -45,4 +45,3 @@ export interface ApiError {
 // UI関連の型定義
 export type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
 export type ButtonSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
-export type InputType = 'text' | 'email' | 'password' | 'number';

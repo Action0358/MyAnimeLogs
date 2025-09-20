@@ -70,17 +70,21 @@ const nextConfig = {
             value: 'nosniff',
           },
           {
-            key: 'X-XSS-Protection',
-            value: '1; mode=block',
-          },
-          {
             key: 'Referrer-Policy',
             value: 'strict-origin-when-cross-origin',
           },
-          // 画像読み込み制限のためのCSP
+          // 強化されたCSP - XSS対策の主要な防御手段
           {
             key: 'Content-Security-Policy',
-            value: "img-src 'self' data: https://cdn.myanimelist.net;",
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-eval' 'unsafe-inline'", // Next.jsに必要
+              "style-src 'self' 'unsafe-inline'", // Tailwind CSSに必要
+              "img-src 'self' data: https://cdn.myanimelist.net",
+              "font-src 'self'",
+              "connect-src 'self' http://localhost:8080", // API接続用
+              "frame-ancestors 'none'", // X-Frame-Optionsと同等
+            ].join('; '),
           },
         ],
       },
