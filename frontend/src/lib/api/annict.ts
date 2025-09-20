@@ -46,11 +46,11 @@ export interface AnnictWorkResponse {
   prev_page?: number;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 export const annictApi = {
   async getCurrentSeasonAnime(): Promise<AnnictWorkResponse> {
-    const response = await fetch(`${API_BASE_URL}/annict/works`);
+    const response = await fetch(`${API_BASE_URL}/api/annict/works`);
     if (!response.ok) {
       throw new Error('今期アニメの取得に失敗しました');
     }
@@ -58,7 +58,7 @@ export const annictApi = {
   },
 
   async getPopularAnime(): Promise<AnnictWorkResponse> {
-    const response = await fetch(`${API_BASE_URL}/annict/popular-works`);
+    const response = await fetch(`${API_BASE_URL}/api/annict/popular-works`);
     if (!response.ok) {
       throw new Error('人気アニメの取得に失敗しました');
     }
@@ -66,7 +66,7 @@ export const annictApi = {
   },
 
   async getAnimesBySeason(season: string): Promise<AnnictWorkResponse> {
-    const response = await fetch(`${API_BASE_URL}/annict/works?season=${encodeURIComponent(season)}`);
+    const response = await fetch(`${API_BASE_URL}/api/annict/works?season=${encodeURIComponent(season)}`);
     if (!response.ok) {
       throw new Error('シーズンアニメの取得に失敗しました');
     }
