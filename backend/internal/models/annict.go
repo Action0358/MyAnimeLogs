@@ -2,26 +2,47 @@ package models
 
 // AnnictWork represents a single anime work from the Annict REST API response.
 type AnnictWork struct {
-	ID                int    `json:"id"`
-	Title             string `json:"title"`
-	TitleKana         string `json:"title_kana"`
-	TitleEn           string `json:"title_en"`
-	Media             string `json:"media"`
-	MediaText         string `json:"media_text"`
-	SeasonName        string `json:"season_name"`
-	SeasonYear        int    `json:"season_year"`
-	ReleasedOn        string `json:"released_on"`
-	ReleasedOnAbout   string `json:"released_on_about"`
-	OfficialSiteURL   string `json:"official_site_url"`
-	WikipediaURL      string `json:"wikipedia_url"`
-	TwitterUsername   string `json:"twitter_username"`
-	TwitterHashtag    string `json:"twitter_hashtag"`
-	MalAnimeID        string `json:"mal_anime_id"`
-	ImagesRecommended string `json:"images_recommended"`
-	EpisodesCount     int    `json:"episodes_count"`
-	WatchersCount     int    `json:"watchers_count"`
-	ReviewsCount      int    `json:"reviews_count"`
-	NoEpisodes        bool   `json:"no_episodes"`
+	ID              int               `json:"id"`
+	Title           string            `json:"title"`
+	TitleKana       string            `json:"title_kana"`
+	TitleEn         string            `json:"title_en"`
+	Media           string            `json:"media"`
+	MediaText       string            `json:"media_text"`
+	SeasonName      string            `json:"season_name"`
+	SeasonYear      int               `json:"season_year"`
+	ReleasedOn      string            `json:"released_on"`
+	ReleasedOnAbout string            `json:"released_on_about"`
+	OfficialSiteURL string            `json:"official_site_url"`
+	WikipediaURL    string            `json:"wikipedia_url"`
+	TwitterUsername string            `json:"twitter_username"`
+	TwitterHashtag  string            `json:"twitter_hashtag"`
+	MalAnimeID      string            `json:"mal_anime_id"`
+	Images          *AnnictWorkImages `json:"images,omitempty"`
+	EpisodesCount   int               `json:"episodes_count"`
+	WatchersCount   int               `json:"watchers_count"`
+	ReviewsCount    int               `json:"reviews_count"`
+	NoEpisodes      bool              `json:"no_episodes"`
+}
+
+// AnnictWorkImages represents the images object in Annict API response
+type AnnictWorkImages struct {
+	RecommendedURL string                    `json:"recommended_url,omitempty"`
+	Facebook       *AnnictWorkImagesFacebook `json:"facebook,omitempty"`
+	Twitter        *AnnictWorkImagesTwitter  `json:"twitter,omitempty"`
+}
+
+// AnnictWorkImagesFacebook represents Facebook image data
+type AnnictWorkImagesFacebook struct {
+	OgImageURL string `json:"og_image_url,omitempty"`
+}
+
+// AnnictWorkImagesTwitter represents Twitter image data
+type AnnictWorkImagesTwitter struct {
+	MiniAvatarURL     string `json:"mini_avatar_url,omitempty"`
+	NormalAvatarURL   string `json:"normal_avatar_url,omitempty"`
+	BiggerAvatarURL   string `json:"bigger_avatar_url,omitempty"`
+	OriginalAvatarURL string `json:"original_avatar_url,omitempty"`
+	ImageURL          string `json:"image_url,omitempty"`
 }
 
 // AnnictWorkResponse represents the REST API response structure
