@@ -22,8 +22,8 @@ export const useAuth = () => {
     useEffect(() => {
         const initAuth = () => {
             try {
-                const token = localStorage.getItem('auth_token')
-                const userData = localStorage.getItem('user_data')
+                const token = storage.get('auth_token');
+                const userData = storage.get('user_data');
 
                 if (token && userData) {
                     const user = JSON.parse(userData)
