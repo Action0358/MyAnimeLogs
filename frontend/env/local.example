@@ -2,6 +2,6 @@
 # フロントエンド用の.env.local.example
 
 # Next.js ローカル開発設定
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8080/api # ローカルバックエンドAPIのURL
+NEXT_PUBLIC_API_URL=http://localhost:8080 # ローカルバックエンドAPIのベースURL（/apiは自動追加）
 
 # その他のローカル開発固有の環境変数をここに追加

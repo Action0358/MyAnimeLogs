@@ -26,7 +26,7 @@ const getSecurityHeaders = () => {
         "style-src 'self' 'unsafe-inline'", // Tailwind CSSに必要
         "img-src 'self' data: https://cdn.myanimelist.net",
         "font-src 'self'",
-        `connect-src 'self' ${apiUrl}`, // 環境変数からAPI URLを取得
+        `connect-src 'self' ${apiUrl} ${apiUrl}/*`, // 環境変数からAPI URLを取得（全てのサブパスを許可）
         "frame-ancestors 'none'", // X-Frame-Optionsと同等
       ].join('; '),
     },
@@ -75,11 +75,36 @@ const buildConfig = () => {
       typedRoutes: true,
     };
 
-    // 開発環境ではセキュリティヘッダーを適用
+    // 開発環境では緩いCSPを適用（開発効率のため）
     config.headers = async () => [
       {
         source: '/(.*)',
-        headers: getSecurityHeaders(),
+        headers: [
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY',
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'strict-origin-when-cross-origin',
+          },
+          {
+            key: 'Content-Security-Policy',
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
+              "style-src 'self' 'unsafe-inline'",
+              "img-src 'self' data: https://cdn.myanimelist.net",
+              "font-src 'self'",
+              "connect-src 'self' http://localhost:* ws://localhost:*",
+              "frame-ancestors 'none'",
+            ].join('; '),
+          },
+        ],
       },
     ];
   }
