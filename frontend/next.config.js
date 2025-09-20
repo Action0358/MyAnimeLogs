@@ -1,32 +1,37 @@
 /** @type {import('next').NextConfig} */
 
 // セキュリティヘッダーの定義（本番環境ではホスティングプラットフォーム側で設定必要）
-const securityHeaders = [
-  {
-    key: 'X-Frame-Options',
-    value: 'DENY',
-  },
-  {
-    key: 'X-Content-Type-Options',
-    value: 'nosniff',
-  },
-  {
-    key: 'Referrer-Policy',
-    value: 'strict-origin-when-cross-origin',
-  },
-  {
-    key: 'Content-Security-Policy',
-    value: [
-      "default-src 'self'",
-      "script-src 'self' 'unsafe-eval' 'unsafe-inline'", // Next.jsに必要
-      "style-src 'self' 'unsafe-inline'", // Tailwind CSSに必要
-      "img-src 'self' data: https://cdn.myanimelist.net",
-      "font-src 'self'",
-      "connect-src 'self' http://localhost:8080", // API接続用
-      "frame-ancestors 'none'", // X-Frame-Optionsと同等
-    ].join('; '),
-  },
-];
+const getSecurityHeaders = () => {
+  // API URLを環境変数から取得（デフォルトは localhost:8080）
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+  
+  return [
+    {
+      key: 'X-Frame-Options',
+      value: 'DENY',
+    },
+    {
+      key: 'X-Content-Type-Options',
+      value: 'nosniff',
+    },
+    {
+      key: 'Referrer-Policy',
+      value: 'strict-origin-when-cross-origin',
+    },
+    {
+      key: 'Content-Security-Policy',
+      value: [
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-eval' 'unsafe-inline'", // Next.jsに必要
+        "style-src 'self' 'unsafe-inline'", // Tailwind CSSに必要
+        "img-src 'self' data: https://cdn.myanimelist.net",
+        "font-src 'self'",
+        `connect-src 'self' ${apiUrl}`, // 環境変数からAPI URLを取得
+        "frame-ancestors 'none'", // X-Frame-Optionsと同等
+      ].join('; '),
+    },
+  ];
+};
 
 // 環境別設定の構築
 const buildConfig = () => {
@@ -74,7 +79,7 @@ const buildConfig = () => {
     config.headers = async () => [
       {
         source: '/(.*)',
-        headers: securityHeaders,
+        headers: getSecurityHeaders(),
       },
     ];
   }

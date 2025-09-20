@@ -17,7 +17,7 @@
         },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://cdn.myanimelist.net; font-src 'self'; connect-src 'self'; frame-ancestors 'none';"
+"value": "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://cdn.myanimelist.net; font-src 'self'; connect-src 'self' $NEXT_PUBLIC_API_URL; frame-ancestors 'none';"
         }
       ]
     }
