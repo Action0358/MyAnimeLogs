@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { storage } from '@/lib/utils'
 import type { User } from '@/types'
 
 interface AuthState {

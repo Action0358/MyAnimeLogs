@@ -29,12 +29,14 @@ const nextConfig = {
     output: 'export',
     compress: true,
     poweredByHeader: false,
+    trailingSlash: true,
+    // 静的エクスポート用の設定
+    distDir: 'out',
   }),
 
-  
-
-  // 画像最適化 - セキュリティ強化版
+  // 画像最適化 - 静的エクスポート対応
   images: {
+    unoptimized: true, // 静的エクスポートでは画像最適化を無効化
     remotePatterns: [
       // 開発環境用（localhost）
       {
@@ -46,50 +48,48 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'cdn.myanimelist.net',
       },
-      // 必要に応じて信頼できるドメインのみ追加
-      // 現在は画像表示を無効化しているため、最小限の設定
     ],
-    unoptimized: process.env.NODE_ENV === 'development',
     // 画像機能を一時的に制限（現在プレースホルダーのみ使用）
     dangerouslyAllowSVG: false,
-    contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
 
-  // セキュリティヘッダー
-  async headers() {
-    return [
-      {
-        source: '/(.*)',
-        headers: [
-          {
-            key: 'X-Frame-Options',
-            value: 'DENY',
-          },
-          {
-            key: 'X-Content-Type-Options',
-            value: 'nosniff',
-          },
-          {
-            key: 'Referrer-Policy',
-            value: 'strict-origin-when-cross-origin',
-          },
-          // 強化されたCSP - XSS対策の主要な防御手段
-          {
-            key: 'Content-Security-Policy',
-            value: [
-              "default-src 'self'",
-              "script-src 'self' 'unsafe-eval' 'unsafe-inline'", // Next.jsに必要
-              "style-src 'self' 'unsafe-inline'", // Tailwind CSSに必要
-              "img-src 'self' data: https://cdn.myanimelist.net",
-              "font-src 'self'",
-              "connect-src 'self' http://localhost:8080", // API接続用
-              "frame-ancestors 'none'", // X-Frame-Optionsと同等
-            ].join('; '),
-          },
-        ],
-      },
-    ]
-  },
+  // セキュリティヘッダー（開発環境のみ）
+  ...((process.env.NODE_ENV === 'development') && {
+    async headers() {
+      return [
+        {
+          source: '/(.*)',
+          headers: [
+            {
+              key: 'X-Frame-Options',
+              value: 'DENY',
+            },
+            {
+              key: 'X-Content-Type-Options',
+              value: 'nosniff',
+            },
+            {
+              key: 'Referrer-Policy',
+              value: 'strict-origin-when-cross-origin',
+            },
+            // 強化されたCSP - XSS対策の主要な防御手段
+            {
+              key: 'Content-Security-Policy',
+              value: [
+                "default-src 'self'",
+                "script-src 'self' 'unsafe-eval' 'unsafe-inline'", // Next.jsに必要
+                "style-src 'self' 'unsafe-inline'", // Tailwind CSSに必要
+                "img-src 'self' data: https://cdn.myanimelist.net",
+                "font-src 'self'",
+                "connect-src 'self' http://localhost:8080", // API接続用
+                "frame-ancestors 'none'", // X-Frame-Optionsと同等
+              ].join('; '),
+            },
+          ],
+        },
+      ]
+    },
+  }),
 }
 
 module.exports = nextConfig
