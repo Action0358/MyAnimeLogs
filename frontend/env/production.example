@@ -1,6 +1,6 @@
 # フロントエンド用の.env.production.example
 
 # Next.js 本番ビルド設定
-NEXT_PUBLIC_API_BASE_URL=http://localhost/api # 本番環境のバックエンドAPIのURLに置き換えてください
+NEXT_PUBLIC_API_URL=https://your-api-domain.com # 本番環境のバックエンドAPIのベースURL（/apiは自動追加）
 
 # その他の本番固有の環境変数をここに追加
