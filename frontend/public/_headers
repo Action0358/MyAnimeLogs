@@ -1,23 +1,10 @@
-# Cloudflare Pages用セキュリティヘッダー設定
-# 本番環境では静的エクスポートのため、Next.jsのheadersが機能しないため、
-# ホスティングプラットフォーム側でセキュリティヘッダーを設定
-
-# 重要: connect-src の 'self' を本番APIドメインに置き換えてください
-# 例: connect-src 'self' https://api.yourdomain.com
+# Netlify用セキュリティヘッダー設定（全環境対応）
+# ステージング環境と本番環境の両方のAPIドメインを許可
 
 /*
-  # クリックジャッキング対策
   X-Frame-Options: DENY
-  
-  # MIME タイプスニッフィング対策
   X-Content-Type-Options: nosniff
-  
-  # リファラーポリシー
   Referrer-Policy: strict-origin-when-cross-origin
-  
-  # Content Security Policy - XSS対策の主要な防御手段
-  # TODO: connect-src を本番APIドメインに置き換えてください
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://cdn.myanimelist.net; font-src 'self'; connect-src 'self' https://api.yourdomain.com; frame-ancestors 'none';
-  
-  # HTTPS強制（本番環境では推奨）
-  # Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
+  # 複数環境対応: ステージング、本番、その他のAPIドメインを許可
+  # セキュリティを保ちつつ、柔軟性を確保
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://cdn.myanimelist.net; font-src 'self'; connect-src 'self' https://myanimelogs-staging.fly.dev https://myanimelogs-production.fly.dev https://*.myanimelogs.com https://api.myanimelogs.com; frame-ancestors 'none';
