@@ -11,8 +11,8 @@ POSTGRES_DB=myanimelogs_test # テスト用DB名
 # JWTシークレット (テスト環境用)
 JWT_SECRET=test_jwt_secret
 
-# CORS設定 (テスト環境用)
-CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8080
+# CORS設定 (テスト/ステージング環境用)
+CORS_ALLOWED_ORIGINS=https://stg.myanimelogs.com,http://localhost:3000
 
 # その他のテスト固有の環境変数
 LOG_LEVEL=debug
