@@ -41,3 +41,6 @@ yarn-error.log*
 
 # Kiro configuration
 .kiro
+
+# Editor specific files
+.vscode/

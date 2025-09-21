@@ -1,0 +1,10 @@
+# Netlify用セキュリティヘッダー設定（本番環境）
+# 本番環境用のCSP設定
+
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  # 本番環境のAPIドメインを設定（実際のドメインに置き換えてください）
+  # 例: https://api.myanimelogs.com または https://myanimelogs-production.fly.dev
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://cdn.myanimelist.net; font-src 'self'; connect-src 'self' https://myanimelogs-production.fly.dev; frame-ancestors 'none';
