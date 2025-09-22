@@ -153,16 +153,16 @@ func (h *AnnictHandler) SyncEpisodes(c *gin.Context) {
 }
 
 // createSampleEpisodes creates sample episodes for an anime
-func (h *AnnictHandler) createSampleEpisodes(animeID int) ([]gin.H, error) {
+func (h *AnnictHandler) createSampleEpisodes(animeID int) ([]models.Episode, error) {
 	// This is a simplified implementation - in a real scenario, you'd fetch from Annict API
-	episodes := []gin.H{}
+	episodes := []models.Episode{}
 
 	// Create 12 sample episodes (typical for a season)
 	for i := 1; i <= 12; i++ {
-		episode := gin.H{
-			"anime_id":       animeID,
-			"episode_number": i,
-			"title":          fmt.Sprintf("第%d話", i),
+		episode := models.Episode{
+			AnimeID:       animeID,
+			EpisodeNumber: i,
+			Title:          fmt.Sprintf("第%d話", i),
 		}
 		episodes = append(episodes, episode)
 	}
