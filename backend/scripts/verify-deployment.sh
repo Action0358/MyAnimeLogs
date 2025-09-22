@@ -33,8 +33,9 @@ test_endpoint() {
     echo "URL: $url"
     
     response=$(curl -s -w "HTTPSTATUS:%{http_code}" "$url")
-    http_code=$(echo $response | tr -d '\n' | sed -e 's/.*HTTPSTATUS://')
-    body=$(echo $response | sed -e 's/HTTPSTATUS\:.*//g')
+    http_code=$(echo "$response" | tr -d '\n' | sed -e 's/.*HTTPSTATUS://')
+    body=$(echo "$response" | sed -e 's/HTTPSTATUS\:.*//g')
+
     
     if [ "$http_code" -eq "$expected_status" ]; then
         print_status "SUCCESS" "$description (HTTP $http_code)"
