@@ -2,6 +2,9 @@
 FROM golang:1.22-alpine AS builder
 WORKDIR /app
 
+# セキュリティアップデート
+RUN apk update && apk upgrade && apk add --no-cache git
+
 # モジュールファイルをコピーし、依存関係をダウンロード
 COPY go.mod go.sum ./
 RUN go mod download
@@ -11,16 +14,16 @@ COPY . .
 
 # アプリケーションを静的バイナリとしてビルド
 # バイナリサイズを削減するために-ldflagsを使用
-RUN CGO_ENABLED=0 go build -ldflags="-w -s" -o /app/main ./cmd/server
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /app/main ./cmd/server
 
 # --- Final Stage ---
 FROM alpine:3.20
 
+# セキュリティアップデートとca-certificatesをインストール
+RUN apk update && apk upgrade && apk --no-cache add ca-certificates tzdata curl
+
 # 非rootユーザーとグループを作成
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
-
-# HTTPSリクエスト用にca-certificatesをインストール
-RUN apk --no-cache add ca-certificates
 
 # 作業ディレクトリを設定
 WORKDIR /app
@@ -28,11 +31,24 @@ WORKDIR /app
 # ビルダー段階からコンパイル済みバイナリをコピーし、所有者を設定
 COPY --from=builder --chown=appuser:appgroup /app/main /app/main
 
+# マイグレーションスクリプトとファイルをコピー
+COPY --from=builder --chown=appuser:appgroup /app/scripts /app/scripts
+COPY --from=builder --chown=appuser:appgroup /app/migrations /app/migrations
+COPY --from=builder --chown=appuser:appgroup /app/go.mod /app/go.mod
+COPY --from=builder --chown=appuser:appgroup /app/go.sum /app/go.sum
+
+# バイナリに実行権限を付与
+RUN chmod +x /app/main
+
 # アプリが実行されるポートを公開
 EXPOSE 8080
 
 # 非rootユーザーに切り替え
 USER appuser
+
+# ヘルスチェック用のエンドポイントを確認
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:8080/health || exit 1
 
 # バイナリをエントリポイントとして設定
 CMD ["/app/main"]

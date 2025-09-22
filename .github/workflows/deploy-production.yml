@@ -5,7 +5,25 @@ on:
     branches: [main]
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Run backend tests
+        working-directory: ./backend
+        run: |
+          go mod download
+          go test -v ./...
+
   deploy-production:
+    needs: test
     runs-on: ubuntu-latest
     environment: production
     steps:
@@ -16,7 +34,20 @@ jobs:
         uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy to Fly.io Production
-        run: flyctl deploy -a myanimelogs-production
+        run: flyctl deploy -c fly.toml -a myanimelogs-production
         working-directory: ./backend
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_PRODUCTION }}
+
+      - name: Run database migrations on production
+        run: flyctl ssh console -c "cd /app && go run scripts/migrate.go" -a myanimelogs-production
+        working-directory: ./backend
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_PRODUCTION }}
+
+      - name: Verify deployment
+        run: |
+          sleep 30
+          chmod +x scripts/verify-deployment.sh
+          ./scripts/verify-deployment.sh production
+        working-directory: ./backend
