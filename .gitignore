@@ -26,7 +26,7 @@ yarn-error.log*
 
 # Environment Files
 .env.local
-.env.test
+.env.staging
 .env.production
 
 # Compiled binary

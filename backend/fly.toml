@@ -21,3 +21,21 @@ primary_region = 'nrt'
   memory = '1gb'
   cpu_kind = 'shared'
   cpus = 1
+
+[env]
+  ENVIRONMENT = "production"
+
+# Production specific settings
+[experimental]
+  auto_rollback = true
+
+# Health checks for production
+[checks]
+  [checks.health]
+    grace_period = "15s"
+    interval = "60s"
+    method = "GET"
+    path = "/health"
+    port = 8080
+    timeout = "10s"
+    type = "http"

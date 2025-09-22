@@ -73,22 +73,35 @@ verify-all:
 	@echo "Verifying all environments..."
 	./scripts/verify-deployment.sh all
 
+# Annict API specific verification
+verify-annict-staging:
+	@echo "Testing Annict API on staging..."
+	curl -s https://myanimelogs-staging.fly.dev/api/annict/works | jq .
+
+verify-annict-production:
+	@echo "Testing Annict API on production..."
+	curl -s https://myanimelogs-production.fly.dev/api/annict/works | jq .
+
+test-annict-local:
+	@echo "Testing Annict API locally..."
+	curl -s http://localhost:8080/api/annict/works | jq .
+
 # Fly.io deployment commands
 deploy-staging:
 	@echo "Deploying to staging..."
-	fly deploy -a myanimelogs-staging
+	fly deploy -c fly.staging.toml -a myanimelogs-staging
 
 deploy-production:
 	@echo "Deploying to production..."
-	fly deploy -a myanimelogs-production
+	fly deploy -c fly.toml -a myanimelogs-production
 
 start-staging:
 	@echo "Starting staging environment..."
-	fly scale count 1 -a myanimelogs-staging
+	fly scale count 1 -c fly.staging.toml -a myanimelogs-staging
 
 start-production:
 	@echo "Starting production environment..."
-	fly scale count 1 -a myanimelogs-production
+	fly scale count 1 -c fly.toml -a myanimelogs-production
 
 restart-staging:
 	@echo "Restarting staging environment..."
@@ -121,13 +134,16 @@ help:
 	@echo "  docker-run-prod   - Run Docker container with production environment"
 	@echo ""
 	@echo "Deployment commands:"
-	@echo "  verify-staging    - Verify staging environment"
-	@echo "  verify-production - Verify production environment"
-	@echo "  verify-all        - Verify all environments"
-	@echo "  deploy-staging    - Deploy to staging"
-	@echo "  deploy-production - Deploy to production"
-	@echo "  start-staging     - Start staging environment"
-	@echo "  start-production  - Start production environment"
-	@echo "  stop-staging      - Stop staging environment"
-	@echo "  stop-production   - Stop production environment"
-	@echo "  help              - Show this help message"
+	@echo "  verify-staging         - Verify staging environment"
+	@echo "  verify-production      - Verify production environment"
+	@echo "  verify-all             - Verify all environments"
+	@echo "  verify-annict-staging  - Test Annict API on staging"
+	@echo "  verify-annict-production - Test Annict API on production"
+	@echo "  test-annict-local      - Test Annict API locally"
+	@echo "  deploy-staging         - Deploy to staging"
+	@echo "  deploy-production      - Deploy to production"
+	@echo "  start-staging          - Start staging environment"
+	@echo "  start-production       - Start production environment"
+	@echo "  stop-staging           - Stop staging environment"
+	@echo "  stop-production        - Stop production environment"
+	@echo "  help                   - Show this help message"
