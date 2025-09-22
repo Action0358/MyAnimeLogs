@@ -52,10 +52,8 @@ func main() {
 	}
 	defer db.Close()
 
-	// Run migrations
-	if err := database.Migrate(db); err != nil {
-		log.Fatal("Failed to run migrations:", err)
-	}
+	// Note: Migrations are now handled by scripts/migrate.go
+	// Run 'make migrate' or 'go run scripts/migrate.go' before starting the server
 
 	// Setup router
 	r := router.Setup(db, cfg)
