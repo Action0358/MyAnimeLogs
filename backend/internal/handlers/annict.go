@@ -3,7 +3,6 @@ package handlers
 import (
 	"fmt"
 	"log"
-	"myanimelogs/internal/models"
 	"myanimelogs/internal/services"
 	"net/http"
 	"strconv"

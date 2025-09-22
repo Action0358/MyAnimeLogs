@@ -34,7 +34,7 @@ jobs:
         uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy to Fly.io Production
-        run: flyctl deploy -c fly.toml -a myanimelogs-production --wait-timeout 5m0s
+        run: flyctl deploy -c fly.toml -a myanimelogs-production
         working-directory: ./backend
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_PRODUCTION }}
