@@ -5,16 +5,17 @@ import (
 	"log"
 	"myanimelogs/internal/services"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
 )
 
 type AnnictHandler struct {
-	annictService services.AnnictService
+	annictService *services.AnnictClient
 }
 
-func NewAnnictHandler(annictService services.AnnictService) *AnnictHandler {
+func NewAnnictHandler(annictService *services.AnnictClient) *AnnictHandler {
 	return &AnnictHandler{
 		annictService: annictService,
 	}
@@ -49,7 +50,7 @@ func getCurrentSeason() string {
 
 	var season string
 	switch {
-case month >= time.January && month <= time.March:
+	case month >= time.January && month <= time.March:
 		season = "winter"
 	case month >= time.April && month <= time.June:
 		season = "spring"
@@ -88,4 +89,83 @@ func (h *AnnictHandler) TestConnection(c *gin.Context) {
 		"status":  "success",
 		"message": "Annict API connection successful",
 	})
+}
+
+// SyncWorksBySeason syncs anime works by season to database
+func (h *AnnictHandler) SyncWorksBySeason(c *gin.Context) {
+	season := c.Query("season")
+	if season == "" {
+		season = getCurrentSeason()
+	}
+
+	animes, err := h.annictService.FetchAndSyncWorksBySeason(season)
+	if err != nil {
+		log.Printf("Failed to sync works by season: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to sync anime works by season"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"message": fmt.Sprintf("Successfully synced %d anime works for season %s", len(animes), season),
+		"data":    animes,
+	})
+}
+
+// SyncPopularWorks syncs popular anime works to database
+func (h *AnnictHandler) SyncPopularWorks(c *gin.Context) {
+	animes, err := h.annictService.FetchAndSyncPopularWorks()
+	if err != nil {
+		log.Printf("Failed to sync popular works: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to sync popular anime works"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"message": fmt.Sprintf("Successfully synced %d popular anime works", len(animes)),
+		"data":    animes,
+	})
+}
+
+// SyncEpisodes syncs episodes for a specific anime
+func (h *AnnictHandler) SyncEpisodes(c *gin.Context) {
+	animeIDStr := c.Param("anime_id")
+	animeID, err := strconv.Atoi(animeIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid anime ID"})
+		return
+	}
+
+	// For now, create sample episodes since Annict API doesn't provide episode details in the basic endpoint
+	episodes, err := h.createSampleEpisodes(animeID)
+	if err != nil {
+		log.Printf("Failed to create sample episodes: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create episodes"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "success",
+		"message": fmt.Sprintf("Successfully created %d episodes for anime %d", len(episodes), animeID),
+		"data":    episodes,
+	})
+}
+
+// createSampleEpisodes creates sample episodes for an anime
+func (h *AnnictHandler) createSampleEpisodes(animeID int) ([]gin.H, error) {
+	// This is a simplified implementation - in a real scenario, you'd fetch from Annict API
+	episodes := []gin.H{}
+
+	// Create 12 sample episodes (typical for a season)
+	for i := 1; i <= 12; i++ {
+		episode := gin.H{
+			"anime_id":       animeID,
+			"episode_number": i,
+			"title":          fmt.Sprintf("第%d話", i),
+		}
+		episodes = append(episodes, episode)
+	}
+
+	return episodes, nil
 }

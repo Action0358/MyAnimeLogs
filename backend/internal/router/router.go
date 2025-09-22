@@ -3,12 +3,13 @@ package router
 import (
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"myanimelogs/internal/config"
 	"myanimelogs/internal/database"
 	"myanimelogs/internal/handlers"
 	"myanimelogs/internal/middleware"
 	"myanimelogs/internal/services"
+
+	"github.com/gin-gonic/gin"
 )
 
 func Setup(db *database.DB, cfg *config.Config) *gin.Engine {
@@ -21,7 +22,7 @@ func Setup(db *database.DB, cfg *config.Config) *gin.Engine {
 
 	// Middleware
 	r.Use(middleware.CORSMiddleware())
-	
+
 	// Rate limiting
 	rateLimiter := middleware.NewRateLimiter(cfg.RateLimit, time.Second)
 	r.Use(middleware.RateLimitMiddleware(rateLimiter))
@@ -29,7 +30,7 @@ func Setup(db *database.DB, cfg *config.Config) *gin.Engine {
 	// Services
 	authService := services.NewAuthService(db, cfg.JWTSecret)
 	animeService := services.NewAnimeService(db)
-	annictService := services.NewAnnictClient(cfg.AnnictAPIKey) // Annictサービスを初期化
+	annictService := services.NewAnnictClientWithDB(cfg.AnnictAPIKey, db) // Annictサービスを初期化
 
 	// Handlers
 	authHandler := handlers.NewAuthHandler(authService)
@@ -59,7 +60,7 @@ func Setup(db *database.DB, cfg *config.Config) *gin.Engine {
 		// Public routes (no authentication required)
 		api.POST("/register", authHandler.Register)
 		api.POST("/login", authHandler.Login)
-		
+
 		// Anime routes (optional authentication)
 		api.GET("/animes", middleware.OptionalAuthMiddleware(cfg.JWTSecret), animeHandler.GetAnimes)
 		api.GET("/animes/:id", middleware.OptionalAuthMiddleware(cfg.JWTSecret), animeHandler.GetAnime)
@@ -69,6 +70,13 @@ func Setup(db *database.DB, cfg *config.Config) *gin.Engine {
 		// Annict routes
 		api.GET("/annict/works", annictHandler.GetWorksBySeason)
 		api.GET("/annict/popular-works", annictHandler.GetPopularWorks)
+
+		// Admin routes for data synchronization (should be protected in production)
+		admin := api.Group("/admin")
+		{
+			admin.POST("/sync/season", annictHandler.SyncWorksBySeason)
+			admin.POST("/sync/popular", annictHandler.SyncPopularWorks)
+		}
 
 		// Protected routes (authentication required)
 		protected := api.Group("/")
