@@ -46,23 +46,12 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_STAGING }}
 
-      - name: Start staging VM and run migrations
+      - name: Wait for staging deployment to be ready
         run: |
-          echo "Getting machine ID..."
-          MACHINE_ID=$(flyctl machine list -a myanimelogs-staging --json | jq -r '.[0].id')
-          echo "Machine ID: $MACHINE_ID"
-          
-          echo "Starting staging VM..."
-          flyctl machine start $MACHINE_ID -a myanimelogs-staging
-          
-          echo "Waiting for VM to be ready..."
-          sleep 30
-          
-          echo "Running database migrations..."
-          flyctl ssh console -c "cd /app && ./migrate" -a myanimelogs-staging
+          echo "Waiting for deployment to be ready..."
+          sleep 60
+          echo "Deployment should be ready. Migrations run automatically on startup."
         working-directory: ./backend
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_STAGING }}
 
       - name: Verify deployment
         run: |
