@@ -1,0 +1,41 @@
+# fly.toml app configuration file for staging environment
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'myanimelogs-staging'
+primary_region = 'nrt'
+
+[build]
+  dockerfile = 'Dockerfile.prod'
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = 'suspend'
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ['app']
+
+[[vm]]
+  memory = '512mb'
+  cpu_kind = 'shared'
+  cpus = 1
+
+[env]
+  ENVIRONMENT = "staging"
+
+# Staging specific settings
+[experimental]
+  auto_rollback = true
+
+# Health checks for staging
+[checks]
+  [checks.health]
+    grace_period = "10s"
+    interval = "30s"
+    method = "GET"
+    path = "/health"
+    port = 8080
+    timeout = "5s"
+    type = "http"

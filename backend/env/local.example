@@ -1,26 +1,25 @@
-# データベース設定
-DATABASE_URL=postgresql://postgres:password@localhost:5432/myanimelogs
-
-# JWT設定
-JWT_SECRET=your-256-bit-secret-key-here-make-it-long-and-random
-JWT_EXPIRATION=24h
-
-# 外部API
-ANNICT_API_KEY=your-annict-api-key
-
-# キャッシュ設定（オプション）
-REDIS_URL=redis://localhost:6379
-
-# サーバー設定
-PORT=8080
-ENVIRONMENT=development
-RATE_LIMIT=5
-
-# pgAdmin設定（Docker Compose用）
-PGADMIN_DEFAULT_EMAIL=admin@myanimelogs.com
-PGADMIN_DEFAULT_PASSWORD=admin123
-
-# PostgreSQL設定（Docker Compose用）
+# PostgreSQL
 POSTGRES_DB=myanimelogs
-POSTGRES_USER=postgres
+POSTGRES_USER=user
 POSTGRES_PASSWORD=password
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+
+# pgAdmin
+PGADMIN_DEFAULT_EMAIL=admin@example.com
+PGADMIN_DEFAULT_PASSWORD=admin
+
+# Application
+PORT=8080
+GIN_MODE=debug
+ENVIRONMENT=development
+RATE_LIMIT=100
+
+# JWT Secret - WARNING: Change this in production!
+JWT_SECRET=super-secret-key-change-me
+
+# Annict API
+ANNICT_API_KEY=your-annict-api-key-here
+
+# Cache
+REDIS_URL=redis://localhost:6379

@@ -1,6 +1,18 @@
-# フロントエンド用の.env.production.example
+# Next.js 本番環境設定
 
-# Next.js 本番ビルド設定
-NEXT_PUBLIC_API_URL=https://your-api-domain.com # 本番環境のバックエンドAPIのベースURL（/apiは自動追加）
+# 環境
+NODE_ENV=production
 
-# その他の本番固有の環境変数をここに追加
+# API設定
+# 注意: /apiは含めない（コード内で自動的に追加される）
+NEXT_PUBLIC_API_URL=https://myanimelogs-production.fly.dev
+NEXT_PUBLIC_FRONTEND_URL=https://myanimelogs.com
+
+# 機能フラグ
+NEXT_PUBLIC_ENABLE_MSW=false
+NEXT_PUBLIC_ENABLE_DEBUG=false
+NEXT_PUBLIC_ENABLE_ANALYTICS=true
+
+# 最適化設定
+NEXT_TELEMETRY_DISABLED=1
+GENERATE_SOURCEMAP=false

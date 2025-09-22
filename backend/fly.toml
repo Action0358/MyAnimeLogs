@@ -12,12 +12,30 @@ primary_region = 'nrt'
 [http_service]
   internal_port = 8080
   force_https = true
-  auto_stop_machines = 'stop'
+  auto_stop_machines = 'suspend'
   auto_start_machines = true
-  min_machines_running = 0
+  min_machines_running = 1
   processes = ['app']
 
 [[vm]]
   memory = '1gb'
   cpu_kind = 'shared'
   cpus = 1
+
+[env]
+  ENVIRONMENT = "production"
+
+# Production specific settings
+[experimental]
+  auto_rollback = true
+
+# Health checks for production
+[checks]
+  [checks.health]
+    grace_period = "15s"
+    interval = "60s"
+    method = "GET"
+    path = "/health"
+    port = 8080
+    timeout = "10s"
+    type = "http"

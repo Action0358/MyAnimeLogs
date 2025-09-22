@@ -2,10 +2,29 @@ name: Deploy to Staging
 
 on:
   push:
-    branches: [ staging ]
+    branches: [staging]
+  # プルリクエストでは実行しない（mainブランチへのPRでステージングデプロイを防ぐ）
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Run backend tests
+        working-directory: ./backend
+        run: |
+          go mod download
+          go test -v ./...
+
   deploy-staging:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -15,7 +34,29 @@ jobs:
         uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy to Fly.io Staging
-        run: flyctl deploy -a myanimelogs-staging
+        run: flyctl deploy -c fly.staging.toml -a myanimelogs-staging
         working-directory: ./backend
         env:
-                        FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_STAGING }}
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_STAGING }}
+
+      - name: Get Fly.io App Logs for Debugging
+        run: |
+          echo "Getting recent logs..."
+          timeout 10s flyctl logs -a myanimelogs-staging --no-tail || echo "Log fetch completed or timed out"
+        working-directory: ./backend
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_STAGING }}
+
+      - name: Wait for staging deployment to be ready
+        run: |
+          echo "Waiting for deployment to be ready..."
+          sleep 60
+          echo "Deployment should be ready. Migrations run automatically on startup."
+        working-directory: ./backend
+
+      - name: Verify deployment
+        run: |
+          sleep 30
+          chmod +x scripts/verify-deployment.sh
+          ./scripts/verify-deployment.sh staging
+        working-directory: ./backend
