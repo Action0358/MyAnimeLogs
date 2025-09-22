@@ -113,9 +113,8 @@ func executeMigrationWithTransaction(db *database.DB, filename, migrationsDir st
 	}
 
 	// Commit transaction
-	err = tx.Commit()
-	if err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
+	if commitErr := tx.Commit(); commitErr != nil {
+		return fmt.Errorf("failed to commit transaction: %w", commitErr)
 	}
 
 	fmt.Printf("Migration %s executed successfully\n", filename)

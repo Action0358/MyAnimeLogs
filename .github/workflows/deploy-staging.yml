@@ -39,7 +39,7 @@ jobs:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_STAGING }}
 
       - name: Run database migrations on staging
-        run: flyctl ssh console -c "cd /app && go run scripts/migrate.go" -a myanimelogs-staging
+        run: flyctl ssh console -c "cd /app && ./migrate" -a myanimelogs-staging
         working-directory: ./backend
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_STAGING }}
