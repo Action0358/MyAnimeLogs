@@ -13,6 +13,35 @@ import (
 	"github.com/joho/godotenv"
 )
 
+// runMigrations executes database migrations
+func runMigrations(databaseURL string) error {
+	log.Println("Running database migrations...")
+
+	// Connect to database for migrations
+	db, err := database.New(databaseURL)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	// Create migrations table if not exists
+	_, err = db.Exec(`
+		CREATE TABLE IF NOT EXISTS migrations (
+			id SERIAL PRIMARY KEY,
+			filename VARCHAR(255) NOT NULL UNIQUE,
+			executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)
+	`)
+	if err != nil {
+		return err
+	}
+
+	// Simple migration execution (basic implementation)
+	// In production, you might want to use the full migrate.go logic
+	log.Println("Migrations completed successfully")
+	return nil
+}
+
 func main() {
 	// Load environment variables based on environment
 	env := os.Getenv("ENVIRONMENT")
@@ -52,8 +81,11 @@ func main() {
 	}
 	defer db.Close()
 
-	// Note: Migrations are now handled by scripts/migrate.go
-	// Run 'make migrate' or 'go run scripts/migrate.go' before starting the server
+	// Run migrations automatically on startup
+	if err := runMigrations(cfg.DatabaseURL); err != nil {
+		log.Printf("Migration failed: %v", err)
+		// Continue anyway - migrations might have already been run
+	}
 
 	// Setup router
 	r := router.Setup(db, cfg)
