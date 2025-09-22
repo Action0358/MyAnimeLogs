@@ -1,8 +1,5 @@
 -- Create user_favorites table
--- Drop existing table if it exists to avoid conflicts
-DROP TABLE IF EXISTS user_favorites CASCADE;
-
-CREATE TABLE user_favorites (
+CREATE TABLE IF NOT EXISTS user_favorites (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     anime_id INTEGER NOT NULL REFERENCES animes(id) ON DELETE CASCADE,
@@ -19,6 +16,7 @@ CREATE INDEX IF NOT EXISTS idx_user_favorites_user_id ON user_favorites(user_id)
 CREATE INDEX IF NOT EXISTS idx_user_favorites_anime_id ON user_favorites(anime_id);
 CREATE INDEX IF NOT EXISTS idx_user_favorites_status ON user_favorites(status);
 
--- Create trigger for updated_at (reuse function from animes table)
+-- Create trigger for updated_at (reuse function from users table)
+DROP TRIGGER IF EXISTS update_user_favorites_updated_at ON user_favorites;
 CREATE TRIGGER update_user_favorites_updated_at BEFORE UPDATE ON user_favorites
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

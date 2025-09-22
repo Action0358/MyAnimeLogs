@@ -2,8 +2,8 @@
 FROM golang:1.22-alpine AS builder
 WORKDIR /app
 
-# セキュリティアップデート
-RUN apk update && apk upgrade && apk add --no-cache git
+# 必要なパッケージのみインストール（アップデートをスキップして安定性を優先）
+RUN apk add --no-cache git
 
 # モジュールファイルをコピーし、依存関係をダウンロード
 COPY go.mod go.sum ./
@@ -16,11 +16,14 @@ COPY . .
 # バイナリサイズを削減するために-ldflagsを使用
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /app/main ./cmd/server
 
-# --- Final Stage ---
-FROM alpine:3.20
+# マイグレーションスクリプトも静的バイナリとしてビルド
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /app/migrate ./scripts/migrate.go
 
-# セキュリティアップデートとca-certificatesをインストール
-RUN apk update && apk upgrade && apk --no-cache add ca-certificates tzdata curl
+# --- Final Stage ---
+FROM alpine:3.19
+
+# 必要なパッケージのみインストール（安定版のAlpineを使用）
+RUN apk add --no-cache ca-certificates tzdata curl
 
 # 非rootユーザーとグループを作成
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
@@ -30,15 +33,13 @@ WORKDIR /app
 
 # ビルダー段階からコンパイル済みバイナリをコピーし、所有者を設定
 COPY --from=builder --chown=appuser:appgroup /app/main /app/main
+COPY --from=builder --chown=appuser:appgroup /app/migrate /app/migrate
 
-# マイグレーションスクリプトとファイルをコピー
-COPY --from=builder --chown=appuser:appgroup /app/scripts /app/scripts
+# マイグレーションファイルをコピー
 COPY --from=builder --chown=appuser:appgroup /app/migrations /app/migrations
-COPY --from=builder --chown=appuser:appgroup /app/go.mod /app/go.mod
-COPY --from=builder --chown=appuser:appgroup /app/go.sum /app/go.sum
 
 # バイナリに実行権限を付与
-RUN chmod +x /app/main
+RUN chmod +x /app/main /app/migrate
 
 # アプリが実行されるポートを公開
 EXPOSE 8080
