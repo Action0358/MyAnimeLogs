@@ -32,6 +32,7 @@ func (h *AnnictHandler) GetWorksBySeason(c *gin.Context) {
 		season = getCurrentSeason()
 	}
 
+	var works *models.AnnictWorkResponse // 明示的な型宣言
 	works, err := h.annictService.FetchWorksBySeason(season)
 	if err != nil {
 		log.Printf("Failed to fetch works by season: %v", err)
@@ -66,6 +67,7 @@ func getCurrentSeason() string {
 
 // GetPopularWorks handles requests to get popular anime works.
 func (h *AnnictHandler) GetPopularWorks(c *gin.Context) {
+	var works *models.AnnictWorkResponse // 明示的な型宣言
 	works, err := h.annictService.FetchPopularWorks()
 	if err != nil {
 		log.Printf("Failed to fetch popular works: %v", err)
