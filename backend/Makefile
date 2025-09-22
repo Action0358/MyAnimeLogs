@@ -54,7 +54,11 @@ docker-build:
 
 docker-run:
 	@echo "Running Docker container..."
-	docker run -p 8080:8080 myanimelogs-backend
+	docker run -p 8080:8080 --env-file .env.local myanimelogs-backend
+
+docker-run-prod:
+	@echo "Running Docker container with production environment..."
+	docker run -p 8080:8080 --env-file .env.production myanimelogs-backend
 
 # Deployment verification commands
 verify-staging:
@@ -112,6 +116,9 @@ help:
 	@echo "  dev               - Start development server with hot reload"
 	@echo "  test              - Run tests"
 	@echo "  clean             - Clean build artifacts"
+	@echo "  docker-build      - Build Docker image"
+	@echo "  docker-run        - Run Docker container with local environment"
+	@echo "  docker-run-prod   - Run Docker container with production environment"
 	@echo ""
 	@echo "Deployment commands:"
 	@echo "  verify-staging    - Verify staging environment"

@@ -71,8 +71,9 @@ func Setup(db *database.DB, cfg *config.Config) *gin.Engine {
 		api.GET("/annict/works", annictHandler.GetWorksBySeason)
 		api.GET("/annict/popular-works", annictHandler.GetPopularWorks)
 
-		// Admin routes for data synchronization (should be protected in production)
+		// Admin routes for data synchronization (protected with authentication)
 		admin := api.Group("/admin")
+		admin.Use(middleware.AuthMiddleware(cfg.JWTSecret))
 		{
 			admin.POST("/sync/season", annictHandler.SyncWorksBySeason)
 			admin.POST("/sync/popular", annictHandler.SyncPopularWorks)

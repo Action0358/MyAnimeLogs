@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -37,7 +37,7 @@ func main() {
 
 	// Get migration files
 	migrationsDir := "migrations"
-	files, err := ioutil.ReadDir(migrationsDir)
+	files, err := os.ReadDir(migrationsDir)
 	if err != nil {
 		log.Fatalf("Failed to read migrations directory: %v", err)
 	}
@@ -67,7 +67,7 @@ func main() {
 
 		// Read migration file
 		filePath := filepath.Join(migrationsDir, filename)
-		content, err := ioutil.ReadFile(filePath)
+		content, err := os.ReadFile(filePath)
 		if err != nil {
 			log.Fatalf("Failed to read migration file %s: %v", filename, err)
 		}
