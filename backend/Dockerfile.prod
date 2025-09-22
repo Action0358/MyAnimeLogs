@@ -17,7 +17,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /app/main ./cmd/server
 
 # --- Final Stage ---
-FROM golang:1.22-alpine
+FROM alpine:3.20
 
 # セキュリティアップデートとca-certificatesをインストール
 RUN apk update && apk upgrade && apk --no-cache add ca-certificates tzdata curl
