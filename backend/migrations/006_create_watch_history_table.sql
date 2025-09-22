@@ -1,8 +1,5 @@
 -- Create watch_history table
--- Drop existing table if it exists to avoid conflicts
-DROP TABLE IF EXISTS watch_history CASCADE;
-
-CREATE TABLE watch_history (
+CREATE TABLE IF NOT EXISTS watch_history (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     episode_id INTEGER NOT NULL REFERENCES episodes(id) ON DELETE CASCADE,

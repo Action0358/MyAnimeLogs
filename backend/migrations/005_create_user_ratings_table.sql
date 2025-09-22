@@ -1,8 +1,5 @@
 -- Create user_ratings table
--- Drop existing table if it exists to avoid conflicts
-DROP TABLE IF EXISTS user_ratings CASCADE;
-
-CREATE TABLE user_ratings (
+CREATE TABLE IF NOT EXISTS user_ratings (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     anime_id INTEGER NOT NULL REFERENCES animes(id) ON DELETE CASCADE,
@@ -20,6 +17,7 @@ CREATE INDEX IF NOT EXISTS idx_user_ratings_user_id ON user_ratings(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_ratings_anime_id ON user_ratings(anime_id);
 CREATE INDEX IF NOT EXISTS idx_user_ratings_rating ON user_ratings(rating);
 
--- Create trigger for updated_at (reuse function from animes table)
+-- Create trigger for updated_at (reuse function from users table)
+DROP TRIGGER IF EXISTS update_user_ratings_updated_at ON user_ratings;
 CREATE TRIGGER update_user_ratings_updated_at BEFORE UPDATE ON user_ratings
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

@@ -1,8 +1,5 @@
 -- Create anime_genres table
--- Drop existing table if it exists to avoid conflicts
-DROP TABLE IF EXISTS anime_genres CASCADE;
-
-CREATE TABLE anime_genres (
+CREATE TABLE IF NOT EXISTS anime_genres (
     id SERIAL PRIMARY KEY,
     anime_id INTEGER NOT NULL REFERENCES animes(id) ON DELETE CASCADE,
     genre VARCHAR(100) NOT NULL

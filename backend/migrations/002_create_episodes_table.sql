@@ -1,8 +1,5 @@
 -- Create episodes table
--- Drop existing table if it exists to avoid conflicts
-DROP TABLE IF EXISTS episodes CASCADE;
-
-CREATE TABLE episodes (
+CREATE TABLE IF NOT EXISTS episodes (
     id SERIAL PRIMARY KEY,
     anime_id INTEGER NOT NULL REFERENCES animes(id) ON DELETE CASCADE,
     title VARCHAR(255) NOT NULL,
@@ -24,6 +21,7 @@ CREATE INDEX IF NOT EXISTS idx_episodes_episode_number ON episodes(episode_numbe
 CREATE INDEX IF NOT EXISTS idx_episodes_air_date ON episodes(air_date);
 CREATE INDEX IF NOT EXISTS idx_episodes_annict_id ON episodes(annict_id);
 
--- Create trigger for updated_at (reuse function from animes table)
+-- Create trigger for updated_at (reuse function from users table)
+DROP TRIGGER IF EXISTS update_episodes_updated_at ON episodes;
 CREATE TRIGGER update_episodes_updated_at BEFORE UPDATE ON episodes
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
