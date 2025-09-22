@@ -34,13 +34,31 @@ jobs:
         uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy to Fly.io Production
-        run: flyctl deploy -c fly.toml -a myanimelogs-production --wait-timeout 5m0s
+        run: flyctl deploy -c fly.toml -a myanimelogs-production
         working-directory: ./backend
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_PRODUCTION }}
 
-      - name: Run database migrations on production
-        run: flyctl ssh console -c "cd /app && ./migrate" -a myanimelogs-production
+      - name: Get Fly.io App Logs for Debugging
+        run: flyctl logs -a myanimelogs-production --last 100
+        working-directory: ./backend
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_PRODUCTION }}
+
+      - name: Start production VM and run migrations
+        run: |
+          echo "Getting machine ID..."
+          MACHINE_ID=$(flyctl machine list -a myanimelogs-production --json | jq -r '.[0].id')
+          echo "Machine ID: $MACHINE_ID"
+
+          echo "Starting production VM..."
+          flyctl machine start $MACHINE_ID -a myanimelogs-production
+
+          echo "Waiting for VM to be ready..."
+          sleep 30
+
+          echo "Running database migrations..."
+          flyctl ssh console -c "cd /app && ./migrate" -a myanimelogs-production
         working-directory: ./backend
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_PRODUCTION }}
