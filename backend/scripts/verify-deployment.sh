@@ -89,6 +89,7 @@ verify_annict_api() {
 verify_environment() {
     local env_name=$1
     local base_url=$2
+    local frontend_origin=$3
     
     print_status "INFO" "Verifying $env_name Environment: $base_url"
     echo "=================================================="
@@ -117,11 +118,21 @@ verify_environment() {
     
     # Test CORS headers
     echo "Testing CORS headers..."
-    cors_response=$(curl -s -I -H "Origin: https://stg.myanimelogs.com" "$base_url/health")
+    
+    # Test primary frontend origin
+    cors_response=$(curl -s -I -H "Origin: $frontend_origin" "$base_url/health")
     if echo "$cors_response" | grep -q "access-control-allow-origin"; then
-        print_status "SUCCESS" "CORS headers present"
+        print_status "SUCCESS" "CORS headers present for origin: $frontend_origin"
     else
-        print_status "ERROR" "CORS headers missing"
+        print_status "ERROR" "CORS headers missing for origin: $frontend_origin"
+    fi
+    
+    # Test localhost origin (for development)
+    cors_response_localhost=$(curl -s -I -H "Origin: http://localhost:3000" "$base_url/health")
+    if echo "$cors_response_localhost" | grep -q "access-control-allow-origin"; then
+        print_status "SUCCESS" "CORS headers present for localhost development"
+    else
+        print_status "INFO" "CORS headers not configured for localhost (expected in production)"
     fi
     echo "---"
     
@@ -144,12 +155,12 @@ main() {
     
     # Verify staging environment
     if [ "${1:-all}" = "staging" ] || [ "${1:-all}" = "all" ]; then
-        verify_environment "STAGING" "https://myanimelogs-staging.fly.dev"
+        verify_environment "STAGING" "https://myanimelogs-staging.fly.dev" "https://stg.myanimelogs.com"
     fi
     
     # Verify production environment
     if [ "${1:-all}" = "production" ] || [ "${1:-all}" = "all" ]; then
-        verify_environment "PRODUCTION" "https://myanimelogs-production.fly.dev"
+        verify_environment "PRODUCTION" "https://myanimelogs-production.fly.dev" "https://myanimelogs.com"
     fi
     
     print_status "INFO" "Verification completed!"
@@ -164,6 +175,12 @@ show_help() {
     echo "  production  Verify only production environment"
     echo "  all         Verify both environments (default)"
     echo "  help        Show this help message"
+    echo ""
+    echo "This script verifies:"
+    echo "  - API endpoint functionality"
+    echo "  - Annict API integration"
+    echo "  - CORS configuration for appropriate origins"
+    echo "  - Health checks and response structure"
     echo ""
     echo "Examples:"
     echo "  $0                    # Verify both environments"
