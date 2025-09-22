@@ -1,7 +1,40 @@
-# frontend/.env.local.example
-# フロントエンド用の.env.local.example
+# ========================
+# Next.js アプリケーション設定
+# ========================
 
-# Next.js ローカル開発設定
-NEXT_PUBLIC_API_URL=http://localhost:8080 # ローカルバックエンドAPIのベースURL（/apiは自動追加）
+# 環境
+NODE_ENV=development
 
-# その他のローカル開発固有の環境変数をここに追加
+# ========================
+# ホットリロード最適化
+# ========================
+CHOKIDAR_USEPOLLING=true
+CHOKIDAR_INTERVAL=1000
+FAST_REFRESH=true
+WDS_SOCKET_PORT=0
+
+# ========================
+# API設定
+# ========================
+# パブリック環境変数（ブラウザで利用可能）
+# 注意: /apiは含めない（コード内で自動的に追加される）
+NEXT_PUBLIC_API_URL=http://localhost:8080
+NEXT_PUBLIC_FRONTEND_URL=http://localhost:3000
+
+# サーバーサイド専用環境変数
+API_BASE_URL=http://backend:8080
+
+# ========================
+# 機能フラグ
+# ========================
+NEXT_PUBLIC_ENABLE_MSW=false
+NEXT_PUBLIC_ENABLE_DEBUG=true
+NEXT_PUBLIC_ENABLE_ANALYTICS=false
+
+# ========================
+# 開発最適化
+# ========================
+NEXT_TELEMETRY_DISABLED=1
+GENERATE_SOURCEMAP=true
+NEXT_TYPESCRIPT_IGNORE_BUILD_ERRORS=false
+NEXT_ESLINT_IGNORE_BUILD_ERRORS=false
