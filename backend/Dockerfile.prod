@@ -31,6 +31,12 @@ WORKDIR /app
 # ビルダー段階からコンパイル済みバイナリをコピーし、所有者を設定
 COPY --from=builder --chown=appuser:appgroup /app/main /app/main
 
+# マイグレーションスクリプトとファイルをコピー
+COPY --from=builder --chown=appuser:appgroup /app/scripts /app/scripts
+COPY --from=builder --chown=appuser:appgroup /app/migrations /app/migrations
+COPY --from=builder --chown=appuser:appgroup /app/go.mod /app/go.mod
+COPY --from=builder --chown=appuser:appgroup /app/go.sum /app/go.sum
+
 # バイナリに実行権限を付与
 RUN chmod +x /app/main
 

@@ -38,9 +38,16 @@ cp .env.example .env.production
 # Docker Composeでデータベース起動
 docker compose up -d postgres
 
-# マイグレーション実行（アプリ起動時に自動実行）
+# マイグレーション実行（必須）
+make migrate
+# または
+go run scripts/migrate.go
+
+# アプリケーション起動
 go run cmd/server/main.go
 ```
+
+⚠️ **重要**: アプリケーション起動前に必ずマイグレーションを実行してください。
 
 ### 4. アプリケーション起動
 
@@ -75,15 +82,30 @@ cd ../api-tests
 
 ### マイグレーション
 
-アプリケーション起動時に自動実行：
-- users テーブル
-- animes テーブル  
-- episodes テーブル
-- user_favorites テーブル
-- watch_statuses テーブル
-- user_ratings テーブル
-- watch_history テーブル
-- anime_genres テーブル
+ファイルベースのマイグレーションシステムを使用：
+
+```bash
+# マイグレーション実行
+make migrate
+
+# 手動実行
+go run scripts/migrate.go
+```
+
+**マイグレーションファイル**:
+- `000_create_users_table.sql` - ユーザーテーブル
+- `001_create_animes_table.sql` - アニメテーブル  
+- `002_create_episodes_table.sql` - エピソードテーブル
+- `003_create_user_favorites_table.sql` - お気に入りテーブル
+- `004_create_watch_statuses_table.sql` - 視聴状況テーブル
+- `005_create_user_ratings_table.sql` - 評価テーブル
+- `006_create_watch_history_table.sql` - 視聴履歴テーブル
+- `007_create_anime_genres_table.sql` - ジャンルテーブル
+
+**特徴**:
+- 実行済みマイグレーションの追跡
+- 冪等性（重複実行安全）
+- バージョン管理対応
 
 ## 🔐 セキュリティ
 
