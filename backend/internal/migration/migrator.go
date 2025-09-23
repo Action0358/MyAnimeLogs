@@ -123,8 +123,8 @@ func (m *Migrator) executeMigration(filename string) (bool, error) {
 	if count > 0 {
 		log.Printf("Migration %s already executed, skipping...", filename)
 		// Commit the transaction (even though no changes were made)
-		if commitErr := tx.Commit(); commitErr != nil {
-			return false, fmt.Errorf("failed to commit transaction: %w", commitErr)
+		if err = tx.Commit(); err != nil {
+			return false, fmt.Errorf("failed to commit transaction: %w", err)
 		}
 		return false, nil
 	}
@@ -155,8 +155,8 @@ func (m *Migrator) executeMigration(filename string) (bool, error) {
 	}
 
 	// Commit transaction
-	if commitErr := tx.Commit(); commitErr != nil {
-		return false, fmt.Errorf("failed to commit transaction for %s: %w", filename, commitErr)
+	if err = tx.Commit(); err != nil {
+		return false, fmt.Errorf("failed to commit transaction for %s: %w", filename, err)
 	}
 
 	log.Printf("Migration %s executed successfully", filename)
