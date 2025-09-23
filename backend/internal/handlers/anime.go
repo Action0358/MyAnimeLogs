@@ -4,17 +4,20 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/gin-gonic/gin"
 	"myanimelogs/internal/models"
 	"myanimelogs/internal/services"
+
+	"github.com/gin-gonic/gin"
 )
 
 type AnimeHandler struct {
+	*BaseHandler
 	animeService *services.AnimeService
 }
 
 func NewAnimeHandler(animeService *services.AnimeService) *AnimeHandler {
 	return &AnimeHandler{
+		BaseHandler:  NewBaseHandler(),
 		animeService: animeService,
 	}
 }
@@ -22,21 +25,12 @@ func NewAnimeHandler(animeService *services.AnimeService) *AnimeHandler {
 func (h *AnimeHandler) GetAnimes(c *gin.Context) {
 	var params models.AnimeSearchParams
 	if err := c.ShouldBindQuery(&params); err != nil {
-		c.JSON(http.StatusBadRequest, models.ErrorResponse{
-			Error:   models.ErrMsgValidation,
-			Message: err.Error(),
-			Code:    models.ErrCodeValidation,
-		})
+		h.response.ValidationError(c, err.Error())
 		return
 	}
 
-	// Set defaults
-	if params.Page <= 0 {
-		params.Page = 1
-	}
-	if params.PerPage <= 0 || params.PerPage > 100 {
-		params.PerPage = 20
-	}
+	// Set defaults using validator
+	params.Page, params.PerPage = h.validator.ValidatePagination(params.Page, params.PerPage)
 
 	// Get user ID if authenticated
 	var userID *int
@@ -47,66 +41,44 @@ func (h *AnimeHandler) GetAnimes(c *gin.Context) {
 
 	result, err := h.animeService.SearchAnimes(params, userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
-			Error:   models.ErrMsgInternalServer,
-			Message: "アニメ検索に失敗しました",
-			Code:    models.ErrCodeInternalServer,
-		})
+		h.response.InternalServerError(c, "アニメ検索に失敗しました")
 		return
 	}
 
-	c.JSON(http.StatusOK, result)
+	h.response.Success(c, result)
 }
 
 func (h *AnimeHandler) GetAnime(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.Atoi(idStr)
+	id, err := h.validator.ParseIDParam(c, "id")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, models.ErrorResponse{
-			Error:   models.ErrMsgValidation,
-			Message: "無効なアニメIDです",
-			Code:    models.ErrCodeValidation,
-		})
+		h.response.ValidationError(c, "無効なアニメIDです")
 		return
 	}
 
 	// Get user ID if authenticated
 	var userID *int
 	if uid, exists := c.Get("user_id"); exists {
-		id := uid.(int)
-		userID = &id
+		userIDVal := uid.(int)
+		userID = &userIDVal
 	}
 
 	anime, err := h.animeService.GetAnimeByID(id, userID)
 	if err != nil {
 		if err == services.ErrAnimeNotFound {
-			c.JSON(http.StatusNotFound, models.ErrorResponse{
-				Error:   models.ErrMsgNotFound,
-				Message: "アニメが見つかりません",
-				Code:    models.ErrCodeNotFound,
-			})
+			h.response.NotFoundError(c, "アニメが見つかりません")
 			return
 		}
-		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
-			Error:   models.ErrMsgInternalServer,
-			Message: "アニメ詳細の取得に失敗しました",
-			Code:    models.ErrCodeInternalServer,
-		})
+		h.response.InternalServerError(c, "アニメ詳細の取得に失敗しました")
 		return
 	}
 
-	c.JSON(http.StatusOK, anime)
+	h.response.Success(c, anime)
 }
 
 func (h *AnimeHandler) GetAnimeEpisodes(c *gin.Context) {
-	idStr := c.Param("id")
-	animeID, err := strconv.Atoi(idStr)
+	animeID, err := h.validator.ParseIDParam(c, "id")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, models.ErrorResponse{
-			Error:   models.ErrMsgValidation,
-			Message: "無効なアニメIDです",
-			Code:    models.ErrCodeValidation,
-		})
+		h.response.ValidationError(c, "無効なアニメIDです")
 		return
 	}
 
@@ -120,18 +92,10 @@ func (h *AnimeHandler) GetAnimeEpisodes(c *gin.Context) {
 	episodes, err := h.animeService.GetAnimeEpisodes(animeID, userID)
 	if err != nil {
 		if err == services.ErrAnimeNotFound {
-			c.JSON(http.StatusNotFound, models.ErrorResponse{
-				Error:   models.ErrMsgNotFound,
-				Message: "アニメが見つかりません",
-				Code:    models.ErrCodeNotFound,
-			})
+			h.response.NotFoundError(c, "アニメが見つかりません")
 			return
 		}
-		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
-			Error:   models.ErrMsgInternalServer,
-			Message: "エピソード一覧の取得に失敗しました",
-			Code:    models.ErrCodeInternalServer,
-		})
+		h.response.InternalServerError(c, "エピソード一覧の取得に失敗しました")
 		return
 	}
 
@@ -142,272 +106,175 @@ func (h *AnimeHandler) GetAnimeEpisodes(c *gin.Context) {
 }
 
 func (h *AnimeHandler) GetFavorites(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, models.ErrorResponse{
-			Error:   models.ErrMsgUnauthorized,
-			Message: "認証が必要です",
-			Code:    models.ErrCodeUnauthorized,
-		})
+	userID, err := h.validator.GetUserIDFromContext(c)
+	if err != nil {
+		h.response.UnauthorizedError(c, "認証が必要です")
 		return
 	}
 
 	status := c.Query("status")
-	favorites, err := h.animeService.GetUserFavorites(userID.(int), status)
+	favorites, err := h.animeService.GetUserFavorites(userID, status)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
-			Error:   models.ErrMsgInternalServer,
-			Message: "お気に入り一覧の取得に失敗しました",
-			Code:    models.ErrCodeInternalServer,
-		})
+		h.response.InternalServerError(c, "お気に入り一覧の取得に失敗しました")
 		return
 	}
 
-	c.JSON(http.StatusOK, favorites)
+	h.response.Success(c, favorites)
 }
 
 func (h *AnimeHandler) UpdateFavorite(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, models.ErrorResponse{
-			Error:   models.ErrMsgUnauthorized,
-			Message: "認証が必要です",
-			Code:    models.ErrCodeUnauthorized,
-		})
+	userID, err := h.validator.GetUserIDFromContext(c)
+	if err != nil {
+		h.response.UnauthorizedError(c, "認証が必要です")
 		return
 	}
 
-	animeIDStr := c.Param("anime_id")
-	animeID, err := strconv.Atoi(animeIDStr)
+	animeID, err := h.validator.ParseIDParam(c, "anime_id")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, models.ErrorResponse{
-			Error:   models.ErrMsgValidation,
-			Message: "無効なアニメIDです",
-			Code:    models.ErrCodeValidation,
-		})
+		h.response.ValidationError(c, "無効なアニメIDです")
 		return
 	}
 
 	var req models.UserFavoriteRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, models.ErrorResponse{
-			Error:   models.ErrMsgValidation,
-			Message: err.Error(),
-			Code:    models.ErrCodeValidation,
-		})
+		h.response.ValidationError(c, err.Error())
 		return
 	}
 
-	favorite, err := h.animeService.UpdateFavorite(userID.(int), animeID, req.Status)
+	favorite, err := h.animeService.UpdateFavorite(userID, animeID, req.Status)
 	if err != nil {
 		if err == services.ErrAnimeNotFound {
-			c.JSON(http.StatusUnprocessableEntity, models.ErrorResponse{
-				Error:   models.ErrMsgUnprocessableEntity,
-				Message: "存在しないアニメです",
-				Code:    models.ErrCodeUnprocessableEntity,
-			})
+			h.response.UnprocessableEntityError(c, "存在しないアニメです")
 			return
 		}
-		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
-			Error:   models.ErrMsgInternalServer,
-			Message: "お気に入り更新に失敗しました",
-			Code:    models.ErrCodeInternalServer,
-		})
+		h.response.InternalServerError(c, "お気に入り更新に失敗しました")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	h.response.Success(c, gin.H{
 		"message":  "お気に入りを更新しました",
 		"favorite": favorite,
 	})
 }
 
 func (h *AnimeHandler) DeleteFavorite(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, models.ErrorResponse{
-			Error:   models.ErrMsgUnauthorized,
-			Message: "認証が必要です",
-			Code:    models.ErrCodeUnauthorized,
-		})
-		return
-	}
-
-	animeIDStr := c.Param("anime_id")
-	animeID, err := strconv.Atoi(animeIDStr)
+	userID, err := h.validator.GetUserIDFromContext(c)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, models.ErrorResponse{
-			Error:   models.ErrMsgValidation,
-			Message: "無効なアニメIDです",
-			Code:    models.ErrCodeValidation,
-		})
+		h.response.UnauthorizedError(c, "認証が必要です")
 		return
 	}
 
-	err = h.animeService.DeleteFavorite(userID.(int), animeID)
+	animeID, err := h.validator.ParseIDParam(c, "anime_id")
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
-			Error:   models.ErrMsgInternalServer,
-			Message: "お気に入り削除に失敗しました",
-			Code:    models.ErrCodeInternalServer,
-		})
+		h.response.ValidationError(c, "無効なアニメIDです")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	err = h.animeService.DeleteFavorite(userID, animeID)
+	if err != nil {
+		h.response.InternalServerError(c, "お気に入り削除に失敗しました")
+		return
+	}
+
+	h.response.Success(c, gin.H{
 		"message": "お気に入りから削除しました",
 	})
 }
 
 func (h *AnimeHandler) UpdateWatchStatus(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, models.ErrorResponse{
-			Error:   models.ErrMsgUnauthorized,
-			Message: "認証が必要です",
-			Code:    models.ErrCodeUnauthorized,
-		})
+	userID, err := h.validator.GetUserIDFromContext(c)
+	if err != nil {
+		h.response.UnauthorizedError(c, "認証が必要です")
 		return
 	}
 
-	episodeIDStr := c.Param("episode_id")
-	episodeID, err := strconv.Atoi(episodeIDStr)
+	episodeID, err := h.validator.ParseIDParam(c, "episode_id")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, models.ErrorResponse{
-			Error:   models.ErrMsgValidation,
-			Message: "無効なエピソードIDです",
-			Code:    models.ErrCodeValidation,
-		})
+		h.response.ValidationError(c, "無効なエピソードIDです")
 		return
 	}
 
 	var req models.WatchStatusRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, models.ErrorResponse{
-			Error:   models.ErrMsgValidation,
-			Message: err.Error(),
-			Code:    models.ErrCodeValidation,
-		})
+		h.response.ValidationError(c, err.Error())
 		return
 	}
 
-	watchStatus, err := h.animeService.UpdateWatchStatus(userID.(int), episodeID, req.Viewed)
+	watchStatus, err := h.animeService.UpdateWatchStatus(userID, episodeID, req.Viewed)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
-			Error:   models.ErrMsgInternalServer,
-			Message: "視聴状態の更新に失敗しました",
-			Code:    models.ErrCodeInternalServer,
-		})
+		h.response.InternalServerError(c, "視聴状態の更新に失敗しました")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	h.response.Success(c, gin.H{
 		"message":      "視聴状態を更新しました",
 		"watch_status": watchStatus,
 	})
 }
 
 func (h *AnimeHandler) UpdateRating(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, models.ErrorResponse{
-			Error:   models.ErrMsgUnauthorized,
-			Message: "認証が必要です",
-			Code:    models.ErrCodeUnauthorized,
-		})
+	userID, err := h.validator.GetUserIDFromContext(c)
+	if err != nil {
+		h.response.UnauthorizedError(c, "認証が必要です")
 		return
 	}
 
-	animeIDStr := c.Param("id")
-	animeID, err := strconv.Atoi(animeIDStr)
+	animeID, err := h.validator.ParseIDParam(c, "id")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, models.ErrorResponse{
-			Error:   models.ErrMsgValidation,
-			Message: "無効なアニメIDです",
-			Code:    models.ErrCodeValidation,
-		})
+		h.response.ValidationError(c, "無効なアニメIDです")
 		return
 	}
 
 	var req models.UserRatingRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, models.ErrorResponse{
-			Error:   models.ErrMsgValidation,
-			Message: err.Error(),
-			Code:    models.ErrCodeValidation,
-		})
+		h.response.ValidationError(c, err.Error())
 		return
 	}
 
-	rating, err := h.animeService.UpdateRating(userID.(int), animeID, req.Rating, req.Comment)
+	rating, err := h.animeService.UpdateRating(userID, animeID, req.Rating, req.Comment)
 	if err != nil {
 		if err == services.ErrAnimeNotFound {
-			c.JSON(http.StatusUnprocessableEntity, models.ErrorResponse{
-				Error:   models.ErrMsgUnprocessableEntity,
-				Message: "存在しないアニメです",
-				Code:    models.ErrCodeUnprocessableEntity,
-			})
+			h.response.UnprocessableEntityError(c, "存在しないアニメです")
 			return
 		}
-		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
-			Error:   models.ErrMsgInternalServer,
-			Message: "評価の更新に失敗しました",
-			Code:    models.ErrCodeInternalServer,
-		})
+		h.response.InternalServerError(c, "評価の更新に失敗しました")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	h.response.Success(c, gin.H{
 		"message": "評価を登録しました",
 		"rating":  rating,
 	})
 }
 
 func (h *AnimeHandler) DeleteRating(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, models.ErrorResponse{
-			Error:   models.ErrMsgUnauthorized,
-			Message: "認証が必要です",
-			Code:    models.ErrCodeUnauthorized,
-		})
-		return
-	}
-
-	animeIDStr := c.Param("id")
-	animeID, err := strconv.Atoi(animeIDStr)
+	userID, err := h.validator.GetUserIDFromContext(c)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, models.ErrorResponse{
-			Error:   models.ErrMsgValidation,
-			Message: "無効なアニメIDです",
-			Code:    models.ErrCodeValidation,
-		})
+		h.response.UnauthorizedError(c, "認証が必要です")
 		return
 	}
 
-	err = h.animeService.DeleteRating(userID.(int), animeID)
+	animeID, err := h.validator.ParseIDParam(c, "id")
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
-			Error:   models.ErrMsgInternalServer,
-			Message: "評価の削除に失敗しました",
-			Code:    models.ErrCodeInternalServer,
-		})
+		h.response.ValidationError(c, "無効なアニメIDです")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	err = h.animeService.DeleteRating(userID, animeID)
+	if err != nil {
+		h.response.InternalServerError(c, "評価の削除に失敗しました")
+		return
+	}
+
+	h.response.Success(c, gin.H{
 		"message": "評価を削除しました",
 	})
 }
 
 func (h *AnimeHandler) GetRecentlyWatched(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, models.ErrorResponse{
-			Error:   models.ErrMsgUnauthorized,
-			Message: "認証が必要です",
-			Code:    models.ErrCodeUnauthorized,
-		})
+	userID, err := h.validator.GetUserIDFromContext(c)
+	if err != nil {
+		h.response.UnauthorizedError(c, "認証が必要です")
 		return
 	}
 
@@ -417,39 +284,27 @@ func (h *AnimeHandler) GetRecentlyWatched(c *gin.Context) {
 		limit = 10
 	}
 
-	history, err := h.animeService.GetRecentlyWatched(userID.(int), limit)
+	history, err := h.animeService.GetRecentlyWatched(userID, limit)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
-			Error:   models.ErrMsgInternalServer,
-			Message: "視聴履歴の取得に失敗しました",
-			Code:    models.ErrCodeInternalServer,
-		})
+		h.response.InternalServerError(c, "視聴履歴の取得に失敗しました")
 		return
 	}
 
-	c.JSON(http.StatusOK, history)
+	h.response.Success(c, history)
 }
 
 func (h *AnimeHandler) GetWatchlist(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, models.ErrorResponse{
-			Error:   models.ErrMsgUnauthorized,
-			Message: "認証が必要です",
-			Code:    models.ErrCodeUnauthorized,
-		})
-		return
-	}
-
-	watchlist, err := h.animeService.GetUserFavorites(userID.(int), "planned")
+	userID, err := h.validator.GetUserIDFromContext(c)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
-			Error:   models.ErrMsgInternalServer,
-			Message: "視聴予定リストの取得に失敗しました",
-			Code:    models.ErrCodeInternalServer,
-		})
+		h.response.UnauthorizedError(c, "認証が必要です")
 		return
 	}
 
-	c.JSON(http.StatusOK, watchlist)
+	watchlist, err := h.animeService.GetUserFavorites(userID, "planned")
+	if err != nil {
+		h.response.InternalServerError(c, "視聴予定リストの取得に失敗しました")
+		return
+	}
+
+	h.response.Success(c, watchlist)
 }
