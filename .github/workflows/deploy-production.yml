@@ -39,24 +39,10 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_PRODUCTION }}
 
-      - name: Wait for deployment to start
-        run: |
-          echo "Waiting for deployment to start..."
-          sleep 30
-        working-directory: ./backend
-
       - name: Get Fly.io App Logs for Debugging
         run: |
           echo "Getting recent logs..."
-          flyctl logs -a myanimelogs-production --no-tail || echo "Log fetch completed"
-        working-directory: ./backend
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_PRODUCTION }}
-
-      - name: Check app status
-        run: |
-          echo "Checking app status..."
-          flyctl status -a myanimelogs-production || echo "Status check completed"
+          timeout 10s flyctl logs -a myanimelogs-production --no-tail || echo "Log fetch completed or timed out"
         working-directory: ./backend
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_PRODUCTION }}
@@ -68,23 +54,9 @@ jobs:
           echo "Deployment should be ready. Migrations run automatically on startup."
         working-directory: ./backend
 
-      - name: Additional health check wait
-        run: |
-          echo "Additional wait for production stability..."
-          sleep 30
-        working-directory: ./backend
-
       - name: Verify deployment
         run: |
+          sleep 30
           chmod +x scripts/verify-deployment.sh
           ./scripts/verify-deployment.sh production
         working-directory: ./backend
-
-      - name: Final production logs
-        if: failure()
-        run: |
-          echo "Deployment verification failed, getting final logs..."
-          flyctl logs -a myanimelogs-production --no-tail || echo "Final log fetch completed"
-        working-directory: ./backend
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_PRODUCTION }}
