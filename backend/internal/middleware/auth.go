@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"myanimelogs/internal/models"
+	"myanimelogs/internal/common"
 	"myanimelogs/internal/utils"
 )
 
@@ -13,10 +13,10 @@ func AuthMiddleware(jwtSecret string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
-			c.JSON(http.StatusUnauthorized, models.ErrorResponse{
-				Error:   models.ErrMsgUnauthorized,
+			c.JSON(http.StatusUnauthorized, common.ErrorResponse{
+				Error:   common.ErrMsgUnauthorized,
 				Message: "認証トークンが必要です",
-				Code:    models.ErrCodeUnauthorized,
+				Code:    common.ErrCodeUnauthorized,
 			})
 			c.Abort()
 			return
@@ -25,10 +25,10 @@ func AuthMiddleware(jwtSecret string) gin.HandlerFunc {
 		// Check Bearer token format
 		tokenParts := strings.Split(authHeader, " ")
 		if len(tokenParts) != 2 || tokenParts[0] != "Bearer" {
-			c.JSON(http.StatusUnauthorized, models.ErrorResponse{
-				Error:   models.ErrMsgUnauthorized,
+			c.JSON(http.StatusUnauthorized, common.ErrorResponse{
+				Error:   common.ErrMsgUnauthorized,
 				Message: "無効な認証トークン形式です",
-				Code:    models.ErrCodeUnauthorized,
+				Code:    common.ErrCodeUnauthorized,
 			})
 			c.Abort()
 			return
@@ -37,10 +37,10 @@ func AuthMiddleware(jwtSecret string) gin.HandlerFunc {
 		token := tokenParts[1]
 		claims, err := utils.ValidateJWT(token, jwtSecret)
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, models.ErrorResponse{
-				Error:   models.ErrMsgUnauthorized,
+			c.JSON(http.StatusUnauthorized, common.ErrorResponse{
+				Error:   common.ErrMsgUnauthorized,
 				Message: "無効または期限切れのトークンです",
-				Code:    models.ErrCodeUnauthorized,
+				Code:    common.ErrCodeUnauthorized,
 			})
 			c.Abort()
 			return

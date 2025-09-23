@@ -8,53 +8,42 @@ import (
 
 	"myanimelogs/internal/config"
 	"myanimelogs/internal/database"
+	"myanimelogs/internal/migration"
 	"myanimelogs/internal/router"
 
 	"github.com/joho/godotenv"
 )
 
-// runMigrations executes database migrations
-func runMigrations(databaseURL string) error {
-	log.Println("Running database migrations...")
-
-	// Connect to database for migrations
-	db, err := database.New(databaseURL)
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-
-	// Create migrations table if not exists
-	_, err = db.Exec(`
-		CREATE TABLE IF NOT EXISTS migrations (
-			id SERIAL PRIMARY KEY,
-			filename VARCHAR(255) NOT NULL UNIQUE,
-			executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-		)
-	`)
-	if err != nil {
-		return err
+// runMigrations executes database migrations using the migrator
+func runMigrations(db *database.DB) error {
+	// Check if migrations directory exists
+	migrationsPath := "migrations"
+	if _, err := os.Stat(migrationsPath); os.IsNotExist(err) {
+		log.Printf("Migrations directory %s not found, skipping migrations", migrationsPath)
+		return nil
 	}
 
-	// Simple migration execution (basic implementation)
-	// In production, you might want to use the full migrate.go logic
-	log.Println("Migrations completed successfully")
-	return nil
+	log.Printf("Starting migrations from directory: %s", migrationsPath)
+	migrator := migration.NewMigrator(db, migrationsPath)
+	return migrator.RunMigrations()
 }
 
 func main() {
+	log.Printf("MyAnimeLogs Backend Starting...")
+
 	// Load environment variables based on environment
 	env := os.Getenv("ENVIRONMENT")
 	if env == "" {
 		env = "development"
 	}
+	log.Printf("Environment: %s", env)
 
 	var envFile string
 	switch env {
 	case "production":
 		envFile = ".env.production"
-	case "test":
-		envFile = ".env.test"
+	case "staging":
+		envFile = ".env.staging"
 	default:
 		envFile = ".env.local"
 	}
@@ -66,29 +55,52 @@ func main() {
 	}
 
 	// Initialize configuration
+	log.Printf("Initializing configuration...")
 	cfg := config.New()
 
-	// Initialize database with connection pool configuration
+	// Log database connection info (without sensitive data)
+	if cfg.DatabaseURL != "" {
+		log.Printf("Database URL configured (Supabase)")
+	} else {
+		log.Printf("No DATABASE_URL found, using individual postgres settings")
+	}
+
+	// Log other important config
+	log.Printf("Port: %s", cfg.Port)
+	log.Printf("Environment: %s", cfg.Environment)
+
+	// Initialize database with connection pool configuration optimized for Supabase
+	log.Printf("Connecting to Supabase database...")
 	dbConfig := database.ConnectionConfig{
 		MaxOpenConns:    cfg.DBMaxOpenConns,
 		MaxIdleConns:    cfg.DBMaxIdleConns,
 		ConnMaxLifetime: cfg.DBConnMaxLifetime,
 		ConnMaxIdleTime: cfg.DBConnMaxIdleTime,
 	}
+
+	// Validate database URL
+	if cfg.DatabaseURL == "" {
+		log.Fatalf("DATABASE_URL is required but not set")
+	}
+
 	db, err := database.NewWithConfig(cfg.DatabaseURL, dbConfig)
 	if err != nil {
-		log.Fatal("Failed to connect to database:", err)
+		log.Fatalf("Failed to connect to Supabase database: %v", err)
 	}
 	defer db.Close()
+	log.Printf("Supabase database connection established")
 
 	// Run migrations automatically on startup
-	if err := runMigrations(cfg.DatabaseURL); err != nil {
-		log.Printf("Migration failed: %v", err)
-		// Continue anyway - migrations might have already been run
+	log.Printf("Running database migrations...")
+	if err := runMigrations(db); err != nil {
+		log.Fatalf("Migration failed, stopping application: %v", err)
 	}
+	log.Printf("Database migrations completed")
 
 	// Setup router
+	log.Printf("Setting up routes...")
 	r := router.Setup(db, cfg)
+	log.Printf("Routes configured")
 
 	// Start server
 	port := os.Getenv("PORT")
@@ -97,7 +109,9 @@ func main() {
 	}
 
 	log.Printf("Server starting on port %s", port)
+    log.Printf("Health check available at /health on port %s", port)
+
 	if err := r.Run("0.0.0.0:" + port); err != nil {
-		log.Fatal("Failed to start server:", err)
+		log.Fatalf("Failed to start server: %v", err)
 	}
 }
