@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestMigrator_RunMigrations(t *testing.T) {
+func TestMigrator_GetMigrationFiles(t *testing.T) {
 	// Create temporary directory for test migrations
 	tempDir := t.TempDir()
 
