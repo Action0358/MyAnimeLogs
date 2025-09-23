@@ -3,8 +3,6 @@ package common
 import (
 	"net/http"
 
-	"myanimelogs/internal/models"
-
 	"github.com/gin-gonic/gin"
 )
 
@@ -29,13 +27,13 @@ func (r *ResponseHandler) Created(c *gin.Context, data interface{}) {
 // Error sends an error response based on the error type
 func (r *ResponseHandler) Error(c *gin.Context, err error) {
 	switch err {
-	case models.ErrValidation:
+	case ErrValidation:
 		r.ValidationError(c, err.Error())
-	case models.ErrUnauthorized:
+	case ErrUnauthorized:
 		r.UnauthorizedError(c, "認証が必要です")
-	case models.ErrNotFound:
+	case ErrNotFound:
 		r.NotFoundError(c, "リソースが見つかりません")
-	case models.ErrConflict:
+	case ErrConflict:
 		r.ConflictError(c, "リソースが既に存在します")
 	default:
 		r.InternalServerError(c, "内部サーバーエラーが発生しました")
@@ -44,54 +42,54 @@ func (r *ResponseHandler) Error(c *gin.Context, err error) {
 
 // ValidationError sends a validation error response
 func (r *ResponseHandler) ValidationError(c *gin.Context, message string) {
-	c.JSON(http.StatusBadRequest, models.ErrorResponse{
-		Error:   models.ErrMsgValidation,
+	c.JSON(http.StatusBadRequest, ErrorResponse{
+		Error:   ErrMsgValidation,
 		Message: message,
-		Code:    models.ErrCodeValidation,
+		Code:    ErrCodeValidation,
 	})
 }
 
 // UnauthorizedError sends an unauthorized error response
 func (r *ResponseHandler) UnauthorizedError(c *gin.Context, message string) {
-	c.JSON(http.StatusUnauthorized, models.ErrorResponse{
-		Error:   models.ErrMsgUnauthorized,
+	c.JSON(http.StatusUnauthorized, ErrorResponse{
+		Error:   ErrMsgUnauthorized,
 		Message: message,
-		Code:    models.ErrCodeUnauthorized,
+		Code:    ErrCodeUnauthorized,
 	})
 }
 
 // NotFoundError sends a not found error response
 func (r *ResponseHandler) NotFoundError(c *gin.Context, message string) {
-	c.JSON(http.StatusNotFound, models.ErrorResponse{
-		Error:   models.ErrMsgNotFound,
+	c.JSON(http.StatusNotFound, ErrorResponse{
+		Error:   ErrMsgNotFound,
 		Message: message,
-		Code:    models.ErrCodeNotFound,
+		Code:    ErrCodeNotFound,
 	})
 }
 
 // ConflictError sends a conflict error response
 func (r *ResponseHandler) ConflictError(c *gin.Context, message string) {
-	c.JSON(http.StatusConflict, models.ErrorResponse{
-		Error:   models.ErrMsgConflict,
+	c.JSON(http.StatusConflict, ErrorResponse{
+		Error:   ErrMsgConflict,
 		Message: message,
-		Code:    models.ErrCodeConflict,
+		Code:    ErrCodeConflict,
 	})
 }
 
 // InternalServerError sends an internal server error response
 func (r *ResponseHandler) InternalServerError(c *gin.Context, message string) {
-	c.JSON(http.StatusInternalServerError, models.ErrorResponse{
-		Error:   models.ErrMsgInternalServer,
+	c.JSON(http.StatusInternalServerError, ErrorResponse{
+		Error:   ErrMsgInternalServer,
 		Message: message,
-		Code:    models.ErrCodeInternalServer,
+		Code:    ErrCodeInternalServer,
 	})
 }
 
 // UnprocessableEntityError sends an unprocessable entity error response
 func (r *ResponseHandler) UnprocessableEntityError(c *gin.Context, message string) {
-	c.JSON(http.StatusUnprocessableEntity, models.ErrorResponse{
-		Error:   models.ErrMsgUnprocessableEntity,
+	c.JSON(http.StatusUnprocessableEntity, ErrorResponse{
+		Error:   ErrMsgUnprocessableEntity,
 		Message: message,
-		Code:    models.ErrCodeUnprocessableEntity,
+		Code:    ErrCodeUnprocessableEntity,
 	})
 }
