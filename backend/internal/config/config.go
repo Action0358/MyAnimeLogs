@@ -24,21 +24,16 @@ type Config struct {
 
 // New creates a new Config struct from environment variables
 func New() *Config {
+	env := GetEnvironment()
+
 	// Database
 	databaseURL := getEnv("DATABASE_URL", "")
 	if databaseURL == "" {
-		dbHost := getEnv("POSTGRES_HOST", "localhost")
-		dbPort := getEnv("POSTGRES_PORT", "5432")
-		dbUser := getEnv("POSTGRES_USER", "user")
-		dbPassword := getEnv("POSTGRES_PASSWORD", "password")
-		dbName := getEnv("POSTGRES_DB", "myanimelogs")
-		databaseURL = fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
-			dbUser, dbPassword, dbHost, dbPort, dbName)
+		databaseURL = buildDatabaseURL()
 	}
 
 	// Server
 	port := getEnv("PORT", "8080")
-	environment := getEnv("ENVIRONMENT", "development")
 
 	// Rate Limiter
 	rateLimit := getEnvAsInt("RATE_LIMIT", 60) // 60 requests per minute
@@ -53,37 +48,78 @@ func New() *Config {
 	redisURL := getEnv("REDIS_URL", "redis://localhost:6379")
 
 	// Database connection pool settings (environment-specific defaults)
-	var dbMaxOpenConns, dbMaxIdleConns, dbConnMaxLifetime, dbConnMaxIdleTime int
-	switch environment {
-	case "production":
-		dbMaxOpenConns = getEnvAsInt("DB_MAX_OPEN_CONNS", 50)
-		dbMaxIdleConns = getEnvAsInt("DB_MAX_IDLE_CONNS", 10)
-		dbConnMaxLifetime = getEnvAsInt("DB_CONN_MAX_LIFETIME", 10) // 10 minutes
-		dbConnMaxIdleTime = getEnvAsInt("DB_CONN_MAX_IDLE_TIME", 2) // 2 minutes
-	case "staging":
-		dbMaxOpenConns = getEnvAsInt("DB_MAX_OPEN_CONNS", 30)
-		dbMaxIdleConns = getEnvAsInt("DB_MAX_IDLE_CONNS", 8)
-		dbConnMaxLifetime = getEnvAsInt("DB_CONN_MAX_LIFETIME", 8)
-		dbConnMaxIdleTime = getEnvAsInt("DB_CONN_MAX_IDLE_TIME", 2)
-	default: // development, test
-		dbMaxOpenConns = getEnvAsInt("DB_MAX_OPEN_CONNS", 25)
-		dbMaxIdleConns = getEnvAsInt("DB_MAX_IDLE_CONNS", 5)
-		dbConnMaxLifetime = getEnvAsInt("DB_CONN_MAX_LIFETIME", 5)
-		dbConnMaxIdleTime = getEnvAsInt("DB_CONN_MAX_IDLE_TIME", 1)
-	}
+	dbConfig := getDBConfigForEnvironment(env)
 
 	return &Config{
 		DatabaseURL:       databaseURL,
 		Port:              port,
-		Environment:       environment,
+		Environment:       string(env),
 		RateLimit:         rateLimit,
 		JWTSecret:         jwtSecret,
 		AnnictAPIKey:      annictAPIKey,
 		RedisURL:          redisURL,
-		DBMaxOpenConns:    dbMaxOpenConns,
-		DBMaxIdleConns:    dbMaxIdleConns,
-		DBConnMaxLifetime: dbConnMaxLifetime,
-		DBConnMaxIdleTime: dbConnMaxIdleTime,
+		DBMaxOpenConns:    dbConfig.MaxOpenConns,
+		DBMaxIdleConns:    dbConfig.MaxIdleConns,
+		DBConnMaxLifetime: dbConfig.ConnMaxLifetime,
+		DBConnMaxIdleTime: dbConfig.ConnMaxIdleTime,
+	}
+}
+
+// buildDatabaseURL constructs database URL from individual components
+func buildDatabaseURL() string {
+	dbHost := getEnv("POSTGRES_HOST", "localhost")
+	dbPort := getEnv("POSTGRES_PORT", "5432")
+	dbUser := getEnv("POSTGRES_USER", "user")
+	dbPassword := getEnv("POSTGRES_PASSWORD", "password")
+	dbName := getEnv("POSTGRES_DB", "myanimelogs")
+	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
+		dbUser, dbPassword, dbHost, dbPort, dbName)
+}
+
+// getDBConfigForEnvironment returns database configuration based on environment
+func getDBConfigForEnvironment(env Environment) struct {
+	MaxOpenConns    int
+	MaxIdleConns    int
+	ConnMaxLifetime int
+	ConnMaxIdleTime int
+} {
+	switch env {
+	case Production:
+		return struct {
+			MaxOpenConns    int
+			MaxIdleConns    int
+			ConnMaxLifetime int
+			ConnMaxIdleTime int
+		}{
+			MaxOpenConns:    getEnvAsInt("DB_MAX_OPEN_CONNS", 50),
+			MaxIdleConns:    getEnvAsInt("DB_MAX_IDLE_CONNS", 10),
+			ConnMaxLifetime: getEnvAsInt("DB_CONN_MAX_LIFETIME", 10),
+			ConnMaxIdleTime: getEnvAsInt("DB_CONN_MAX_IDLE_TIME", 2),
+		}
+	case Staging:
+		return struct {
+			MaxOpenConns    int
+			MaxIdleConns    int
+			ConnMaxLifetime int
+			ConnMaxIdleTime int
+		}{
+			MaxOpenConns:    getEnvAsInt("DB_MAX_OPEN_CONNS", 30),
+			MaxIdleConns:    getEnvAsInt("DB_MAX_IDLE_CONNS", 8),
+			ConnMaxLifetime: getEnvAsInt("DB_CONN_MAX_LIFETIME", 8),
+			ConnMaxIdleTime: getEnvAsInt("DB_CONN_MAX_IDLE_TIME", 2),
+		}
+	default: // Development, Test
+		return struct {
+			MaxOpenConns    int
+			MaxIdleConns    int
+			ConnMaxLifetime int
+			ConnMaxIdleTime int
+		}{
+			MaxOpenConns:    getEnvAsInt("DB_MAX_OPEN_CONNS", 25),
+			MaxIdleConns:    getEnvAsInt("DB_MAX_IDLE_CONNS", 5),
+			ConnMaxLifetime: getEnvAsInt("DB_CONN_MAX_LIFETIME", 5),
+			ConnMaxIdleTime: getEnvAsInt("DB_CONN_MAX_IDLE_TIME", 1),
+		}
 	}
 }
 

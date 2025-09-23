@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"myanimelogs/internal/models"
+	"myanimelogs/internal/common"
 )
 
 type RateLimiter struct {
@@ -55,12 +55,12 @@ func (rl *RateLimiter) Allow(key string) bool {
 func RateLimitMiddleware(limiter *RateLimiter) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		key := c.ClientIP()
-		
+
 		if !limiter.Allow(key) {
-			c.JSON(http.StatusTooManyRequests, models.ErrorResponse{
-				Error:   models.ErrMsgTooManyRequests,
+			c.JSON(http.StatusTooManyRequests, common.ErrorResponse{
+				Error:   common.ErrMsgTooManyRequests,
 				Message: "リクエスト数が上限を超えました。しばらく待ってから再試行してください。",
-				Code:    models.ErrCodeTooManyRequests,
+				Code:    common.ErrCodeTooManyRequests,
 			})
 			c.Abort()
 			return
