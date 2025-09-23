@@ -109,7 +109,7 @@ func main() {
 	}
 
 	log.Printf("Server starting on port %s", port)
-	log.Printf("Health check available at: http://localhost:%s/health", port)
+    log.Printf("Health check available at /health on port %s", port)
 
 	if err := r.Run("0.0.0.0:" + port); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
