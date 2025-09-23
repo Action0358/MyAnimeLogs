@@ -4,17 +4,20 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/gin-gonic/gin"
 	"myanimelogs/internal/models"
 	"myanimelogs/internal/services"
+
+	"github.com/gin-gonic/gin"
 )
 
 type AnimeHandler struct {
+	*BaseHandler
 	animeService *services.AnimeService
 }
 
 func NewAnimeHandler(animeService *services.AnimeService) *AnimeHandler {
 	return &AnimeHandler{
+		BaseHandler:  NewBaseHandler(),
 		animeService: animeService,
 	}
 }
@@ -22,21 +25,12 @@ func NewAnimeHandler(animeService *services.AnimeService) *AnimeHandler {
 func (h *AnimeHandler) GetAnimes(c *gin.Context) {
 	var params models.AnimeSearchParams
 	if err := c.ShouldBindQuery(&params); err != nil {
-		c.JSON(http.StatusBadRequest, models.ErrorResponse{
-			Error:   models.ErrMsgValidation,
-			Message: err.Error(),
-			Code:    models.ErrCodeValidation,
-		})
+		h.response.ValidationError(c, err.Error())
 		return
 	}
 
-	// Set defaults
-	if params.Page <= 0 {
-		params.Page = 1
-	}
-	if params.PerPage <= 0 || params.PerPage > 100 {
-		params.PerPage = 20
-	}
+	// Set defaults using validator
+	params.Page, params.PerPage = h.validator.ValidatePagination(params.Page, params.PerPage)
 
 	// Get user ID if authenticated
 	var userID *int
@@ -47,55 +41,38 @@ func (h *AnimeHandler) GetAnimes(c *gin.Context) {
 
 	result, err := h.animeService.SearchAnimes(params, userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
-			Error:   models.ErrMsgInternalServer,
-			Message: "アニメ検索に失敗しました",
-			Code:    models.ErrCodeInternalServer,
-		})
+		h.response.InternalServerError(c, "アニメ検索に失敗しました")
 		return
 	}
 
-	c.JSON(http.StatusOK, result)
+	h.response.Success(c, result)
 }
 
 func (h *AnimeHandler) GetAnime(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := strconv.Atoi(idStr)
+	id, err := h.validator.ParseIDParam(c, "id")
 	if err != nil {
-		c.JSON(http.StatusBadRequest, models.ErrorResponse{
-			Error:   models.ErrMsgValidation,
-			Message: "無効なアニメIDです",
-			Code:    models.ErrCodeValidation,
-		})
+		h.response.ValidationError(c, "無効なアニメIDです")
 		return
 	}
 
 	// Get user ID if authenticated
 	var userID *int
 	if uid, exists := c.Get("user_id"); exists {
-		id := uid.(int)
-		userID = &id
+		userIDVal := uid.(int)
+		userID = &userIDVal
 	}
 
 	anime, err := h.animeService.GetAnimeByID(id, userID)
 	if err != nil {
 		if err == services.ErrAnimeNotFound {
-			c.JSON(http.StatusNotFound, models.ErrorResponse{
-				Error:   models.ErrMsgNotFound,
-				Message: "アニメが見つかりません",
-				Code:    models.ErrCodeNotFound,
-			})
+			h.response.NotFoundError(c, "アニメが見つかりません")
 			return
 		}
-		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
-			Error:   models.ErrMsgInternalServer,
-			Message: "アニメ詳細の取得に失敗しました",
-			Code:    models.ErrCodeInternalServer,
-		})
+		h.response.InternalServerError(c, "アニメ詳細の取得に失敗しました")
 		return
 	}
 
-	c.JSON(http.StatusOK, anime)
+	h.response.Success(c, anime)
 }
 
 func (h *AnimeHandler) GetAnimeEpisodes(c *gin.Context) {

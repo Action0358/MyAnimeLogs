@@ -3,17 +3,20 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/gin-gonic/gin"
 	"myanimelogs/internal/models"
 	"myanimelogs/internal/services"
+
+	"github.com/gin-gonic/gin"
 )
 
 type AuthHandler struct {
+	*BaseHandler
 	authService *services.AuthService
 }
 
 func NewAuthHandler(authService *services.AuthService) *AuthHandler {
 	return &AuthHandler{
+		BaseHandler: NewBaseHandler(),
 		authService: authService,
 	}
 }
@@ -21,33 +24,21 @@ func NewAuthHandler(authService *services.AuthService) *AuthHandler {
 func (h *AuthHandler) Register(c *gin.Context) {
 	var req models.UserRegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, models.ErrorResponse{
-			Error:   models.ErrMsgValidation,
-			Message: err.Error(),
-			Code:    models.ErrCodeValidation,
-		})
+		h.response.ValidationError(c, err.Error())
 		return
 	}
 
 	user, err := h.authService.Register(req)
 	if err != nil {
 		if err == services.ErrEmailAlreadyExists {
-			c.JSON(http.StatusConflict, models.ErrorResponse{
-				Error:   models.ErrMsgConflict,
-				Message: "このメールアドレスは既に登録されています",
-				Code:    models.ErrCodeConflict,
-			})
+			h.response.ConflictError(c, "このメールアドレスは既に登録されています")
 			return
 		}
-		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
-			Error:   models.ErrMsgInternalServer,
-			Message: "ユーザー登録に失敗しました",
-			Code:    models.ErrCodeInternalServer,
-		})
+		h.response.InternalServerError(c, "ユーザー登録に失敗しました")
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{
+	h.response.Created(c, gin.H{
 		"message": "ユーザー登録が完了しました。",
 		"user":    user,
 	})
@@ -56,148 +47,96 @@ func (h *AuthHandler) Register(c *gin.Context) {
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req models.UserLoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, models.ErrorResponse{
-			Error:   models.ErrMsgValidation,
-			Message: err.Error(),
-			Code:    models.ErrCodeValidation,
-		})
+		h.response.ValidationError(c, err.Error())
 		return
 	}
 
 	loginResp, err := h.authService.Login(req)
 	if err != nil {
 		if err == services.ErrInvalidCredentials {
-			c.JSON(http.StatusUnauthorized, models.ErrorResponse{
-				Error:   models.ErrMsgUnauthorized,
-				Message: "メールアドレスまたはパスワードが正しくありません",
-				Code:    models.ErrCodeUnauthorized,
-			})
+			h.response.UnauthorizedError(c, "メールアドレスまたはパスワードが正しくありません")
 			return
 		}
-		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
-			Error:   models.ErrMsgInternalServer,
-			Message: "ログインに失敗しました",
-			Code:    models.ErrCodeInternalServer,
-		})
+		h.response.InternalServerError(c, "ログインに失敗しました")
 		return
 	}
 
-	c.JSON(http.StatusOK, loginResp)
+	h.response.Success(c, loginResp)
 }
 
 func (h *AuthHandler) GetMe(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, models.ErrorResponse{
-			Error:   models.ErrMsgUnauthorized,
-			Message: "認証が必要です",
-			Code:    models.ErrCodeUnauthorized,
-		})
-		return
-	}
-
-	user, err := h.authService.GetUserByID(userID.(int))
+	userID, err := h.validator.GetUserIDFromContext(c)
 	if err != nil {
-		c.JSON(http.StatusNotFound, models.ErrorResponse{
-			Error:   models.ErrMsgNotFound,
-			Message: "ユーザーが見つかりません",
-			Code:    models.ErrCodeNotFound,
-		})
+		h.response.UnauthorizedError(c, "認証が必要です")
 		return
 	}
 
-	c.JSON(http.StatusOK, user)
+	user, err := h.authService.GetUserByID(userID)
+	if err != nil {
+		h.response.NotFoundError(c, "ユーザーが見つかりません")
+		return
+	}
+
+	h.response.Success(c, user)
 }
 
 func (h *AuthHandler) UpdateMe(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, models.ErrorResponse{
-			Error:   models.ErrMsgUnauthorized,
-			Message: "認証が必要です",
-			Code:    models.ErrCodeUnauthorized,
-		})
+	userID, err := h.validator.GetUserIDFromContext(c)
+	if err != nil {
+		h.response.UnauthorizedError(c, "認証が必要です")
 		return
 	}
 
 	var req models.UserUpdateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, models.ErrorResponse{
-			Error:   models.ErrMsgValidation,
-			Message: err.Error(),
-			Code:    models.ErrCodeValidation,
-		})
+		h.response.ValidationError(c, err.Error())
 		return
 	}
 
-	user, err := h.authService.UpdateUser(userID.(int), req)
+	user, err := h.authService.UpdateUser(userID, req)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
-			Error:   models.ErrMsgInternalServer,
-			Message: "プロフィール更新に失敗しました",
-			Code:    models.ErrCodeInternalServer,
-		})
+		h.response.InternalServerError(c, "プロフィール更新に失敗しました")
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	h.response.Success(c, gin.H{
 		"message": "プロフィールを更新しました。",
 		"user":    user,
 	})
 }
 
 func (h *AuthHandler) GetStats(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, models.ErrorResponse{
-			Error:   models.ErrMsgUnauthorized,
-			Message: "認証が必要です",
-			Code:    models.ErrCodeUnauthorized,
-		})
-		return
-	}
-
-	stats, err := h.authService.GetUserStats(userID.(int))
+	userID, err := h.validator.GetUserIDFromContext(c)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
-			Error:   models.ErrMsgInternalServer,
-			Message: "統計情報の取得に失敗しました",
-			Code:    models.ErrCodeInternalServer,
-		})
+		h.response.UnauthorizedError(c, "認証が必要です")
 		return
 	}
 
-	c.JSON(http.StatusOK, stats)
+	stats, err := h.authService.GetUserStats(userID)
+	if err != nil {
+		h.response.InternalServerError(c, "統計情報の取得に失敗しました")
+		return
+	}
+
+	h.response.Success(c, stats)
 }
 
 func (h *AuthHandler) ExportData(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, models.ErrorResponse{
-			Error:   models.ErrMsgUnauthorized,
-			Message: "認証が必要です",
-			Code:    models.ErrCodeUnauthorized,
-		})
+	userID, err := h.validator.GetUserIDFromContext(c)
+	if err != nil {
+		h.response.UnauthorizedError(c, "認証が必要です")
 		return
 	}
 
 	format := c.DefaultQuery("format", "json")
 	if format != "json" && format != "csv" {
-		c.JSON(http.StatusBadRequest, models.ErrorResponse{
-			Error:   models.ErrMsgValidation,
-			Message: "フォーマットはjsonまたはcsvを指定してください",
-			Code:    models.ErrCodeValidation,
-		})
+		h.response.ValidationError(c, "フォーマットはjsonまたはcsvを指定してください")
 		return
 	}
 
-	data, err := h.authService.ExportUserData(userID.(int), format)
+	data, err := h.authService.ExportUserData(userID, format)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, models.ErrorResponse{
-			Error:   models.ErrMsgInternalServer,
-			Message: "データエクスポートに失敗しました",
-			Code:    models.ErrCodeInternalServer,
-		})
+		h.response.InternalServerError(c, "データエクスポートに失敗しました")
 		return
 	}
 
@@ -206,6 +145,6 @@ func (h *AuthHandler) ExportData(c *gin.Context) {
 		c.Header("Content-Disposition", "attachment; filename=myanimelog_data.csv")
 		c.String(http.StatusOK, data.(string))
 	} else {
-		c.JSON(http.StatusOK, data)
+		h.response.Success(c, data)
 	}
 }
