@@ -39,24 +39,10 @@ jobs:
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_STAGING }}
 
-      - name: Wait for deployment to start
-        run: |
-          echo "Waiting for deployment to start..."
-          sleep 30
-        working-directory: ./backend
-
       - name: Get Fly.io App Logs for Debugging
         run: |
           echo "Getting recent logs..."
-          flyctl logs -a myanimelogs-staging --no-tail || echo "Log fetch completed"
-        working-directory: ./backend
-        env:
-          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_STAGING }}
-
-      - name: Check app status
-        run: |
-          echo "Checking app status..."
-          flyctl status -a myanimelogs-staging || echo "Status check completed"
+          timeout 10s flyctl logs -a myanimelogs-staging --no-tail || echo "Log fetch completed or timed out"
         working-directory: ./backend
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_STAGING }}

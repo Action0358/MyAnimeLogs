@@ -2,36 +2,138 @@
 CREATE TABLE IF NOT EXISTS animes (
     id SERIAL PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
-    title_kana VARCHAR(255),
-    title_en VARCHAR(255),
-    description TEXT DEFAULT '',
-    image_url VARCHAR(500),
-    season VARCHAR(50), -- e.g., "2024-winter", "2024-spring"
-    season_year INTEGER,
-    status VARCHAR(50), -- e.g., "airing", "finished", "upcoming"
-    media VARCHAR(50), -- e.g., "tv", "movie", "ova"
-    episodes_count INTEGER DEFAULT 0,
-    official_site_url VARCHAR(500),
-    wikipedia_url VARCHAR(500),
-    twitter_username VARCHAR(100),
-    twitter_hashtag VARCHAR(100),
-    mal_anime_id VARCHAR(50),
-    annict_id INTEGER UNIQUE, -- External ID from Annict API
-    watchers_count INTEGER DEFAULT 0,
-    reviews_count INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create indexes for performance
-CREATE INDEX IF NOT EXISTS idx_animes_season ON animes(season);
-CREATE INDEX IF NOT EXISTS idx_animes_status ON animes(status);
-CREATE INDEX IF NOT EXISTS idx_animes_season_year ON animes(season_year);
--- Use simple text search instead of Japanese-specific configuration
-CREATE INDEX IF NOT EXISTS idx_animes_title ON animes USING gin(to_tsvector('simple', title));
-CREATE INDEX IF NOT EXISTS idx_animes_title_kana ON animes USING gin(to_tsvector('simple', COALESCE(title_kana, '')));
-CREATE INDEX IF NOT EXISTS idx_animes_title_en ON animes USING gin(to_tsvector('english', COALESCE(title_en, '')));
-CREATE INDEX IF NOT EXISTS idx_animes_annict_id ON animes(annict_id);
+-- Add all missing columns if they don't exist
+DO $$ 
+BEGIN 
+    -- Add title_kana column
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='animes' AND column_name='title_kana') THEN
+        ALTER TABLE animes ADD COLUMN title_kana VARCHAR(255);
+    END IF;
+    
+    -- Add title_en column
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='animes' AND column_name='title_en') THEN
+        ALTER TABLE animes ADD COLUMN title_en VARCHAR(255);
+    END IF;
+    
+    -- Add description column
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='animes' AND column_name='description') THEN
+        ALTER TABLE animes ADD COLUMN description TEXT DEFAULT '';
+    END IF;
+    
+    -- Add image_url column
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='animes' AND column_name='image_url') THEN
+        ALTER TABLE animes ADD COLUMN image_url VARCHAR(500);
+    END IF;
+    
+    -- Add season column
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='animes' AND column_name='season') THEN
+        ALTER TABLE animes ADD COLUMN season VARCHAR(50);
+    END IF;
+    
+    -- Add season_year column
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='animes' AND column_name='season_year') THEN
+        ALTER TABLE animes ADD COLUMN season_year INTEGER;
+    END IF;
+    
+    -- Add status column
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='animes' AND column_name='status') THEN
+        ALTER TABLE animes ADD COLUMN status VARCHAR(50);
+    END IF;
+    
+    -- Add media column
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='animes' AND column_name='media') THEN
+        ALTER TABLE animes ADD COLUMN media VARCHAR(50);
+    END IF;
+    
+    -- Add episodes_count column
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='animes' AND column_name='episodes_count') THEN
+        ALTER TABLE animes ADD COLUMN episodes_count INTEGER DEFAULT 0;
+    END IF;
+    
+    -- Add official_site_url column
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='animes' AND column_name='official_site_url') THEN
+        ALTER TABLE animes ADD COLUMN official_site_url VARCHAR(500);
+    END IF;
+    
+    -- Add wikipedia_url column
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='animes' AND column_name='wikipedia_url') THEN
+        ALTER TABLE animes ADD COLUMN wikipedia_url VARCHAR(500);
+    END IF;
+    
+    -- Add twitter_username column
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='animes' AND column_name='twitter_username') THEN
+        ALTER TABLE animes ADD COLUMN twitter_username VARCHAR(100);
+    END IF;
+    
+    -- Add twitter_hashtag column
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='animes' AND column_name='twitter_hashtag') THEN
+        ALTER TABLE animes ADD COLUMN twitter_hashtag VARCHAR(100);
+    END IF;
+    
+    -- Add mal_anime_id column
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='animes' AND column_name='mal_anime_id') THEN
+        ALTER TABLE animes ADD COLUMN mal_anime_id VARCHAR(50);
+    END IF;
+    
+    -- Add annict_id column
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='animes' AND column_name='annict_id') THEN
+        ALTER TABLE animes ADD COLUMN annict_id INTEGER;
+    END IF;
+    
+    -- Add watchers_count column
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='animes' AND column_name='watchers_count') THEN
+        ALTER TABLE animes ADD COLUMN watchers_count INTEGER DEFAULT 0;
+    END IF;
+    
+    -- Add reviews_count column
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='animes' AND column_name='reviews_count') THEN
+        ALTER TABLE animes ADD COLUMN reviews_count INTEGER DEFAULT 0;
+    END IF;
+END $$;
+
+-- Add unique constraint to annict_id if it doesn't exist
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'animes_annict_id_key') THEN
+        ALTER TABLE animes ADD CONSTRAINT animes_annict_id_key UNIQUE (annict_id);
+    END IF;
+END $$;
+
+-- Create indexes for performance (after ensuring columns exist)
+DO $$ 
+BEGIN 
+    -- Create basic indexes
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='animes' AND column_name='season') THEN
+        CREATE INDEX IF NOT EXISTS idx_animes_season ON animes(season);
+    END IF;
+    
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='animes' AND column_name='status') THEN
+        CREATE INDEX IF NOT EXISTS idx_animes_status ON animes(status);
+    END IF;
+    
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='animes' AND column_name='season_year') THEN
+        CREATE INDEX IF NOT EXISTS idx_animes_season_year ON animes(season_year);
+    END IF;
+    
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='animes' AND column_name='annict_id') THEN
+        CREATE INDEX IF NOT EXISTS idx_animes_annict_id ON animes(annict_id);
+    END IF;
+    
+    -- Create text search indexes
+    CREATE INDEX IF NOT EXISTS idx_animes_title ON animes USING gin(to_tsvector('simple', title));
+    
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='animes' AND column_name='title_kana') THEN
+        CREATE INDEX IF NOT EXISTS idx_animes_title_kana ON animes USING gin(to_tsvector('simple', COALESCE(title_kana, '')));
+    END IF;
+    
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='animes' AND column_name='title_en') THEN
+        CREATE INDEX IF NOT EXISTS idx_animes_title_en ON animes USING gin(to_tsvector('english', COALESCE(title_en, '')));
+    END IF;
+END $$;
 
 -- Create trigger for updated_at (function already exists from users table)
 -- Drop trigger if exists before creating
