@@ -27,18 +27,23 @@ func NewMigrator(db *database.DB, migrationsPath string) *Migrator {
 
 // RunMigrations executes all pending migrations
 func (m *Migrator) RunMigrations() error {
-	log.Println("Starting database migrations...")
+	log.Printf("Starting database migrations from path: %s", m.migrationsPath)
 
 	// Create migrations table if not exists
+	log.Printf("Creating migrations tracking table...")
 	if err := m.createMigrationsTable(); err != nil {
 		return fmt.Errorf("failed to create migrations table: %w", err)
 	}
+	log.Printf("Migrations tracking table ready")
 
 	// Get migration files
+	log.Printf("Scanning for migration files...")
 	migrationFiles, err := m.getMigrationFiles()
 	if err != nil {
 		return fmt.Errorf("failed to get migration files: %w", err)
 	}
+
+	log.Printf("Found %d migration files: %v", len(migrationFiles), migrationFiles)
 
 	if len(migrationFiles) == 0 {
 		log.Println("No migration files found")
@@ -48,17 +53,20 @@ func (m *Migrator) RunMigrations() error {
 	// Execute migrations
 	executedCount := 0
 	for _, filename := range migrationFiles {
+		log.Printf("Processing migration: %s", filename)
 		executed, err := m.executeMigration(filename)
 		if err != nil {
+			log.Printf("Migration %s failed: %v", filename, err)
 			return fmt.Errorf("failed to execute migration %s: %w", filename, err)
 		}
 		if executed {
 			executedCount++
+			log.Printf("Migration %s completed successfully", filename)
 		}
 	}
 
 	if executedCount > 0 {
-		log.Printf("Successfully executed %d migrations", executedCount)
+		log.Printf("Successfully executed %d new migrations", executedCount)
 	} else {
 		log.Println("All migrations were already executed")
 	}

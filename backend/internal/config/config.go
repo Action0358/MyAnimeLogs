@@ -77,6 +77,7 @@ func buildDatabaseURL() string {
 }
 
 // getDBConfigForEnvironment returns database configuration based on environment
+// Optimized for Supabase connection pooling
 func getDBConfigForEnvironment(env Environment) struct {
 	MaxOpenConns    int
 	MaxIdleConns    int
@@ -85,40 +86,43 @@ func getDBConfigForEnvironment(env Environment) struct {
 } {
 	switch env {
 	case Production:
+		// Production settings optimized for Supabase
 		return struct {
 			MaxOpenConns    int
 			MaxIdleConns    int
 			ConnMaxLifetime int
 			ConnMaxIdleTime int
 		}{
-			MaxOpenConns:    getEnvAsInt("DB_MAX_OPEN_CONNS", 50),
-			MaxIdleConns:    getEnvAsInt("DB_MAX_IDLE_CONNS", 10),
-			ConnMaxLifetime: getEnvAsInt("DB_CONN_MAX_LIFETIME", 10),
-			ConnMaxIdleTime: getEnvAsInt("DB_CONN_MAX_IDLE_TIME", 2),
+			MaxOpenConns:    getEnvAsInt("DB_MAX_OPEN_CONNS", 25), // Conservative for Supabase
+			MaxIdleConns:    getEnvAsInt("DB_MAX_IDLE_CONNS", 5),
+			ConnMaxLifetime: getEnvAsInt("DB_CONN_MAX_LIFETIME", 15), // Longer for managed service
+			ConnMaxIdleTime: getEnvAsInt("DB_CONN_MAX_IDLE_TIME", 5),
 		}
 	case Staging:
+		// Staging settings optimized for Supabase
 		return struct {
 			MaxOpenConns    int
 			MaxIdleConns    int
 			ConnMaxLifetime int
 			ConnMaxIdleTime int
 		}{
-			MaxOpenConns:    getEnvAsInt("DB_MAX_OPEN_CONNS", 30),
-			MaxIdleConns:    getEnvAsInt("DB_MAX_IDLE_CONNS", 8),
-			ConnMaxLifetime: getEnvAsInt("DB_CONN_MAX_LIFETIME", 8),
-			ConnMaxIdleTime: getEnvAsInt("DB_CONN_MAX_IDLE_TIME", 2),
+			MaxOpenConns:    getEnvAsInt("DB_MAX_OPEN_CONNS", 15),
+			MaxIdleConns:    getEnvAsInt("DB_MAX_IDLE_CONNS", 3),
+			ConnMaxLifetime: getEnvAsInt("DB_CONN_MAX_LIFETIME", 15),
+			ConnMaxIdleTime: getEnvAsInt("DB_CONN_MAX_IDLE_TIME", 5),
 		}
 	default: // Development, Test
+		// Development settings for Supabase
 		return struct {
 			MaxOpenConns    int
 			MaxIdleConns    int
 			ConnMaxLifetime int
 			ConnMaxIdleTime int
 		}{
-			MaxOpenConns:    getEnvAsInt("DB_MAX_OPEN_CONNS", 25),
-			MaxIdleConns:    getEnvAsInt("DB_MAX_IDLE_CONNS", 5),
-			ConnMaxLifetime: getEnvAsInt("DB_CONN_MAX_LIFETIME", 5),
-			ConnMaxIdleTime: getEnvAsInt("DB_CONN_MAX_IDLE_TIME", 1),
+			MaxOpenConns:    getEnvAsInt("DB_MAX_OPEN_CONNS", 10),
+			MaxIdleConns:    getEnvAsInt("DB_MAX_IDLE_CONNS", 2),
+			ConnMaxLifetime: getEnvAsInt("DB_CONN_MAX_LIFETIME", 10),
+			ConnMaxIdleTime: getEnvAsInt("DB_CONN_MAX_IDLE_TIME", 3),
 		}
 	}
 }
