@@ -27,6 +27,7 @@ services:
       - ./backend/.env.local
     depends_on:
       - postgres
+    command: sh -c "go run scripts/migrate.go && air -c .air.toml"
 
   postgres:
     image: postgres:16
