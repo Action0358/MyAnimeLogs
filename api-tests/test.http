@@ -152,3 +152,201 @@ GET {{baseUrl}}/api/annict/popular-works
 
 ### 21. 特定シーズンのアニメ取得
 GET {{baseUrl}}/api/annict/works?season=2024-autumn
+
+### ===== アニメ管理API =====
+
+### 22. アニメ一覧取得（認証なし）
+GET {{baseUrl}}/api/animes
+
+### 23. アニメ一覧取得（認証あり）
+GET {{baseUrl}}/api/animes
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 24. アニメ検索（キーワード）
+GET {{baseUrl}}/api/animes?keyword=進撃
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 25. アニメ検索（シーズンフィルター）
+GET {{baseUrl}}/api/animes?season=2024-autumn
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 26. アニメ詳細取得（認証なし）
+GET {{baseUrl}}/api/animes/1
+
+### 27. アニメ詳細取得（認証あり）
+GET {{baseUrl}}/api/animes/1
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 28. アニメのエピソード一覧取得
+GET {{baseUrl}}/api/animes/1/episodes
+Authorization: Bearer {{login.response.body.access_token}}
+
+### ===== お気に入り管理API =====
+
+### 29. お気に入り一覧取得（全て）
+GET {{baseUrl}}/api/users/me/favorites
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 30. お気に入り一覧取得（視聴中のみ）
+GET {{baseUrl}}/api/users/me/favorites?status=watching
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 31. お気に入り一覧取得（視聴完了のみ）
+GET {{baseUrl}}/api/users/me/favorites?status=completed
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 32. お気に入り登録（視聴中）
+PUT {{baseUrl}}/api/users/me/favorites/1
+Content-Type: {{contentType}}
+Authorization: Bearer {{login.response.body.access_token}}
+
+{
+  "status": "watching"
+}
+
+### 33. お気に入り更新（視聴完了）
+PUT {{baseUrl}}/api/users/me/favorites/1
+Content-Type: {{contentType}}
+Authorization: Bearer {{login.response.body.access_token}}
+
+{
+  "status": "completed"
+}
+
+### 34. お気に入り登録（視聴予定）
+PUT {{baseUrl}}/api/users/me/favorites/2
+Content-Type: {{contentType}}
+Authorization: Bearer {{login.response.body.access_token}}
+
+{
+  "status": "planned"
+}
+
+### 35. お気に入り削除
+DELETE {{baseUrl}}/api/users/me/favorites/1
+Authorization: Bearer {{login.response.body.access_token}}
+
+### ===== 視聴進捗管理API =====
+
+### 36. エピソード視聴状態更新（視聴済み）
+PUT {{baseUrl}}/api/episodes/1/watch
+Content-Type: {{contentType}}
+Authorization: Bearer {{login.response.body.access_token}}
+
+{
+  "viewed": true
+}
+
+### 37. エピソード視聴状態更新（未視聴）
+PUT {{baseUrl}}/api/episodes/1/watch
+Content-Type: {{contentType}}
+Authorization: Bearer {{login.response.body.access_token}}
+
+{
+  "viewed": false
+}
+
+### ===== 評価システムAPI =====
+
+### 38. アニメ評価登録
+PUT {{baseUrl}}/api/animes/1/rating
+Content-Type: {{contentType}}
+Authorization: Bearer {{login.response.body.access_token}}
+
+{
+  "rating": 4.5,
+  "comment": "とても面白いアニメでした！"
+}
+
+### 39. アニメ評価更新
+PUT {{baseUrl}}/api/animes/1/rating
+Content-Type: {{contentType}}
+Authorization: Bearer {{login.response.body.access_token}}
+
+{
+  "rating": 5.0,
+  "comment": "最高のアニメです！"
+}
+
+### 40. アニメ評価削除
+DELETE {{baseUrl}}/api/animes/1/rating
+Authorization: Bearer {{login.response.body.access_token}}
+
+### ===== 視聴履歴・統計API =====
+
+### 41. 最近視聴したエピソード
+GET {{baseUrl}}/api/users/me/recently-watched
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 42. 最近視聴したエピソード（件数指定）
+GET {{baseUrl}}/api/users/me/recently-watched?limit=5
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 43. 視聴予定リスト
+GET {{baseUrl}}/api/users/me/watchlist
+Authorization: Bearer {{login.response.body.access_token}}
+
+### ===== エラーケーステスト（お気に入り関連） =====
+
+### 44. 存在しないアニメをお気に入り登録
+PUT {{baseUrl}}/api/users/me/favorites/99999
+Content-Type: {{contentType}}
+Authorization: Bearer {{login.response.body.access_token}}
+
+{
+  "status": "watching"
+}
+
+### 45. 無効なステータスでお気に入り登録
+PUT {{baseUrl}}/api/users/me/favorites/1
+Content-Type: {{contentType}}
+Authorization: Bearer {{login.response.body.access_token}}
+
+{
+  "status": "invalid_status"
+}
+
+### 46. 存在しないエピソードの視聴状態更新
+PUT {{baseUrl}}/api/episodes/99999/watch
+Content-Type: {{contentType}}
+Authorization: Bearer {{login.response.body.access_token}}
+
+{
+  "viewed": true
+}
+
+### 47. 無効な評価値でアニメ評価
+PUT {{baseUrl}}/api/animes/1/rating
+Content-Type: {{contentType}}
+Authorization: Bearer {{login.response.body.access_token}}
+
+{
+  "rating": 6.0,
+  "comment": "範囲外の評価値"
+}
+
+### ===== 管理者API（データ同期） =====
+
+### 48. 今期アニメをデータベースに同期
+POST {{baseUrl}}/api/admin/sync/season
+Content-Type: {{contentType}}
+Authorization: Bearer {{login.response.body.access_token}}
+
+{
+  "season": "2024-autumn"
+}
+
+### 49. 人気アニメをデータベースに同期
+POST {{baseUrl}}/api/admin/sync/popular
+Content-Type: {{contentType}}
+Authorization: Bearer {{login.response.body.access_token}}
+
+### ===== パフォーマンステスト =====
+
+### 50. 大量データでのアニメ一覧取得
+GET {{baseUrl}}/api/animes?per_page=100
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 51. 複数条件での検索
+GET {{baseUrl}}/api/animes?keyword=進撃&season=2024-autumn&status=airing&sort=rating
+Authorization: Bearer {{login.response.body.access_token}}
