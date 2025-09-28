@@ -350,3 +350,23 @@ Authorization: Bearer {{login.response.body.access_token}}
 ### 51. 複数条件での検索
 GET {{baseUrl}}/api/animes?keyword=進撃&season=2024-autumn&status=airing&sort=rating
 Authorization: Bearer {{login.response.body.access_token}}
+
+### ===== 監視・ヘルスチェックAPI =====
+
+### 52. 基本ヘルスチェック
+GET {{baseUrl}}/health
+
+### 53. 詳細ヘルスチェック
+GET {{baseUrl}}/health/detailed
+
+### 54. エラーメトリクス取得（管理者）
+GET {{baseUrl}}/api/admin/errors/metrics
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 55. トップエラー取得（管理者）
+GET {{baseUrl}}/api/admin/errors/top?limit=5
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 56. エラーメトリクスリセット（管理者）
+POST {{baseUrl}}/api/admin/errors/reset
+Authorization: Bearer {{login.response.body.access_token}}

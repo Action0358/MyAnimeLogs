@@ -3,6 +3,7 @@ package router
 import (
 	"time"
 
+	"myanimelogs/internal/common"
 	"myanimelogs/internal/config"
 	"myanimelogs/internal/database"
 	"myanimelogs/internal/handlers"
@@ -18,9 +19,21 @@ func Setup(db *database.DB, cfg *config.Config) *gin.Engine {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
-	r := gin.Default()
+	// Initialize structured logger
+	logger := common.NewLogger(common.LogLevel(cfg.LogLevel), cfg.LogFormat)
 
-	// Middleware
+	// Initialize error monitor
+	errorMonitor := common.NewErrorMonitor(
+		logger,
+		cfg.ErrorAlertThreshold,
+		time.Duration(cfg.ErrorTimeWindow)*time.Minute,
+	)
+
+	r := gin.New() // Use gin.New() instead of gin.Default() for custom middleware
+
+	// Middleware (order matters)
+	r.Use(middleware.RequestIDMiddleware())
+	r.Use(middleware.LoggingMiddleware(logger))
 	r.Use(middleware.CORSMiddleware())
 
 	// Rate limiting
@@ -32,15 +45,15 @@ func Setup(db *database.DB, cfg *config.Config) *gin.Engine {
 	animeService := services.NewAnimeService(db)
 	annictService := services.NewAnnictClientWithDB(cfg.AnnictAPIKey, db) // Annictサービスを初期化
 
-	// Handlers
+	// Handlers with enhanced error handling
 	authHandler := handlers.NewAuthHandler(authService)
 	animeHandler := handlers.NewAnimeHandler(animeService)
 	annictHandler := handlers.NewAnnictHandler(annictService) // Annictハンドラを初期化
+	monitoringHandler := handlers.NewMonitoringHandler(errorMonitor)
 
-	// Health check
-	r.GET("/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "ok"})
-	})
+	// Health check and monitoring endpoints
+	r.GET("/health", monitoringHandler.HealthCheck)
+	r.GET("/health/detailed", monitoringHandler.DetailedHealthCheck)
 
 	if gin.IsDebugging() {
 		// Hot reload test endpoint
@@ -71,12 +84,18 @@ func Setup(db *database.DB, cfg *config.Config) *gin.Engine {
 		api.GET("/annict/works", annictHandler.GetWorksBySeason)
 		api.GET("/annict/popular-works", annictHandler.GetPopularWorks)
 
-		// Admin routes for data synchronization (protected with authentication)
+		// Admin routes for data synchronization and monitoring (protected with authentication)
 		admin := api.Group("/admin")
 		admin.Use(middleware.AuthMiddleware(cfg.JWTSecret))
 		{
+			// Data synchronization
 			admin.POST("/sync/season", annictHandler.SyncWorksBySeason)
 			admin.POST("/sync/popular", annictHandler.SyncPopularWorks)
+
+			// Error monitoring
+			admin.GET("/errors/metrics", monitoringHandler.GetErrorMetrics)
+			admin.GET("/errors/top", monitoringHandler.GetTopErrors)
+			admin.POST("/errors/reset", monitoringHandler.ResetErrorMetrics)
 		}
 
 		// Protected routes (authentication required)
