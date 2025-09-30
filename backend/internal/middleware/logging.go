@@ -27,7 +27,9 @@ func LoggingMiddleware(logger *common.Logger) gin.HandlerFunc {
 
 		// Add user ID if available
 		if userID, exists := c.Get("user_id"); exists {
-			contextLogger = contextLogger.WithUserID(userID.(int))
+			if uid, ok := userID.(int); ok {
+				contextLogger = contextLogger.WithUserID(uid)
+			}
 		}
 
 		// Log the request

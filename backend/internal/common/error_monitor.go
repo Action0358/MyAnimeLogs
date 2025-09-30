@@ -2,6 +2,7 @@ package common
 
 import (
 	"context"
+	"sort"
 	"sync"
 	"time"
 )
@@ -76,8 +77,8 @@ func (em *ErrorMonitor) RecordError(ctx context.Context, errorCode string, err e
 
 // GetErrorMetrics returns current error metrics
 func (em *ErrorMonitor) GetErrorMetrics() []ErrorMetrics {
-	em.mutex.RLock()
-	defer em.mutex.RUnlock()
+	em.mutex.Lock() // 書き込みロックに変更（cleanOldEntriesでスライスを変更するため）
+	defer em.mutex.Unlock()
 
 	now := time.Now()
 	metrics := make([]ErrorMetrics, 0, len(em.errorCounts))
@@ -155,18 +156,59 @@ func (em *ErrorMonitor) triggerAlert(ctx context.Context, errorCode string, curr
 func (em *ErrorMonitor) GetTopErrors(limit int) []ErrorMetrics {
 	metrics := em.GetErrorMetrics()
 
-	// Sort by count (simple bubble sort for small datasets)
-	for i := 0; i < len(metrics)-1; i++ {
-		for j := 0; j < len(metrics)-i-1; j++ {
-			if metrics[j].Count < metrics[j+1].Count {
-				metrics[j], metrics[j+1] = metrics[j+1], metrics[j]
-			}
-		}
-	}
+	// Sort by count in descending order using standard library
+	sort.Slice(metrics, func(i, j int) bool {
+		return metrics[i].Count > metrics[j].Count
+	})
 
 	if limit > 0 && limit < len(metrics) {
 		return metrics[:limit]
 	}
 
 	return metrics
+}
+
+// GetErrorStatistics returns comprehensive error statistics
+func (em *ErrorMonitor) GetErrorStatistics() map[string]interface{} {
+	metrics := em.GetErrorMetrics()
+
+	totalErrors := 0
+	totalRate := 0.0
+	var mostRecentError time.Time
+
+	for _, metric := range metrics {
+		totalErrors += metric.Count
+		totalRate += metric.Rate
+		if metric.LastOccurred.After(mostRecentError) {
+			mostRecentError = metric.LastOccurred
+		}
+	}
+
+	return map[string]interface{}{
+		"total_errors":      totalErrors,
+		"error_type_count":  len(metrics),
+		"total_rate":        totalRate,
+		"average_rate":      totalRate / float64(len(metrics)),
+		"most_recent_error": mostRecentError,
+	}
+}
+
+// GetTotalErrorCount returns the total number of errors across all types
+func (em *ErrorMonitor) GetTotalErrorCount() int {
+	em.mutex.RLock()
+	defer em.mutex.RUnlock()
+
+	total := 0
+	for _, count := range em.errorCounts {
+		total += count
+	}
+	return total
+}
+
+// GetErrorTypeCount returns the number of different error types
+func (em *ErrorMonitor) GetErrorTypeCount() int {
+	em.mutex.RLock()
+	defer em.mutex.RUnlock()
+
+	return len(em.errorCounts)
 }

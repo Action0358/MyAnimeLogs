@@ -46,10 +46,10 @@ func Setup(db *database.DB, cfg *config.Config) *gin.Engine {
 	annictService := services.NewAnnictClientWithDB(cfg.AnnictAPIKey, db) // Annictサービスを初期化
 
 	// Handlers with enhanced error handling
-	authHandler := handlers.NewAuthHandler(authService)
-	animeHandler := handlers.NewAnimeHandler(animeService)
-	annictHandler := handlers.NewAnnictHandler(annictService) // Annictハンドラを初期化
-	monitoringHandler := handlers.NewMonitoringHandler(errorMonitor)
+	authHandler := handlers.NewAuthHandler(authService, logger, errorMonitor)
+	animeHandler := handlers.NewAnimeHandler(animeService, logger, errorMonitor)
+	annictHandler := handlers.NewAnnictHandler(annictService, logger, errorMonitor)
+	monitoringHandler := handlers.NewMonitoringHandler(logger, errorMonitor)
 
 	// Health check and monitoring endpoints
 	r.GET("/health", monitoringHandler.HealthCheck)

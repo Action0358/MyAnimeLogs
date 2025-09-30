@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"myanimelogs/internal/common"
 	"myanimelogs/internal/models"
 	"myanimelogs/internal/services"
 
@@ -15,9 +16,9 @@ type AnimeHandler struct {
 	animeService *services.AnimeService
 }
 
-func NewAnimeHandler(animeService *services.AnimeService) *AnimeHandler {
+func NewAnimeHandler(animeService *services.AnimeService, logger *common.Logger, errorMonitor *common.ErrorMonitor) *AnimeHandler {
 	return &AnimeHandler{
-		BaseHandler:  NewBaseHandler(),
+		BaseHandler:  NewBaseHandlerWithLogger(logger, errorMonitor),
 		animeService: animeService,
 	}
 }
@@ -35,8 +36,9 @@ func (h *AnimeHandler) GetAnimes(c *gin.Context) {
 	// Get user ID if authenticated
 	var userID *int
 	if id, exists := c.Get("user_id"); exists {
-		uid := id.(int)
-		userID = &uid
+		if uid, ok := id.(int); ok {
+			userID = &uid
+		}
 	}
 
 	result, err := h.animeService.SearchAnimes(params, userID)
@@ -58,8 +60,9 @@ func (h *AnimeHandler) GetAnime(c *gin.Context) {
 	// Get user ID if authenticated
 	var userID *int
 	if uid, exists := c.Get("user_id"); exists {
-		userIDVal := uid.(int)
-		userID = &userIDVal
+		if userIDVal, ok := uid.(int); ok {
+			userID = &userIDVal
+		}
 	}
 
 	anime, err := h.animeService.GetAnimeByID(id, userID)
@@ -85,8 +88,9 @@ func (h *AnimeHandler) GetAnimeEpisodes(c *gin.Context) {
 	// Get user ID if authenticated
 	var userID *int
 	if uid, exists := c.Get("user_id"); exists {
-		id := uid.(int)
-		userID = &id
+		if id, ok := uid.(int); ok {
+			userID = &id
+		}
 	}
 
 	episodes, err := h.animeService.GetAnimeEpisodes(animeID, userID)

@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"log"
+	"myanimelogs/internal/common"
 	"myanimelogs/internal/models"
 	"myanimelogs/internal/services"
 	"net/http"
@@ -13,11 +14,13 @@ import (
 )
 
 type AnnictHandler struct {
+	*BaseHandler
 	annictService *services.AnnictClient
 }
 
-func NewAnnictHandler(annictService *services.AnnictClient) *AnnictHandler {
+func NewAnnictHandler(annictService *services.AnnictClient, logger *common.Logger, errorMonitor *common.ErrorMonitor) *AnnictHandler {
 	return &AnnictHandler{
+		BaseHandler:   NewBaseHandlerWithLogger(logger, errorMonitor),
 		annictService: annictService,
 	}
 }
@@ -165,7 +168,7 @@ func (h *AnnictHandler) createSampleEpisodes(animeID int) ([]models.Episode, err
 		episode := models.Episode{
 			AnimeID:       animeID,
 			EpisodeNumber: i,
-			Title:          fmt.Sprintf("第%d話", i),
+			Title:         fmt.Sprintf("第%d話", i),
 		}
 		episodes = append(episodes, episode)
 	}

@@ -79,6 +79,10 @@ func (r *ResponseHandler) UnauthorizedError(c *gin.Context, message string) {
 
 // NotFoundError sends a not found error response
 func (r *ResponseHandler) NotFoundError(c *gin.Context, message string) {
+	r.recordError(c, ErrCodeNotFound, ErrNotFound, map[string]interface{}{
+		"not_found_message": message,
+	})
+
 	c.JSON(http.StatusNotFound, ErrorResponse{
 		Error:   ErrMsgNotFound,
 		Message: message,
@@ -88,6 +92,10 @@ func (r *ResponseHandler) NotFoundError(c *gin.Context, message string) {
 
 // ConflictError sends a conflict error response
 func (r *ResponseHandler) ConflictError(c *gin.Context, message string) {
+	r.recordError(c, ErrCodeConflict, ErrConflict, map[string]interface{}{
+		"conflict_message": message,
+	})
+
 	c.JSON(http.StatusConflict, ErrorResponse{
 		Error:   ErrMsgConflict,
 		Message: message,
@@ -110,7 +118,7 @@ func (r *ResponseHandler) InternalServerError(c *gin.Context, message string) {
 
 // UnprocessableEntityError sends an unprocessable entity error response
 func (r *ResponseHandler) UnprocessableEntityError(c *gin.Context, message string) {
-	r.recordError(c, ErrCodeUnprocessableEntity, ErrInternalServer, map[string]interface{}{
+	r.recordError(c, ErrCodeUnprocessableEntity, ErrUnprocessableEntity, map[string]interface{}{
 		"unprocessable_message": message,
 	})
 
@@ -149,4 +157,43 @@ func (r *ResponseHandler) recordError(c *gin.Context, errorCode string, err erro
 
 	// Record the error
 	r.errorMonitor.RecordError(c.Request.Context(), errorCode, err, requestMetadata)
+}
+
+// ForbiddenError sends a forbidden error response
+func (r *ResponseHandler) ForbiddenError(c *gin.Context, message string) {
+	r.recordError(c, ErrCodeForbidden, ErrForbidden, map[string]interface{}{
+		"forbidden_message": message,
+	})
+
+	c.JSON(http.StatusForbidden, ErrorResponse{
+		Error:   ErrMsgForbidden,
+		Message: message,
+		Code:    ErrCodeForbidden,
+	})
+}
+
+// TooManyRequestsError sends a too many requests error response
+func (r *ResponseHandler) TooManyRequestsError(c *gin.Context, message string) {
+	r.recordError(c, ErrCodeTooManyRequests, ErrTooManyRequests, map[string]interface{}{
+		"rate_limit_message": message,
+	})
+
+	c.JSON(http.StatusTooManyRequests, ErrorResponse{
+		Error:   ErrMsgTooManyRequests,
+		Message: message,
+		Code:    ErrCodeTooManyRequests,
+	})
+}
+
+// ServiceUnavailableError sends a service unavailable error response
+func (r *ResponseHandler) ServiceUnavailableError(c *gin.Context, message string) {
+	r.recordError(c, ErrCodeServiceUnavailable, ErrServiceUnavailable, map[string]interface{}{
+		"service_unavailable_message": message,
+	})
+
+	c.JSON(http.StatusServiceUnavailable, ErrorResponse{
+		Error:   ErrMsgServiceUnavailable,
+		Message: message,
+		Code:    ErrCodeServiceUnavailable,
+	})
 }

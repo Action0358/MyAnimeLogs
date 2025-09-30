@@ -367,6 +367,18 @@ Authorization: Bearer {{login.response.body.access_token}}
 GET {{baseUrl}}/api/admin/errors/top?limit=5
 Authorization: Bearer {{login.response.body.access_token}}
 
+### 55-1. トップエラー取得（カウント順）
+GET {{baseUrl}}/api/admin/errors/top?limit=5&sort=count
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 55-2. トップエラー取得（レート順）
+GET {{baseUrl}}/api/admin/errors/top?limit=5&sort=rate
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 55-3. トップエラー取得（時刻順）
+GET {{baseUrl}}/api/admin/errors/top?limit=5&sort=time
+Authorization: Bearer {{login.response.body.access_token}}
+
 ### 56. エラーメトリクスリセット（管理者）
 POST {{baseUrl}}/api/admin/errors/reset
 Authorization: Bearer {{login.response.body.access_token}}

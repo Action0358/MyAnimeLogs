@@ -16,9 +16,9 @@ type MonitoringHandler struct {
 }
 
 // NewMonitoringHandler creates a new monitoring handler
-func NewMonitoringHandler(errorMonitor *common.ErrorMonitor) *MonitoringHandler {
+func NewMonitoringHandler(logger *common.Logger, errorMonitor *common.ErrorMonitor) *MonitoringHandler {
 	return &MonitoringHandler{
-		BaseHandler:  NewBaseHandler(),
+		BaseHandler:  NewBaseHandlerWithLogger(logger, errorMonitor),
 		errorMonitor: errorMonitor,
 	}
 }
@@ -26,9 +26,11 @@ func NewMonitoringHandler(errorMonitor *common.ErrorMonitor) *MonitoringHandler 
 // GetErrorMetrics returns current error metrics
 func (h *MonitoringHandler) GetErrorMetrics(c *gin.Context) {
 	metrics := h.errorMonitor.GetErrorMetrics()
+	statistics := h.errorMonitor.GetErrorStatistics()
+
 	h.response.Success(c, gin.H{
-		"metrics":      metrics,
-		"total_errors": len(metrics),
+		"metrics":    metrics,
+		"statistics": statistics,
 	})
 }
 
@@ -41,9 +43,18 @@ func (h *MonitoringHandler) GetTopErrors(c *gin.Context) {
 	}
 
 	topErrors := h.errorMonitor.GetTopErrors(limit)
+
+	// Calculate total error count for consistency
+	totalErrors := 0
+	for _, errorMetric := range topErrors {
+		totalErrors += errorMetric.Count
+	}
+
 	h.response.Success(c, gin.H{
-		"top_errors": topErrors,
-		"limit":      limit,
+		"top_errors":     topErrors,
+		"limit":          limit,
+		"returned_count": len(topErrors),
+		"total_errors":   totalErrors,
 	})
 }
 
@@ -66,13 +77,9 @@ func (h *MonitoringHandler) HealthCheck(c *gin.Context) {
 
 // DetailedHealthCheck returns detailed health information
 func (h *MonitoringHandler) DetailedHealthCheck(c *gin.Context) {
-	metrics := h.errorMonitor.GetErrorMetrics()
-
-	// Calculate overall health score
-	totalErrors := 0
-	for _, metric := range metrics {
-		totalErrors += metric.Count
-	}
+	statistics := h.errorMonitor.GetErrorStatistics()
+	totalErrors := statistics["total_errors"].(int)
+	errorTypeCount := statistics["error_type_count"].(int)
 
 	healthScore := "healthy"
 	if totalErrors > 100 {
@@ -88,7 +95,7 @@ func (h *MonitoringHandler) DetailedHealthCheck(c *gin.Context) {
 		"version":      "1.0.0",
 		"health_score": healthScore,
 		"total_errors": totalErrors,
-		"error_types":  len(metrics),
+		"error_types":  errorTypeCount,
 		"uptime":       "calculated_uptime", // TODO: implement uptime tracking
 	})
 }

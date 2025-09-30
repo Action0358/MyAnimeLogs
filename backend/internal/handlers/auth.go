@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 
+	"myanimelogs/internal/common"
 	"myanimelogs/internal/models"
 	"myanimelogs/internal/services"
 
@@ -14,9 +15,9 @@ type AuthHandler struct {
 	authService *services.AuthService
 }
 
-func NewAuthHandler(authService *services.AuthService) *AuthHandler {
+func NewAuthHandler(authService *services.AuthService, logger *common.Logger, errorMonitor *common.ErrorMonitor) *AuthHandler {
 	return &AuthHandler{
-		BaseHandler: NewBaseHandler(),
+		BaseHandler: NewBaseHandlerWithLogger(logger, errorMonitor),
 		authService: authService,
 	}
 }
@@ -143,7 +144,13 @@ func (h *AuthHandler) ExportData(c *gin.Context) {
 	if format == "csv" {
 		c.Header("Content-Type", "text/csv")
 		c.Header("Content-Disposition", "attachment; filename=myanimelog_data.csv")
-		c.String(http.StatusOK, data.(string))
+
+		// 安全な型アサーション
+		if csvData, ok := data.(string); ok {
+			c.String(http.StatusOK, csvData)
+		} else {
+			h.response.InternalServerError(c, "CSVデータの形式が正しくありません")
+		}
 	} else {
 		h.response.Success(c, data)
 	}
