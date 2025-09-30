@@ -48,9 +48,13 @@ const (
 
 // Common application errors
 var (
-	ErrValidation     = errors.New("validation error")
-	ErrUnauthorized   = errors.New("unauthorized")
-	ErrNotFound       = errors.New("not found")
-	ErrConflict       = errors.New("conflict")
-	ErrInternalServer = errors.New("internal server error")
+	ErrValidation          = errors.New("validation error")
+	ErrUnauthorized        = errors.New("unauthorized")
+	ErrForbidden           = errors.New("forbidden")
+	ErrNotFound            = errors.New("not found")
+	ErrConflict            = errors.New("conflict")
+	ErrUnprocessableEntity = errors.New("unprocessable entity")
+	ErrTooManyRequests     = errors.New("too many requests")
+	ErrInternalServer      = errors.New("internal server error")
+	ErrServiceUnavailable  = errors.New("service unavailable")
 )
