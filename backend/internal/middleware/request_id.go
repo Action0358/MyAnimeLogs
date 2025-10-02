@@ -3,6 +3,7 @@ package middleware
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 
 	"github.com/gin-gonic/gin"
 )
@@ -29,6 +30,12 @@ func RequestIDMiddleware() gin.HandlerFunc {
 // generateRequestID generates a random request ID
 func generateRequestID() string {
 	bytes := make([]byte, 16)
-	rand.Read(bytes)
+	if _, err := rand.Read(bytes); err != nil {
+		// Failure to read from crypto/rand indicates a serious system problem
+		// with the entropy source. The application should not continue.
+		// Wrap the error to preserve structure before converting to string for panic
+		wrappedErr := fmt.Errorf("failed to generate random bytes for request ID: %w", err)
+		panic(wrappedErr.Error())
+	}
 	return hex.EncodeToString(bytes)
 }
