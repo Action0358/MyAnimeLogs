@@ -3,6 +3,7 @@ package repository
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"myanimelogs/internal/database"
 	"myanimelogs/internal/models"
@@ -64,6 +65,67 @@ func (r *UserRepository) Create(user *models.User) error {
 		return fmt.Errorf("failed to create user: %w", err)
 	}
 	return nil
+}
+
+func (r *UserRepository) Update(user *models.User) error {
+	err := r.db.QueryRow(`
+		UPDATE users SET name = $1, description = $2, icon = $3, updated_at = CURRENT_TIMESTAMP
+		WHERE id = $4
+		RETURNING id, name, email, description, icon, created_at, updated_at
+	`, user.Name, user.Description, user.Icon, user.ID).Scan(
+		&user.ID, &user.Name, &user.Email, &user.Description, &user.Icon, &user.CreatedAt, &user.UpdatedAt,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update user: %w", err)
+	}
+	return nil
+}
+
+func (r *UserRepository) UpdatePartial(userID int, req models.UserUpdateRequest) (*models.User, error) {
+	// Build dynamic update query
+	setParts := []string{}
+	args := []interface{}{}
+	argIndex := 1
+
+	if req.Name != nil {
+		setParts = append(setParts, fmt.Sprintf("name = $%d", argIndex))
+		args = append(args, *req.Name)
+		argIndex++
+	}
+	if req.Description != nil {
+		setParts = append(setParts, fmt.Sprintf("description = $%d", argIndex))
+		args = append(args, *req.Description)
+		argIndex++
+	}
+	if req.Icon != nil {
+		setParts = append(setParts, fmt.Sprintf("icon = $%d", argIndex))
+		args = append(args, *req.Icon)
+		argIndex++
+	}
+
+	if len(setParts) == 0 {
+		// No fields to update, just return current user
+		return r.GetByID(userID)
+	}
+
+	setParts = append(setParts, "updated_at = CURRENT_TIMESTAMP")
+	args = append(args, userID)
+
+	query := fmt.Sprintf(`
+		UPDATE users SET %s
+		WHERE id = $%d
+		RETURNING id, name, email, description, icon, created_at, updated_at
+	`, strings.Join(setParts, ", "), argIndex)
+
+	var user models.User
+	err := r.db.QueryRow(query, args...).Scan(
+		&user.ID, &user.Name, &user.Email, &user.Description, &user.Icon, &user.CreatedAt, &user.UpdatedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update user: %w", err)
+	}
+
+	return &user, nil
 }
 
 func (r *UserRepository) EmailExists(email string) (bool, error) {

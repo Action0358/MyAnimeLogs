@@ -7,6 +7,8 @@ type UserRepositoryInterface interface {
 	GetByEmail(email string) (*models.User, error)
 	GetByID(id int) (*models.User, error)
 	Create(user *models.User) error
+	Update(user *models.User) error
+	UpdatePartial(userID int, req models.UserUpdateRequest) (*models.User, error)
 	EmailExists(email string) (bool, error)
 }
 
@@ -20,8 +22,8 @@ type AuthServiceInterface interface {
 	ExportUserData(userID int, format string) (interface{}, error)
 }
 
-// Note: AuthService should implement AuthServiceInterface after refactoring
-// var _ AuthServiceInterface = (*AuthService)(nil)
+// Ensure AuthService implements AuthServiceInterface
+var _ AuthServiceInterface = (*AuthService)(nil)
 
 // AnimeServiceInterface defines the interface for anime service
 type AnimeServiceInterface interface {
