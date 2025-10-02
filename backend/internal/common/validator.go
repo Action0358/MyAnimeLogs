@@ -20,7 +20,14 @@ func (v *ValidatorHelper) GetUserIDFromContext(c *gin.Context) (int, error) {
 	if !exists {
 		return 0, ErrUnauthorized
 	}
-	return userID.(int), nil
+
+	// 安全な型アサーション
+	if uid, ok := userID.(int); ok {
+		return uid, nil
+	}
+
+	// 型が一致しない場合もエラーとして扱う
+	return 0, ErrUnauthorized
 }
 
 // ParseIDParam parses and validates ID parameter from URL

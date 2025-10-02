@@ -20,6 +20,13 @@ type Config struct {
 	DBMaxIdleConns    int
 	DBConnMaxLifetime int // in minutes
 	DBConnMaxIdleTime int // in minutes
+	// Logging configuration
+	LogLevel  string
+	LogFormat string
+	LogOutput string
+	// Error monitoring configuration
+	ErrorAlertThreshold int
+	ErrorTimeWindow     int // in minutes
 }
 
 // New creates a new Config struct from environment variables
@@ -50,18 +57,32 @@ func New() *Config {
 	// Database connection pool settings (environment-specific defaults)
 	dbConfig := getDBConfigForEnvironment(env)
 
+	// Logging configuration
+	logLevel := getEnv("LOG_LEVEL", "INFO")
+	logFormat := getEnv("LOG_FORMAT", "json")
+	logOutput := getEnv("LOG_OUTPUT", "stdout")
+
+	// Error monitoring configuration
+	errorAlertThreshold := getEnvAsInt("ERROR_ALERT_THRESHOLD", 10)
+	errorTimeWindow := getEnvAsInt("ERROR_TIME_WINDOW", 5) // 5 minutes
+
 	return &Config{
-		DatabaseURL:       databaseURL,
-		Port:              port,
-		Environment:       string(env),
-		RateLimit:         rateLimit,
-		JWTSecret:         jwtSecret,
-		AnnictAPIKey:      annictAPIKey,
-		RedisURL:          redisURL,
-		DBMaxOpenConns:    dbConfig.MaxOpenConns,
-		DBMaxIdleConns:    dbConfig.MaxIdleConns,
-		DBConnMaxLifetime: dbConfig.ConnMaxLifetime,
-		DBConnMaxIdleTime: dbConfig.ConnMaxIdleTime,
+		DatabaseURL:         databaseURL,
+		Port:                port,
+		Environment:         string(env),
+		RateLimit:           rateLimit,
+		JWTSecret:           jwtSecret,
+		AnnictAPIKey:        annictAPIKey,
+		RedisURL:            redisURL,
+		DBMaxOpenConns:      dbConfig.MaxOpenConns,
+		DBMaxIdleConns:      dbConfig.MaxIdleConns,
+		DBConnMaxLifetime:   dbConfig.ConnMaxLifetime,
+		DBConnMaxIdleTime:   dbConfig.ConnMaxIdleTime,
+		LogLevel:            logLevel,
+		LogFormat:           logFormat,
+		LogOutput:           logOutput,
+		ErrorAlertThreshold: errorAlertThreshold,
+		ErrorTimeWindow:     errorTimeWindow,
 	}
 }
 
