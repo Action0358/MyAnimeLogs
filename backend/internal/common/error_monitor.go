@@ -117,12 +117,21 @@ func (em *ErrorMonitor) GetErrorMetrics() []ErrorMetrics {
 	defer em.mutex.Unlock()
 
 	now := time.Now()
-	metrics := make([]ErrorMetrics, 0, len(em.errorCounts))
 
-	for errorCode, count := range em.errorCounts {
-		// Clean old entries before calculating rate
+	// Clean old entries for all error codes to prevent memory leaks
+	// Create a copy of keys to avoid modifying map during iteration
+	errorCodes := make([]string, 0, len(em.errorCounts))
+	for errorCode := range em.errorCounts {
+		errorCodes = append(errorCodes, errorCode)
+	}
+
+	for _, errorCode := range errorCodes {
 		em.cleanOldEntries(errorCode, now)
+	}
 
+	// Build metrics from remaining entries
+	metrics := make([]ErrorMetrics, 0, len(em.errorCounts))
+	for errorCode, count := range em.errorCounts {
 		rateCount := len(em.errorRates[errorCode])
 		rate := float64(rateCount) / em.timeWindow.Minutes()
 
@@ -172,6 +181,13 @@ func (em *ErrorMonitor) cleanOldEntries(errorCode string, now time.Time) {
 
 	// Keep only recent entries
 	em.errorRates[errorCode] = rates[start:]
+
+	// If no recent entries exist, remove the errorCode from both maps
+	// to prevent unbounded memory growth from unique error codes
+	if len(em.errorRates[errorCode]) == 0 {
+		delete(em.errorRates, errorCode)
+		delete(em.errorCounts, errorCode)
+	}
 }
 
 // triggerAlert triggers an alert when error threshold is exceeded
@@ -278,6 +294,35 @@ func (em *ErrorMonitor) GetErrorTypeCount() int {
 	defer em.mutex.RUnlock()
 
 	return len(em.errorCounts)
+}
+
+// PruneOldEntries manually triggers cleanup of old entries
+// This can be called periodically to prevent memory leaks from unique error codes
+func (em *ErrorMonitor) PruneOldEntries() int {
+	em.mutex.Lock()
+	defer em.mutex.Unlock()
+
+	now := time.Now()
+	initialCount := len(em.errorCounts)
+
+	// Create a copy of keys to avoid modifying map during iteration
+	errorCodes := make([]string, 0, len(em.errorCounts))
+	for errorCode := range em.errorCounts {
+		errorCodes = append(errorCodes, errorCode)
+	}
+
+	for _, errorCode := range errorCodes {
+		em.cleanOldEntries(errorCode, now)
+	}
+
+	prunedCount := initialCount - len(em.errorCounts)
+	if prunedCount > 0 {
+		em.logger.LogInfo(context.Background(), "Pruned old error entries",
+			"pruned_count", prunedCount,
+			"remaining_count", len(em.errorCounts))
+	}
+
+	return prunedCount
 }
 
 // IsValid validates the ErrorStatistics for consistency and safety

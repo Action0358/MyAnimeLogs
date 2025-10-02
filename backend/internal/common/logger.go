@@ -70,13 +70,13 @@ func (l *Logger) WithUserID(userID int) *Logger {
 // WithError adds error to logger context
 func (l *Logger) WithError(err error) *Logger {
 	return &Logger{
-		Logger: l.Logger.With("error", err.Error()),
+		Logger: l.Logger.With("error", err),
 	}
 }
 
 // LogError logs error with context
 func (l *Logger) LogError(ctx context.Context, message string, err error, fields ...interface{}) {
-	args := []interface{}{"error", err.Error()}
+	args := []interface{}{"error", err}
 	args = append(args, fields...)
 	l.Logger.ErrorContext(ctx, message, args...)
 }

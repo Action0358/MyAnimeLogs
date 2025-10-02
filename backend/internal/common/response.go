@@ -39,7 +39,7 @@ func (r *ResponseHandler) Created(c *gin.Context, data interface{}) {
 func (r *ResponseHandler) Error(c *gin.Context, err error) {
 	switch err {
 	case ErrValidation:
-		r.ValidationError(c, err.Error())
+		r.ValidationError(c, "バリデーションエラーが発生しました")
 	case ErrUnauthorized:
 		r.UnauthorizedError(c, "認証が必要です")
 	case ErrNotFound:
@@ -54,6 +54,20 @@ func (r *ResponseHandler) Error(c *gin.Context, err error) {
 // ValidationError sends a validation error response
 func (r *ResponseHandler) ValidationError(c *gin.Context, message string) {
 	r.recordError(c, ErrCodeValidation, ErrValidation, map[string]interface{}{
+		"validation_message": message,
+	})
+
+	c.JSON(http.StatusBadRequest, ErrorResponse{
+		Error:   ErrMsgValidation,
+		Message: message,
+		Code:    ErrCodeValidation,
+	})
+}
+
+// ValidationErrorWithErr sends a validation error response with structured error information
+func (r *ResponseHandler) ValidationErrorWithErr(c *gin.Context, err error) {
+	message := err.Error()
+	r.recordError(c, ErrCodeValidation, err, map[string]interface{}{
 		"validation_message": message,
 	})
 
