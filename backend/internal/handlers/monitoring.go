@@ -28,6 +28,12 @@ func (h *MonitoringHandler) GetErrorMetrics(c *gin.Context) {
 	metrics := h.errorMonitor.GetErrorMetrics()
 	statistics := h.errorMonitor.GetErrorStatistics()
 
+	// 統計データの妥当性を検証
+	if !statistics.IsValid() {
+		h.response.InternalServerError(c, "統計データの計算に問題が発生しました")
+		return
+	}
+
 	h.response.Success(c, gin.H{
 		"metrics":    metrics,
 		"statistics": statistics,
@@ -42,19 +48,30 @@ func (h *MonitoringHandler) GetTopErrors(c *gin.Context) {
 		limit = 10
 	}
 
-	topErrors := h.errorMonitor.GetTopErrors(limit)
+	// Get sort parameter
+	sortBy := c.DefaultQuery("sort", "count")
 
-	// Calculate total error count for consistency
-	totalErrors := 0
+	// Convert string to SortBy type using helper function
+	sortCriteria := common.ToSortBy(sortBy)
+
+	topErrors := h.errorMonitor.GetTopErrorsWithSort(limit, sortCriteria)
+
+	// Calculate count in the returned top list
+	countInTopList := 0
 	for _, errorMetric := range topErrors {
-		totalErrors += errorMetric.Count
+		countInTopList += errorMetric.Count
 	}
 
+	// Get system-wide total error count
+	systemTotalErrors := h.errorMonitor.GetTotalErrorCount()
+
 	h.response.Success(c, gin.H{
-		"top_errors":     topErrors,
-		"limit":          limit,
-		"returned_count": len(topErrors),
-		"total_errors":   totalErrors,
+		"top_errors":        topErrors,
+		"limit":             limit,
+		"sort_by":           sortBy,
+		"returned_count":    len(topErrors),
+		"count_in_top_list": countInTopList,
+		"total_errors":      systemTotalErrors,
 	})
 }
 
@@ -78,8 +95,10 @@ func (h *MonitoringHandler) HealthCheck(c *gin.Context) {
 // DetailedHealthCheck returns detailed health information
 func (h *MonitoringHandler) DetailedHealthCheck(c *gin.Context) {
 	statistics := h.errorMonitor.GetErrorStatistics()
-	totalErrors := statistics["total_errors"].(int)
-	errorTypeCount := statistics["error_type_count"].(int)
+
+	// 型安全な構造体から直接値を取得
+	totalErrors := statistics.TotalErrors
+	errorTypeCount := statistics.ErrorTypeCount
 
 	healthScore := "healthy"
 	if totalErrors > 100 {

@@ -364,19 +364,40 @@ GET {{baseUrl}}/api/admin/errors/metrics
 Authorization: Bearer {{login.response.body.access_token}}
 
 ### 55. トップエラー取得（管理者）
+# レスポンス例:
+# {
+#   "top_errors": [...],
+#   "limit": 5,
+#   "sort_by": "count",
+#   "returned_count": 3,
+#   "count_in_top_list": 245,  // 上位3件のエラー合計数
+#   "total_errors": 1500       // システム全体のエラー総数
+# }
 GET {{baseUrl}}/api/admin/errors/top?limit=5
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 55-1. トップエラー取得（カウント順）
+### 55-1. トップエラー取得（件数指定）
+GET {{baseUrl}}/api/admin/errors/top?limit=3
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 55-2. トップエラー取得（デフォルト件数）
+GET {{baseUrl}}/api/admin/errors/top
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 55-3. トップエラー取得（カウント順ソート）
 GET {{baseUrl}}/api/admin/errors/top?limit=5&sort=count
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 55-2. トップエラー取得（レート順）
+### 55-4. トップエラー取得（レート順ソート）
 GET {{baseUrl}}/api/admin/errors/top?limit=5&sort=rate
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 55-3. トップエラー取得（時刻順）
+### 55-5. トップエラー取得（時刻順ソート）
 GET {{baseUrl}}/api/admin/errors/top?limit=5&sort=time
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 55-6. トップエラー取得（エラーコード順ソート）
+GET {{baseUrl}}/api/admin/errors/top?limit=5&sort=code
 Authorization: Bearer {{login.response.body.access_token}}
 
 ### 56. エラーメトリクスリセット（管理者）
