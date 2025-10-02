@@ -51,18 +51,8 @@ func (h *MonitoringHandler) GetTopErrors(c *gin.Context) {
 	// Get sort parameter
 	sortBy := c.DefaultQuery("sort", "count")
 
-	// Convert string to SortBy type
-	var sortCriteria common.SortBy
-	switch sortBy {
-	case "rate":
-		sortCriteria = common.SortByRate
-	case "time":
-		sortCriteria = common.SortByTime
-	case "code":
-		sortCriteria = common.SortByErrorCode
-	default:
-		sortCriteria = common.SortByCount
-	}
+	// Convert string to SortBy type using helper function
+	sortCriteria := common.ToSortBy(sortBy)
 
 	topErrors := h.errorMonitor.GetTopErrorsWithSort(limit, sortCriteria)
 

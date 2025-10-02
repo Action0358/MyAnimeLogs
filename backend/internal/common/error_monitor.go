@@ -45,6 +45,22 @@ const (
 	SortByErrorCode SortBy = "code"
 )
 
+// ToSortBy converts a string to SortBy type with fallback to default
+func ToSortBy(s string) SortBy {
+	switch s {
+	case "rate":
+		return SortByRate
+	case "time":
+		return SortByTime
+	case "code":
+		return SortByErrorCode
+	case "count":
+		return SortByCount
+	default:
+		return SortByCount // Default fallback
+	}
+}
+
 // NewErrorMonitor creates a new error monitor
 func NewErrorMonitor(logger *Logger, alertThreshold int, timeWindow time.Duration) *ErrorMonitor {
 	return &ErrorMonitor{
@@ -183,10 +199,6 @@ func (em *ErrorMonitor) GetTopErrorsWithSort(limit int, sortBy SortBy) []ErrorMe
 
 	// Sort based on the specified criteria
 	switch sortBy {
-	case SortByCount:
-		sort.Slice(metrics, func(i, j int) bool {
-			return metrics[i].Count > metrics[j].Count
-		})
 	case SortByRate:
 		sort.Slice(metrics, func(i, j int) bool {
 			return metrics[i].Rate > metrics[j].Rate
@@ -200,7 +212,7 @@ func (em *ErrorMonitor) GetTopErrorsWithSort(limit int, sortBy SortBy) []ErrorMe
 			return metrics[i].ErrorCode < metrics[j].ErrorCode
 		})
 	default:
-		// Default to count-based sorting
+		// Default to count-based sorting (includes SortByCount case)
 		sort.Slice(metrics, func(i, j int) bool {
 			return metrics[i].Count > metrics[j].Count
 		})
@@ -234,11 +246,6 @@ func (em *ErrorMonitor) GetErrorStatistics() ErrorStatistics {
 	metricsCount := len(metrics)
 	if metricsCount > 0 {
 		averageRate = totalRate / float64(metricsCount)
-
-		// NaN や Inf の検証
-		if math.IsNaN(averageRate) || math.IsInf(averageRate, 0) {
-			averageRate = 0.0
-		}
 	}
 
 	statistics := ErrorStatistics{
@@ -291,8 +298,46 @@ func (es ErrorStatistics) IsValid() bool {
 
 	// 論理的整合性のチェック
 	if es.ErrorTypeCount == 0 {
-		// エラータイプが0の場合、他の値も0であるべき
-		return es.TotalErrors == 0 && es.TotalRate == 0.0 && es.AverageRate == 0.0
+		// エラータイプが0の場合、他の値も全て0またはゼロ値であるべき
+		return es.TotalErrors == 0 &&
+			es.TotalRate == 0.0 &&
+			es.AverageRate == 0.0 &&
+			es.MostRecentError.IsZero()
+	}
+
+	// 追加の論理的整合性チェック
+	return es.isLogicallyConsistent()
+}
+
+// isLogicallyConsistent performs additional logical consistency checks
+func (es ErrorStatistics) isLogicallyConsistent() bool {
+	// エラータイプが存在する場合の整合性チェック
+	if es.ErrorTypeCount > 0 {
+		// エラータイプが存在するのに総エラー数が0は不整合
+		if es.TotalErrors == 0 {
+			return false
+		}
+
+		// 平均レートの妥当性チェック
+		expectedAverageRate := es.TotalRate / float64(es.ErrorTypeCount)
+		if math.Abs(es.AverageRate-expectedAverageRate) > 0.001 { // 浮動小数点の誤差を考慮
+			return false
+		}
+	}
+
+	// 総エラー数が存在するのにエラータイプが0は不整合
+	if es.TotalErrors > 0 && es.ErrorTypeCount == 0 {
+		return false
+	}
+
+	// レートが存在するのにエラータイプが0は不整合
+	if es.TotalRate > 0.0 && es.ErrorTypeCount == 0 {
+		return false
+	}
+
+	// 最新エラー時刻が設定されているのにエラータイプが0は不整合
+	if !es.MostRecentError.IsZero() && es.ErrorTypeCount == 0 {
+		return false
 	}
 
 	return true
@@ -322,6 +367,15 @@ func (es ErrorStatistics) Sanitize() ErrorStatistics {
 
 	if sanitized.TotalRate < 0.0 {
 		sanitized.TotalRate = 0.0
+	}
+
+	// 論理的整合性の修正
+	if sanitized.ErrorTypeCount == 0 {
+		// エラータイプが0の場合、他の値も0またはゼロ値に修正
+		sanitized.TotalErrors = 0
+		sanitized.TotalRate = 0.0
+		sanitized.AverageRate = 0.0
+		sanitized.MostRecentError = time.Time{} // ゼロ値に設定
 	}
 
 	return sanitized

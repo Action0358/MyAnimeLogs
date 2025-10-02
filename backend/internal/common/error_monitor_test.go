@@ -74,8 +74,41 @@ func TestErrorStatistics_IsValid(t *testing.T) {
 			stats: ErrorStatistics{
 				TotalErrors:     100, // Should be 0 if ErrorTypeCount is 0
 				ErrorTypeCount:  0,
-				TotalRate:       10.5, // Should be 0 if ErrorTypeCount is 0
-				AverageRate:     2.1,  // Should be 0 if ErrorTypeCount is 0
+				TotalRate:       10.5,       // Should be 0 if ErrorTypeCount is 0
+				AverageRate:     2.1,        // Should be 0 if ErrorTypeCount is 0
+				MostRecentError: time.Now(), // Should be zero time if ErrorTypeCount is 0
+			},
+			expected: false,
+		},
+		{
+			name: "Zero error types with non-zero MostRecentError (invalid)",
+			stats: ErrorStatistics{
+				TotalErrors:     0,
+				ErrorTypeCount:  0,
+				TotalRate:       0.0,
+				AverageRate:     0.0,
+				MostRecentError: time.Now(), // ❌ Should be zero time
+			},
+			expected: false,
+		},
+		{
+			name: "Non-zero errors with zero error types (invalid)",
+			stats: ErrorStatistics{
+				TotalErrors:     50, // ❌ Inconsistent with ErrorTypeCount = 0
+				ErrorTypeCount:  0,
+				TotalRate:       0.0,
+				AverageRate:     0.0,
+				MostRecentError: time.Time{},
+			},
+			expected: false,
+		},
+		{
+			name: "Inconsistent average rate calculation (invalid)",
+			stats: ErrorStatistics{
+				TotalErrors:     100,
+				ErrorTypeCount:  5,
+				TotalRate:       10.0,
+				AverageRate:     5.0, // ❌ Should be 2.0 (10.0/5)
 				MostRecentError: time.Now(),
 			},
 			expected: false,
@@ -136,17 +169,17 @@ func TestErrorStatistics_Sanitize(t *testing.T) {
 			name: "Negative values sanitized",
 			input: ErrorStatistics{
 				TotalErrors:     -10,
-				ErrorTypeCount:  -5,
+				ErrorTypeCount:  -5, // Will be sanitized to 0
 				TotalRate:       -10.5,
 				AverageRate:     2.1,
 				MostRecentError: time.Now(),
 			},
 			expected: ErrorStatistics{
-				TotalErrors:     0,
-				ErrorTypeCount:  0,
-				TotalRate:       0.0,
-				AverageRate:     2.1,
-				MostRecentError: time.Now(),
+				TotalErrors:     0,           // Sanitized due to ErrorTypeCount = 0
+				ErrorTypeCount:  0,           // Sanitized from negative
+				TotalRate:       0.0,         // Sanitized due to ErrorTypeCount = 0
+				AverageRate:     0.0,         // Sanitized due to ErrorTypeCount = 0
+				MostRecentError: time.Time{}, // Sanitized due to ErrorTypeCount = 0
 			},
 		},
 		{
@@ -164,6 +197,23 @@ func TestErrorStatistics_Sanitize(t *testing.T) {
 				TotalRate:       0.0,
 				AverageRate:     0.0,
 				MostRecentError: time.Now(),
+			},
+		},
+		{
+			name: "Inconsistent zero error types sanitized",
+			input: ErrorStatistics{
+				TotalErrors:     100, // Will be sanitized to 0
+				ErrorTypeCount:  0,
+				TotalRate:       10.5,       // Will be sanitized to 0.0
+				AverageRate:     2.1,        // Will be sanitized to 0.0
+				MostRecentError: time.Now(), // Will be sanitized to zero time
+			},
+			expected: ErrorStatistics{
+				TotalErrors:     0,
+				ErrorTypeCount:  0,
+				TotalRate:       0.0,
+				AverageRate:     0.0,
+				MostRecentError: time.Time{}, // Zero time
 			},
 		},
 	}
