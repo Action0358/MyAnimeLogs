@@ -65,10 +65,13 @@ func (h *MonitoringHandler) GetTopErrors(c *gin.Context) {
 	// Get system-wide total error count
 	systemTotalErrors := h.errorMonitor.GetTotalErrorCount()
 
+	// Return the actual sort criteria used, not the original parameter
+	actualSortBy := string(sortCriteria)
+
 	h.response.Success(c, gin.H{
 		"top_errors":        topErrors,
 		"limit":             limit,
-		"sort_by":           sortBy,
+		"sort_by":           actualSortBy,
 		"returned_count":    len(topErrors),
 		"count_in_top_list": countInTopList,
 		"total_errors":      systemTotalErrors,
