@@ -54,17 +54,13 @@ func TestMonitoringHandler_GetTopErrors_ResponseFields(t *testing.T) {
 	// Assert response status
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	// Parse response
-	var response map[string]interface{}
-	err := json.Unmarshal(w.Body.Bytes(), &response)
+	// Debug: Print actual response
+	t.Logf("Response body: %s", w.Body.String())
+
+	// Parse response - the Success method returns data directly, not wrapped
+	var data map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &data)
 	assert.NoError(t, err)
-
-	// Assert response structure
-	assert.Contains(t, response, "success")
-	assert.Equal(t, true, response["success"])
-	assert.Contains(t, response, "data")
-
-	data := response["data"].(map[string]interface{})
 
 	// Assert expected fields exist
 	assert.Contains(t, data, "top_errors")
@@ -146,11 +142,10 @@ func TestMonitoringHandler_GetTopErrors_SortParameters(t *testing.T) {
 
 			assert.Equal(t, http.StatusOK, w.Code)
 
-			var response map[string]interface{}
-			err := json.Unmarshal(w.Body.Bytes(), &response)
+			var data map[string]interface{}
+			err := json.Unmarshal(w.Body.Bytes(), &data)
 			assert.NoError(t, err)
 
-			data := response["data"].(map[string]interface{})
 			assert.Equal(t, tt.expectedSortBy, data["sort_by"])
 		})
 	}
@@ -200,11 +195,10 @@ func TestMonitoringHandler_GetTopErrors_LimitParameter(t *testing.T) {
 
 			assert.Equal(t, http.StatusOK, w.Code)
 
-			var response map[string]interface{}
-			err := json.Unmarshal(w.Body.Bytes(), &response)
+			var data map[string]interface{}
+			err := json.Unmarshal(w.Body.Bytes(), &data)
 			assert.NoError(t, err)
 
-			data := response["data"].(map[string]interface{})
 			assert.Equal(t, tt.expectedLimit, data["limit"])
 
 			topErrors := data["top_errors"].([]interface{})
