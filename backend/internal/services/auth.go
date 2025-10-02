@@ -21,18 +21,74 @@ var (
 )
 
 type AuthService struct {
-	db        *database.DB
+	userRepo  UserRepositoryInterface
+	db        *database.DB // Keep for stats and export methods temporarily
 	jwtSecret string
 }
 
 func NewAuthService(db *database.DB, jwtSecret string) *AuthService {
 	return &AuthService{
+		userRepo:  nil, // Will be set by NewAuthServiceWithRepo
 		db:        db,
 		jwtSecret: jwtSecret,
 	}
 }
 
+// NewAuthServiceWithRepo creates a new AuthService with dependency injection
+func NewAuthServiceWithRepo(userRepo UserRepositoryInterface, db *database.DB, jwtSecret string) *AuthService {
+	return &AuthService{
+		userRepo:  userRepo,
+		db:        db, // Keep for stats and export methods temporarily
+		jwtSecret: jwtSecret,
+	}
+}
+
 func (s *AuthService) Register(req models.UserRegisterRequest) (*models.UserResponse, error) {
+	// Use repository if available, otherwise fallback to direct DB access
+	if s.userRepo != nil {
+		return s.registerWithRepo(req)
+	}
+	return s.registerWithDB(req)
+}
+
+func (s *AuthService) registerWithRepo(req models.UserRegisterRequest) (*models.UserResponse, error) {
+	// Check if email already exists
+	exists, err := s.userRepo.EmailExists(req.Email)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check email existence: %w", err)
+	}
+	if exists {
+		return nil, ErrEmailAlreadyExists
+	}
+
+	// Hash password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, fmt.Errorf("failed to hash password: %w", err)
+	}
+
+	// Create user
+	user := &models.User{
+		Name:     req.Name,
+		Email:    req.Email,
+		Password: string(hashedPassword),
+	}
+
+	err = s.userRepo.Create(user)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create user: %w", err)
+	}
+
+	return &models.UserResponse{
+		ID:          user.ID,
+		Name:        user.Name,
+		Email:       user.Email,
+		Description: user.Description,
+		Icon:        user.Icon,
+	}, nil
+}
+
+func (s *AuthService) registerWithDB(req models.UserRegisterRequest) (*models.UserResponse, error) {
 	// Check if email already exists
 	var exists bool
 	err := s.db.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)", req.Email).Scan(&exists)
@@ -72,6 +128,48 @@ func (s *AuthService) Register(req models.UserRegisterRequest) (*models.UserResp
 }
 
 func (s *AuthService) Login(req models.UserLoginRequest) (*models.LoginResponse, error) {
+	// Use repository if available, otherwise fallback to direct DB access
+	if s.userRepo != nil {
+		return s.loginWithRepo(req)
+	}
+	return s.loginWithDB(req)
+}
+
+func (s *AuthService) loginWithRepo(req models.UserLoginRequest) (*models.LoginResponse, error) {
+	user, err := s.userRepo.GetByEmail(req.Email)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+	if user == nil {
+		return nil, ErrInvalidCredentials
+	}
+
+	// Check password
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password))
+	if err != nil {
+		return nil, ErrInvalidCredentials
+	}
+
+	// Generate JWT token
+	token, err := utils.GenerateJWT(user.ID, user.Email, user.Name, s.jwtSecret)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate token: %w", err)
+	}
+
+	return &models.LoginResponse{
+		AccessToken: token,
+		TokenType:   "Bearer",
+		User: models.UserResponse{
+			ID:          user.ID,
+			Name:        user.Name,
+			Email:       user.Email,
+			Description: user.Description,
+			Icon:        user.Icon,
+		},
+	}, nil
+}
+
+func (s *AuthService) loginWithDB(req models.UserLoginRequest) (*models.LoginResponse, error) {
 	var user models.User
 	err := s.db.QueryRow(`
 		SELECT id, name, email, password, description, icon
@@ -110,6 +208,32 @@ func (s *AuthService) Login(req models.UserLoginRequest) (*models.LoginResponse,
 }
 
 func (s *AuthService) GetUserByID(userID int) (*models.UserResponse, error) {
+	// Use repository if available, otherwise fallback to direct DB access
+	if s.userRepo != nil {
+		return s.getUserByIDWithRepo(userID)
+	}
+	return s.getUserByIDWithDB(userID)
+}
+
+func (s *AuthService) getUserByIDWithRepo(userID int) (*models.UserResponse, error) {
+	user, err := s.userRepo.GetByID(userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+	if user == nil {
+		return nil, ErrUserNotFound
+	}
+
+	return &models.UserResponse{
+		ID:          user.ID,
+		Name:        user.Name,
+		Email:       user.Email,
+		Description: user.Description,
+		Icon:        user.Icon,
+	}, nil
+}
+
+func (s *AuthService) getUserByIDWithDB(userID int) (*models.UserResponse, error) {
 	var user models.User
 	err := s.db.QueryRow(`
 		SELECT id, name, email, description, icon
@@ -132,6 +256,29 @@ func (s *AuthService) GetUserByID(userID int) (*models.UserResponse, error) {
 }
 
 func (s *AuthService) UpdateUser(userID int, req models.UserUpdateRequest) (*models.UserResponse, error) {
+	// Use repository if available, otherwise fallback to direct DB access
+	if s.userRepo != nil {
+		return s.updateUserWithRepo(userID, req)
+	}
+	return s.updateUserWithDB(userID, req)
+}
+
+func (s *AuthService) updateUserWithRepo(userID int, req models.UserUpdateRequest) (*models.UserResponse, error) {
+	user, err := s.userRepo.UpdatePartial(userID, req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update user: %w", err)
+	}
+
+	return &models.UserResponse{
+		ID:          user.ID,
+		Name:        user.Name,
+		Email:       user.Email,
+		Description: user.Description,
+		Icon:        user.Icon,
+	}, nil
+}
+
+func (s *AuthService) updateUserWithDB(userID int, req models.UserUpdateRequest) (*models.UserResponse, error) {
 	// Build dynamic update query
 	setParts := []string{}
 	args := []interface{}{}
