@@ -28,13 +28,17 @@ var _ AuthServiceInterface = (*AuthService)(nil)
 // AnimeServiceInterface defines the interface for anime service
 type AnimeServiceInterface interface {
 	SearchAnimes(params models.AnimeSearchParams, userID *int) (*models.PaginatedResponse, error)
+	AdvancedSearchAnimes(params models.AdvancedSearchParams, userID *int) (*models.SearchResult, error)
 	GetAnimeByID(id int, userID *int) (*models.AnimeWithUserData, error)
 	GetAnimeEpisodes(animeID int, userID *int) ([]models.Episode, error)
 	GetUserFavorites(userID int, status string) ([]models.AnimeWithUserData, error)
 	UpdateFavorite(userID, animeID int, status string) (*models.UserFavorite, error)
 	DeleteFavorite(userID, animeID int) error
 	UpdateWatchStatus(userID, episodeID int, viewed bool) (*models.WatchStatus, error)
-	UpdateRating(userID, animeID int, rating float64, comment string) (*models.UserRating, error)
+	UpdateRating(userID, animeID int, rating float64, comment *string) (*models.UserRating, error)
 	DeleteRating(userID, animeID int) error
 	GetRecentlyWatched(userID, limit int) ([]models.WatchHistory, error)
+	GetFilterOptions() (*models.FilterOptions, error)
+	GetPopularSearches(limit int) ([]string, error)
+	GetSearchSuggestions(query string, limit int) ([]string, error)
 }

@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 	"strconv"
+	"strings"
 
 	"myanimelogs/internal/common"
 	"myanimelogs/internal/models"
@@ -311,4 +312,117 @@ func (h *AnimeHandler) GetWatchlist(c *gin.Context) {
 	}
 
 	h.response.Success(c, watchlist)
+}
+
+// AdvancedSearchAnimes - 高度検索API
+func (h *AnimeHandler) AdvancedSearchAnimes(c *gin.Context) {
+	var params models.AdvancedSearchParams
+	if err := c.ShouldBindQuery(&params); err != nil {
+		h.response.ValidationError(c, err.Error())
+		return
+	}
+
+	// Set defaults using validator
+	params.Page, params.PerPage = h.validator.ValidatePagination(params.Page, params.PerPage)
+
+	// Get user ID if authenticated
+	var userID *int
+	if id, exists := c.Get("user_id"); exists {
+		if uid, ok := id.(int); ok {
+			userID = &uid
+		}
+	}
+
+	result, err := h.animeService.AdvancedSearchAnimes(params, userID)
+	if err != nil {
+		h.response.InternalServerError(c, "高度検索に失敗しました")
+		return
+	}
+
+	h.response.Success(c, result)
+}
+
+// GetFilterOptions - フィルター情報取得API
+func (h *AnimeHandler) GetFilterOptions(c *gin.Context) {
+	filterOptions, err := h.animeService.GetFilterOptions()
+	if err != nil {
+		// エラーでもデフォルト値を返す
+		defaultOptions := &models.FilterOptions{
+			Genres:  []models.GenreInfo{},
+			Years:   []int{},
+			Seasons: []string{"spring", "summer", "autumn", "winter"},
+			Ratings: models.RatingStats{
+				Min:     1.0,
+				Max:     5.0,
+				Average: 3.0,
+				Count:   0,
+			},
+		}
+		h.response.Success(c, defaultOptions)
+		return
+	}
+
+	h.response.Success(c, filterOptions)
+}
+
+// GetPopularSearches - 人気検索キーワード取得API
+func (h *AnimeHandler) GetPopularSearches(c *gin.Context) {
+	limitStr := c.DefaultQuery("limit", "10")
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit <= 0 {
+		limit = 10
+	}
+	if limit > 50 { // 上限を設定
+		limit = 50
+	}
+
+	searches, err := h.animeService.GetPopularSearches(limit)
+	if err != nil {
+		// エラーでもデフォルト値を返す
+		defaultSearches := []string{"進撃の巨人", "鬼滅の刃", "呪術廻戦", "ワンピース", "ナルト"}
+		if limit < len(defaultSearches) {
+			defaultSearches = defaultSearches[:limit]
+		}
+		h.response.Success(c, gin.H{
+			"popular_searches": defaultSearches,
+		})
+		return
+	}
+
+	h.response.Success(c, gin.H{
+		"popular_searches": searches,
+	})
+}
+
+// GetSearchSuggestions - 検索候補取得API
+func (h *AnimeHandler) GetSearchSuggestions(c *gin.Context) {
+	query := c.Query("q")
+	if strings.TrimSpace(query) == "" {
+		h.response.Success(c, gin.H{
+			"suggestions": []string{},
+		})
+		return
+	}
+
+	limitStr := c.DefaultQuery("limit", "10")
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit <= 0 {
+		limit = 10
+	}
+	if limit > 50 { // 上限を設定
+		limit = 50
+	}
+
+	suggestions, err := h.animeService.GetSearchSuggestions(query, limit)
+	if err != nil {
+		// エラーでも空配列を返す
+		h.response.Success(c, gin.H{
+			"suggestions": []string{},
+		})
+		return
+	}
+
+	h.response.Success(c, gin.H{
+		"suggestions": suggestions,
+	})
 }

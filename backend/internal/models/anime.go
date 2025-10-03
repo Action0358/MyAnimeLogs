@@ -17,9 +17,9 @@ type Anime struct {
 
 type AnimeWithUserData struct {
 	Anime
-	UserFavorite   *UserFavorite `json:"user_favorite,omitempty"`
-	WatchProgress  float64       `json:"watch_progress"`
-	Episodes       []Episode     `json:"episodes,omitempty"`
+	UserFavorite  *UserFavorite `json:"user_favorite,omitempty"`
+	WatchProgress float64       `json:"watch_progress"`
+	Episodes      []Episode     `json:"episodes,omitempty"`
 }
 
 type Episode struct {
@@ -71,12 +71,12 @@ type UserRatingRequest struct {
 }
 
 type WatchHistory struct {
-	ID          int       `json:"id" db:"id"`
-	UserID      int       `json:"user_id" db:"user_id"`
-	EpisodeID   int       `json:"episode_id" db:"episode_id"`
-	WatchedAt   time.Time `json:"watched_at" db:"watched_at"`
-	AnimeTitle  string    `json:"anime_title,omitempty"`
-	EpisodeTitle string   `json:"episode_title,omitempty"`
+	ID           int       `json:"id" db:"id"`
+	UserID       int       `json:"user_id" db:"user_id"`
+	EpisodeID    int       `json:"episode_id" db:"episode_id"`
+	WatchedAt    time.Time `json:"watched_at" db:"watched_at"`
+	AnimeTitle   string    `json:"anime_title,omitempty"`
+	EpisodeTitle string    `json:"episode_title,omitempty"`
 }
 
 type AnimeGenre struct {
@@ -86,18 +86,73 @@ type AnimeGenre struct {
 }
 
 type AnimeSearchParams struct {
-	Keyword  string `form:"keyword"`
-	Season   string `form:"season"`
-	Status   string `form:"status"`
-	Genre    string `form:"genre"`
-	Year     int    `form:"year"`
-	Sort     string `form:"sort"`
-	Page     int    `form:"page"`
-	PerPage  int    `form:"per_page"`
+	Keyword string `form:"keyword"`
+	Season  string `form:"season"`
+	Status  string `form:"status"`
+	Genre   string `form:"genre"`
+	Year    int    `form:"year"`
+	Sort    string `form:"sort"`
+	Page    int    `form:"page"`
+	PerPage int    `form:"per_page"`
+}
+
+// AdvancedSearchParams - 高度検索用のパラメータ
+type AdvancedSearchParams struct {
+	Query      string   `form:"q"`
+	Genres     []string `form:"genre"`
+	Year       int      `form:"year"`
+	Season     string   `form:"season"`
+	MinRating  float64  `form:"min_rating"`
+	MaxRating  float64  `form:"max_rating"`
+	Status     string   `form:"status"`
+	UserStatus string   `form:"user_status"` // watching, completed, etc.
+	Sort       string   `form:"sort"`
+	Order      string   `form:"order"`
+	Page       int      `form:"page"`
+	PerPage    int      `form:"per_page"`
+}
+
+// SearchResult - 検索結果のレスポンス
+type SearchResult struct {
+	Data interface{}    `json:"data"`
+	Meta PaginationMeta `json:"meta"`
+}
+
+// FilterOptions - フィルター情報
+type FilterOptions struct {
+	Genres  []GenreInfo `json:"genres"`
+	Years   []int       `json:"years"`
+	Seasons []string    `json:"seasons"`
+	Ratings RatingStats `json:"ratings"`
+}
+
+// GenreInfo - ジャンル情報
+type GenreInfo struct {
+	Name  string `json:"name"`
+	Count int    `json:"count"`
+}
+
+// RatingStats - 評価統計
+type RatingStats struct {
+	Min     float64 `json:"min"`
+	Max     float64 `json:"max"`
+	Average float64 `json:"average"`
+	Count   int     `json:"count"`
+}
+
+// SearchLog - 検索ログ
+type SearchLog struct {
+	ID          int       `json:"id" db:"id"`
+	UserID      *int      `json:"user_id,omitempty" db:"user_id"`
+	Query       string    `json:"query" db:"query"`
+	Filters     string    `json:"filters" db:"filters"`
+	ResultCount int       `json:"result_count" db:"result_count"`
+	ClickedID   *int      `json:"clicked_id,omitempty" db:"clicked_anime_id"`
+	SearchedAt  time.Time `json:"searched_at" db:"searched_at"`
 }
 
 type PaginatedResponse struct {
-	Data interface{} `json:"data"`
+	Data interface{}    `json:"data"`
 	Meta PaginationMeta `json:"meta"`
 }
 
