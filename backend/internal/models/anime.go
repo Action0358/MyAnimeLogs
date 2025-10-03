@@ -12,8 +12,13 @@ type Anime struct {
 	Season        *string   `json:"season" db:"season"`
 	Status        *string   `json:"status" db:"status"`
 	WatchersCount int       `json:"watchers_count" db:"watchers_count"`
+	MalAnimeID    *string   `json:"mal_anime_id" db:"mal_anime_id"` // MyAnimeList ID
 	CreatedAt     time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at" db:"updated_at"`
+
+	// AniList から取得する画像（DBに保存しない、リアルタイム取得）
+	CoverImageLarge  string `json:"cover_image_large,omitempty" db:"-"`
+	CoverImageMedium string `json:"cover_image_medium,omitempty" db:"-"`
 }
 
 type AnimeWithUserData struct {
