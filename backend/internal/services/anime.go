@@ -2,10 +2,12 @@ package services
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 
+	"myanimelogs/internal/common"
 	"myanimelogs/internal/database"
 	"myanimelogs/internal/models"
 )
@@ -16,12 +18,14 @@ var (
 )
 
 type AnimeService struct {
-	db *database.DB
+	db     *database.DB
+	logger *common.Logger
 }
 
-func NewAnimeService(db *database.DB) *AnimeService {
+func NewAnimeService(db *database.DB, logger *common.Logger) *AnimeService {
 	return &AnimeService{
-		db: db,
+		db:     db,
+		logger: logger,
 	}
 }
 
@@ -32,9 +36,12 @@ func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int
 	argIndex := 1
 
 	if params.Keyword != "" {
-		whereClauses = append(whereClauses, fmt.Sprintf("(title ILIKE $%d OR description ILIKE $%d)", argIndex, argIndex))
-		args = append(args, "%"+params.Keyword+"%")
-		argIndex++
+		whereClauses = append(whereClauses, fmt.Sprintf(`
+			(to_tsvector('simple', COALESCE(title, '') || ' ' || COALESCE(description, '')) @@ plainto_tsquery('simple', $%d)
+			 OR title ILIKE $%d OR description ILIKE $%d)
+		`, argIndex, argIndex+1, argIndex+1))
+		args = append(args, params.Keyword, "%"+params.Keyword+"%")
+		argIndex += 2
 	}
 
 	if params.Season != "" {
@@ -83,7 +90,7 @@ func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int
 
 	// Get animes
 	query := fmt.Sprintf(`
-		SELECT id, title, description, image_url, season, status, created_at, updated_at
+		SELECT id, title, description, image_url, season, status, created_at, updated_at, watchers_count
 		FROM animes %s %s
 		LIMIT $%d OFFSET $%d
 	`, whereClause, orderBy, argIndex, argIndex+1)
@@ -99,7 +106,7 @@ func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int
 	animes := []models.AnimeWithUserData{}
 	for rows.Next() {
 		var anime models.Anime
-		err := rows.Scan(&anime.ID, &anime.Title, &anime.Description, &anime.ImageURL, &anime.Season, &anime.Status, &anime.CreatedAt, &anime.UpdatedAt)
+		err := rows.Scan(&anime.ID, &anime.Title, &anime.Description, &anime.ImageURL, &anime.Season, &anime.Status, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount)
 		if err != nil {
 			continue
 		}
@@ -135,12 +142,216 @@ func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int
 	}, nil
 }
 
+// AdvancedSearchAnimes - 高度検索機能
+func (s *AnimeService) AdvancedSearchAnimes(params models.AdvancedSearchParams, userID *int) (*models.PaginatedResponse, error) {
+	// ソート・並び順の定数
+	const (
+		SortByTitle      = "title"
+		SortByRating     = "rating"
+		SortByYear       = "year"
+		SortByPopularity = "popularity"
+		SortByUpdated    = "updated"
+		OrderAsc         = "asc"
+		OrderDesc        = "desc"
+	)
+
+	// Set defaults
+	if params.Page <= 0 {
+		params.Page = 1
+	}
+	if params.PerPage <= 0 || params.PerPage > 100 {
+		params.PerPage = 20
+	}
+	if params.Sort == "" {
+		params.Sort = SortByTitle
+	}
+	if params.Order == "" {
+		params.Order = OrderAsc
+	}
+
+	// Build base query with JOINs for optimization
+	baseQuery := `
+		FROM animes a
+		LEFT JOIN anime_genres ag ON a.id = ag.anime_id
+		LEFT JOIN user_ratings ur ON a.id = ur.anime_id
+	`
+
+	// Build WHERE clause
+	whereClauses := []string{}
+	args := []interface{}{}
+	argIndex := 1
+
+	// 全文検索（日本語対応のためFTSとILIKEを併用）
+	if params.Query != "" {
+		whereClauses = append(whereClauses, fmt.Sprintf(`
+			(to_tsvector('simple', COALESCE(a.title, '') || ' ' || COALESCE(a.description, '')) @@ plainto_tsquery('simple', $%d)
+			 OR a.title ILIKE $%d OR a.description ILIKE $%d)
+		`, argIndex, argIndex+1, argIndex+1))
+		args = append(args, params.Query, "%"+params.Query+"%")
+		argIndex += 2
+	}
+
+	// ジャンル検索（複数対応）
+	if len(params.Genres) > 0 {
+		genrePlaceholders := make([]string, len(params.Genres))
+		for i, genre := range params.Genres {
+			genrePlaceholders[i] = fmt.Sprintf("$%d", argIndex)
+			args = append(args, genre)
+			argIndex++
+		}
+		whereClauses = append(whereClauses, fmt.Sprintf("ag.genre IN (%s)", strings.Join(genrePlaceholders, ",")))
+	}
+
+	// 年検索
+	if params.Year > 0 {
+		whereClauses = append(whereClauses, fmt.Sprintf("a.season_year = $%d", argIndex))
+		args = append(args, params.Year)
+		argIndex++
+	}
+
+	// シーズン検索
+	if params.Season != "" {
+		whereClauses = append(whereClauses, fmt.Sprintf("a.season = $%d", argIndex))
+		args = append(args, params.Season)
+		argIndex++
+	}
+
+	// ステータス検索
+	if params.Status != "" {
+		whereClauses = append(whereClauses, fmt.Sprintf("a.status = $%d", argIndex))
+		args = append(args, params.Status)
+		argIndex++
+	}
+
+	// 評価範囲検索
+	if params.MinRating > 0 || params.MaxRating > 0 {
+		ratingSubquery := "(SELECT AVG(rating) FROM user_ratings WHERE anime_id = a.id)"
+		if params.MinRating > 0 && params.MaxRating > 0 {
+			whereClauses = append(whereClauses, fmt.Sprintf("%s BETWEEN $%d AND $%d", ratingSubquery, argIndex, argIndex+1))
+			args = append(args, params.MinRating, params.MaxRating)
+			argIndex += 2
+		} else if params.MinRating > 0 {
+			whereClauses = append(whereClauses, fmt.Sprintf("%s >= $%d", ratingSubquery, argIndex))
+			args = append(args, params.MinRating)
+			argIndex++
+		} else if params.MaxRating > 0 {
+			whereClauses = append(whereClauses, fmt.Sprintf("%s <= $%d", ratingSubquery, argIndex))
+			args = append(args, params.MaxRating)
+			argIndex++
+		}
+	}
+
+	// ユーザーステータス検索（認証時のみ）
+	if userID != nil && params.UserStatus != "" {
+		whereClauses = append(whereClauses, fmt.Sprintf(`
+			a.id IN (SELECT anime_id FROM user_favorites WHERE user_id = $%d AND status = $%d)
+		`, argIndex, argIndex+1))
+		args = append(args, *userID, params.UserStatus)
+		argIndex += 2
+	}
+
+	whereClause := ""
+	if len(whereClauses) > 0 {
+		whereClause = "WHERE " + strings.Join(whereClauses, " AND ")
+	}
+
+	// Build ORDER BY clause
+	orderBy := "ORDER BY a.title"
+	orderDirection := "ASC"
+	if params.Order == OrderDesc {
+		orderDirection = "DESC"
+	}
+
+	switch params.Sort {
+	case SortByTitle:
+		orderBy = fmt.Sprintf("ORDER BY a.title %s", orderDirection)
+	case SortByRating:
+		orderBy = fmt.Sprintf("ORDER BY (SELECT AVG(rating) FROM user_ratings WHERE anime_id = a.id) %s NULLS LAST", orderDirection)
+	case SortByYear:
+		orderBy = fmt.Sprintf("ORDER BY a.season_year %s, a.season %s", orderDirection, orderDirection)
+	case SortByPopularity:
+		orderBy = fmt.Sprintf("ORDER BY a.watchers_count %s", orderDirection)
+	case SortByUpdated:
+		orderBy = fmt.Sprintf("ORDER BY a.updated_at %s", orderDirection)
+	}
+
+	// Count total results (distinct to handle JOINs)
+	countQuery := fmt.Sprintf("SELECT COUNT(DISTINCT a.id) %s %s", baseQuery, whereClause)
+	var total int
+	err := s.db.QueryRow(countQuery, args...).Scan(&total)
+	if err != nil {
+		return nil, fmt.Errorf("failed to count animes: %w", err)
+	}
+
+	// Calculate pagination
+	offset := (params.Page - 1) * params.PerPage
+	totalPages := (total + params.PerPage - 1) / params.PerPage
+
+	// Get animes
+	query := fmt.Sprintf(`
+		SELECT a.id, a.title, a.description, a.image_url, a.season, a.status, a.created_at, a.updated_at, a.watchers_count
+		%s %s
+		GROUP BY a.id, a.title, a.description, a.image_url, a.season, a.status, a.created_at, a.updated_at, a.watchers_count
+		%s
+		LIMIT $%d OFFSET $%d
+	`, baseQuery, whereClause, orderBy, argIndex, argIndex+1)
+
+	args = append(args, params.PerPage, offset)
+
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search animes: %w", err)
+	}
+	defer rows.Close()
+
+	animes := []models.AnimeWithUserData{}
+	for rows.Next() {
+		var anime models.Anime
+		err := rows.Scan(&anime.ID, &anime.Title, &anime.Description, &anime.ImageURL, &anime.Season, &anime.Status, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount)
+		if err != nil {
+			continue
+		}
+
+		animeWithData := models.AnimeWithUserData{Anime: anime}
+
+		// Add user data if authenticated
+		if userID != nil {
+			// Get user favorite status
+			var favorite models.UserFavorite
+			err := s.db.QueryRow(`
+				SELECT id, user_id, anime_id, status, created_at, updated_at
+				FROM user_favorites WHERE user_id = $1 AND anime_id = $2
+			`, *userID, anime.ID).Scan(&favorite.ID, &favorite.UserID, &favorite.AnimeID, &favorite.Status, &favorite.CreatedAt, &favorite.UpdatedAt)
+			if err == nil {
+				animeWithData.UserFavorite = &favorite
+			}
+
+			// Calculate watch progress
+			animeWithData.WatchProgress = s.calculateWatchProgress(*userID, anime.ID)
+		}
+
+		animes = append(animes, animeWithData)
+	}
+
+	// 検索ログを記録
+	go s.logSearch(params, userID, total)
+
+	return &models.PaginatedResponse{
+		Data: animes,
+		Meta: models.PaginationMeta{
+			TotalPages:  totalPages,
+			CurrentPage: params.Page,
+			Total:       total,
+		},
+	}, nil
+}
+
 func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWithUserData, error) {
 	var anime models.Anime
 	err := s.db.QueryRow(`
-		SELECT id, title, description, image_url, season, status, created_at, updated_at
+		SELECT id, title, description, image_url, season, status, created_at, updated_at, watchers_count
 		FROM animes WHERE id = $1
-	`, animeID).Scan(&anime.ID, &anime.Title, &anime.Description, &anime.ImageURL, &anime.Season, &anime.Status, &anime.CreatedAt, &anime.UpdatedAt)
+	`, animeID).Scan(&anime.ID, &anime.Title, &anime.Description, &anime.ImageURL, &anime.Season, &anime.Status, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrAnimeNotFound
@@ -234,7 +445,7 @@ func (s *AnimeService) GetUserFavorites(userID int, status string) ([]models.Ani
 	}
 
 	query := fmt.Sprintf(`
-		SELECT a.id, a.title, a.description, a.image_url, a.season, a.status, a.created_at, a.updated_at,
+		SELECT a.id, a.title, a.description, a.image_url, a.season, a.status, a.created_at, a.updated_at, a.watchers_count,
 		       uf.id, uf.user_id, uf.anime_id, uf.status, uf.created_at, uf.updated_at
 		FROM animes a
 		JOIN user_favorites uf ON a.id = uf.anime_id
@@ -253,7 +464,7 @@ func (s *AnimeService) GetUserFavorites(userID int, status string) ([]models.Ani
 		var anime models.Anime
 		var favorite models.UserFavorite
 		err := rows.Scan(
-			&anime.ID, &anime.Title, &anime.Description, &anime.ImageURL, &anime.Season, &anime.Status, &anime.CreatedAt, &anime.UpdatedAt,
+			&anime.ID, &anime.Title, &anime.Description, &anime.ImageURL, &anime.Season, &anime.Status, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount,
 			&favorite.ID, &favorite.UserID, &favorite.AnimeID, &favorite.Status, &favorite.CreatedAt, &favorite.UpdatedAt,
 		)
 		if err != nil {
@@ -344,7 +555,7 @@ func (s *AnimeService) UpdateWatchStatus(userID, episodeID int, viewed bool) (*m
 		`, userID, episodeID)
 		if err != nil {
 			// Log error but don't fail the request
-			fmt.Printf("Failed to add to watch history: %v\n", err)
+			s.logger.Warn("Failed to add to watch history", "error", err, "user_id", userID, "episode_id", episodeID)
 		}
 	}
 
@@ -440,4 +651,274 @@ func (s *AnimeService) calculateWatchProgress(userID, animeID int) float64 {
 	}
 
 	return float64(watchedEpisodes) / float64(totalEpisodes) * 100.0
+}
+
+// GetFilterOptions - フィルター情報を取得
+func (s *AnimeService) GetFilterOptions() (*models.FilterOptions, error) {
+	filterOptions := &models.FilterOptions{
+		Genres:  []models.GenreInfo{},
+		Years:   []int{},
+		Seasons: []string{},
+		Ratings: models.RatingStats{
+			Min:     1.0,
+			Max:     5.0,
+			Average: 3.0,
+			Count:   0,
+		},
+	}
+
+	// ジャンル一覧を取得（エラーがあっても他の情報は取得を続行）
+	genreRows, err := s.db.Query(`
+		SELECT genre, COUNT(*) as count
+		FROM anime_genres
+		WHERE genre IS NOT NULL AND genre != ''
+		GROUP BY genre
+		ORDER BY count DESC, genre ASC
+	`)
+	if err != nil {
+		s.logger.Error("Failed to get genres", "error", err)
+	} else {
+		defer genreRows.Close()
+		genres := []models.GenreInfo{}
+		for genreRows.Next() {
+			var genre models.GenreInfo
+			err := genreRows.Scan(&genre.Name, &genre.Count)
+			if err != nil {
+				s.logger.Error("Failed to scan genre", "error", err)
+				continue
+			}
+			if strings.TrimSpace(genre.Name) != "" {
+				genres = append(genres, genre)
+			}
+		}
+		filterOptions.Genres = genres
+	}
+
+	// 放送年一覧を取得
+	yearRows, err := s.db.Query(`
+		SELECT DISTINCT season_year
+		FROM animes
+		WHERE season_year IS NOT NULL AND season_year > 1900 AND season_year <= 2030
+		ORDER BY season_year DESC
+	`)
+	if err != nil {
+		s.logger.Error("Failed to get years", "error", err)
+	} else {
+		defer yearRows.Close()
+		years := []int{}
+		for yearRows.Next() {
+			var year int
+			err := yearRows.Scan(&year)
+			if err != nil {
+				s.logger.Error("Failed to scan year", "error", err)
+				continue
+			}
+			years = append(years, year)
+		}
+		filterOptions.Years = years
+	}
+
+	// シーズン一覧を取得
+	seasonRows, err := s.db.Query(`
+		SELECT DISTINCT season
+		FROM animes
+		WHERE season IS NOT NULL AND season != ''
+		ORDER BY 
+			CASE season
+				WHEN 'spring' THEN 1
+				WHEN 'summer' THEN 2
+				WHEN 'autumn' THEN 3
+				WHEN 'winter' THEN 4
+				ELSE 5
+			END
+	`)
+	if err != nil {
+		s.logger.Error("Failed to get seasons", "error", err)
+	} else {
+		defer seasonRows.Close()
+		seasons := []string{}
+		for seasonRows.Next() {
+			var season string
+			err := seasonRows.Scan(&season)
+			if err != nil {
+				s.logger.Error("Failed to scan season", "error", err)
+				continue
+			}
+			if strings.TrimSpace(season) != "" {
+				seasons = append(seasons, season)
+			}
+		}
+		filterOptions.Seasons = seasons
+	}
+
+	// 評価統計を取得
+	var ratingStats models.RatingStats
+	err = s.db.QueryRow(`
+		SELECT 
+			COALESCE(MIN(rating), 1.0) as min_rating,
+			COALESCE(MAX(rating), 5.0) as max_rating,
+			COALESCE(AVG(rating), 3.0) as avg_rating,
+			COUNT(*) as count
+		FROM user_ratings
+		WHERE rating IS NOT NULL AND rating >= 1.0 AND rating <= 5.0
+	`).Scan(&ratingStats.Min, &ratingStats.Max, &ratingStats.Average, &ratingStats.Count)
+	if err != nil {
+		s.logger.Error("Failed to get rating stats", "error", err)
+		// デフォルト値はすでに設定済み
+	} else {
+		filterOptions.Ratings = ratingStats
+	}
+
+	return filterOptions, nil
+}
+
+// logSearch - 検索ログを記録（非同期）
+func (s *AnimeService) logSearch(params models.AdvancedSearchParams, userID *int, resultCount int) {
+	// フィルター情報を構造体として定義
+	filters := map[string]interface{}{
+		"genres":      params.Genres,
+		"year":        params.Year,
+		"season":      params.Season,
+		"min_rating":  params.MinRating,
+		"max_rating":  params.MaxRating,
+		"status":      params.Status,
+		"user_status": params.UserStatus,
+		"sort":        params.Sort,
+		"order":       params.Order,
+	}
+
+	// 安全にJSONに変換
+	filtersJSON, err := json.Marshal(filters)
+	if err != nil {
+		// JSON変換エラーは無視（メイン機能に影響しない）
+		s.logger.Warn("Failed to marshal search filters", "error", err, "filters", filters)
+		return
+	}
+
+	_, err = s.db.Exec(`
+		INSERT INTO search_logs (user_id, query, filters, result_count, searched_at)
+		VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
+	`, userID, params.Query, string(filtersJSON), resultCount)
+	if err != nil {
+		// ログ記録エラーは無視（メイン機能に影響しない）
+		s.logger.Warn("Failed to log search", "error", err, "query", params.Query, "result_count", resultCount)
+	}
+}
+
+// GetPopularSearches - 人気検索キーワードを取得
+func (s *AnimeService) GetPopularSearches(limit int) ([]string, error) {
+	if limit <= 0 {
+		limit = 10
+	}
+
+	// まず検索ログが存在するかチェック
+	var logCount int
+	err := s.db.QueryRow("SELECT COUNT(*) FROM search_logs").Scan(&logCount)
+	if err != nil {
+		s.logger.Error("Failed to count search logs", "error", err)
+		return []string{}, nil
+	}
+
+	// ログが少ない場合は期間を拡張
+	interval := "30 days"
+	if logCount < 10 {
+		interval = "365 days" // 1年に拡張
+	}
+
+	rows, err := s.db.Query(`
+		SELECT query, COUNT(*) as search_count
+		FROM search_logs
+		WHERE query IS NOT NULL 
+		  AND query != '' 
+		  AND LENGTH(TRIM(query)) > 0
+		  AND searched_at > CURRENT_TIMESTAMP - INTERVAL '`+interval+`'
+		GROUP BY query
+		ORDER BY search_count DESC, query ASC
+		LIMIT $1
+	`, limit)
+	if err != nil {
+		s.logger.Error("Failed to get popular searches", "error", err, "limit", limit)
+		return []string{}, nil // エラーでも空配列を返す
+	}
+	defer rows.Close()
+
+	searches := []string{}
+	for rows.Next() {
+		var query string
+		var count int
+		err := rows.Scan(&query, &count)
+		if err != nil {
+			s.logger.Error("Failed to scan popular search", "error", err)
+			continue
+		}
+		// 空文字列やnullをスキップ
+		if strings.TrimSpace(query) != "" {
+			searches = append(searches, query)
+		}
+	}
+
+	// 検索ログが少ない場合はデフォルトの人気検索を返す
+	if len(searches) == 0 {
+		searches = []string{"進撃の巨人", "鬼滅の刃", "呪術廻戦", "ワンピース", "ナルト"}
+		if limit < len(searches) {
+			searches = searches[:limit]
+		}
+	}
+
+	return searches, nil
+}
+
+// GetSearchSuggestions - 検索候補を取得
+func (s *AnimeService) GetSearchSuggestions(query string, limit int) ([]string, error) {
+	// 空のクエリに対する適切な処理
+	if strings.TrimSpace(query) == "" {
+		return []string{}, nil
+	}
+
+	if limit <= 0 {
+		limit = 10
+	}
+
+	// 検索候補では部分一致が重要なので、FTSと前方一致を組み合わせる
+	rows, err := s.db.Query(`
+		SELECT title
+		FROM animes
+		WHERE (
+			title ILIKE $1 OR  -- 前方一致（インデックス効率化のため）
+			to_tsvector('simple', title) @@ plainto_tsquery('simple', $2)  -- FTS検索
+		) AND title IS NOT NULL AND title != ''
+		GROUP BY title
+		ORDER BY 
+			CASE 
+				WHEN title ILIKE $1 THEN 1  -- 前方一致を最優先
+				WHEN title ILIKE $3 THEN 2  -- 部分一致を次優先
+				ELSE 3  -- FTS一致を最後
+			END,
+			LENGTH(title),
+			title
+		LIMIT $4
+	`, query+"%", query, "%"+query+"%", limit)
+	if err != nil {
+		// データベースエラーの詳細ログ出力
+		s.logger.Error("Failed to get search suggestions", "error", err, "query", query, "limit", limit)
+		return []string{}, nil // エラーでも空配列を返す
+	}
+	defer rows.Close()
+
+	suggestions := []string{}
+	for rows.Next() {
+		var title string
+		err := rows.Scan(&title)
+		if err != nil {
+			s.logger.Error("Failed to scan suggestion title", "error", err)
+			continue
+		}
+		// 空文字列やnullをスキップ
+		if strings.TrimSpace(title) != "" {
+			suggestions = append(suggestions, title)
+		}
+	}
+
+	// 結果が0件でも正常レスポンス
+	return suggestions, nil
 }

@@ -42,7 +42,7 @@ func Setup(db *database.DB, cfg *config.Config) *gin.Engine {
 
 	// Services
 	authService := services.NewAuthService(db, cfg.JWTSecret)
-	animeService := services.NewAnimeService(db)
+	animeService := services.NewAnimeService(db, logger)
 	annictService := services.NewAnnictClientWithDB(cfg.AnnictAPIKey, db) // Annictサービスを初期化
 
 	// Handlers with enhanced error handling
@@ -78,7 +78,15 @@ func Setup(db *database.DB, cfg *config.Config) *gin.Engine {
 		api.GET("/animes", middleware.OptionalAuthMiddleware(cfg.JWTSecret), animeHandler.GetAnimes)
 		api.GET("/animes/:id", middleware.OptionalAuthMiddleware(cfg.JWTSecret), animeHandler.GetAnime)
 		api.GET("/animes/:id/episodes", middleware.OptionalAuthMiddleware(cfg.JWTSecret), animeHandler.GetAnimeEpisodes)
+
+		// Search routes
 		api.GET("/search/animes", middleware.OptionalAuthMiddleware(cfg.JWTSecret), animeHandler.GetAnimes)
+		api.GET("/search/advanced", middleware.OptionalAuthMiddleware(cfg.JWTSecret), animeHandler.AdvancedSearchAnimes)
+		api.GET("/search/suggestions", animeHandler.GetSearchSuggestions)
+		api.GET("/search/popular", animeHandler.GetPopularSearches)
+
+		// Filter routes
+		api.GET("/filters", animeHandler.GetFilterOptions)
 
 		// Annict routes
 		api.GET("/annict/works", annictHandler.GetWorksBySeason)
