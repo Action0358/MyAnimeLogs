@@ -42,7 +42,7 @@ func Setup(db *database.DB, cfg *config.Config) *gin.Engine {
 
 	// Services
 	authService := services.NewAuthService(db, cfg.JWTSecret)
-	animeService := services.NewAnimeService(db)
+	animeService := services.NewAnimeService(db, logger)
 	annictService := services.NewAnnictClientWithDB(cfg.AnnictAPIKey, db) // Annictサービスを初期化
 
 	// Handlers with enhanced error handling

@@ -5,14 +5,15 @@ import (
 )
 
 type Anime struct {
-	ID          int       `json:"id" db:"id"`
-	Title       string    `json:"title" db:"title"`
-	Description string    `json:"description" db:"description"`
-	ImageURL    *string   `json:"image_url" db:"image_url"`
-	Season      *string   `json:"season" db:"season"`
-	Status      *string   `json:"status" db:"status"`
-	CreatedAt   time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
+	ID            int       `json:"id" db:"id"`
+	Title         string    `json:"title" db:"title"`
+	Description   string    `json:"description" db:"description"`
+	ImageURL      *string   `json:"image_url" db:"image_url"`
+	Season        *string   `json:"season" db:"season"`
+	Status        *string   `json:"status" db:"status"`
+	WatchersCount int       `json:"watchers_count" db:"watchers_count"`
+	CreatedAt     time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at" db:"updated_at"`
 }
 
 type AnimeWithUserData struct {
@@ -110,12 +111,6 @@ type AdvancedSearchParams struct {
 	Order      string   `form:"order"`
 	Page       int      `form:"page"`
 	PerPage    int      `form:"per_page"`
-}
-
-// SearchResult - 検索結果のレスポンス
-type SearchResult struct {
-	Data interface{}    `json:"data"`
-	Meta PaginationMeta `json:"meta"`
 }
 
 // FilterOptions - フィルター情報

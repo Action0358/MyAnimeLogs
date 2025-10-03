@@ -2,10 +2,12 @@ package services
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 
+	"myanimelogs/internal/common"
 	"myanimelogs/internal/database"
 	"myanimelogs/internal/models"
 )
@@ -16,12 +18,14 @@ var (
 )
 
 type AnimeService struct {
-	db *database.DB
+	db     *database.DB
+	logger *common.Logger
 }
 
-func NewAnimeService(db *database.DB) *AnimeService {
+func NewAnimeService(db *database.DB, logger *common.Logger) *AnimeService {
 	return &AnimeService{
-		db: db,
+		db:     db,
+		logger: logger,
 	}
 }
 
@@ -32,9 +36,12 @@ func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int
 	argIndex := 1
 
 	if params.Keyword != "" {
-		whereClauses = append(whereClauses, fmt.Sprintf("(title ILIKE $%d OR description ILIKE $%d)", argIndex, argIndex))
-		args = append(args, "%"+params.Keyword+"%")
-		argIndex++
+		whereClauses = append(whereClauses, fmt.Sprintf(`
+			(to_tsvector('simple', COALESCE(title, '') || ' ' || COALESCE(description, '')) @@ plainto_tsquery('simple', $%d)
+			 OR title ILIKE $%d OR description ILIKE $%d)
+		`, argIndex, argIndex+1, argIndex+1))
+		args = append(args, params.Keyword, "%"+params.Keyword+"%")
+		argIndex += 2
 	}
 
 	if params.Season != "" {
@@ -83,7 +90,7 @@ func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int
 
 	// Get animes
 	query := fmt.Sprintf(`
-		SELECT id, title, description, image_url, season, status, created_at, updated_at
+		SELECT id, title, description, image_url, season, status, created_at, updated_at, watchers_count
 		FROM animes %s %s
 		LIMIT $%d OFFSET $%d
 	`, whereClause, orderBy, argIndex, argIndex+1)
@@ -99,7 +106,7 @@ func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int
 	animes := []models.AnimeWithUserData{}
 	for rows.Next() {
 		var anime models.Anime
-		err := rows.Scan(&anime.ID, &anime.Title, &anime.Description, &anime.ImageURL, &anime.Season, &anime.Status, &anime.CreatedAt, &anime.UpdatedAt)
+		err := rows.Scan(&anime.ID, &anime.Title, &anime.Description, &anime.ImageURL, &anime.Season, &anime.Status, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount)
 		if err != nil {
 			continue
 		}
@@ -136,7 +143,7 @@ func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int
 }
 
 // AdvancedSearchAnimes - 高度検索機能
-func (s *AnimeService) AdvancedSearchAnimes(params models.AdvancedSearchParams, userID *int) (*models.SearchResult, error) {
+func (s *AnimeService) AdvancedSearchAnimes(params models.AdvancedSearchParams, userID *int) (*models.PaginatedResponse, error) {
 	// ソート・並び順の定数
 	const (
 		SortByTitle      = "title"
@@ -174,14 +181,14 @@ func (s *AnimeService) AdvancedSearchAnimes(params models.AdvancedSearchParams, 
 	args := []interface{}{}
 	argIndex := 1
 
-	// 全文検索
+	// 全文検索（日本語対応のためFTSとILIKEを併用）
 	if params.Query != "" {
 		whereClauses = append(whereClauses, fmt.Sprintf(`
-			(a.title ILIKE $%d OR a.description ILIKE $%d OR 
-			 to_tsvector('simple', COALESCE(a.title, '') || ' ' || COALESCE(a.description, '')) @@ plainto_tsquery('simple', $%d))
-		`, argIndex, argIndex, argIndex))
-		args = append(args, "%"+params.Query+"%")
-		argIndex++
+			(to_tsvector('simple', COALESCE(a.title, '') || ' ' || COALESCE(a.description, '')) @@ plainto_tsquery('simple', $%d)
+			 OR a.title ILIKE $%d OR a.description ILIKE $%d)
+		`, argIndex, argIndex+1, argIndex+1))
+		args = append(args, params.Query, "%"+params.Query+"%")
+		argIndex += 2
 	}
 
 	// ジャンル検索（複数対応）
@@ -280,11 +287,11 @@ func (s *AnimeService) AdvancedSearchAnimes(params models.AdvancedSearchParams, 
 	offset := (params.Page - 1) * params.PerPage
 	totalPages := (total + params.PerPage - 1) / params.PerPage
 
-	// Get animes (distinct to handle JOINs)
+	// Get animes
 	query := fmt.Sprintf(`
-		SELECT DISTINCT a.id, a.title, a.description, a.image_url, a.season, a.status, a.created_at, a.updated_at
+		SELECT a.id, a.title, a.description, a.image_url, a.season, a.status, a.created_at, a.updated_at, a.watchers_count
 		%s %s
-		GROUP BY a.id, a.title, a.description, a.image_url, a.season, a.status, a.created_at, a.updated_at
+		GROUP BY a.id, a.title, a.description, a.image_url, a.season, a.status, a.created_at, a.updated_at, a.watchers_count
 		%s
 		LIMIT $%d OFFSET $%d
 	`, baseQuery, whereClause, orderBy, argIndex, argIndex+1)
@@ -300,7 +307,7 @@ func (s *AnimeService) AdvancedSearchAnimes(params models.AdvancedSearchParams, 
 	animes := []models.AnimeWithUserData{}
 	for rows.Next() {
 		var anime models.Anime
-		err := rows.Scan(&anime.ID, &anime.Title, &anime.Description, &anime.ImageURL, &anime.Season, &anime.Status, &anime.CreatedAt, &anime.UpdatedAt)
+		err := rows.Scan(&anime.ID, &anime.Title, &anime.Description, &anime.ImageURL, &anime.Season, &anime.Status, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount)
 		if err != nil {
 			continue
 		}
@@ -329,7 +336,7 @@ func (s *AnimeService) AdvancedSearchAnimes(params models.AdvancedSearchParams, 
 	// 検索ログを記録
 	go s.logSearch(params, userID, total)
 
-	return &models.SearchResult{
+	return &models.PaginatedResponse{
 		Data: animes,
 		Meta: models.PaginationMeta{
 			TotalPages:  totalPages,
@@ -342,9 +349,9 @@ func (s *AnimeService) AdvancedSearchAnimes(params models.AdvancedSearchParams, 
 func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWithUserData, error) {
 	var anime models.Anime
 	err := s.db.QueryRow(`
-		SELECT id, title, description, image_url, season, status, created_at, updated_at
+		SELECT id, title, description, image_url, season, status, created_at, updated_at, watchers_count
 		FROM animes WHERE id = $1
-	`, animeID).Scan(&anime.ID, &anime.Title, &anime.Description, &anime.ImageURL, &anime.Season, &anime.Status, &anime.CreatedAt, &anime.UpdatedAt)
+	`, animeID).Scan(&anime.ID, &anime.Title, &anime.Description, &anime.ImageURL, &anime.Season, &anime.Status, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrAnimeNotFound
@@ -438,7 +445,7 @@ func (s *AnimeService) GetUserFavorites(userID int, status string) ([]models.Ani
 	}
 
 	query := fmt.Sprintf(`
-		SELECT a.id, a.title, a.description, a.image_url, a.season, a.status, a.created_at, a.updated_at,
+		SELECT a.id, a.title, a.description, a.image_url, a.season, a.status, a.created_at, a.updated_at, a.watchers_count,
 		       uf.id, uf.user_id, uf.anime_id, uf.status, uf.created_at, uf.updated_at
 		FROM animes a
 		JOIN user_favorites uf ON a.id = uf.anime_id
@@ -457,7 +464,7 @@ func (s *AnimeService) GetUserFavorites(userID int, status string) ([]models.Ani
 		var anime models.Anime
 		var favorite models.UserFavorite
 		err := rows.Scan(
-			&anime.ID, &anime.Title, &anime.Description, &anime.ImageURL, &anime.Season, &anime.Status, &anime.CreatedAt, &anime.UpdatedAt,
+			&anime.ID, &anime.Title, &anime.Description, &anime.ImageURL, &anime.Season, &anime.Status, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount,
 			&favorite.ID, &favorite.UserID, &favorite.AnimeID, &favorite.Status, &favorite.CreatedAt, &favorite.UpdatedAt,
 		)
 		if err != nil {
@@ -548,7 +555,7 @@ func (s *AnimeService) UpdateWatchStatus(userID, episodeID int, viewed bool) (*m
 		`, userID, episodeID)
 		if err != nil {
 			// Log error but don't fail the request
-			fmt.Printf("Failed to add to watch history: %v\n", err)
+			s.logger.Warn("Failed to add to watch history", "error", err, "user_id", userID, "episode_id", episodeID)
 		}
 	}
 
@@ -669,7 +676,7 @@ func (s *AnimeService) GetFilterOptions() (*models.FilterOptions, error) {
 		ORDER BY count DESC, genre ASC
 	`)
 	if err != nil {
-		fmt.Printf("Failed to get genres: %v\n", err)
+		s.logger.Error("Failed to get genres", "error", err)
 	} else {
 		defer genreRows.Close()
 		genres := []models.GenreInfo{}
@@ -677,7 +684,7 @@ func (s *AnimeService) GetFilterOptions() (*models.FilterOptions, error) {
 			var genre models.GenreInfo
 			err := genreRows.Scan(&genre.Name, &genre.Count)
 			if err != nil {
-				fmt.Printf("Failed to scan genre: %v\n", err)
+				s.logger.Error("Failed to scan genre", "error", err)
 				continue
 			}
 			if strings.TrimSpace(genre.Name) != "" {
@@ -695,7 +702,7 @@ func (s *AnimeService) GetFilterOptions() (*models.FilterOptions, error) {
 		ORDER BY season_year DESC
 	`)
 	if err != nil {
-		fmt.Printf("Failed to get years: %v\n", err)
+		s.logger.Error("Failed to get years", "error", err)
 	} else {
 		defer yearRows.Close()
 		years := []int{}
@@ -703,7 +710,7 @@ func (s *AnimeService) GetFilterOptions() (*models.FilterOptions, error) {
 			var year int
 			err := yearRows.Scan(&year)
 			if err != nil {
-				fmt.Printf("Failed to scan year: %v\n", err)
+				s.logger.Error("Failed to scan year", "error", err)
 				continue
 			}
 			years = append(years, year)
@@ -726,7 +733,7 @@ func (s *AnimeService) GetFilterOptions() (*models.FilterOptions, error) {
 			END
 	`)
 	if err != nil {
-		fmt.Printf("Failed to get seasons: %v\n", err)
+		s.logger.Error("Failed to get seasons", "error", err)
 	} else {
 		defer seasonRows.Close()
 		seasons := []string{}
@@ -734,7 +741,7 @@ func (s *AnimeService) GetFilterOptions() (*models.FilterOptions, error) {
 			var season string
 			err := seasonRows.Scan(&season)
 			if err != nil {
-				fmt.Printf("Failed to scan season: %v\n", err)
+				s.logger.Error("Failed to scan season", "error", err)
 				continue
 			}
 			if strings.TrimSpace(season) != "" {
@@ -756,7 +763,7 @@ func (s *AnimeService) GetFilterOptions() (*models.FilterOptions, error) {
 		WHERE rating IS NOT NULL AND rating >= 1.0 AND rating <= 5.0
 	`).Scan(&ratingStats.Min, &ratingStats.Max, &ratingStats.Average, &ratingStats.Count)
 	if err != nil {
-		fmt.Printf("Failed to get rating stats: %v\n", err)
+		s.logger.Error("Failed to get rating stats", "error", err)
 		// デフォルト値はすでに設定済み
 	} else {
 		filterOptions.Ratings = ratingStats
@@ -767,26 +774,34 @@ func (s *AnimeService) GetFilterOptions() (*models.FilterOptions, error) {
 
 // logSearch - 検索ログを記録（非同期）
 func (s *AnimeService) logSearch(params models.AdvancedSearchParams, userID *int, resultCount int) {
-	// フィルター情報をJSONに変換
-	filtersJSON := fmt.Sprintf(`{
-		"genres": %v,
-		"year": %d,
-		"season": "%s",
-		"min_rating": %f,
-		"max_rating": %f,
-		"status": "%s",
-		"user_status": "%s",
-		"sort": "%s",
-		"order": "%s"
-	}`, params.Genres, params.Year, params.Season, params.MinRating, params.MaxRating, params.Status, params.UserStatus, params.Sort, params.Order)
+	// フィルター情報を構造体として定義
+	filters := map[string]interface{}{
+		"genres":      params.Genres,
+		"year":        params.Year,
+		"season":      params.Season,
+		"min_rating":  params.MinRating,
+		"max_rating":  params.MaxRating,
+		"status":      params.Status,
+		"user_status": params.UserStatus,
+		"sort":        params.Sort,
+		"order":       params.Order,
+	}
 
-	_, err := s.db.Exec(`
+	// 安全にJSONに変換
+	filtersJSON, err := json.Marshal(filters)
+	if err != nil {
+		// JSON変換エラーは無視（メイン機能に影響しない）
+		s.logger.Warn("Failed to marshal search filters", "error", err, "filters", filters)
+		return
+	}
+
+	_, err = s.db.Exec(`
 		INSERT INTO search_logs (user_id, query, filters, result_count, searched_at)
 		VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
-	`, userID, params.Query, filtersJSON, resultCount)
+	`, userID, params.Query, string(filtersJSON), resultCount)
 	if err != nil {
 		// ログ記録エラーは無視（メイン機能に影響しない）
-		fmt.Printf("Failed to log search: %v\n", err)
+		s.logger.Warn("Failed to log search", "error", err, "query", params.Query, "result_count", resultCount)
 	}
 }
 
@@ -800,7 +815,7 @@ func (s *AnimeService) GetPopularSearches(limit int) ([]string, error) {
 	var logCount int
 	err := s.db.QueryRow("SELECT COUNT(*) FROM search_logs").Scan(&logCount)
 	if err != nil {
-		fmt.Printf("Failed to count search logs: %v\n", err)
+		s.logger.Error("Failed to count search logs", "error", err)
 		return []string{}, nil
 	}
 
@@ -822,7 +837,7 @@ func (s *AnimeService) GetPopularSearches(limit int) ([]string, error) {
 		LIMIT $1
 	`, limit)
 	if err != nil {
-		fmt.Printf("Failed to get popular searches: %v\n", err)
+		s.logger.Error("Failed to get popular searches", "error", err, "limit", limit)
 		return []string{}, nil // エラーでも空配列を返す
 	}
 	defer rows.Close()
@@ -833,7 +848,7 @@ func (s *AnimeService) GetPopularSearches(limit int) ([]string, error) {
 		var count int
 		err := rows.Scan(&query, &count)
 		if err != nil {
-			fmt.Printf("Failed to scan popular search: %v\n", err)
+			s.logger.Error("Failed to scan popular search", "error", err)
 			continue
 		}
 		// 空文字列やnullをスキップ
@@ -864,25 +879,28 @@ func (s *AnimeService) GetSearchSuggestions(query string, limit int) ([]string, 
 		limit = 10
 	}
 
-	fmt.Printf("Getting search suggestions for query: '%s', limit: %d\n", query, limit)
-
+	// 検索候補では部分一致が重要なので、FTSと前方一致を組み合わせる
 	rows, err := s.db.Query(`
 		SELECT title
 		FROM animes
-		WHERE title ILIKE $1 AND title IS NOT NULL AND title != ''
+		WHERE (
+			title ILIKE $1 OR  -- 前方一致（インデックス効率化のため）
+			to_tsvector('simple', title) @@ plainto_tsquery('simple', $2)  -- FTS検索
+		) AND title IS NOT NULL AND title != ''
 		GROUP BY title
 		ORDER BY 
 			CASE 
-				WHEN title ILIKE $2 THEN 1  -- 前方一致を優先
-				ELSE 2
+				WHEN title ILIKE $1 THEN 1  -- 前方一致を最優先
+				WHEN title ILIKE $3 THEN 2  -- 部分一致を次優先
+				ELSE 3  -- FTS一致を最後
 			END,
 			LENGTH(title),
 			title
-		LIMIT $3
-	`, "%"+query+"%", query+"%", limit)
+		LIMIT $4
+	`, query+"%", query, "%"+query+"%", limit)
 	if err != nil {
 		// データベースエラーの詳細ログ出力
-		fmt.Printf("Failed to get search suggestions for query '%s': %v\n", query, err)
+		s.logger.Error("Failed to get search suggestions", "error", err, "query", query, "limit", limit)
 		return []string{}, nil // エラーでも空配列を返す
 	}
 	defer rows.Close()
@@ -892,7 +910,7 @@ func (s *AnimeService) GetSearchSuggestions(query string, limit int) ([]string, 
 		var title string
 		err := rows.Scan(&title)
 		if err != nil {
-			fmt.Printf("Failed to scan suggestion title: %v\n", err)
+			s.logger.Error("Failed to scan suggestion title", "error", err)
 			continue
 		}
 		// 空文字列やnullをスキップ
@@ -901,7 +919,6 @@ func (s *AnimeService) GetSearchSuggestions(query string, limit int) ([]string, 
 		}
 	}
 
-	fmt.Printf("Found %d suggestions for query '%s'\n", len(suggestions), query)
 	// 結果が0件でも正常レスポンス
 	return suggestions, nil
 }
