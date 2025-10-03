@@ -346,6 +346,7 @@ func (h *AnimeHandler) AdvancedSearchAnimes(c *gin.Context) {
 func (h *AnimeHandler) GetFilterOptions(c *gin.Context) {
 	filterOptions, err := h.animeService.GetFilterOptions()
 	if err != nil {
+		h.logger.Error("Failed to get filter options", "error", err)
 		// エラーでもデフォルト値を返す
 		defaultOptions := &models.FilterOptions{
 			Genres:  []models.GenreInfo{},
@@ -378,6 +379,7 @@ func (h *AnimeHandler) GetPopularSearches(c *gin.Context) {
 
 	searches, err := h.animeService.GetPopularSearches(limit)
 	if err != nil {
+		h.logger.Error("Failed to get popular searches", "error", err)
 		// エラーでもデフォルト値を返す
 		defaultSearches := []string{"進撃の巨人", "鬼滅の刃", "呪術廻戦", "ワンピース", "ナルト"}
 		if limit < len(defaultSearches) {
@@ -415,6 +417,7 @@ func (h *AnimeHandler) GetSearchSuggestions(c *gin.Context) {
 
 	suggestions, err := h.animeService.GetSearchSuggestions(query, limit)
 	if err != nil {
+		h.logger.Error("Failed to get search suggestions", "error", err, "query", query)
 		// エラーでも空配列を返す
 		h.response.Success(c, gin.H{
 			"suggestions": []string{},
