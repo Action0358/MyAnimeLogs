@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 
 	"myanimelogs/internal/common"
 	"myanimelogs/internal/database"
@@ -841,20 +842,30 @@ func (s *AnimeService) GetSearchSuggestions(query string, limit int) ([]string, 
 
 // enrichAnimeWithCoverImage - AniListから画像を取得してアニメ情報を拡張
 func (s *AnimeService) enrichAnimeWithCoverImage(anime *models.Anime) {
-	// MAL IDがない場合はスキップ
-	if anime.MalAnimeID == nil || *anime.MalAnimeID == "" {
-		return
+	var coverImage *CoverImage
+	var err error
+
+	// MAL IDがある場合は、まずMAL IDで検索
+	if anime.MalAnimeID != nil && *anime.MalAnimeID != "" {
+		coverImage, err = s.anilistClient.GetCoverImageByMALId(*anime.MalAnimeID)
+		if err != nil {
+			s.logger.Debug("Failed to get cover image by MAL ID, trying title fallback",
+				"error", err,
+				"mal_anime_id", *anime.MalAnimeID,
+				"anime_title", anime.Title)
+		}
 	}
 
-	// AniListから画像を取得
-	coverImage, err := s.anilistClient.GetCoverImageByMALId(*anime.MalAnimeID)
-	if err != nil {
-		// エラーは無視（フォールバック: Annictの画像を使用）
-		s.logger.Debug("Failed to get cover image from AniList",
-			"error", err,
-			"mal_anime_id", *anime.MalAnimeID,
-			"anime_title", anime.Title)
-		return
+	// MAL IDがないか、MAL IDでの取得に失敗した場合は、タイトルで検索（フォールバック）
+	if coverImage == nil && anime.Title != "" {
+		coverImage, err = s.anilistClient.GetCoverImageByTitle(anime.Title)
+		if err != nil {
+			// フォールバックも失敗した場合は、Annictの画像を使用
+			s.logger.Debug("Failed to get cover image by title",
+				"error", err,
+				"anime_title", anime.Title)
+			return
+		}
 	}
 
 	// 画像URLを設定
@@ -866,10 +877,19 @@ func (s *AnimeService) enrichAnimeWithCoverImage(anime *models.Anime) {
 
 // enrichAnimesWithCoverImages - 複数のアニメに画像を追加（並列処理）
 func (s *AnimeService) enrichAnimesWithCoverImages(animes []models.Anime) {
-	// 各アニメに対して画像を取得
+	var wg sync.WaitGroup
+
+	// 各アニメに対して並列で画像を取得
 	for i := range animes {
-		s.enrichAnimeWithCoverImage(&animes[i])
+		wg.Add(1)
+		go func(index int) {
+			defer wg.Done()
+			s.enrichAnimeWithCoverImage(&animes[index])
+		}(i)
 	}
+
+	// すべてのゴルーチンが完了するまで待機
+	wg.Wait()
 }
 
 // AdvancedSearchAnimes のヘルパー関数

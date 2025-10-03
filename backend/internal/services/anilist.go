@@ -52,67 +52,16 @@ func (c *AniListClient) GetCoverImageByMALId(malId string) (*CoverImage, error) 
 		}
 	}`
 
-	// リクエストボディ作成
-	requestBody := map[string]interface{}{
-		"query": query,
-		"variables": map[string]interface{}{
-			"malId": malIdInt,
-		},
+	variables := map[string]interface{}{
+		"malId": malIdInt,
 	}
 
-	jsonData, err := json.Marshal(requestBody)
+	coverImage, err := c.executeGraphQLQuery(query, variables)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
+		return nil, fmt.Errorf("failed to get cover image by MAL ID %s: %w", malId, err)
 	}
 
-	// HTTPリクエスト作成
-	req, err := http.NewRequest("POST", c.endpoint, bytes.NewBuffer(jsonData))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-
-	// リクエスト送信
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to send request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	// ステータスコード確認
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-
-	// レスポンス解析
-	var result struct {
-		Data struct {
-			Media struct {
-				CoverImage CoverImage `json:"coverImage"`
-			} `json:"Media"`
-		} `json:"data"`
-		Errors []struct {
-			Message string `json:"message"`
-		} `json:"errors"`
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	// GraphQLエラーチェック
-	if len(result.Errors) > 0 {
-		return nil, fmt.Errorf("graphql error: %s", result.Errors[0].Message)
-	}
-
-	// データが空の場合
-	if result.Data.Media.CoverImage.Large == "" {
-		return nil, fmt.Errorf("no cover image found for MAL ID: %s", malId)
-	}
-
-	return &result.Data.Media.CoverImage, nil
+	return coverImage, nil
 }
 
 // GetCoverImageByTitle - タイトルでカバー画像を検索（フォールバック用）
@@ -129,12 +78,24 @@ func (c *AniListClient) GetCoverImageByTitle(title string) (*CoverImage, error) 
 		}
 	}`
 
+	variables := map[string]interface{}{
+		"search": title,
+	}
+
+	coverImage, err := c.executeGraphQLQuery(query, variables)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get cover image by title %s: %w", title, err)
+	}
+
+	return coverImage, nil
+}
+
+// executeGraphQLQuery - GraphQLクエリを送信し、レスポンスを解析する共通ヘルパー
+func (c *AniListClient) executeGraphQLQuery(query string, variables map[string]interface{}) (*CoverImage, error) {
 	// リクエストボディ作成
 	requestBody := map[string]interface{}{
-		"query": query,
-		"variables": map[string]interface{}{
-			"search": title,
-		},
+		"query":     query,
+		"variables": variables,
 	}
 
 	jsonData, err := json.Marshal(requestBody)
@@ -186,7 +147,7 @@ func (c *AniListClient) GetCoverImageByTitle(title string) (*CoverImage, error) 
 
 	// データが空の場合
 	if result.Data.Media.CoverImage.Large == "" {
-		return nil, fmt.Errorf("no cover image found for title: %s", title)
+		return nil, fmt.Errorf("no cover image found")
 	}
 
 	return &result.Data.Media.CoverImage, nil
