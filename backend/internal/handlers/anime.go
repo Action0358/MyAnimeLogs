@@ -8,8 +8,18 @@ import (
 	"myanimelogs/internal/common"
 	"myanimelogs/internal/models"
 	"myanimelogs/internal/services"
+	"myanimelogs/internal/utils"
 
 	"github.com/gin-gonic/gin"
+)
+
+// デフォルト値の定数
+var (
+	// DefaultPopularSearches - エラー時のデフォルト人気検索キーワード
+	DefaultPopularSearches = []string{"進撃の巨人", "鬼滅の刃", "呪術廻戦", "ワンピース", "ナルト"}
+
+	// DefaultSeasons - エラー時のデフォルトシーズン一覧
+	DefaultSeasons = []string{"spring", "summer", "autumn", "winter"}
 )
 
 type AnimeHandler struct {
@@ -351,7 +361,7 @@ func (h *AnimeHandler) GetFilterOptions(c *gin.Context) {
 		defaultOptions := &models.FilterOptions{
 			Genres:  []models.GenreInfo{},
 			Years:   []int{},
-			Seasons: []string{"spring", "summer", "autumn", "winter"},
+			Seasons: DefaultSeasons,
 			Ratings: models.RatingStats{
 				Min:     1.0,
 				Max:     5.0,
@@ -369,19 +379,13 @@ func (h *AnimeHandler) GetFilterOptions(c *gin.Context) {
 // GetPopularSearches - 人気検索キーワード取得API
 func (h *AnimeHandler) GetPopularSearches(c *gin.Context) {
 	limitStr := c.DefaultQuery("limit", "10")
-	limit, err := strconv.Atoi(limitStr)
-	if err != nil || limit <= 0 {
-		limit = 10
-	}
-	if limit > 50 { // 上限を設定
-		limit = 50
-	}
+	limit := utils.ParseLimitQuery(limitStr, 10, 50)
 
 	searches, err := h.animeService.GetPopularSearches(limit)
 	if err != nil {
 		h.logger.Error("Failed to get popular searches", "error", err)
 		// エラーでもデフォルト値を返す
-		defaultSearches := []string{"進撃の巨人", "鬼滅の刃", "呪術廻戦", "ワンピース", "ナルト"}
+		defaultSearches := DefaultPopularSearches
 		if limit < len(defaultSearches) {
 			defaultSearches = defaultSearches[:limit]
 		}
@@ -407,13 +411,7 @@ func (h *AnimeHandler) GetSearchSuggestions(c *gin.Context) {
 	}
 
 	limitStr := c.DefaultQuery("limit", "10")
-	limit, err := strconv.Atoi(limitStr)
-	if err != nil || limit <= 0 {
-		limit = 10
-	}
-	if limit > 50 { // 上限を設定
-		limit = 50
-	}
+	limit := utils.ParseLimitQuery(limitStr, 10, 50)
 
 	suggestions, err := h.animeService.GetSearchSuggestions(query, limit)
 	if err != nil {
