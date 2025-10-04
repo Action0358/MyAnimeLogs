@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"myanimelogs/internal/common"
+	"myanimelogs/internal/constants"
 	"myanimelogs/internal/database"
 	"myanimelogs/internal/models"
 )
@@ -16,12 +17,6 @@ import (
 var (
 	ErrAnimeNotFound   = errors.New("anime not found")
 	ErrEpisodeNotFound = errors.New("episode not found")
-)
-
-// デフォルト値の定数
-var (
-	// DefaultPopularSearchKeywords - 検索ログが少ない場合のデフォルト人気検索キーワード
-	DefaultPopularSearchKeywords = []string{"進撃の巨人", "鬼滅の刃", "呪術廻戦", "ワンピース", "ナルト"}
 )
 
 type AnimeService struct {
@@ -120,9 +115,6 @@ func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int
 			continue
 		}
 
-		// AniListから画像を取得
-		s.enrichAnimeWithCoverImage(&anime)
-
 		animeWithData := models.AnimeWithUserData{Anime: anime}
 
 		// Add user data if authenticated
@@ -143,6 +135,9 @@ func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int
 
 		animes = append(animes, animeWithData)
 	}
+
+	// AniListから画像を並列で取得
+	s.enrichAnimesWithUserDataCoverImages(animes)
 
 	// 検索ログを記録
 	s.logBasicSearch(params, userID, total)
@@ -204,9 +199,6 @@ func (s *AnimeService) AdvancedSearchAnimes(params models.AdvancedSearchParams, 
 			continue
 		}
 
-		// AniListから画像を取得
-		s.enrichAnimeWithCoverImage(&anime)
-
 		animeWithData := models.AnimeWithUserData{Anime: anime}
 
 		// Add user data if authenticated
@@ -227,6 +219,9 @@ func (s *AnimeService) AdvancedSearchAnimes(params models.AdvancedSearchParams, 
 
 		animes = append(animes, animeWithData)
 	}
+
+	// AniListから画像を並列で取得
+	s.enrichAnimesWithUserDataCoverImages(animes)
 
 	// 検索ログを記録
 	s.logAdvancedSearch(params, userID, total)
@@ -369,9 +364,6 @@ func (s *AnimeService) GetUserFavorites(userID int, status string) ([]models.Ani
 			continue
 		}
 
-		// AniListから画像を取得
-		s.enrichAnimeWithCoverImage(&anime)
-
 		animeWithData := models.AnimeWithUserData{
 			Anime:        anime,
 			UserFavorite: &favorite,
@@ -382,6 +374,9 @@ func (s *AnimeService) GetUserFavorites(userID int, status string) ([]models.Ani
 
 		favorites = append(favorites, animeWithData)
 	}
+
+	// AniListから画像を並列で取得
+	s.enrichAnimesWithUserDataCoverImages(favorites)
 
 	return favorites, nil
 }
@@ -628,13 +623,13 @@ func (s *AnimeService) GetFilterOptions() (*models.FilterOptions, error) {
 		WHERE season IS NOT NULL AND season != ''
 		ORDER BY 
 			CASE season
-				WHEN 'spring' THEN 1
-				WHEN 'summer' THEN 2
-				WHEN 'autumn' THEN 3
-				WHEN 'winter' THEN 4
+				WHEN $1 THEN 1
+				WHEN $2 THEN 2
+				WHEN $3 THEN 3
+				WHEN $4 THEN 4
 				ELSE 5
 			END
-	`)
+	`, constants.SeasonSpring, constants.SeasonSummer, constants.SeasonAutumn, constants.SeasonWinter)
 	if err != nil {
 		s.logger.Error("Failed to get seasons", "error", err)
 	} else {
@@ -776,7 +771,9 @@ func (s *AnimeService) GetPopularSearches(limit int) ([]string, error) {
 
 	// 検索ログが少ない場合はデフォルトの人気検索を返す
 	if len(searches) == 0 {
-		searches = DefaultPopularSearchKeywords
+		// グローバルスライスを変更しないようにコピーを作成
+		searches = make([]string, len(constants.DefaultPopularSearches))
+		copy(searches, constants.DefaultPopularSearches)
 		if limit < len(searches) {
 			searches = searches[:limit]
 		}
@@ -885,6 +882,23 @@ func (s *AnimeService) enrichAnimesWithCoverImages(animes []models.Anime) {
 		go func(index int) {
 			defer wg.Done()
 			s.enrichAnimeWithCoverImage(&animes[index])
+		}(i)
+	}
+
+	// すべてのゴルーチンが完了するまで待機
+	wg.Wait()
+}
+
+// enrichAnimesWithUserDataCoverImages - AnimeWithUserDataのスライスに画像を追加（並列処理）
+func (s *AnimeService) enrichAnimesWithUserDataCoverImages(animes []models.AnimeWithUserData) {
+	var wg sync.WaitGroup
+
+	// 各アニメに対して並列で画像を取得
+	for i := range animes {
+		wg.Add(1)
+		go func(index int) {
+			defer wg.Done()
+			s.enrichAnimeWithCoverImage(&animes[index].Anime)
 		}(i)
 	}
 

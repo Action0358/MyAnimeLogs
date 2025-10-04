@@ -5,8 +5,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
+)
+
+const (
+	// DefaultAniListEndpoint - AniList GraphQL APIのデフォルトエンドポイント
+	DefaultAniListEndpoint = "https://graphql.anilist.co"
+
+	// DefaultHTTPClientTimeout - HTTPクライアントのデフォルトタイムアウト
+	DefaultHTTPClientTimeout = 10 * time.Second
 )
 
 // AniListClient - AniList GraphQL API クライアント
@@ -16,12 +25,28 @@ type AniListClient struct {
 }
 
 // NewAniListClient - AniListクライアントを作成
+// 環境変数 ANILIST_ENDPOINT が設定されている場合はそれを使用、なければデフォルトを使用
 func NewAniListClient() *AniListClient {
+	endpoint := os.Getenv("ANILIST_ENDPOINT")
+	if endpoint == "" {
+		endpoint = DefaultAniListEndpoint
+	}
+
+	return NewAniListClientWithEndpoint(endpoint)
+}
+
+// NewAniListClientWithEndpoint - カスタムエンドポイントでAniListクライアントを作成
+// テスト時にモックサーバーを指定する場合などに使用
+func NewAniListClientWithEndpoint(endpoint string) *AniListClient {
+	if endpoint == "" {
+		endpoint = DefaultAniListEndpoint
+	}
+
 	return &AniListClient{
 		httpClient: &http.Client{
-			Timeout: 10 * time.Second,
+			Timeout: DefaultHTTPClientTimeout,
 		},
-		endpoint: "https://graphql.anilist.co",
+		endpoint: endpoint,
 	}
 }
 
