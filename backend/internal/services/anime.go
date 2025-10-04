@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 
 	"myanimelogs/internal/common"
+	"myanimelogs/internal/constants"
 	"myanimelogs/internal/database"
 	"myanimelogs/internal/models"
 )
@@ -18,14 +20,16 @@ var (
 )
 
 type AnimeService struct {
-	db     *database.DB
-	logger *common.Logger
+	db            *database.DB
+	logger        *common.Logger
+	anilistClient *AniListClient
 }
 
 func NewAnimeService(db *database.DB, logger *common.Logger) *AnimeService {
 	return &AnimeService{
-		db:     db,
-		logger: logger,
+		db:            db,
+		logger:        logger,
+		anilistClient: NewAniListClient(),
 	}
 }
 
@@ -90,7 +94,7 @@ func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int
 
 	// Get animes
 	query := fmt.Sprintf(`
-		SELECT id, title, description, image_url, season, status, created_at, updated_at, watchers_count
+		SELECT id, title, description, image_url, season, status, mal_anime_id, created_at, updated_at, watchers_count
 		FROM animes %s %s
 		LIMIT $%d OFFSET $%d
 	`, whereClause, orderBy, argIndex, argIndex+1)
@@ -106,7 +110,7 @@ func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int
 	animes := []models.AnimeWithUserData{}
 	for rows.Next() {
 		var anime models.Anime
-		err := rows.Scan(&anime.ID, &anime.Title, &anime.Description, &anime.ImageURL, &anime.Season, &anime.Status, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount)
+		err := rows.Scan(&anime.ID, &anime.Title, &anime.Description, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount)
 		if err != nil {
 			continue
 		}
@@ -132,6 +136,12 @@ func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int
 		animes = append(animes, animeWithData)
 	}
 
+	// AniListから画像を並列で取得
+	s.enrichAnimesWithUserDataCoverImages(animes)
+
+	// 検索ログを記録
+	s.logBasicSearch(params, userID, total)
+
 	return &models.PaginatedResponse{
 		Data: animes,
 		Meta: models.PaginationMeta{
@@ -144,136 +154,13 @@ func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int
 
 // AdvancedSearchAnimes - 高度検索機能
 func (s *AnimeService) AdvancedSearchAnimes(params models.AdvancedSearchParams, userID *int) (*models.PaginatedResponse, error) {
-	// ソート・並び順の定数
-	const (
-		SortByTitle      = "title"
-		SortByRating     = "rating"
-		SortByYear       = "year"
-		SortByPopularity = "popularity"
-		SortByUpdated    = "updated"
-		OrderAsc         = "asc"
-		OrderDesc        = "desc"
-	)
-
 	// Set defaults
-	if params.Page <= 0 {
-		params.Page = 1
-	}
-	if params.PerPage <= 0 || params.PerPage > 100 {
-		params.PerPage = 20
-	}
-	if params.Sort == "" {
-		params.Sort = SortByTitle
-	}
-	if params.Order == "" {
-		params.Order = OrderAsc
-	}
+	s.setSearchDefaults(&params)
 
-	// Build base query with JOINs for optimization
-	baseQuery := `
-		FROM animes a
-		LEFT JOIN anime_genres ag ON a.id = ag.anime_id
-		LEFT JOIN user_ratings ur ON a.id = ur.anime_id
-	`
-
-	// Build WHERE clause
-	whereClauses := []string{}
-	args := []interface{}{}
-	argIndex := 1
-
-	// 全文検索（日本語対応のためFTSとILIKEを併用）
-	if params.Query != "" {
-		whereClauses = append(whereClauses, fmt.Sprintf(`
-			(to_tsvector('simple', COALESCE(a.title, '') || ' ' || COALESCE(a.description, '')) @@ plainto_tsquery('simple', $%d)
-			 OR a.title ILIKE $%d OR a.description ILIKE $%d)
-		`, argIndex, argIndex+1, argIndex+1))
-		args = append(args, params.Query, "%"+params.Query+"%")
-		argIndex += 2
-	}
-
-	// ジャンル検索（複数対応）
-	if len(params.Genres) > 0 {
-		genrePlaceholders := make([]string, len(params.Genres))
-		for i, genre := range params.Genres {
-			genrePlaceholders[i] = fmt.Sprintf("$%d", argIndex)
-			args = append(args, genre)
-			argIndex++
-		}
-		whereClauses = append(whereClauses, fmt.Sprintf("ag.genre IN (%s)", strings.Join(genrePlaceholders, ",")))
-	}
-
-	// 年検索
-	if params.Year > 0 {
-		whereClauses = append(whereClauses, fmt.Sprintf("a.season_year = $%d", argIndex))
-		args = append(args, params.Year)
-		argIndex++
-	}
-
-	// シーズン検索
-	if params.Season != "" {
-		whereClauses = append(whereClauses, fmt.Sprintf("a.season = $%d", argIndex))
-		args = append(args, params.Season)
-		argIndex++
-	}
-
-	// ステータス検索
-	if params.Status != "" {
-		whereClauses = append(whereClauses, fmt.Sprintf("a.status = $%d", argIndex))
-		args = append(args, params.Status)
-		argIndex++
-	}
-
-	// 評価範囲検索
-	if params.MinRating > 0 || params.MaxRating > 0 {
-		ratingSubquery := "(SELECT AVG(rating) FROM user_ratings WHERE anime_id = a.id)"
-		if params.MinRating > 0 && params.MaxRating > 0 {
-			whereClauses = append(whereClauses, fmt.Sprintf("%s BETWEEN $%d AND $%d", ratingSubquery, argIndex, argIndex+1))
-			args = append(args, params.MinRating, params.MaxRating)
-			argIndex += 2
-		} else if params.MinRating > 0 {
-			whereClauses = append(whereClauses, fmt.Sprintf("%s >= $%d", ratingSubquery, argIndex))
-			args = append(args, params.MinRating)
-			argIndex++
-		} else if params.MaxRating > 0 {
-			whereClauses = append(whereClauses, fmt.Sprintf("%s <= $%d", ratingSubquery, argIndex))
-			args = append(args, params.MaxRating)
-			argIndex++
-		}
-	}
-
-	// ユーザーステータス検索（認証時のみ）
-	if userID != nil && params.UserStatus != "" {
-		whereClauses = append(whereClauses, fmt.Sprintf(`
-			a.id IN (SELECT anime_id FROM user_favorites WHERE user_id = $%d AND status = $%d)
-		`, argIndex, argIndex+1))
-		args = append(args, *userID, params.UserStatus)
-		argIndex += 2
-	}
-
-	whereClause := ""
-	if len(whereClauses) > 0 {
-		whereClause = "WHERE " + strings.Join(whereClauses, " AND ")
-	}
-
-	// Build ORDER BY clause
-	orderBy := "ORDER BY a.title"
-	orderDirection := "ASC"
-	if params.Order == OrderDesc {
-		orderDirection = "DESC"
-	}
-
-	switch params.Sort {
-	case SortByTitle:
-		orderBy = fmt.Sprintf("ORDER BY a.title %s", orderDirection)
-	case SortByRating:
-		orderBy = fmt.Sprintf("ORDER BY (SELECT AVG(rating) FROM user_ratings WHERE anime_id = a.id) %s NULLS LAST", orderDirection)
-	case SortByYear:
-		orderBy = fmt.Sprintf("ORDER BY a.season_year %s, a.season %s", orderDirection, orderDirection)
-	case SortByPopularity:
-		orderBy = fmt.Sprintf("ORDER BY a.watchers_count %s", orderDirection)
-	case SortByUpdated:
-		orderBy = fmt.Sprintf("ORDER BY a.updated_at %s", orderDirection)
-	}
+	// Build query components
+	baseQuery := s.buildBaseQuery(params, userID)
+	whereClause, args, argIndex := s.buildWhereClause(params, userID)
+	orderBy := s.buildOrderByClause(params)
 
 	// Count total results (distinct to handle JOINs)
 	countQuery := fmt.Sprintf("SELECT COUNT(DISTINCT a.id) %s %s", baseQuery, whereClause)
@@ -289,9 +176,9 @@ func (s *AnimeService) AdvancedSearchAnimes(params models.AdvancedSearchParams, 
 
 	// Get animes
 	query := fmt.Sprintf(`
-		SELECT a.id, a.title, a.description, a.image_url, a.season, a.status, a.created_at, a.updated_at, a.watchers_count
+		SELECT a.id, a.title, a.description, a.image_url, a.season, a.status, a.mal_anime_id, a.created_at, a.updated_at, a.watchers_count
 		%s %s
-		GROUP BY a.id, a.title, a.description, a.image_url, a.season, a.status, a.created_at, a.updated_at, a.watchers_count
+		GROUP BY a.id, a.title, a.description, a.image_url, a.season, a.status, a.mal_anime_id, a.created_at, a.updated_at, a.watchers_count
 		%s
 		LIMIT $%d OFFSET $%d
 	`, baseQuery, whereClause, orderBy, argIndex, argIndex+1)
@@ -307,7 +194,7 @@ func (s *AnimeService) AdvancedSearchAnimes(params models.AdvancedSearchParams, 
 	animes := []models.AnimeWithUserData{}
 	for rows.Next() {
 		var anime models.Anime
-		err := rows.Scan(&anime.ID, &anime.Title, &anime.Description, &anime.ImageURL, &anime.Season, &anime.Status, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount)
+		err := rows.Scan(&anime.ID, &anime.Title, &anime.Description, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount)
 		if err != nil {
 			continue
 		}
@@ -333,8 +220,11 @@ func (s *AnimeService) AdvancedSearchAnimes(params models.AdvancedSearchParams, 
 		animes = append(animes, animeWithData)
 	}
 
+	// AniListから画像を並列で取得
+	s.enrichAnimesWithUserDataCoverImages(animes)
+
 	// 検索ログを記録
-	go s.logSearch(params, userID, total)
+	s.logAdvancedSearch(params, userID, total)
 
 	return &models.PaginatedResponse{
 		Data: animes,
@@ -349,15 +239,18 @@ func (s *AnimeService) AdvancedSearchAnimes(params models.AdvancedSearchParams, 
 func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWithUserData, error) {
 	var anime models.Anime
 	err := s.db.QueryRow(`
-		SELECT id, title, description, image_url, season, status, created_at, updated_at, watchers_count
+		SELECT id, title, description, image_url, season, status, mal_anime_id, created_at, updated_at, watchers_count
 		FROM animes WHERE id = $1
-	`, animeID).Scan(&anime.ID, &anime.Title, &anime.Description, &anime.ImageURL, &anime.Season, &anime.Status, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount)
+	`, animeID).Scan(&anime.ID, &anime.Title, &anime.Description, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrAnimeNotFound
 		}
 		return nil, fmt.Errorf("failed to get anime: %w", err)
 	}
+
+	// AniListから画像を取得
+	s.enrichAnimeWithCoverImage(&anime)
 
 	animeWithData := &models.AnimeWithUserData{Anime: anime}
 
@@ -445,7 +338,7 @@ func (s *AnimeService) GetUserFavorites(userID int, status string) ([]models.Ani
 	}
 
 	query := fmt.Sprintf(`
-		SELECT a.id, a.title, a.description, a.image_url, a.season, a.status, a.created_at, a.updated_at, a.watchers_count,
+		SELECT a.id, a.title, a.description, a.image_url, a.season, a.status, a.mal_anime_id, a.created_at, a.updated_at, a.watchers_count,
 		       uf.id, uf.user_id, uf.anime_id, uf.status, uf.created_at, uf.updated_at
 		FROM animes a
 		JOIN user_favorites uf ON a.id = uf.anime_id
@@ -464,7 +357,7 @@ func (s *AnimeService) GetUserFavorites(userID int, status string) ([]models.Ani
 		var anime models.Anime
 		var favorite models.UserFavorite
 		err := rows.Scan(
-			&anime.ID, &anime.Title, &anime.Description, &anime.ImageURL, &anime.Season, &anime.Status, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount,
+			&anime.ID, &anime.Title, &anime.Description, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount,
 			&favorite.ID, &favorite.UserID, &favorite.AnimeID, &favorite.Status, &favorite.CreatedAt, &favorite.UpdatedAt,
 		)
 		if err != nil {
@@ -481,6 +374,9 @@ func (s *AnimeService) GetUserFavorites(userID int, status string) ([]models.Ani
 
 		favorites = append(favorites, animeWithData)
 	}
+
+	// AniListから画像を並列で取得
+	s.enrichAnimesWithUserDataCoverImages(favorites)
 
 	return favorites, nil
 }
@@ -698,7 +594,9 @@ func (s *AnimeService) GetFilterOptions() (*models.FilterOptions, error) {
 	yearRows, err := s.db.Query(`
 		SELECT DISTINCT season_year
 		FROM animes
-		WHERE season_year IS NOT NULL AND season_year > 1900 AND season_year <= 2030
+		WHERE season_year IS NOT NULL 
+		  AND season_year > 1900 
+		  AND season_year <= EXTRACT(YEAR FROM CURRENT_DATE) + 1
 		ORDER BY season_year DESC
 	`)
 	if err != nil {
@@ -725,13 +623,13 @@ func (s *AnimeService) GetFilterOptions() (*models.FilterOptions, error) {
 		WHERE season IS NOT NULL AND season != ''
 		ORDER BY 
 			CASE season
-				WHEN 'spring' THEN 1
-				WHEN 'summer' THEN 2
-				WHEN 'autumn' THEN 3
-				WHEN 'winter' THEN 4
+				WHEN $1 THEN 1
+				WHEN $2 THEN 2
+				WHEN $3 THEN 3
+				WHEN $4 THEN 4
 				ELSE 5
 			END
-	`)
+	`, constants.SeasonSpring, constants.SeasonSummer, constants.SeasonAutumn, constants.SeasonWinter)
 	if err != nil {
 		s.logger.Error("Failed to get seasons", "error", err)
 	} else {
@@ -773,20 +671,7 @@ func (s *AnimeService) GetFilterOptions() (*models.FilterOptions, error) {
 }
 
 // logSearch - 検索ログを記録（非同期）
-func (s *AnimeService) logSearch(params models.AdvancedSearchParams, userID *int, resultCount int) {
-	// フィルター情報を構造体として定義
-	filters := map[string]interface{}{
-		"genres":      params.Genres,
-		"year":        params.Year,
-		"season":      params.Season,
-		"min_rating":  params.MinRating,
-		"max_rating":  params.MaxRating,
-		"status":      params.Status,
-		"user_status": params.UserStatus,
-		"sort":        params.Sort,
-		"order":       params.Order,
-	}
-
+func (s *AnimeService) logSearch(query string, filters map[string]interface{}, userID *int, resultCount int) {
 	// 安全にJSONに変換
 	filtersJSON, err := json.Marshal(filters)
 	if err != nil {
@@ -798,11 +683,38 @@ func (s *AnimeService) logSearch(params models.AdvancedSearchParams, userID *int
 	_, err = s.db.Exec(`
 		INSERT INTO search_logs (user_id, query, filters, result_count, searched_at)
 		VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
-	`, userID, params.Query, string(filtersJSON), resultCount)
+	`, userID, query, string(filtersJSON), resultCount)
 	if err != nil {
 		// ログ記録エラーは無視（メイン機能に影響しない）
-		s.logger.Warn("Failed to log search", "error", err, "query", params.Query, "result_count", resultCount)
+		s.logger.Warn("Failed to log search", "error", err, "query", query, "result_count", resultCount)
 	}
+}
+
+// logAdvancedSearch - 高度検索のログを記録（非同期）
+func (s *AnimeService) logAdvancedSearch(params models.AdvancedSearchParams, userID *int, resultCount int) {
+	filters := map[string]interface{}{
+		"genres":      params.Genres,
+		"year":        params.Year,
+		"season":      params.Season,
+		"min_rating":  params.MinRating,
+		"max_rating":  params.MaxRating,
+		"status":      params.Status,
+		"user_status": params.UserStatus,
+		"sort":        params.Sort,
+		"order":       params.Order,
+	}
+	go s.logSearch(params.Query, filters, userID, resultCount)
+}
+
+// logBasicSearch - 基本検索のログを記録（非同期）
+func (s *AnimeService) logBasicSearch(params models.AnimeSearchParams, userID *int, resultCount int) {
+	filters := map[string]interface{}{
+		"genre":  params.Genre,
+		"season": params.Season,
+		"status": params.Status,
+		"sort":   params.Sort,
+	}
+	go s.logSearch(params.Keyword, filters, userID, resultCount)
 }
 
 // GetPopularSearches - 人気検索キーワードを取得
@@ -820,9 +732,9 @@ func (s *AnimeService) GetPopularSearches(limit int) ([]string, error) {
 	}
 
 	// ログが少ない場合は期間を拡張
-	interval := "30 days"
+	intervalDays := 30
 	if logCount < 10 {
-		interval = "365 days" // 1年に拡張
+		intervalDays = 365 // 1年に拡張
 	}
 
 	rows, err := s.db.Query(`
@@ -831,11 +743,11 @@ func (s *AnimeService) GetPopularSearches(limit int) ([]string, error) {
 		WHERE query IS NOT NULL 
 		  AND query != '' 
 		  AND LENGTH(TRIM(query)) > 0
-		  AND searched_at > CURRENT_TIMESTAMP - INTERVAL '`+interval+`'
+		  AND searched_at > CURRENT_TIMESTAMP - ($1 || ' days')::INTERVAL
 		GROUP BY query
 		ORDER BY search_count DESC, query ASC
-		LIMIT $1
-	`, limit)
+		LIMIT $2
+	`, intervalDays, limit)
 	if err != nil {
 		s.logger.Error("Failed to get popular searches", "error", err, "limit", limit)
 		return []string{}, nil // エラーでも空配列を返す
@@ -859,7 +771,9 @@ func (s *AnimeService) GetPopularSearches(limit int) ([]string, error) {
 
 	// 検索ログが少ない場合はデフォルトの人気検索を返す
 	if len(searches) == 0 {
-		searches = []string{"進撃の巨人", "鬼滅の刃", "呪術廻戦", "ワンピース", "ナルト"}
+		// グローバルスライスを変更しないようにコピーを作成
+		searches = make([]string, len(constants.DefaultPopularSearches))
+		copy(searches, constants.DefaultPopularSearches)
 		if limit < len(searches) {
 			searches = searches[:limit]
 		}
@@ -921,4 +835,243 @@ func (s *AnimeService) GetSearchSuggestions(query string, limit int) ([]string, 
 
 	// 結果が0件でも正常レスポンス
 	return suggestions, nil
+}
+
+// enrichAnimeWithCoverImage - AniListから画像を取得してアニメ情報を拡張
+func (s *AnimeService) enrichAnimeWithCoverImage(anime *models.Anime) {
+	var coverImage *CoverImage
+	var err error
+
+	// MAL IDがある場合は、まずMAL IDで検索
+	if anime.MalAnimeID != nil && *anime.MalAnimeID != "" {
+		coverImage, err = s.anilistClient.GetCoverImageByMALId(*anime.MalAnimeID)
+		if err != nil {
+			s.logger.Debug("Failed to get cover image by MAL ID, trying title fallback",
+				"error", err,
+				"mal_anime_id", *anime.MalAnimeID,
+				"anime_title", anime.Title)
+		}
+	}
+
+	// MAL IDがないか、MAL IDでの取得に失敗した場合は、タイトルで検索（フォールバック）
+	if coverImage == nil && anime.Title != "" {
+		coverImage, err = s.anilistClient.GetCoverImageByTitle(anime.Title)
+		if err != nil {
+			// フォールバックも失敗した場合は、Annictの画像を使用
+			s.logger.Debug("Failed to get cover image by title",
+				"error", err,
+				"anime_title", anime.Title)
+			return
+		}
+	}
+
+	// 画像URLを設定
+	if coverImage != nil {
+		anime.CoverImageLarge = coverImage.Large
+		anime.CoverImageMedium = coverImage.Medium
+	}
+}
+
+// enrichAnimesWithCoverImages - 複数のアニメに画像を追加（並列処理）
+func (s *AnimeService) enrichAnimesWithCoverImages(animes []models.Anime) {
+	var wg sync.WaitGroup
+
+	// 各アニメに対して並列で画像を取得
+	for i := range animes {
+		wg.Add(1)
+		go func(index int) {
+			defer wg.Done()
+			s.enrichAnimeWithCoverImage(&animes[index])
+		}(i)
+	}
+
+	// すべてのゴルーチンが完了するまで待機
+	wg.Wait()
+}
+
+// enrichAnimesWithUserDataCoverImages - AnimeWithUserDataのスライスに画像を追加（並列処理）
+func (s *AnimeService) enrichAnimesWithUserDataCoverImages(animes []models.AnimeWithUserData) {
+	var wg sync.WaitGroup
+
+	// 各アニメに対して並列で画像を取得
+	for i := range animes {
+		wg.Add(1)
+		go func(index int) {
+			defer wg.Done()
+			s.enrichAnimeWithCoverImage(&animes[index].Anime)
+		}(i)
+	}
+
+	// すべてのゴルーチンが完了するまで待機
+	wg.Wait()
+}
+
+// AdvancedSearchAnimes のヘルパー関数
+
+// setSearchDefaults - 検索パラメータのデフォルト値を設定
+func (s *AnimeService) setSearchDefaults(params *models.AdvancedSearchParams) {
+	const (
+		SortByTitle = "title"
+		OrderAsc    = "asc"
+	)
+
+	if params.Page <= 0 {
+		params.Page = 1
+	}
+	if params.PerPage <= 0 || params.PerPage > 100 {
+		params.PerPage = 20
+	}
+	if params.Sort == "" {
+		params.Sort = SortByTitle
+	}
+	if params.Order == "" {
+		params.Order = OrderAsc
+	}
+}
+
+// buildBaseQuery - ベースクエリとJOINを構築
+func (s *AnimeService) buildBaseQuery(params models.AdvancedSearchParams, userID *int) string {
+	const SortByRating = "rating"
+
+	baseQuery := "FROM animes a"
+
+	// Track which JOINs are needed
+	needGenreJoin := len(params.Genres) > 0
+	needRatingJoin := params.MinRating > 0 || params.MaxRating > 0 || params.Sort == SortByRating
+	needUserFavoriteJoin := userID != nil && params.UserStatus != ""
+
+	// Add JOINs only when needed
+	if needGenreJoin {
+		baseQuery += "\n\t\tLEFT JOIN anime_genres ag ON a.id = ag.anime_id"
+	}
+	if needRatingJoin {
+		baseQuery += `
+		LEFT JOIN (
+			SELECT anime_id, AVG(rating) as avg_rating
+			FROM user_ratings
+			GROUP BY anime_id
+		) AS avg_ratings ON a.id = avg_ratings.anime_id`
+	}
+	if needUserFavoriteJoin {
+		baseQuery += `
+		INNER JOIN user_favorites uf ON a.id = uf.anime_id`
+	}
+
+	return baseQuery
+}
+
+// buildWhereClause - WHERE句と引数を構築
+func (s *AnimeService) buildWhereClause(params models.AdvancedSearchParams, userID *int) (string, []interface{}, int) {
+	whereClauses := []string{}
+	args := []interface{}{}
+	argIndex := 1
+
+	// 全文検索（日本語対応のためFTSとILIKEを併用）
+	if params.Query != "" {
+		whereClauses = append(whereClauses, fmt.Sprintf(`
+			(to_tsvector('simple', COALESCE(a.title, '') || ' ' || COALESCE(a.description, '')) @@ plainto_tsquery('simple', $%d)
+			 OR a.title ILIKE $%d OR a.description ILIKE $%d)
+		`, argIndex, argIndex+1, argIndex+1))
+		args = append(args, params.Query, "%"+params.Query+"%")
+		argIndex += 2
+	}
+
+	// ジャンル検索（複数対応）
+	if len(params.Genres) > 0 {
+		genrePlaceholders := make([]string, len(params.Genres))
+		for i, genre := range params.Genres {
+			genrePlaceholders[i] = fmt.Sprintf("$%d", argIndex)
+			args = append(args, genre)
+			argIndex++
+		}
+		whereClauses = append(whereClauses, fmt.Sprintf("ag.genre IN (%s)", strings.Join(genrePlaceholders, ",")))
+	}
+
+	// 年検索
+	if params.Year > 0 {
+		whereClauses = append(whereClauses, fmt.Sprintf("a.season_year = $%d", argIndex))
+		args = append(args, params.Year)
+		argIndex++
+	}
+
+	// シーズン検索
+	if params.Season != "" {
+		whereClauses = append(whereClauses, fmt.Sprintf("a.season = $%d", argIndex))
+		args = append(args, params.Season)
+		argIndex++
+	}
+
+	// ステータス検索
+	if params.Status != "" {
+		whereClauses = append(whereClauses, fmt.Sprintf("a.status = $%d", argIndex))
+		args = append(args, params.Status)
+		argIndex++
+	}
+
+	// 評価範囲検索
+	if params.MinRating > 0 || params.MaxRating > 0 {
+		if params.MinRating > 0 && params.MaxRating > 0 {
+			whereClauses = append(whereClauses, fmt.Sprintf("avg_ratings.avg_rating BETWEEN $%d AND $%d", argIndex, argIndex+1))
+			args = append(args, params.MinRating, params.MaxRating)
+			argIndex += 2
+		} else if params.MinRating > 0 {
+			whereClauses = append(whereClauses, fmt.Sprintf("avg_ratings.avg_rating >= $%d", argIndex))
+			args = append(args, params.MinRating)
+			argIndex++
+		} else if params.MaxRating > 0 {
+			whereClauses = append(whereClauses, fmt.Sprintf("avg_ratings.avg_rating <= $%d", argIndex))
+			args = append(args, params.MaxRating)
+			argIndex++
+		}
+	}
+
+	// ユーザーステータス検索（認証時のみ）
+	// JOINを使用するため、WHERE句で条件を追加
+	if userID != nil && params.UserStatus != "" {
+		whereClauses = append(whereClauses, fmt.Sprintf("uf.user_id = $%d", argIndex))
+		args = append(args, *userID)
+		argIndex++
+		whereClauses = append(whereClauses, fmt.Sprintf("uf.status = $%d", argIndex))
+		args = append(args, params.UserStatus)
+		argIndex++
+	}
+
+	whereClause := ""
+	if len(whereClauses) > 0 {
+		whereClause = "WHERE " + strings.Join(whereClauses, " AND ")
+	}
+
+	return whereClause, args, argIndex
+}
+
+// buildOrderByClause - ORDER BY句を構築
+func (s *AnimeService) buildOrderByClause(params models.AdvancedSearchParams) string {
+	const (
+		SortByTitle      = "title"
+		SortByRating     = "rating"
+		SortByYear       = "year"
+		SortByPopularity = "popularity"
+		SortByUpdated    = "updated"
+		OrderDesc        = "desc"
+	)
+
+	orderDirection := "ASC"
+	if params.Order == OrderDesc {
+		orderDirection = "DESC"
+	}
+
+	switch params.Sort {
+	case SortByTitle:
+		return fmt.Sprintf("ORDER BY a.title %s", orderDirection)
+	case SortByRating:
+		return fmt.Sprintf("ORDER BY avg_ratings.avg_rating %s NULLS LAST", orderDirection)
+	case SortByYear:
+		return fmt.Sprintf("ORDER BY a.season_year %s, a.season %s", orderDirection, orderDirection)
+	case SortByPopularity:
+		return fmt.Sprintf("ORDER BY a.watchers_count %s", orderDirection)
+	case SortByUpdated:
+		return fmt.Sprintf("ORDER BY a.updated_at %s", orderDirection)
+	default:
+		return fmt.Sprintf("ORDER BY a.title %s", orderDirection)
+	}
 }
