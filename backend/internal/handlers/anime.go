@@ -6,20 +6,12 @@ import (
 	"strings"
 
 	"myanimelogs/internal/common"
+	"myanimelogs/internal/constants"
 	"myanimelogs/internal/models"
 	"myanimelogs/internal/services"
 	"myanimelogs/internal/utils"
 
 	"github.com/gin-gonic/gin"
-)
-
-// デフォルト値の定数
-var (
-	// DefaultPopularSearches - エラー時のデフォルト人気検索キーワード
-	DefaultPopularSearches = []string{"進撃の巨人", "鬼滅の刃", "呪術廻戦", "ワンピース", "ナルト"}
-
-	// DefaultSeasons - エラー時のデフォルトシーズン一覧
-	DefaultSeasons = []string{"spring", "summer", "autumn", "winter"}
 )
 
 type AnimeHandler struct {
@@ -361,7 +353,7 @@ func (h *AnimeHandler) GetFilterOptions(c *gin.Context) {
 		defaultOptions := &models.FilterOptions{
 			Genres:  []models.GenreInfo{},
 			Years:   []int{},
-			Seasons: DefaultSeasons,
+			Seasons: constants.DefaultSeasons,
 			Ratings: models.RatingStats{
 				Min:     1.0,
 				Max:     5.0,
@@ -385,7 +377,7 @@ func (h *AnimeHandler) GetPopularSearches(c *gin.Context) {
 	if err != nil {
 		h.logger.Error("Failed to get popular searches", "error", err)
 		// エラーでもデフォルト値を返す
-		defaultSearches := DefaultPopularSearches
+		defaultSearches := constants.DefaultPopularSearches
 		if limit < len(defaultSearches) {
 			defaultSearches = defaultSearches[:limit]
 		}
