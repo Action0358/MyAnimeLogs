@@ -13,6 +13,9 @@ import (
 const (
 	// DefaultAniListEndpoint - AniList GraphQL APIのデフォルトエンドポイント
 	DefaultAniListEndpoint = "https://graphql.anilist.co"
+
+	// DefaultHTTPClientTimeout - HTTPクライアントのデフォルトタイムアウト
+	DefaultHTTPClientTimeout = 10 * time.Second
 )
 
 // AniListClient - AniList GraphQL API クライアント
@@ -29,12 +32,7 @@ func NewAniListClient() *AniListClient {
 		endpoint = DefaultAniListEndpoint
 	}
 
-	return &AniListClient{
-		httpClient: &http.Client{
-			Timeout: 10 * time.Second,
-		},
-		endpoint: endpoint,
-	}
+	return NewAniListClientWithEndpoint(endpoint)
 }
 
 // NewAniListClientWithEndpoint - カスタムエンドポイントでAniListクライアントを作成
@@ -46,7 +44,7 @@ func NewAniListClientWithEndpoint(endpoint string) *AniListClient {
 
 	return &AniListClient{
 		httpClient: &http.Client{
-			Timeout: 10 * time.Second,
+			Timeout: DefaultHTTPClientTimeout,
 		},
 		endpoint: endpoint,
 	}

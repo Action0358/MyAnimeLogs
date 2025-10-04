@@ -1,5 +1,17 @@
 package constants
 
+// 季節の定数
+const (
+	// SeasonSpring - 春
+	SeasonSpring = "spring"
+	// SeasonSummer - 夏
+	SeasonSummer = "summer"
+	// SeasonAutumn - 秋
+	SeasonAutumn = "autumn"
+	// SeasonWinter - 冬
+	SeasonWinter = "winter"
+)
+
 // デフォルト値の定数
 
 // DefaultPopularSearches - デフォルト人気検索キーワード
@@ -8,4 +20,4 @@ var DefaultPopularSearches = []string{"進撃の巨人", "鬼滅の刃", "呪術
 
 // DefaultSeasons - デフォルトシーズン一覧
 // エラー時に使用
-var DefaultSeasons = []string{"spring", "summer", "autumn", "winter"}
+var DefaultSeasons = []string{SeasonSpring, SeasonSummer, SeasonAutumn, SeasonWinter}

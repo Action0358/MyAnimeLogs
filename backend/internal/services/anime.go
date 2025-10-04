@@ -623,13 +623,13 @@ func (s *AnimeService) GetFilterOptions() (*models.FilterOptions, error) {
 		WHERE season IS NOT NULL AND season != ''
 		ORDER BY 
 			CASE season
-				WHEN 'spring' THEN 1
-				WHEN 'summer' THEN 2
-				WHEN 'autumn' THEN 3
-				WHEN 'winter' THEN 4
+				WHEN $1 THEN 1
+				WHEN $2 THEN 2
+				WHEN $3 THEN 3
+				WHEN $4 THEN 4
 				ELSE 5
 			END
-	`)
+	`, constants.SeasonSpring, constants.SeasonSummer, constants.SeasonAutumn, constants.SeasonWinter)
 	if err != nil {
 		s.logger.Error("Failed to get seasons", "error", err)
 	} else {
@@ -771,7 +771,9 @@ func (s *AnimeService) GetPopularSearches(limit int) ([]string, error) {
 
 	// 検索ログが少ない場合はデフォルトの人気検索を返す
 	if len(searches) == 0 {
-		searches = constants.DefaultPopularSearches
+		// グローバルスライスを変更しないようにコピーを作成
+		searches = make([]string, len(constants.DefaultPopularSearches))
+		copy(searches, constants.DefaultPopularSearches)
 		if limit < len(searches) {
 			searches = searches[:limit]
 		}

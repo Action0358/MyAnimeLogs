@@ -377,7 +377,9 @@ func (h *AnimeHandler) GetPopularSearches(c *gin.Context) {
 	if err != nil {
 		h.logger.Error("Failed to get popular searches", "error", err)
 		// エラーでもデフォルト値を返す
-		defaultSearches := constants.DefaultPopularSearches
+		// グローバルスライスを変更しないようにコピーを作成
+		defaultSearches := make([]string, len(constants.DefaultPopularSearches))
+		copy(defaultSearches, constants.DefaultPopularSearches)
 		if limit < len(defaultSearches) {
 			defaultSearches = defaultSearches[:limit]
 		}
