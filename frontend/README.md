@@ -209,38 +209,3 @@ docker compose exec frontend npm run lint
 # Prettier
 docker compose exec frontend npm run format
 ```
-
-## デプロイ
-
-### Cloudflare Pages
-
-#### ビルド設定
-
-**Staging環境:**
-- ビルドコマンド: `npm run build:staging`
-- ビルド出力ディレクトリ: `out`
-- 環境変数: `NEXT_PUBLIC_API_URL=https://myanimelogs-staging.fly.dev`
-
-**Production環境:**
-- ビルドコマンド: `npm run build:production`
-- ビルド出力ディレクトリ: `out`
-- 環境変数: `NEXT_PUBLIC_API_URL=https://myanimelogs-production.fly.dev`
-
-#### セキュリティヘッダー
-
-`_headers.staging` と `_headers.production` ファイルには以下が含まれています：
-- Content Security Policy (CSP)
-- X-Frame-Options
-- X-Content-Type-Options
-- Referrer-Policy
-
-ビルド時に適切な `_headers` ファイルが `out/` ディレクトリにコピーされます。
-
-#### 画像ソース
-
-CSPで以下の画像ソースが許可されています：
-- `https://s4.anilist.co` - AniList CDN（メイン）
-- `https://*.anilist.co` - AniList CDN（全サブドメイン）
-- `https://cdn.myanimelist.net` - MyAnimeList CDN
-- `https://pbs.twimg.com` - Twitter画像
-- `https://*.twimg.com` - Twitter画像（全サブドメイン）

@@ -118,7 +118,7 @@ const buildConfig = () => {
               "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
               "style-src 'self' 'unsafe-inline'",
               // 画像ソースを厳格に制限（必要なドメインのみ）
-              "img-src 'self' data: blob: https://s4.anilist.co https://*.anilist.co https://cdn.myanimelist.net https://pbs.twimg.com https://*.twimg.com",
+              "img-src 'self' data: blob: https://*.anilist.co https://cdn.myanimelist.net https://*.twimg.com",
               "font-src 'self'",
               "connect-src 'self' http://localhost:* ws://localhost:*",
               "frame-ancestors 'none'",
