@@ -65,6 +65,10 @@ export interface Anime {
   image_url?: string;
   season?: string;
   status?: AnimeStatus;
+  /** AniList API から取得した大サイズのカバー画像URL */
+  cover_image_large?: string;
+  /** AniList API から取得した中サイズのカバー画像URL */
+  cover_image_medium?: string;
   created_at?: string;
   updated_at?: string;
 }

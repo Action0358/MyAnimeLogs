@@ -63,6 +63,34 @@ const buildConfig = () => {
           protocol: 'https',
           hostname: 'cdn.myanimelist.net',
         },
+        {
+          protocol: 'https',
+          hostname: 's4.anilist.co',
+        },
+        {
+          protocol: 'https',
+          hostname: '**.anilist.co',
+        },
+        {
+          protocol: 'https',
+          hostname: 'twitter.com',
+        },
+        {
+          protocol: 'https',
+          hostname: '**.twitter.com',
+        },
+        {
+          protocol: 'https',
+          hostname: 'pbs.twimg.com',
+        },
+        {
+          protocol: 'https',
+          hostname: '**.net',
+        },
+        {
+          protocol: 'https',
+          hostname: '**.jp',
+        },
       ],
       dangerouslyAllowSVG: false,
     },
@@ -98,7 +126,7 @@ const buildConfig = () => {
               "default-src 'self'",
               "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
               "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data: https://cdn.myanimelist.net",
+              "img-src 'self' data: https: http:",
               "font-src 'self'",
               "connect-src 'self' http://localhost:* ws://localhost:*",
               "frame-ancestors 'none'",

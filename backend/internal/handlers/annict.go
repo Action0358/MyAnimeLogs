@@ -8,6 +8,7 @@ import (
 	"myanimelogs/internal/services"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -16,12 +17,17 @@ import (
 type AnnictHandler struct {
 	*BaseHandler
 	annictService *services.AnnictClient
+	anilistClient *services.AniListClient
+	imageCache    map[string]*services.CoverImage // MAL ID -> CoverImage のキャッシュ
+	cacheMutex    sync.RWMutex
 }
 
 func NewAnnictHandler(annictService *services.AnnictClient, logger *common.Logger, errorMonitor *common.ErrorMonitor) *AnnictHandler {
 	return &AnnictHandler{
 		BaseHandler:   NewBaseHandlerWithLogger(logger, errorMonitor),
 		annictService: annictService,
+		anilistClient: services.NewAniListClient(),
+		imageCache:    make(map[string]*services.CoverImage),
 	}
 }
 
@@ -42,6 +48,9 @@ func (h *AnnictHandler) GetWorksBySeason(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch anime works by season"})
 		return
 	}
+
+	// Anilistの画像を並列で取得
+	h.enrichWorksWithAnilistImages(works.Works)
 
 	// The response from the service is already a struct that can be marshaled to JSON
 	c.JSON(http.StatusOK, works)
@@ -77,6 +86,10 @@ func (h *AnnictHandler) GetPopularWorks(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch popular anime works"})
 		return
 	}
+
+	// Anilistの画像を並列で取得
+	h.enrichWorksWithAnilistImages(works.Works)
+
 	c.JSON(http.StatusOK, works)
 }
 
@@ -174,4 +187,111 @@ func (h *AnnictHandler) createSampleEpisodes(animeID int) ([]models.Episode, err
 	}
 
 	return episodes, nil
+}
+
+// enrichWorksWithAnilistImages - Anilistから画像を取得してAnnictWorksを拡張
+func (h *AnnictHandler) enrichWorksWithAnilistImages(works []models.AnnictWork) {
+	// 最初の10件のみ同期的に取得、残りはキャッシュのみ使用
+	const priorityCount = 10
+	const maxConcurrent = 5
+
+	type result struct {
+		index int
+		image *services.CoverImage
+	}
+
+	// 優先度の高いアイテム（最初の10件）を処理
+	priorityResults := make(chan result, priorityCount)
+	semaphore := make(chan struct{}, maxConcurrent)
+
+	priorityLimit := len(works)
+	if priorityLimit > priorityCount {
+		priorityLimit = priorityCount
+	}
+
+	for i := 0; i < priorityLimit; i++ {
+		go func(index int) {
+			semaphore <- struct{}{}
+			defer func() { <-semaphore }()
+
+			work := &works[index]
+			coverImage := h.getCoverImage(work)
+			priorityResults <- result{index: index, image: coverImage}
+		}(i)
+	}
+
+	// 優先度の高いアイテムの結果を収集
+	for i := 0; i < priorityLimit; i++ {
+		res := <-priorityResults
+		h.applyCoverImage(&works[res.index], res.image)
+	}
+	close(priorityResults)
+
+	// 残りのアイテムはキャッシュのみチェック（非同期）
+	for i := priorityLimit; i < len(works); i++ {
+		work := &works[i]
+		if work.MalAnimeID != nil && *work.MalAnimeID != "" {
+			h.cacheMutex.RLock()
+			cachedImage, exists := h.imageCache[*work.MalAnimeID]
+			h.cacheMutex.RUnlock()
+
+			if exists {
+				h.applyCoverImage(work, cachedImage)
+			}
+		}
+	}
+}
+
+// getCoverImage - キャッシュまたはAPIから画像を取得
+func (h *AnnictHandler) getCoverImage(work *models.AnnictWork) *services.CoverImage {
+	var coverImage *services.CoverImage
+	var err error
+
+	// キャッシュをチェック
+	cacheKey := ""
+	if work.MalAnimeID != nil && *work.MalAnimeID != "" {
+		cacheKey = *work.MalAnimeID
+		h.cacheMutex.RLock()
+		cachedImage, exists := h.imageCache[cacheKey]
+		h.cacheMutex.RUnlock()
+
+		if exists {
+			return cachedImage
+		}
+	}
+
+	// MAL IDがある場合は、まずMAL IDで検索
+	if work.MalAnimeID != nil && *work.MalAnimeID != "" {
+		coverImage, err = h.anilistClient.GetCoverImageByMALId(*work.MalAnimeID)
+		if err == nil && coverImage != nil {
+			// キャッシュに保存
+			h.cacheMutex.Lock()
+			h.imageCache[cacheKey] = coverImage
+			h.cacheMutex.Unlock()
+			return coverImage
+		}
+	}
+
+	// MAL IDがないか、MAL IDでの取得に失敗した場合は、タイトルで検索（フォールバック）
+	if work.Title != "" {
+		coverImage, err = h.anilistClient.GetCoverImageByTitle(work.Title)
+		if err == nil && coverImage != nil {
+			return coverImage
+		}
+	}
+
+	return nil
+}
+
+// applyCoverImage - 画像をworksに適用
+func (h *AnnictHandler) applyCoverImage(work *models.AnnictWork, image *services.CoverImage) {
+	if image != nil {
+		// ExtraLargeがあればそれを使用、なければLargeを使用
+		if image.ExtraLarge != "" {
+			work.CoverImageLarge = image.ExtraLarge
+		} else {
+			work.CoverImageLarge = image.Large
+		}
+		work.CoverImageMedium = image.Medium
+	}
 }
