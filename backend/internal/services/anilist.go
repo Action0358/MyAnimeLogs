@@ -159,8 +159,8 @@ func (c *AniListClient) executeGraphQLQuery(query string, variables map[string]i
 		// レート制限の場合はリトライ
 		if resp.StatusCode == http.StatusTooManyRequests {
 			if attempt < maxRetries {
-				// 指数バックオフ: 2秒, 4秒, 8秒...
-				time.Sleep(retryDelay * time.Duration(attempt))
+                // 指数バックオフ: 2秒, 4秒, 8秒...
+                time.Sleep(retryDelay * time.Duration(attempt-1))
 				continue
 			}
 			return nil, fmt.Errorf("rate limited after %d attempts", maxRetries)
