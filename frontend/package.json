@@ -28,10 +28,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "build:staging": "npm run prepare:headers:staging && next build",
-    "build:production": "npm run prepare:headers:production && next build",
-    "prepare:headers:staging": "cp public/_headers.staging public/_headers",
-    "prepare:headers:production": "cp public/_headers.production public/_headers",
+    "build:staging": "next build && node scripts/copy-headers.js staging",
+    "build:production": "next build && node scripts/copy-headers.js production",
     "check:env": "echo 'NEXT_PUBLIC_API_URL:' $NEXT_PUBLIC_API_URL",
     "start": "next start",
     "lint": "next lint",

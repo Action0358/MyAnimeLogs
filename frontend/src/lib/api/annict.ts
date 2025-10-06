@@ -37,6 +37,9 @@ export interface AnnictWork {
   watchers_count: number;
   reviews_count: number;
   no_episodes?: boolean;
+  // Anilist API から取得した画像（優先的に使用）
+  cover_image_large?: string;
+  cover_image_medium?: string;
 }
 
 export interface AnnictWorkResponse {

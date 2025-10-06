@@ -176,6 +176,7 @@ npm run generate:api
 ### Storybook
 
 コンポーネントの開発・テスト：
+
 ```bash
 docker compose exec frontend npm run storybook
 ```

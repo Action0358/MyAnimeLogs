@@ -1,9 +1,10 @@
-# Netlify用セキュリティヘッダー設定（ステージング環境）
-# ステージング環境用のCSP設定
+# Netlify/Cloudflare Pages用セキュリティヘッダー設定（ステージング環境）
+# 厳格なCSP設定で画像ソースを制限
 
 /*
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), microphone=(), camera=()
   # ステージング環境のAPIドメインを設定
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://cdn.myanimelist.net; font-src 'self'; connect-src 'self' https://myanimelogs-staging.fly.dev; frame-ancestors 'none';
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.anilist.co https://cdn.myanimelist.net https://*.twimg.com; font-src 'self'; connect-src 'self' https://myanimelogs-staging.fly.dev; frame-ancestors 'none'; base-uri 'self'; form-action 'self';
