@@ -285,10 +285,17 @@ func (h *AnnictHandler) getCoverImage(work *models.AnnictWork) *services.CoverIm
 		}
 	}
 
-	// MAL IDがない場合は、タイトルで検索（singleflightなし）
-	if work.Title != "" {
-		return h.fetchCoverImageByTitle(work)
-	}
+    // MAL IDがない場合は、タイトルで検索（singleflightを使用）
+    if work.Title != "" {
+        titleCacheKey := "title:" + work.Title
+        result, _, _ := h.sfGroup.Do(titleCacheKey, func() (interface{}, error) {
+            return h.fetchCoverImageByTitle(work), nil
+        })
+
+        if result != nil {
+            return result.(*services.CoverImage)
+        }
+    }
 
 	return nil
 }
