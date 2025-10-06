@@ -148,8 +148,8 @@ func (c *AniListClient) executeGraphQLQuery(query string, variables map[string]i
 		resp, err := c.httpClient.Do(req)
 		if err != nil {
 			if attempt < maxRetries {
-				// 指数バックオフ: 2秒, 4秒, 8秒...
-				time.Sleep(retryDelay * time.Duration(attempt))
+                // 指数バックオフ: 2秒, 4秒, 8秒...
+                time.Sleep(retryDelay * time.Duration(1<<(attempt-1)))
 				continue
 			}
 			return nil, fmt.Errorf("failed to send request: %w", err)
