@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"myanimelogs/internal/common"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"golang.org/x/sync/singleflight"
 )
 
 type AnnictHandler struct {
@@ -20,6 +22,7 @@ type AnnictHandler struct {
 	anilistClient *services.AniListClient
 	imageCache    map[string]*services.CoverImage // MAL ID -> CoverImage のキャッシュ
 	cacheMutex    sync.RWMutex
+	sfGroup       singleflight.Group // キャッシュスタンピード対策
 }
 
 func NewAnnictHandler(annictService *services.AnnictClient, logger *common.Logger, errorMonitor *common.ErrorMonitor) *AnnictHandler {
@@ -211,12 +214,25 @@ func (h *AnnictHandler) enrichWorksWithAnilistImages(works []models.AnnictWork) 
 
 	for i := 0; i < priorityLimit; i++ {
 		go func(index int) {
+			var coverImage *services.CoverImage
+
+			// パニックハンドリング: デッドロックを防ぐ
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("Panic in getCoverImage for index %d: %v", index, r)
+					// パニックが発生してもnilを送信してデッドロックを防ぐ
+					coverImage = nil
+				}
+				// 必ず結果を送信（パニック時もnilを送信）
+				priorityResults <- result{index: index, image: coverImage}
+			}()
+
+			// セマフォを取得
 			semaphore <- struct{}{}
 			defer func() { <-semaphore }()
 
 			work := &works[index]
-			coverImage := h.getCoverImage(work)
-			priorityResults <- result{index: index, image: coverImage}
+			coverImage = h.getCoverImage(work)
 		}(i)
 	}
 
@@ -227,7 +243,7 @@ func (h *AnnictHandler) enrichWorksWithAnilistImages(works []models.AnnictWork) 
 	}
 	close(priorityResults)
 
-// 残りのアイテムはキャッシュのみを同期的にチェック
+	// 残りのアイテムはキャッシュのみを同期的にチェック
 	for i := priorityLimit; i < len(works); i++ {
 		work := &works[i]
 		if work.MalAnimeID != nil && *work.MalAnimeID != "" {
@@ -243,10 +259,8 @@ func (h *AnnictHandler) enrichWorksWithAnilistImages(works []models.AnnictWork) 
 }
 
 // getCoverImage - 2層キャッシュ（インメモリ + データベース）から画像を取得
+// singleflightパターンでキャッシュスタンピードを防止
 func (h *AnnictHandler) getCoverImage(work *models.AnnictWork) *services.CoverImage {
-	var coverImage *services.CoverImage
-	var err error
-
 	// レイヤー1: インメモリキャッシュをチェック（超高速: 0ms）
 	cacheKey := ""
 	if work.MalAnimeID != nil && *work.MalAnimeID != "" {
@@ -260,8 +274,32 @@ func (h *AnnictHandler) getCoverImage(work *models.AnnictWork) *services.CoverIm
 		}
 	}
 
+	// Singleflightパターンを使用して、同じキーに対する重複リクエストを防止
+	// 複数のgoroutineが同時に同じ画像を要求しても、1回だけ取得される
+	if cacheKey != "" {
+		result, _, _ := h.sfGroup.Do(cacheKey, func() (interface{}, error) {
+			return h.fetchCoverImage(work, cacheKey), nil
+		})
+
+		if result != nil {
+			return result.(*services.CoverImage)
+		}
+	}
+
+	// MAL IDがない場合は、タイトルで検索（singleflightなし）
+	if work.Title != "" {
+		return h.fetchCoverImageByTitle(work)
+	}
+
+	return nil
+}
+
+// fetchCoverImage - データベースまたはAPIから画像を取得（singleflight内で実行）
+func (h *AnnictHandler) fetchCoverImage(work *models.AnnictWork, cacheKey string) *services.CoverImage {
+	var coverImage *services.CoverImage
+
 	// レイヤー2: データベースをチェック（高速: 5-10ms）
-	if work.MalAnimeID != nil && *work.MalAnimeID != "" && h.annictService.DB != nil {
+	if h.annictService.DB != nil {
 		var large, medium string
 		var updatedAt *time.Time
 
@@ -271,7 +309,7 @@ func (h *AnnictHandler) getCoverImage(work *models.AnnictWork) *services.CoverIm
 			WHERE mal_anime_id = $1 
 			AND cover_image_large IS NOT NULL
 			AND cover_image_updated_at > NOW() - INTERVAL '7 days'
-		`, *work.MalAnimeID).Scan(&large, &medium, &updatedAt)
+		`, cacheKey).Scan(&large, &medium, &updatedAt)
 
 		if err == nil && large != "" {
 			// データベースから取得成功
@@ -290,44 +328,46 @@ func (h *AnnictHandler) getCoverImage(work *models.AnnictWork) *services.CoverIm
 	}
 
 	// レイヤー3: Anilist APIから取得（遅い: 100-150ms）
-	if work.MalAnimeID != nil && *work.MalAnimeID != "" {
-		coverImage, err = h.anilistClient.GetCoverImageByMALId(*work.MalAnimeID)
-		if err == nil && coverImage != nil {
-			// データベースに保存（永続化）
-			h.saveCoverImageToDB(*work.MalAnimeID, coverImage)
+	coverImage, err := h.anilistClient.GetCoverImageByMALId(cacheKey)
+	if err == nil && coverImage != nil {
+		// データベースに保存（永続化）
+		// context.Background()を使用（バックグラウンド処理のため）
+		h.saveCoverImageToDB(context.Background(), cacheKey, coverImage)
+
+		// インメモリキャッシュに保存
+		h.cacheMutex.Lock()
+		h.imageCache[cacheKey] = coverImage
+		h.cacheMutex.Unlock()
+
+		return coverImage
+	}
+
+	return nil
+}
+
+// fetchCoverImageByTitle - タイトルで画像を取得（フォールバック）
+func (h *AnnictHandler) fetchCoverImageByTitle(work *models.AnnictWork) *services.CoverImage {
+	coverImage, err := h.anilistClient.GetCoverImageByTitle(work.Title)
+	if err == nil && coverImage != nil {
+		// Anilistから返されたMAL IDを使用してデータベースに保存
+		if coverImage.MalId != nil {
+			malIdStr := strconv.Itoa(*coverImage.MalId)
+			// context.Background()を使用（バックグラウンド処理のため）
+			h.saveCoverImageToDB(context.Background(), malIdStr, coverImage)
 
 			// インメモリキャッシュに保存
 			h.cacheMutex.Lock()
-			h.imageCache[cacheKey] = coverImage
+			h.imageCache[malIdStr] = coverImage
 			h.cacheMutex.Unlock()
-
-			return coverImage
 		}
-	}
-
-	// フォールバック: タイトルで検索
-	if work.Title != "" {
-		coverImage, err = h.anilistClient.GetCoverImageByTitle(work.Title)
-		if err == nil && coverImage != nil {
-			// Anilistから返されたMAL IDを使用してデータベースに保存
-			if coverImage.MalId != nil {
-				malIdStr := strconv.Itoa(*coverImage.MalId)
-				h.saveCoverImageToDB(malIdStr, coverImage)
-
-				// インメモリキャッシュに保存
-				h.cacheMutex.Lock()
-				h.imageCache[malIdStr] = coverImage
-				h.cacheMutex.Unlock()
-			}
-			return coverImage
-		}
+		return coverImage
 	}
 
 	return nil
 }
 
 // saveCoverImageToDB - 画像URLをデータベースに保存
-func (h *AnnictHandler) saveCoverImageToDB(malAnimeID string, coverImage *services.CoverImage) {
+func (h *AnnictHandler) saveCoverImageToDB(ctx context.Context, malAnimeID string, coverImage *services.CoverImage) {
 	if h.annictService.DB == nil {
 		return
 	}
@@ -335,7 +375,7 @@ func (h *AnnictHandler) saveCoverImageToDB(malAnimeID string, coverImage *servic
 	// 非同期で保存（メインの処理をブロックしない）
 	go func() {
 		// UPDATEのみ実行（アニメがデータベースに存在する場合のみ）
-		result, err := h.annictService.DB.Exec(`
+		result, err := h.annictService.DB.ExecContext(ctx, `
 			UPDATE animes 
 			SET cover_image_large = $1,
 				cover_image_medium = $2,
@@ -344,13 +384,18 @@ func (h *AnnictHandler) saveCoverImageToDB(malAnimeID string, coverImage *servic
 		`, coverImage.Large, coverImage.Medium, malAnimeID)
 
 		if err != nil {
-			log.Printf("Failed to save cover image to DB for MAL ID %s: %v", malAnimeID, err)
+			h.logger.Error("Failed to save cover image to DB", "mal_anime_id", malAnimeID, "error", err)
 			return
 		}
 
-		rowsAffected, _ := result.RowsAffected()
+		rowsAffected, err := result.RowsAffected()
+		if err != nil {
+			h.logger.Error("Failed to get rows affected", "mal_anime_id", malAnimeID, "error", err)
+			return
+		}
+
 		if rowsAffected > 0 {
-			log.Printf("✓ Saved cover image to DB for MAL ID %s", malAnimeID)
+			h.logger.Info("Saved cover image to DB", "mal_anime_id", malAnimeID)
 		}
 		// アニメが存在しない場合はログを出力しない（Annict同期前の正常な状態）
 	}()
