@@ -242,12 +242,12 @@ func (h *AnnictHandler) enrichWorksWithAnilistImages(works []models.AnnictWork) 
 	}
 }
 
-// getCoverImage - キャッシュまたはAPIから画像を取得
+// getCoverImage - 2層キャッシュ（インメモリ + データベース）から画像を取得
 func (h *AnnictHandler) getCoverImage(work *models.AnnictWork) *services.CoverImage {
 	var coverImage *services.CoverImage
 	var err error
 
-	// キャッシュをチェック
+	// レイヤー1: インメモリキャッシュをチェック（超高速: 0ms）
 	cacheKey := ""
 	if work.MalAnimeID != nil && *work.MalAnimeID != "" {
 		cacheKey = *work.MalAnimeID
@@ -260,27 +260,100 @@ func (h *AnnictHandler) getCoverImage(work *models.AnnictWork) *services.CoverIm
 		}
 	}
 
-	// MAL IDがある場合は、まずMAL IDで検索
-	if work.MalAnimeID != nil && *work.MalAnimeID != "" {
-		coverImage, err = h.anilistClient.GetCoverImageByMALId(*work.MalAnimeID)
-		if err == nil && coverImage != nil {
-			// キャッシュに保存
+	// レイヤー2: データベースをチェック（高速: 5-10ms）
+	if work.MalAnimeID != nil && *work.MalAnimeID != "" && h.annictService.DB != nil {
+		var large, medium string
+		var updatedAt *time.Time
+
+		err := h.annictService.DB.QueryRow(`
+			SELECT cover_image_large, cover_image_medium, cover_image_updated_at
+			FROM animes 
+			WHERE mal_anime_id = $1 
+			AND cover_image_large IS NOT NULL
+			AND cover_image_updated_at > NOW() - INTERVAL '7 days'
+		`, *work.MalAnimeID).Scan(&large, &medium, &updatedAt)
+
+		if err == nil && large != "" {
+			// データベースから取得成功
+			coverImage = &services.CoverImage{
+				Large:  large,
+				Medium: medium,
+			}
+
+			// インメモリキャッシュに保存（次回さらに高速化）
 			h.cacheMutex.Lock()
 			h.imageCache[cacheKey] = coverImage
 			h.cacheMutex.Unlock()
+
 			return coverImage
 		}
 	}
 
-	// MAL IDがないか、MAL IDでの取得に失敗した場合は、タイトルで検索（フォールバック）
+	// レイヤー3: Anilist APIから取得（遅い: 100-150ms）
+	if work.MalAnimeID != nil && *work.MalAnimeID != "" {
+		coverImage, err = h.anilistClient.GetCoverImageByMALId(*work.MalAnimeID)
+		if err == nil && coverImage != nil {
+			// データベースに保存（永続化）
+			h.saveCoverImageToDB(*work.MalAnimeID, coverImage)
+
+			// インメモリキャッシュに保存
+			h.cacheMutex.Lock()
+			h.imageCache[cacheKey] = coverImage
+			h.cacheMutex.Unlock()
+
+			return coverImage
+		}
+	}
+
+	// フォールバック: タイトルで検索
 	if work.Title != "" {
 		coverImage, err = h.anilistClient.GetCoverImageByTitle(work.Title)
 		if err == nil && coverImage != nil {
+			// Anilistから返されたMAL IDを使用してデータベースに保存
+			if coverImage.MalId != nil {
+				malIdStr := strconv.Itoa(*coverImage.MalId)
+				h.saveCoverImageToDB(malIdStr, coverImage)
+
+				// インメモリキャッシュに保存
+				h.cacheMutex.Lock()
+				h.imageCache[malIdStr] = coverImage
+				h.cacheMutex.Unlock()
+			}
 			return coverImage
 		}
 	}
 
 	return nil
+}
+
+// saveCoverImageToDB - 画像URLをデータベースに保存
+func (h *AnnictHandler) saveCoverImageToDB(malAnimeID string, coverImage *services.CoverImage) {
+	if h.annictService.DB == nil {
+		return
+	}
+
+	// 非同期で保存（メインの処理をブロックしない）
+	go func() {
+		// UPDATEのみ実行（アニメがデータベースに存在する場合のみ）
+		result, err := h.annictService.DB.Exec(`
+			UPDATE animes 
+			SET cover_image_large = $1,
+				cover_image_medium = $2,
+				cover_image_updated_at = NOW()
+			WHERE mal_anime_id = $3
+		`, coverImage.Large, coverImage.Medium, malAnimeID)
+
+		if err != nil {
+			log.Printf("Failed to save cover image to DB for MAL ID %s: %v", malAnimeID, err)
+			return
+		}
+
+		rowsAffected, _ := result.RowsAffected()
+		if rowsAffected > 0 {
+			log.Printf("✓ Saved cover image to DB for MAL ID %s", malAnimeID)
+		}
+		// アニメが存在しない場合はログを出力しない（Annict同期前の正常な状態）
+	}()
 }
 
 // applyCoverImage - 画像をworksに適用

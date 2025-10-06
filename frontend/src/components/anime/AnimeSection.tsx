@@ -36,12 +36,10 @@ const AnimeCard: React.FC<AnimeCardProps> = ({
 }) => {
   const [imageError, setImageError] = useState(false)
 
-  // 画像URLの優先順位: Anilist > Annict
+  // 画像URLの優先順位: Anilist > Twitter（セキュリティのためAnnict公式サイト画像は除外）
   const imageUrl =
     anime.cover_image_large ||
     anime.cover_image_medium ||
-    anime.images?.facebook?.og_image_url ||
-    anime.images?.recommended_url ||
     anime.images?.twitter?.bigger_avatar_url ||
     anime.images?.twitter?.original_avatar_url
 

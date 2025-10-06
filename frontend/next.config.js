@@ -59,37 +59,28 @@ const buildConfig = () => {
           protocol: 'http',
           hostname: 'localhost',
         },
-        {
-          protocol: 'https',
-          hostname: 'cdn.myanimelist.net',
-        },
+        // Anilist CDN（メイン画像ソース）
         {
           protocol: 'https',
           hostname: 's4.anilist.co',
         },
         {
           protocol: 'https',
-          hostname: '**.anilist.co',
+          hostname: '*.anilist.co',
         },
+        // MyAnimeList CDN
         {
           protocol: 'https',
-          hostname: 'twitter.com',
+          hostname: 'cdn.myanimelist.net',
         },
-        {
-          protocol: 'https',
-          hostname: '**.twitter.com',
-        },
+        // Twitter画像（プロフィール画像など）
         {
           protocol: 'https',
           hostname: 'pbs.twimg.com',
         },
         {
           protocol: 'https',
-          hostname: '**.net',
-        },
-        {
-          protocol: 'https',
-          hostname: '**.jp',
+          hostname: '*.twimg.com',
         },
       ],
       dangerouslyAllowSVG: false,
@@ -103,7 +94,7 @@ const buildConfig = () => {
       typedRoutes: true,
     };
 
-    // 開発環境では緩いCSPを適用（開発効率のため）
+    // 開発環境でもセキュアなCSPを適用
     config.headers = async () => [
       {
         source: '/(.*)',
@@ -126,7 +117,8 @@ const buildConfig = () => {
               "default-src 'self'",
               "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
               "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data: https: http:",
+              // 画像ソースを厳格に制限（必要なドメインのみ）
+              "img-src 'self' data: blob: https://s4.anilist.co https://*.anilist.co https://cdn.myanimelist.net https://pbs.twimg.com https://*.twimg.com",
               "font-src 'self'",
               "connect-src 'self' http://localhost:* ws://localhost:*",
               "frame-ancestors 'none'",

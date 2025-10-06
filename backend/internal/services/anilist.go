@@ -55,6 +55,7 @@ type CoverImage struct {
 	ExtraLarge string `json:"extraLarge"`
 	Large      string `json:"large"`
 	Medium     string `json:"medium"`
+	MalId      *int   `json:"malId,omitempty"` // キャッシュキーとして使用
 }
 
 // GetCoverImageByMALId - MyAnimeList IDからカバー画像を取得
@@ -65,10 +66,11 @@ func (c *AniListClient) GetCoverImageByMALId(malId string) (*CoverImage, error) 
 		return nil, fmt.Errorf("invalid MAL ID: %w", err)
 	}
 
-	// GraphQLクエリ
+	// GraphQLクエリ（MAL IDも取得）
 	query := `
 	query ($malId: Int) {
 		Media(idMal: $malId, type: ANIME) {
+			idMal
 			coverImage {
 				extraLarge
 				large
@@ -91,10 +93,11 @@ func (c *AniListClient) GetCoverImageByMALId(malId string) (*CoverImage, error) 
 
 // GetCoverImageByTitle - タイトルでカバー画像を検索（フォールバック用）
 func (c *AniListClient) GetCoverImageByTitle(title string) (*CoverImage, error) {
-	// GraphQLクエリ
+	// GraphQLクエリ（MAL IDも取得してキャッシュキーとして使用）
 	query := `
 	query ($search: String) {
 		Media(search: $search, type: ANIME) {
+			idMal
 			coverImage {
 				extraLarge
 				large
@@ -170,6 +173,7 @@ func (c *AniListClient) executeGraphQLQuery(query string, variables map[string]i
 		var result struct {
 			Data struct {
 				Media struct {
+					IdMal      *int       `json:"idMal"`
 					CoverImage CoverImage `json:"coverImage"`
 				} `json:"Media"`
 			} `json:"data"`
@@ -192,7 +196,11 @@ func (c *AniListClient) executeGraphQLQuery(query string, variables map[string]i
 			return nil, fmt.Errorf("no cover image found")
 		}
 
-		return &result.Data.Media.CoverImage, nil
+		// MAL IDをCoverImageに設定
+		coverImage := result.Data.Media.CoverImage
+		coverImage.MalId = result.Data.Media.IdMal
+
+		return &coverImage, nil
 	}
 
 	return nil, fmt.Errorf("failed after %d attempts", maxRetries)
