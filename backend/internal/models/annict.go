@@ -16,12 +16,15 @@ type AnnictWork struct {
 	WikipediaURL    string            `json:"wikipedia_url"`
 	TwitterUsername string            `json:"twitter_username"`
 	TwitterHashtag  string            `json:"twitter_hashtag"`
-	MalAnimeID      string            `json:"mal_anime_id"`
+	MalAnimeID      *string           `json:"mal_anime_id,omitempty"`
 	Images          *AnnictWorkImages `json:"images,omitempty"`
 	EpisodesCount   int               `json:"episodes_count"`
 	WatchersCount   int               `json:"watchers_count"`
 	ReviewsCount    int               `json:"reviews_count"`
 	NoEpisodes      bool              `json:"no_episodes"`
+	// Anilist API から取得した画像（リアルタイム取得）
+	CoverImageLarge  string `json:"cover_image_large,omitempty"`
+	CoverImageMedium string `json:"cover_image_medium,omitempty"`
 }
 
 // AnnictWorkImages represents the images object in Annict API response

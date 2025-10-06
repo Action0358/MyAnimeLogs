@@ -621,6 +621,14 @@ components:
         status:
           type: string
           enum: ["airing", "finished"]
+        cover_image_large:
+          type: string
+          format: uri
+          description: AniList API から取得した大サイズのカバー画像URL
+        cover_image_medium:
+          type: string
+          format: uri
+          description: AniList API から取得した中サイズのカバー画像URL
         created_at:
           type: string
           format: date-time
