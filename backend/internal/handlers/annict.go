@@ -227,7 +227,7 @@ func (h *AnnictHandler) enrichWorksWithAnilistImages(works []models.AnnictWork) 
 	}
 	close(priorityResults)
 
-	// 残りのアイテムはキャッシュのみチェック（非同期）
+// 残りのアイテムはキャッシュのみを同期的にチェック
 	for i := priorityLimit; i < len(works); i++ {
 		work := &works[i]
 		if work.MalAnimeID != nil && *work.MalAnimeID != "" {
