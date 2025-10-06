@@ -2,6 +2,8 @@ module myanimelogs
 
 go 1.22
 
+toolchain go1.24.7
+
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/gin-contrib/cors v1.4.0
@@ -11,6 +13,7 @@ require (
 	github.com/lib/pq v1.10.9
 	github.com/stretchr/testify v1.8.3
 	golang.org/x/crypto v0.14.0
+	golang.org/x/sync v0.7.0
 )
 
 require (
