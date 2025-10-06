@@ -3,7 +3,6 @@ package handlers
 import (
 	"context"
 	"fmt"
-	"log"
 	"myanimelogs/internal/common"
 	"myanimelogs/internal/models"
 	"myanimelogs/internal/services"
@@ -47,7 +46,7 @@ func (h *AnnictHandler) GetWorksBySeason(c *gin.Context) {
 	var works *models.AnnictWorkResponse // 明示的な型宣言
 	works, err := h.annictService.FetchWorksBySeason(season)
 	if err != nil {
-		log.Printf("Failed to fetch works by season: %v", err)
+		h.logger.Error("Failed to fetch works by season", "season", season, "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch anime works by season"})
 		return
 	}
@@ -85,7 +84,7 @@ func (h *AnnictHandler) GetPopularWorks(c *gin.Context) {
 	var works *models.AnnictWorkResponse // 明示的な型宣言
 	works, err := h.annictService.FetchPopularWorks()
 	if err != nil {
-		log.Printf("Failed to fetch popular works: %v", err)
+		h.logger.Error("Failed to fetch popular works", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch popular anime works"})
 		return
 	}
@@ -100,7 +99,7 @@ func (h *AnnictHandler) GetPopularWorks(c *gin.Context) {
 func (h *AnnictHandler) TestConnection(c *gin.Context) {
 	err := h.annictService.TestConnection()
 	if err != nil {
-		log.Printf("Failed to test Annict API connection: %v", err)
+		h.logger.Error("Failed to test Annict API connection", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"status": "error",
 			"error":  "Failed to connect to Annict API",
@@ -122,7 +121,7 @@ func (h *AnnictHandler) SyncWorksBySeason(c *gin.Context) {
 
 	animes, err := h.annictService.FetchAndSyncWorksBySeason(season)
 	if err != nil {
-		log.Printf("Failed to sync works by season: %v", err)
+		h.logger.Error("Failed to sync works by season", "season", season, "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to sync anime works by season"})
 		return
 	}
@@ -138,7 +137,7 @@ func (h *AnnictHandler) SyncWorksBySeason(c *gin.Context) {
 func (h *AnnictHandler) SyncPopularWorks(c *gin.Context) {
 	animes, err := h.annictService.FetchAndSyncPopularWorks()
 	if err != nil {
-		log.Printf("Failed to sync popular works: %v", err)
+		h.logger.Error("Failed to sync popular works", "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to sync popular anime works"})
 		return
 	}
@@ -162,7 +161,7 @@ func (h *AnnictHandler) SyncEpisodes(c *gin.Context) {
 	// For now, create sample episodes since Annict API doesn't provide episode details in the basic endpoint
 	episodes, err := h.createSampleEpisodes(animeID)
 	if err != nil {
-		log.Printf("Failed to create sample episodes: %v", err)
+		h.logger.Error("Failed to create sample episodes", "anime_id", animeID, "error", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create episodes"})
 		return
 	}
@@ -219,7 +218,7 @@ func (h *AnnictHandler) enrichWorksWithAnilistImages(works []models.AnnictWork) 
 			// パニックハンドリング: デッドロックを防ぐ
 			defer func() {
 				if r := recover(); r != nil {
-					log.Printf("Panic in getCoverImage for index %d: %v", index, r)
+					h.logger.Error("Panic in getCoverImage", "index", index, "panic", r)
 					// パニックが発生してもnilを送信してデッドロックを防ぐ
 					coverImage = nil
 				}
@@ -329,7 +328,12 @@ func (h *AnnictHandler) fetchCoverImage(work *models.AnnictWork, cacheKey string
 
 	// レイヤー3: Anilist APIから取得（遅い: 100-150ms）
 	coverImage, err := h.anilistClient.GetCoverImageByMALId(cacheKey)
-	if err == nil && coverImage != nil {
+	if err != nil {
+		h.logger.Warn("Failed to fetch cover image from AniList API", "mal_anime_id", cacheKey, "error", err)
+		return nil
+	}
+
+	if coverImage != nil {
 		// データベースに保存（永続化）
 		// context.Background()を使用（バックグラウンド処理のため）
 		h.saveCoverImageToDB(context.Background(), cacheKey, coverImage)
@@ -348,7 +352,12 @@ func (h *AnnictHandler) fetchCoverImage(work *models.AnnictWork, cacheKey string
 // fetchCoverImageByTitle - タイトルで画像を取得（フォールバック）
 func (h *AnnictHandler) fetchCoverImageByTitle(work *models.AnnictWork) *services.CoverImage {
 	coverImage, err := h.anilistClient.GetCoverImageByTitle(work.Title)
-	if err == nil && coverImage != nil {
+	if err != nil {
+		h.logger.Warn("Failed to fetch cover image by title from AniList API", "title", work.Title, "error", err)
+		return nil
+	}
+
+	if coverImage != nil {
 		// Anilistから返されたMAL IDを使用してデータベースに保存
 		if coverImage.MalId != nil {
 			malIdStr := strconv.Itoa(*coverImage.MalId)
