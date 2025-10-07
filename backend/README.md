@@ -214,7 +214,8 @@ curl -X POST "https://myanimelogs-staging.fly.dev/api/admin/sync/season" \
 
 # 3. 人気アニメを同期
 curl -X POST "https://myanimelogs-staging.fly.dev/api/admin/sync/popular" \
-  -H "Authorization: Bearer $TOKEN"
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json"
 ```
 
 **データ同期の効果**:
