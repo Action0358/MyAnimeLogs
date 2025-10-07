@@ -77,7 +77,7 @@ jobs:
             -H "Content-Type: application/json" \
             -d "{\"email\":\"${{ secrets.ADMIN_EMAIL }}\",\"password\":\"${{ secrets.ADMIN_PASSWORD }}\"}")
 
-          TOKEN=$(echo "$LOGIN_RESPONSE" | grep -o '"token":"[^"]*' | cut -d'"' -f4)
+          TOKEN=$(echo "$LOGIN_RESPONSE" | grep -o '"access_token":"[^"]*' | cut -d'"' -f4)
 
           if [ -z "$TOKEN" ]; then
             echo "Failed to login. Skipping data sync."
