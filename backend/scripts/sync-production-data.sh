@@ -81,13 +81,13 @@ sleep 2
 
 # ステップ3: 人気アニメを同期
 log_info "人気アニメを同期中..."
-POPULAR_RESPONSE=$(curl -s -X POST "$PRODUCTION_URL/api/admin/sync/popular" \
+POPULAR_RESPONSE=$(curl -fs -X POST "$PRODUCTION_URL/api/admin/sync/popular" \
     -H "Authorization: Bearer $TOKEN" \
     -H "Content-Type: application/json")
 
-echo "$POPULAR_RESPONSE" | grep -q '"status":"success"'
+echo "$POPULAR_RESPONSE" | jq -e '.status == "success"' > /dev/null
 if [ $? -eq 0 ]; then
-    POPULAR_COUNT=$(echo "$POPULAR_RESPONSE" | grep -o '"message":"Successfully synced [0-9]* popular anime works' | grep -o '[0-9]*')
+    POPULAR_COUNT=$(echo "$POPULAR_RESPONSE" | jq -r '.message | capture("Successfully synced (?<count>[0-9]+) popular anime works").count // "0"')
     log_info "人気アニメの同期完了: ${POPULAR_COUNT}件"
 else
     log_warn "人気アニメの同期に失敗しました"
