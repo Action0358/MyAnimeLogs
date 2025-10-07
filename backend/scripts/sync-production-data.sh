@@ -63,13 +63,13 @@ log_info "ログイン成功"
 
 # ステップ2: 現在のシーズンのアニメを同期
 log_info "現在のシーズンのアニメを同期中..."
-SEASON_RESPONSE=$(curl -s -X POST "$PRODUCTION_URL/api/admin/sync/season" \
+SEASON_RESPONSE=$(curl -fs -X POST "$PRODUCTION_URL/api/admin/sync/season" \
     -H "Authorization: Bearer $TOKEN" \
     -H "Content-Type: application/json")
 
-echo "$SEASON_RESPONSE" | grep -q '"status":"success"'
+echo "$SEASON_RESPONSE" | jq -e '.status == "success"' > /dev/null
 if [ $? -eq 0 ]; then
-    SEASON_COUNT=$(echo "$SEASON_RESPONSE" | grep -o '"message":"Successfully synced [0-9]* anime works' | grep -o '[0-9]*')
+    SEASON_COUNT=$(echo "$SEASON_RESPONSE" | jq -r '.message | capture("Successfully synced (?<count>[0-9]+) anime works").count // "0"')
     log_info "シーズンアニメの同期完了: ${SEASON_COUNT}件"
 else
     log_warn "シーズンアニメの同期に失敗しました"
