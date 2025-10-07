@@ -14,121 +14,121 @@ import (
 )
 
 func Setup(db *database.DB, cfg *config.Config) *gin.Engine {
-	// Set Gin mode
+	// Ginモードを設定
 	if cfg.Environment == "production" {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
-	// Initialize structured logger
+	// 構造化ロガーを初期化
 	logger := common.NewLogger(common.LogLevel(cfg.LogLevel), cfg.LogFormat)
 
-	// Initialize error monitor
+	// エラーモニターを初期化
 	errorMonitor := common.NewErrorMonitor(
 		logger,
 		cfg.ErrorAlertThreshold,
 		time.Duration(cfg.ErrorTimeWindow)*time.Minute,
 	)
 
-	r := gin.New() // Use gin.New() instead of gin.Default() for custom middleware
+	r := gin.New() // カスタムミドルウェアのためgin.Default()の代わりにgin.New()を使用
 
-	// Middleware (order matters)
+	// ミドルウェア（順序が重要）
 	r.Use(middleware.RequestIDMiddleware())
 	r.Use(middleware.LoggingMiddleware(logger))
 	r.Use(middleware.CORSMiddleware())
 
-	// Rate limiting
+	// レート制限
 	rateLimiter := middleware.NewRateLimiter(cfg.RateLimit, time.Second)
 	r.Use(middleware.RateLimitMiddleware(rateLimiter))
 
-	// Services
+	// サービス
 	authService := services.NewAuthService(db, cfg.JWTSecret)
 	animeService := services.NewAnimeService(db, logger)
 	annictService := services.NewAnnictClientWithDB(cfg.AnnictAPIKey, db) // Annictサービスを初期化
 
-	// Handlers with enhanced error handling
+	// 強化されたエラーハンドリングを持つハンドラー
 	authHandler := handlers.NewAuthHandler(authService, logger, errorMonitor)
 	animeHandler := handlers.NewAnimeHandler(animeService, logger, errorMonitor)
 	annictHandler := handlers.NewAnnictHandler(annictService, logger, errorMonitor)
 	monitoringHandler := handlers.NewMonitoringHandler(logger, errorMonitor)
 
-	// Health check and monitoring endpoints
+	// ヘルスチェックと監視エンドポイント
 	r.GET("/health", monitoringHandler.HealthCheck)
 	r.GET("/health/detailed", monitoringHandler.DetailedHealthCheck)
 
 	if gin.IsDebugging() {
-		// Hot reload test endpoint
+		// ホットリロードテストエンドポイント
 		r.GET("/test-hot-reload", func(c *gin.Context) {
 			c.JSON(200, gin.H{
 				"message":   "Hot reload is working! 🔥",
 				"timestamp": time.Now().Format(time.RFC3339),
 			})
 		})
-		// Annict API connection test endpoint (dev only)
+		// Annict API接続テストエンドポイント（開発環境のみ）
 		r.GET("/annict/test", annictHandler.TestConnection)
 	}
 
-	// API routes
+	// APIルート
 	api := r.Group("/api")
 	{
-		// Public routes (no authentication required)
+		// 公開ルート（認証不要）
 		api.POST("/register", authHandler.Register)
 		api.POST("/login", authHandler.Login)
 
-		// Anime routes (optional authentication)
+		// アニメルート（認証オプション）
 		api.GET("/animes", middleware.OptionalAuthMiddleware(cfg.JWTSecret), animeHandler.GetAnimes)
 		api.GET("/animes/:id", middleware.OptionalAuthMiddleware(cfg.JWTSecret), animeHandler.GetAnime)
 		api.GET("/animes/:id/episodes", middleware.OptionalAuthMiddleware(cfg.JWTSecret), animeHandler.GetAnimeEpisodes)
 
-		// Search routes
+		// 検索ルート
 		api.GET("/search/animes", middleware.OptionalAuthMiddleware(cfg.JWTSecret), animeHandler.GetAnimes)
 		api.GET("/search/advanced", middleware.OptionalAuthMiddleware(cfg.JWTSecret), animeHandler.AdvancedSearchAnimes)
 		api.GET("/search/suggestions", animeHandler.GetSearchSuggestions)
 		api.GET("/search/popular", animeHandler.GetPopularSearches)
 
-		// Filter routes
+		// フィルタールート
 		api.GET("/filters", animeHandler.GetFilterOptions)
 
-		// Annict routes
+		// Annictルート
 		api.GET("/annict/works", annictHandler.GetWorksBySeason)
 		api.GET("/annict/popular-works", annictHandler.GetPopularWorks)
 
-		// Admin routes for data synchronization and monitoring (protected with authentication)
+		// データ同期と監視のための管理者ルート（認証で保護）
 		admin := api.Group("/admin")
 		admin.Use(middleware.AuthMiddleware(cfg.JWTSecret))
 		{
-			// Data synchronization
+			// データ同期
 			admin.POST("/sync/season", annictHandler.SyncWorksBySeason)
 			admin.POST("/sync/popular", annictHandler.SyncPopularWorks)
 
-			// Error monitoring
+			// エラー監視
 			admin.GET("/errors/metrics", monitoringHandler.GetErrorMetrics)
 			admin.GET("/errors/top", monitoringHandler.GetTopErrors)
 			admin.POST("/errors/reset", monitoringHandler.ResetErrorMetrics)
 		}
 
-		// Protected routes (authentication required)
+		// 保護されたルート（認証必須）
 		protected := api.Group("/")
 		protected.Use(middleware.AuthMiddleware(cfg.JWTSecret))
 		{
-			// User routes
+			// ユーザールート
 			protected.GET("/users/me", authHandler.GetMe)
 			protected.PUT("/users/me", authHandler.UpdateMe)
 			protected.GET("/users/me/stats", authHandler.GetStats)
 			protected.GET("/users/me/export", authHandler.ExportData)
 
-			// User favorites
+			// ユーザーのお気に入り
 			protected.GET("/users/me/favorites", animeHandler.GetFavorites)
 			protected.PUT("/users/me/favorites/:anime_id", animeHandler.UpdateFavorite)
 			protected.DELETE("/users/me/favorites/:anime_id", animeHandler.DeleteFavorite)
 
-			// Watch status
+			// 視聴ステータス
 			protected.PUT("/episodes/:episode_id/watch", animeHandler.UpdateWatchStatus)
 
-			// Ratings
+			// 評価
 			protected.PUT("/animes/:id/rating", animeHandler.UpdateRating)
 			protected.DELETE("/animes/:id/rating", animeHandler.DeleteRating)
 
-			// Watch history and watchlist
+			// 視聴履歴とウォッチリスト
 			protected.GET("/users/me/recently-watched", animeHandler.GetRecentlyWatched)
 			protected.GET("/users/me/watchlist", animeHandler.GetWatchlist)
 		}
