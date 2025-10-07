@@ -73,11 +73,11 @@ jobs:
           fi
           
           # ログインしてトークンを取得
-          LOGIN_RESPONSE=$(curl -s -X POST "https://myanimelogs.fly.dev/api/login" \
+          LOGIN_RESPONSE=$(curl -s -X POST "https://myanimelogs-production.fly.dev/api/login" \
             -H "Content-Type: application/json" \
             -d "{\"email\":\"${{ secrets.ADMIN_EMAIL }}\",\"password\":\"${{ secrets.ADMIN_PASSWORD }}\"}")
           
-          TOKEN=$(echo "$LOGIN_RESPONSE" | grep -o '"token":"[^"]*' | cut -d'"' -f4)
+          TOKEN=$(echo "$LOGIN_RESPONSE" | grep -o '"access_token":"[^"]*' | cut -d'"' -f4)
           
           if [ -z "$TOKEN" ]; then
             echo "Failed to login. Skipping data sync."
@@ -86,7 +86,7 @@ jobs:
           
           # 現在のシーズンのアニメを同期
           echo "Syncing current season anime..."
-          curl -s -X POST "https://myanimelogs.fly.dev/api/admin/sync/season" \
+          curl -s -X POST "https://myanimelogs-production.fly.dev/api/admin/sync/season" \
             -H "Authorization: Bearer $TOKEN" \
             -H "Content-Type: application/json"
           
@@ -94,7 +94,7 @@ jobs:
           
           # 人気アニメを同期
           echo "Syncing popular anime..."
-          curl -s -X POST "https://myanimelogs.fly.dev/api/admin/sync/popular" \
+          curl -s -X POST "https://myanimelogs-production.fly.dev/api/admin/sync/popular" \
             -H "Authorization: Bearer $TOKEN" \
             -H "Content-Type: application/json"
           
