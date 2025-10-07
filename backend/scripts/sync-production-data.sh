@@ -47,13 +47,13 @@ fi
 
 # ステップ1: ログインしてJWTトークンを取得
 log_info "管理者としてログイン中..."
-LOGIN_RESPONSE=$(curl -s -X POST "$PRODUCTION_URL/api/login" \
+LOGIN_RESPONSE=$(curl -fs -X POST "$PRODUCTION_URL/api/login" \
     -H "Content-Type: application/json" \
     -d "{\"email\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASSWORD\"}")
 
-TOKEN=$(echo "$LOGIN_RESPONSE" | grep -o '"token":"[^"]*' | cut -d'"' -f4)
+TOKEN=$(echo "$LOGIN_RESPONSE" | jq -r '.token')
 
-if [ -z "$TOKEN" ]; then
+if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
     log_error "ログインに失敗しました"
     echo "レスポンス: $LOGIN_RESPONSE"
     exit 1
