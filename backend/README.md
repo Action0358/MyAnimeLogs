@@ -209,7 +209,8 @@ TOKEN=$(curl -s -X POST "https://myanimelogs-staging.fly.dev/api/login" \
 
 # 2. 現在のシーズンのアニメを同期
 curl -X POST "https://myanimelogs-staging.fly.dev/api/admin/sync/season" \
-  -H "Authorization: Bearer $TOKEN"
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json"
 
 # 3. 人気アニメを同期
 curl -X POST "https://myanimelogs-staging.fly.dev/api/admin/sync/popular" \
