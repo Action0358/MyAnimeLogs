@@ -44,7 +44,7 @@ LOGIN_RESPONSE=$(curl -fs -X POST "$STAGING_URL/api/login" \
     -H "Content-Type: application/json" \
     -d "{\"email\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASSWORD\"}")
 
-TOKEN=$(echo "$LOGIN_RESPONSE" | jq -r '.token')
+TOKEN=$(echo "$LOGIN_RESPONSE" | jq -r '.access_token')
 
 if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
     log_error "ログインに失敗しました"
