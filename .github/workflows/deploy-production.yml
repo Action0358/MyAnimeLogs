@@ -65,6 +65,13 @@ jobs:
         run: |
           echo "Syncing anime data to database..."
           
+          # Secretsが設定されているか確認
+          if [ -z "${{ secrets.ADMIN_EMAIL }}" ] || [ -z "${{ secrets.ADMIN_PASSWORD }}" ]; then
+            echo "ADMIN_EMAIL or ADMIN_PASSWORD not set. Skipping data sync."
+            echo "To enable automatic data sync, set ADMIN_EMAIL and ADMIN_PASSWORD in GitHub Secrets."
+            exit 0
+          fi
+          
           # ログインしてトークンを取得
           LOGIN_RESPONSE=$(curl -s -X POST "https://myanimelogs.fly.dev/api/login" \
             -H "Content-Type: application/json" \
