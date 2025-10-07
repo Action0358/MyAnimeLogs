@@ -12,8 +12,8 @@ const path = require('path');
 const environment = process.argv[2];
 
 if (!environment || !['staging', 'production'].includes(environment)) {
-  console.error('エラー: 環境は "staging" または "production" である必要があります');
-  console.error('使用方法: node copy-headers.js <staging|production>');
+  console.error('Error: Environment must be \"staging\" or \"production\". (エラー: 環境は \"staging\" または \"production\" である必要があります)');
+  console.error('Usage: node copy-headers.js <staging|production> (使用方法: node copy-headers.js <staging|production>)');
   process.exit(1);
 }
 
