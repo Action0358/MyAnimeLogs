@@ -60,3 +60,36 @@ jobs:
           chmod +x scripts/verify-deployment.sh
           ./scripts/verify-deployment.sh production
         working-directory: ./backend
+
+      - name: Sync anime data after deployment
+        run: |
+          echo "Syncing anime data to database..."
+          
+          # ログインしてトークンを取得
+          LOGIN_RESPONSE=$(curl -s -X POST "https://myanimelogs.fly.dev/api/login" \
+            -H "Content-Type: application/json" \
+            -d "{\"email\":\"${{ secrets.ADMIN_EMAIL }}\",\"password\":\"${{ secrets.ADMIN_PASSWORD }}\"}")
+          
+          TOKEN=$(echo "$LOGIN_RESPONSE" | grep -o '"token":"[^"]*' | cut -d'"' -f4)
+          
+          if [ -z "$TOKEN" ]; then
+            echo "Failed to login. Skipping data sync."
+            exit 0
+          fi
+          
+          # 現在のシーズンのアニメを同期
+          echo "Syncing current season anime..."
+          curl -s -X POST "https://myanimelogs.fly.dev/api/admin/sync/season" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json"
+          
+          sleep 2
+          
+          # 人気アニメを同期
+          echo "Syncing popular anime..."
+          curl -s -X POST "https://myanimelogs.fly.dev/api/admin/sync/popular" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Type: application/json"
+          
+          echo "Data sync completed"
+        working-directory: ./backend

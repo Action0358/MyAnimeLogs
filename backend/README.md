@@ -172,3 +172,53 @@ GitHub Actions による自動デプロイ設定済み：
 - **Production**: `main` ブランチ → Fly.io production
 
 環境変数は各デプロイ環境で設定してください。
+
+### デプロイ後のデータ同期
+
+デプロイ後、AniList APIのレート制限を回避するため、アニメデータをデータベースに事前同期することを推奨します。
+
+#### 自動同期（推奨）
+
+GitHub Actionsで自動的にデータ同期が実行されます。以下のSecretsを設定してください：
+
+```
+ADMIN_EMAIL: 管理者のメールアドレス
+ADMIN_PASSWORD: 管理者のパスワード
+```
+
+#### 手動同期
+
+デプロイ後に手動でデータを同期する場合：
+
+```bash
+# Staging環境
+ADMIN_EMAIL=your-email@example.com ADMIN_PASSWORD=your-password ./scripts/sync-staging-data.sh
+
+# Production環境
+ADMIN_EMAIL=your-email@example.com ADMIN_PASSWORD=your-password ./scripts/sync-production-data.sh
+```
+
+または、直接APIを呼び出す：
+
+```bash
+# 1. ログインしてトークンを取得
+TOKEN=$(curl -s -X POST "https://myanimelogs-staging.fly.dev/api/login" \
+  -H "Content-Type: application/json" \
+  -d '{"email":"your-email@example.com","password":"your-password"}' | \
+  jq -r '.token')
+
+# 2. 現在のシーズンのアニメを同期
+curl -X POST "https://myanimelogs-staging.fly.dev/api/admin/sync/season" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json"
+
+# 3. 人気アニメを同期
+curl -X POST "https://myanimelogs-staging.fly.dev/api/admin/sync/popular" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json"
+```
+
+**データ同期の効果**:
+- AniList APIのレート制限エラーを回避
+- 画像の表示速度向上（キャッシュから取得）
+- ユーザー体験の改善
