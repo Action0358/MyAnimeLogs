@@ -205,7 +205,7 @@ ADMIN_EMAIL=your-email@example.com ADMIN_PASSWORD=your-password ./scripts/sync-p
 TOKEN=$(curl -s -X POST "https://myanimelogs-staging.fly.dev/api/login" \
   -H "Content-Type: application/json" \
   -d '{"email":"your-email@example.com","password":"your-password"}' | \
-  grep -o '"token":"[^"]*' | cut -d'"' -f4)
+  jq -r '.token')
 
 # 2. 現在のシーズンのアニメを同期
 curl -X POST "https://myanimelogs-staging.fly.dev/api/admin/sync/season" \
