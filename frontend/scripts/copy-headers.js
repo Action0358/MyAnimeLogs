@@ -12,8 +12,8 @@ const path = require('path');
 const environment = process.argv[2];
 
 if (!environment || !['staging', 'production'].includes(environment)) {
-  console.error('Error: Environment must be "staging" or "production"');
-  console.error('Usage: node copy-headers.js <staging|production>');
+  console.error('エラー: 環境は "staging" または "production" である必要があります');
+  console.error('使用方法: node copy-headers.js <staging|production>');
   process.exit(1);
 }
 
@@ -23,23 +23,23 @@ const destFile = path.join(__dirname, '..', 'out', '_headers');
 
 // ソースファイルの存在確認
 if (!fs.existsSync(sourceFile)) {
-  console.error(`Error: Source file not found: ${sourceFile}`);
+  console.error(`エラー: ソースファイルが見つかりません: ${sourceFile}`);
   process.exit(1);
 }
 
 // 出力ディレクトリの存在確認
 const outDir = path.dirname(destFile);
 if (!fs.existsSync(outDir)) {
-  console.error(`Error: Output directory not found: ${outDir}`);
-  console.error('Please run "next build" first to create the output directory.');
+  console.error(`エラー: 出力ディレクトリが見つかりません: ${outDir}`);
+  console.error('出力ディレクトリを作成するために、まず "next build" を実行してください。');
   process.exit(1);
 }
 
 // ファイルをコピー
 try {
   fs.copyFileSync(sourceFile, destFile);
-  console.log(`✓ Copied ${path.basename(sourceFile)} to ${destFile}`);
+  console.log(`✓ ${path.basename(sourceFile)} を ${destFile} にコピーしました`);
 } catch (error) {
-  console.error(`Error: Failed to copy file: ${error.message}`);
+  console.error(`エラー: ファイルのコピーに失敗しました: ${error.message}`);
   process.exit(1);
 }

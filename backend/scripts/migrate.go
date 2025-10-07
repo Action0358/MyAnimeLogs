@@ -13,17 +13,17 @@ import (
 )
 
 func main() {
-	// Load configuration
+	// 設定を読み込む
 	cfg := config.New()
 
-	// Connect to database
+	// データベースに接続
 	db, err := database.New(cfg.DatabaseURL)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 	defer db.Close()
 
-	// Create migrations table if not exists
+	// マイグレーションテーブルが存在しない場合は作成
 	_, err = db.Exec(`
 		CREATE TABLE IF NOT EXISTS migrations (
 			id SERIAL PRIMARY KEY,
@@ -35,14 +35,14 @@ func main() {
 		log.Fatalf("Failed to create migrations table: %v", err)
 	}
 
-	// Get migration files
+	// マイグレーションファイルを取得
 	migrationsDir := "migrations"
 	files, err := os.ReadDir(migrationsDir)
 	if err != nil {
 		log.Fatalf("Failed to read migrations directory: %v", err)
 	}
 
-	// Filter and sort SQL files
+	// SQLファイルをフィルタリングしてソート
 	var sqlFiles []string
 	for _, file := range files {
 		if strings.HasSuffix(file.Name(), ".sql") {
@@ -51,7 +51,7 @@ func main() {
 	}
 	sort.Strings(sqlFiles)
 
-	// Execute migrations
+	// マイグレーションを実行
 	for _, filename := range sqlFiles {
 		err := executeMigrationWithTransaction(db, filename, migrationsDir)
 		if err != nil {
@@ -62,15 +62,15 @@ func main() {
 	fmt.Println("All migrations completed successfully!")
 }
 
-// executeMigrationWithTransaction executes a single migration within a transaction
+// executeMigrationWithTransaction トランザクション内で単一のマイグレーションを実行
 func executeMigrationWithTransaction(db *database.DB, filename, migrationsDir string) error {
-	// Start transaction
+	// トランザクションを開始
 	tx, err := db.Begin()
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 
-	// Ensure transaction is rolled back on error
+	// エラー時にトランザクションをロールバック
 	defer func() {
 		if err != nil {
 			if rollbackErr := tx.Rollback(); rollbackErr != nil {
@@ -79,7 +79,7 @@ func executeMigrationWithTransaction(db *database.DB, filename, migrationsDir st
 		}
 	}()
 
-	// Check if migration already executed
+	// マイグレーションが既に実行済みかチェック
 	var count int
 	err = tx.QueryRow("SELECT COUNT(*) FROM migrations WHERE filename = $1", filename).Scan(&count)
 	if err != nil {
@@ -88,31 +88,31 @@ func executeMigrationWithTransaction(db *database.DB, filename, migrationsDir st
 
 	if count > 0 {
 		fmt.Printf("Migration %s already executed, skipping...\n", filename)
-		// Commit the transaction (even though no changes were made)
+		// トランザクションをコミット（変更がなくても）
 		return tx.Commit()
 	}
 
-	// Read migration file
+	// マイグレーションファイルを読み込む
 	filePath := filepath.Join(migrationsDir, filename)
 	content, err := os.ReadFile(filePath)
 	if err != nil {
 		return fmt.Errorf("failed to read migration file: %w", err)
 	}
 
-	// Execute migration SQL
+	// マイグレーションSQLを実行
 	fmt.Printf("Executing migration %s...\n", filename)
 	_, err = tx.Exec(string(content))
 	if err != nil {
 		return fmt.Errorf("failed to execute migration SQL: %w", err)
 	}
 
-	// Record migration in the same transaction
+	// 同じトランザクション内でマイグレーションを記録
 	_, err = tx.Exec("INSERT INTO migrations (filename) VALUES ($1)", filename)
 	if err != nil {
 		return fmt.Errorf("failed to record migration: %w", err)
 	}
 
-	// Commit transaction
+	// トランザクションをコミット
 	if commitErr := tx.Commit(); commitErr != nil {
 		return fmt.Errorf("failed to commit transaction: %w", commitErr)
 	}

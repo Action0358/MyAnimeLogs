@@ -9,13 +9,13 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// MonitoringHandler handles monitoring and health check endpoints
+// MonitoringHandler 監視とヘルスチェックエンドポイントを処理
 type MonitoringHandler struct {
 	*BaseHandler
 	errorMonitor *common.ErrorMonitor
 }
 
-// NewMonitoringHandler creates a new monitoring handler
+// NewMonitoringHandler 新しい監視ハンドラーを作成
 func NewMonitoringHandler(logger *common.Logger, errorMonitor *common.ErrorMonitor) *MonitoringHandler {
 	return &MonitoringHandler{
 		BaseHandler:  NewBaseHandlerWithLogger(logger, errorMonitor),
@@ -23,7 +23,7 @@ func NewMonitoringHandler(logger *common.Logger, errorMonitor *common.ErrorMonit
 	}
 }
 
-// GetErrorMetrics returns current error metrics
+// GetErrorMetrics 現在のエラーメトリクスを返す
 func (h *MonitoringHandler) GetErrorMetrics(c *gin.Context) {
 	metrics := h.errorMonitor.GetErrorMetrics()
 	statistics := h.errorMonitor.GetErrorStatistics()
@@ -40,7 +40,7 @@ func (h *MonitoringHandler) GetErrorMetrics(c *gin.Context) {
 	})
 }
 
-// GetTopErrors returns the most frequent errors
+// GetTopErrors 最も頻繁に発生するエラーを返す
 func (h *MonitoringHandler) GetTopErrors(c *gin.Context) {
 	limitStr := c.DefaultQuery("limit", "10")
 	limit, err := strconv.Atoi(limitStr)
@@ -48,24 +48,24 @@ func (h *MonitoringHandler) GetTopErrors(c *gin.Context) {
 		limit = 10
 	}
 
-	// Get sort parameter
+	// ソートパラメータを取得
 	sortBy := c.DefaultQuery("sort", "count")
 
-	// Convert string to SortBy type using helper function
+	// ヘルパー関数を使用して文字列をSortBy型に変換
 	sortCriteria := common.ToSortBy(sortBy)
 
 	topErrors := h.errorMonitor.GetTopErrorsWithSort(limit, sortCriteria)
 
-	// Calculate count in the returned top list
+	// 返されたトップリストの件数を計算
 	countInTopList := 0
 	for _, errorMetric := range topErrors {
 		countInTopList += errorMetric.Count
 	}
 
-	// Get system-wide total error count
+	// システム全体のエラー総数を取得
 	systemTotalErrors := h.errorMonitor.GetTotalErrorCount()
 
-	// Return the actual sort criteria used, not the original parameter
+	// 元のパラメータではなく、実際に使用されたソート基準を返す
 	actualSortBy := string(sortCriteria)
 
 	h.response.Success(c, gin.H{
@@ -78,7 +78,7 @@ func (h *MonitoringHandler) GetTopErrors(c *gin.Context) {
 	})
 }
 
-// ResetErrorMetrics resets all error metrics (admin only)
+// ResetErrorMetrics すべてのエラーメトリクスをリセット（管理者のみ）
 func (h *MonitoringHandler) ResetErrorMetrics(c *gin.Context) {
 	h.errorMonitor.ResetMetrics()
 	h.response.Success(c, gin.H{
@@ -86,7 +86,7 @@ func (h *MonitoringHandler) ResetErrorMetrics(c *gin.Context) {
 	})
 }
 
-// HealthCheck returns application health status
+// HealthCheck アプリケーションのヘルスステータスを返す
 func (h *MonitoringHandler) HealthCheck(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"status":  "ok",
@@ -95,7 +95,7 @@ func (h *MonitoringHandler) HealthCheck(c *gin.Context) {
 	})
 }
 
-// DetailedHealthCheck returns detailed health information
+// DetailedHealthCheck 詳細なヘルス情報を返す
 func (h *MonitoringHandler) DetailedHealthCheck(c *gin.Context) {
 	statistics := h.errorMonitor.GetErrorStatistics()
 
@@ -118,6 +118,6 @@ func (h *MonitoringHandler) DetailedHealthCheck(c *gin.Context) {
 		"health_score": healthScore,
 		"total_errors": totalErrors,
 		"error_types":  errorTypeCount,
-		"uptime":       "calculated_uptime", // TODO: implement uptime tracking
+		"uptime":       "calculated_uptime", // TODO: 稼働時間の追跡を実装
 	})
 }
