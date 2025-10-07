@@ -2,7 +2,7 @@ package config
 
 import "os"
 
-// Environment represents the application environment
+// Environment アプリケーション環境を表す
 type Environment string
 
 const (
@@ -12,7 +12,7 @@ const (
 	Production  Environment = "production"
 )
 
-// GetEnvironment returns the current environment
+// GetEnvironment 現在の環境を返す
 func GetEnvironment() Environment {
 	env := os.Getenv("ENVIRONMENT")
 	switch env {
@@ -27,22 +27,22 @@ func GetEnvironment() Environment {
 	}
 }
 
-// IsDevelopment checks if the current environment is development
+// IsDevelopment 現在の環境が開発環境かチェック
 func (e Environment) IsDevelopment() bool {
 	return e == Development
 }
 
-// IsProduction checks if the current environment is production
+// IsProduction 現在の環境が本番環境かチェック
 func (e Environment) IsProduction() bool {
 	return e == Production
 }
 
-// IsStaging checks if the current environment is staging
+// IsStaging 現在の環境がステージング環境かチェック
 func (e Environment) IsStaging() bool {
 	return e == Staging
 }
 
-// IsTest checks if the current environment is test
+// IsTest 現在の環境がテスト環境かチェック
 func (e Environment) IsTest() bool {
 	return e == Test
 }

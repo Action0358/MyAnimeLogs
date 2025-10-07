@@ -4,14 +4,14 @@ import (
 	"myanimelogs/internal/common"
 )
 
-// BaseHandler provides common functionality for all handlers
+// BaseHandler すべてのハンドラーに共通の機能を提供
 type BaseHandler struct {
 	response  *common.ResponseHandler
 	validator *common.ValidatorHelper
 	logger    *common.Logger
 }
 
-// NewBaseHandler creates a new base handler
+// NewBaseHandler 新しいベースハンドラーを作成
 func NewBaseHandler() *BaseHandler {
 	return &BaseHandler{
 		response:  common.NewResponseHandler(),
@@ -19,7 +19,7 @@ func NewBaseHandler() *BaseHandler {
 	}
 }
 
-// NewBaseHandlerWithLogger creates a new base handler with logger
+// NewBaseHandlerWithLogger ロガー付きの新しいベースハンドラーを作成
 func NewBaseHandlerWithLogger(logger *common.Logger, errorMonitor *common.ErrorMonitor) *BaseHandler {
 	return &BaseHandler{
 		response:  common.NewResponseHandlerWithMonitoring(logger, errorMonitor),
