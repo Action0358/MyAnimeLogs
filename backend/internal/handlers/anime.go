@@ -33,10 +33,10 @@ func (h *AnimeHandler) GetAnimes(c *gin.Context) {
 		return
 	}
 
-	// Set defaults using validator
+	// バリデーターを使用してデフォルト値を設定
 	params.Page, params.PerPage = h.validator.ValidatePagination(params.Page, params.PerPage)
 
-	// Get user ID if authenticated
+	// 認証されている場合はユーザーIDを取得
 	var userID *int
 	if id, exists := c.Get("user_id"); exists {
 		if uid, ok := id.(int); ok {
@@ -60,7 +60,7 @@ func (h *AnimeHandler) GetAnime(c *gin.Context) {
 		return
 	}
 
-	// Get user ID if authenticated
+	// 認証されている場合はユーザーIDを取得
 	var userID *int
 	if uid, exists := c.Get("user_id"); exists {
 		if userIDVal, ok := uid.(int); ok {
@@ -88,7 +88,7 @@ func (h *AnimeHandler) GetAnimeEpisodes(c *gin.Context) {
 		return
 	}
 
-	// Get user ID if authenticated
+	// 認証されている場合はユーザーIDを取得
 	var userID *int
 	if uid, exists := c.Get("user_id"); exists {
 		if id, ok := uid.(int); ok {
@@ -316,7 +316,7 @@ func (h *AnimeHandler) GetWatchlist(c *gin.Context) {
 	h.response.Success(c, watchlist)
 }
 
-// AdvancedSearchAnimes - 高度検索API
+// AdvancedSearchAnimes 高度検索API
 func (h *AnimeHandler) AdvancedSearchAnimes(c *gin.Context) {
 	var params models.AdvancedSearchParams
 	if err := c.ShouldBindQuery(&params); err != nil {
@@ -324,10 +324,10 @@ func (h *AnimeHandler) AdvancedSearchAnimes(c *gin.Context) {
 		return
 	}
 
-	// Set defaults using validator
+	// バリデーターを使用してデフォルト値を設定
 	params.Page, params.PerPage = h.validator.ValidatePagination(params.Page, params.PerPage)
 
-	// Get user ID if authenticated
+	// 認証されている場合はユーザーIDを取得
 	var userID *int
 	if id, exists := c.Get("user_id"); exists {
 		if uid, ok := id.(int); ok {
@@ -344,7 +344,7 @@ func (h *AnimeHandler) AdvancedSearchAnimes(c *gin.Context) {
 	h.response.Success(c, result)
 }
 
-// GetFilterOptions - フィルター情報取得API
+// GetFilterOptions フィルター情報取得API
 func (h *AnimeHandler) GetFilterOptions(c *gin.Context) {
 	filterOptions, err := h.animeService.GetFilterOptions()
 	if err != nil {
@@ -368,7 +368,7 @@ func (h *AnimeHandler) GetFilterOptions(c *gin.Context) {
 	h.response.Success(c, filterOptions)
 }
 
-// GetPopularSearches - 人気検索キーワード取得API
+// GetPopularSearches 人気検索キーワード取得API
 func (h *AnimeHandler) GetPopularSearches(c *gin.Context) {
 	limitStr := c.DefaultQuery("limit", "10")
 	limit := utils.ParseLimitQuery(limitStr, 10, 50)
@@ -394,7 +394,7 @@ func (h *AnimeHandler) GetPopularSearches(c *gin.Context) {
 	})
 }
 
-// GetSearchSuggestions - 検索候補取得API
+// GetSearchSuggestions 検索候補取得API
 func (h *AnimeHandler) GetSearchSuggestions(c *gin.Context) {
 	query := c.Query("q")
 	if strings.TrimSpace(query) == "" {
