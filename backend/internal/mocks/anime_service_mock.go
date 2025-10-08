@@ -32,12 +32,18 @@ func (m *MockAnimeService) AdvancedSearchAnimes(params models.AdvancedSearchPara
 // GetSearchSuggestions mocks the GetSearchSuggestions method
 func (m *MockAnimeService) GetSearchSuggestions(query string, limit int) ([]string, error) {
 	args := m.Called(query, limit)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).([]string), args.Error(1)
 }
 
 // GetPopularSearches mocks the GetPopularSearches method
 func (m *MockAnimeService) GetPopularSearches(limit int) ([]string, error) {
 	args := m.Called(limit)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).([]string), args.Error(1)
 }
 
@@ -62,12 +68,18 @@ func (m *MockAnimeService) GetAnimeByID(id int, userID *int) (*models.AnimeWithU
 // GetAnimeEpisodes mocks the GetAnimeEpisodes method
 func (m *MockAnimeService) GetAnimeEpisodes(animeID int, userID *int) ([]models.Episode, error) {
 	args := m.Called(animeID, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).([]models.Episode), args.Error(1)
 }
 
 // GetUserFavorites mocks the GetUserFavorites method
 func (m *MockAnimeService) GetUserFavorites(userID int, status string) ([]models.AnimeWithUserData, error) {
 	args := m.Called(userID, status)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).([]models.AnimeWithUserData), args.Error(1)
 }
 
@@ -113,5 +125,8 @@ func (m *MockAnimeService) DeleteRating(userID, animeID int) error {
 // GetRecentlyWatched mocks the GetRecentlyWatched method
 func (m *MockAnimeService) GetRecentlyWatched(userID, limit int) ([]models.WatchHistory, error) {
 	args := m.Called(userID, limit)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
 	return args.Get(0).([]models.WatchHistory), args.Error(1)
 }

@@ -23,6 +23,39 @@ func setupAnimeHandler() *AnimeHandler {
 	return handler
 }
 
+// setupAnimeHandlerWithMock creates a handler with mock service for testing
+func setupAnimeHandlerWithMock(mockService *mocks.MockAnimeService) (*AnimeHandler, *gin.Engine) {
+	logger := common.NewLogger(common.LogLevelDebug, "text")
+	errorMonitor := common.NewErrorMonitor(logger, 10, 300)
+	handler := NewAnimeHandler(mockService, logger, errorMonitor)
+
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+
+	return handler, router
+}
+
+// Response structures for type-safe testing
+type searchSuggestionsResponse struct {
+	Suggestions []string `json:"suggestions"`
+}
+
+type popularSearchesResponse struct {
+	PopularSearches []string `json:"popular_searches"`
+}
+
+type filterOptionsResponse struct {
+	Genres  []models.GenreInfo `json:"genres"`
+	Years   []int              `json:"years"`
+	Seasons []string           `json:"seasons"`
+	Ratings models.RatingStats `json:"ratings"`
+}
+
+type advancedSearchResponse struct {
+	Data []models.AnimeWithUserData `json:"data"`
+	Meta models.PaginationMeta      `json:"meta"`
+}
+
 func TestAnimeHandler_GetAnimes_ValidationError(t *testing.T) {
 	handler := setupAnimeHandler()
 
@@ -274,15 +307,19 @@ func TestAnimeHandler_GetSearchSuggestions(t *testing.T) {
 	tests := []struct {
 		name             string
 		queryParams      string
+		expectedQuery    string
+		expectedLimit    int
 		mockReturn       []string
 		mockError        error
 		expectedStatus   int
 		expectEmptyArray bool
-		skipMock         bool // モックを呼ばないケース
+		skipMock         bool
 	}{
 		{
 			name:             "空のクエリ",
 			queryParams:      "q=",
+			expectedQuery:    "",
+			expectedLimit:    10,
 			mockReturn:       []string{},
 			mockError:        nil,
 			expectedStatus:   http.StatusOK,
@@ -292,6 +329,8 @@ func TestAnimeHandler_GetSearchSuggestions(t *testing.T) {
 		{
 			name:           "通常のクエリ",
 			queryParams:    "q=進撃",
+			expectedQuery:  "進撃",
+			expectedLimit:  10, // デフォルト値
 			mockReturn:     []string{"進撃の巨人", "進撃の巨人 Season 2"},
 			mockError:      nil,
 			expectedStatus: http.StatusOK,
@@ -299,16 +338,30 @@ func TestAnimeHandler_GetSearchSuggestions(t *testing.T) {
 		{
 			name:           "limit指定",
 			queryParams:    "q=アニメ&limit=5",
+			expectedQuery:  "アニメ",
+			expectedLimit:  5,
 			mockReturn:     []string{"アニメ1", "アニメ2", "アニメ3"},
 			mockError:      nil,
 			expectedStatus: http.StatusOK,
 		},
 		{
-			name:           "無効なlimit",
+			name:           "無効なlimit（デフォルト値にフォールバック）",
 			queryParams:    "q=test&limit=abc",
+			expectedQuery:  "test",
+			expectedLimit:  10, // 無効な値はデフォルトに戻る
 			mockReturn:     []string{"test1", "test2"},
 			mockError:      nil,
 			expectedStatus: http.StatusOK,
+		},
+		{
+			name:             "サービスエラー時のnil戻り値",
+			queryParams:      "q=error",
+			expectedQuery:    "error",
+			expectedLimit:    10,
+			mockReturn:       nil,
+			mockError:        assert.AnError,
+			expectedStatus:   http.StatusOK,
+			expectEmptyArray: true,
 		},
 	}
 
@@ -316,15 +369,10 @@ func TestAnimeHandler_GetSearchSuggestions(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockService := new(mocks.MockAnimeService)
 			if !tt.skipMock {
-				mockService.On("GetSearchSuggestions", mock.Anything, mock.Anything).Return(tt.mockReturn, tt.mockError)
+				mockService.On("GetSearchSuggestions", tt.expectedQuery, tt.expectedLimit).Return(tt.mockReturn, tt.mockError)
 			}
 
-			logger := common.NewLogger(common.LogLevelDebug, "text")
-			errorMonitor := common.NewErrorMonitor(logger, 10, 300)
-			handler := NewAnimeHandler(mockService, logger, errorMonitor)
-
-			gin.SetMode(gin.TestMode)
-			router := gin.New()
+			handler, router := setupAnimeHandlerWithMock(mockService)
 			router.GET("/search/suggestions", handler.GetSearchSuggestions)
 
 			req, _ := http.NewRequest("GET", "/search/suggestions?"+tt.queryParams, nil)
@@ -334,15 +382,14 @@ func TestAnimeHandler_GetSearchSuggestions(t *testing.T) {
 
 			assert.Equal(t, tt.expectedStatus, w.Code)
 
-			var response map[string]any
+			var response searchSuggestionsResponse
 			err := json.Unmarshal(w.Body.Bytes(), &response)
 			assert.NoError(t, err)
-			assert.Contains(t, response, "suggestions")
 
 			if tt.expectEmptyArray {
-				suggestions, ok := response["suggestions"].([]any)
-				assert.True(t, ok)
-				assert.Equal(t, 0, len(suggestions))
+				assert.Equal(t, 0, len(response.Suggestions))
+			} else if !tt.skipMock {
+				assert.Equal(t, len(tt.mockReturn), len(response.Suggestions))
 			}
 
 			if !tt.skipMock {
@@ -354,11 +401,11 @@ func TestAnimeHandler_GetSearchSuggestions(t *testing.T) {
 
 func TestAnimeHandler_GetFilterOptions_Success(t *testing.T) {
 	tests := []struct {
-		name           string
-		mockReturn     *models.FilterOptions
-		mockError      error
-		expectedStatus int
-		checkFields    bool
+		name              string
+		mockReturn        *models.FilterOptions
+		mockError         error
+		expectedStatus    int
+		expectDefaultData bool
 	}{
 		{
 			name: "正常なレスポンス",
@@ -368,9 +415,9 @@ func TestAnimeHandler_GetFilterOptions_Success(t *testing.T) {
 				Seasons: []string{"spring", "summer", "autumn", "winter"},
 				Ratings: models.RatingStats{Min: 1.0, Max: 5.0, Average: 3.5, Count: 100},
 			},
-			mockError:      nil,
-			expectedStatus: http.StatusOK,
-			checkFields:    true,
+			mockError:         nil,
+			expectedStatus:    http.StatusOK,
+			expectDefaultData: false,
 		},
 		{
 			name: "空のデータ",
@@ -380,9 +427,16 @@ func TestAnimeHandler_GetFilterOptions_Success(t *testing.T) {
 				Seasons: []string{},
 				Ratings: models.RatingStats{Min: 1.0, Max: 5.0, Average: 0.0, Count: 0},
 			},
-			mockError:      nil,
-			expectedStatus: http.StatusOK,
-			checkFields:    false,
+			mockError:         nil,
+			expectedStatus:    http.StatusOK,
+			expectDefaultData: false,
+		},
+		{
+			name:              "サービスエラー時のデフォルト値",
+			mockReturn:        nil,
+			mockError:         assert.AnError,
+			expectedStatus:    http.StatusOK,
+			expectDefaultData: true,
 		},
 	}
 
@@ -391,12 +445,7 @@ func TestAnimeHandler_GetFilterOptions_Success(t *testing.T) {
 			mockService := new(mocks.MockAnimeService)
 			mockService.On("GetFilterOptions").Return(tt.mockReturn, tt.mockError)
 
-			logger := common.NewLogger(common.LogLevelDebug, "text")
-			errorMonitor := common.NewErrorMonitor(logger, 10, 300)
-			handler := NewAnimeHandler(mockService, logger, errorMonitor)
-
-			gin.SetMode(gin.TestMode)
-			router := gin.New()
+			handler, router := setupAnimeHandlerWithMock(mockService)
 			router.GET("/filters", handler.GetFilterOptions)
 
 			req, _ := http.NewRequest("GET", "/filters", nil)
@@ -406,15 +455,24 @@ func TestAnimeHandler_GetFilterOptions_Success(t *testing.T) {
 
 			assert.Equal(t, tt.expectedStatus, w.Code)
 
-			var response map[string]any
+			var response filterOptionsResponse
 			err := json.Unmarshal(w.Body.Bytes(), &response)
 			assert.NoError(t, err)
 
-			if tt.checkFields {
-				assert.Contains(t, response, "genres")
-				assert.Contains(t, response, "years")
-				assert.Contains(t, response, "seasons")
-				assert.Contains(t, response, "ratings")
+			// レスポンスの構造を検証
+			assert.NotNil(t, response.Genres)
+			assert.NotNil(t, response.Years)
+			assert.NotNil(t, response.Seasons)
+			assert.NotNil(t, response.Ratings)
+
+			if tt.expectDefaultData {
+				// デフォルト値が返されることを確認
+				assert.Equal(t, 1.0, response.Ratings.Min)
+				assert.Equal(t, 5.0, response.Ratings.Max)
+			} else if tt.mockReturn != nil {
+				// モックの戻り値と一致することを確認
+				assert.Equal(t, len(tt.mockReturn.Genres), len(response.Genres))
+				assert.Equal(t, len(tt.mockReturn.Years), len(response.Years))
 			}
 
 			mockService.AssertExpectations(t)
@@ -424,16 +482,19 @@ func TestAnimeHandler_GetFilterOptions_Success(t *testing.T) {
 
 func TestAnimeHandler_GetPopularSearches(t *testing.T) {
 	tests := []struct {
-		name             string
-		queryParams      string
-		mockReturn       []string
-		mockError        error
-		expectedStatus   int
-		expectEmptyArray bool
+		name              string
+		queryParams       string
+		expectedLimit     int
+		mockReturn        []string
+		mockError         error
+		expectedStatus    int
+		expectEmptyArray  bool
+		expectDefaultData bool
 	}{
 		{
 			name:           "デフォルトのlimit",
 			queryParams:    "",
+			expectedLimit:  10,
 			mockReturn:     []string{"進撃の巨人", "鬼滅の刃", "呪術廻戦"},
 			mockError:      nil,
 			expectedStatus: http.StatusOK,
@@ -441,6 +502,7 @@ func TestAnimeHandler_GetPopularSearches(t *testing.T) {
 		{
 			name:           "limit指定",
 			queryParams:    "limit=5",
+			expectedLimit:  5,
 			mockReturn:     []string{"アニメ1", "アニメ2", "アニメ3", "アニメ4", "アニメ5"},
 			mockError:      nil,
 			expectedStatus: http.StatusOK,
@@ -448,31 +510,46 @@ func TestAnimeHandler_GetPopularSearches(t *testing.T) {
 		{
 			name:             "空の結果",
 			queryParams:      "",
+			expectedLimit:    10,
 			mockReturn:       []string{},
 			mockError:        nil,
 			expectedStatus:   http.StatusOK,
 			expectEmptyArray: true,
 		},
 		{
-			name:           "無効なlimit",
+			name:           "無効なlimit（デフォルト値にフォールバック）",
 			queryParams:    "limit=abc",
+			expectedLimit:  10,
 			mockReturn:     []string{"test1", "test2"},
 			mockError:      nil,
 			expectedStatus: http.StatusOK,
+		},
+		{
+			name:              "サービスエラー時のnil戻り値（デフォルト値を返す）",
+			queryParams:       "",
+			expectedLimit:     10,
+			mockReturn:        nil,
+			mockError:         assert.AnError,
+			expectedStatus:    http.StatusOK,
+			expectDefaultData: true,
+		},
+		{
+			name:              "サービスエラー時のlimit指定",
+			queryParams:       "limit=3",
+			expectedLimit:     3,
+			mockReturn:        nil,
+			mockError:         assert.AnError,
+			expectedStatus:    http.StatusOK,
+			expectDefaultData: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockService := new(mocks.MockAnimeService)
-			mockService.On("GetPopularSearches", mock.Anything).Return(tt.mockReturn, tt.mockError)
+			mockService.On("GetPopularSearches", tt.expectedLimit).Return(tt.mockReturn, tt.mockError)
 
-			logger := common.NewLogger(common.LogLevelDebug, "text")
-			errorMonitor := common.NewErrorMonitor(logger, 10, 300)
-			handler := NewAnimeHandler(mockService, logger, errorMonitor)
-
-			gin.SetMode(gin.TestMode)
-			router := gin.New()
+			handler, router := setupAnimeHandlerWithMock(mockService)
 			router.GET("/search/popular", handler.GetPopularSearches)
 
 			req, _ := http.NewRequest("GET", "/search/popular?"+tt.queryParams, nil)
@@ -482,15 +559,17 @@ func TestAnimeHandler_GetPopularSearches(t *testing.T) {
 
 			assert.Equal(t, tt.expectedStatus, w.Code)
 
-			var response map[string]any
+			var response popularSearchesResponse
 			err := json.Unmarshal(w.Body.Bytes(), &response)
 			assert.NoError(t, err)
-			assert.Contains(t, response, "popular_searches")
 
 			if tt.expectEmptyArray {
-				searches, ok := response["popular_searches"].([]any)
-				assert.True(t, ok)
-				assert.Equal(t, 0, len(searches))
+				assert.Equal(t, 0, len(response.PopularSearches))
+			} else if tt.expectDefaultData {
+				// デフォルト値が返されることを確認
+				assert.Greater(t, len(response.PopularSearches), 0)
+			} else {
+				assert.Equal(t, len(tt.mockReturn), len(response.PopularSearches))
 			}
 
 			mockService.AssertExpectations(t)
@@ -502,6 +581,7 @@ func TestAnimeHandler_AdvancedSearchAnimes(t *testing.T) {
 	tests := []struct {
 		name           string
 		queryParams    string
+		expectedParams models.AdvancedSearchParams
 		mockReturn     *models.PaginatedResponse
 		mockError      error
 		expectedStatus int
@@ -509,6 +589,11 @@ func TestAnimeHandler_AdvancedSearchAnimes(t *testing.T) {
 		{
 			name:        "基本的な検索",
 			queryParams: "q=進撃&page=1&per_page=20",
+			expectedParams: models.AdvancedSearchParams{
+				Query:   "進撃",
+				Page:    1,
+				PerPage: 20,
+			},
 			mockReturn: &models.PaginatedResponse{
 				Data: []models.AnimeWithUserData{
 					{
@@ -530,6 +615,14 @@ func TestAnimeHandler_AdvancedSearchAnimes(t *testing.T) {
 		{
 			name:        "複数フィルター",
 			queryParams: "q=アニメ&genre=アクション&year=2024&season=spring&min_rating=4.0&page=1",
+			expectedParams: models.AdvancedSearchParams{
+				Query:     "アニメ",
+				Genres:    []string{"アクション"},
+				Year:      2024,
+				Season:    "spring",
+				MinRating: 4.0,
+				Page:      1,
+			},
 			mockReturn: &models.PaginatedResponse{
 				Data: []models.AnimeWithUserData{},
 				Meta: models.PaginationMeta{
@@ -544,6 +637,12 @@ func TestAnimeHandler_AdvancedSearchAnimes(t *testing.T) {
 		{
 			name:        "ソート指定",
 			queryParams: "q=test&sort=rating&order=desc&page=1",
+			expectedParams: models.AdvancedSearchParams{
+				Query: "test",
+				Sort:  "rating",
+				Order: "desc",
+				Page:  1,
+			},
 			mockReturn: &models.PaginatedResponse{
 				Data: []models.AnimeWithUserData{
 					{
@@ -562,19 +661,32 @@ func TestAnimeHandler_AdvancedSearchAnimes(t *testing.T) {
 			mockError:      nil,
 			expectedStatus: http.StatusOK,
 		},
+		{
+			name:        "サービスエラー",
+			queryParams: "q=error&page=1",
+			expectedParams: models.AdvancedSearchParams{
+				Query: "error",
+				Page:  1,
+			},
+			mockReturn:     nil,
+			mockError:      assert.AnError,
+			expectedStatus: http.StatusInternalServerError,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockService := new(mocks.MockAnimeService)
-			mockService.On("AdvancedSearchAnimes", mock.Anything, mock.Anything).Return(tt.mockReturn, tt.mockError)
+			// mock.MatchedBy を使用してパラメータの主要フィールドを検証
+			mockService.On("AdvancedSearchAnimes",
+				mock.MatchedBy(func(params models.AdvancedSearchParams) bool {
+					return params.Query == tt.expectedParams.Query &&
+						params.Page == tt.expectedParams.Page
+				}),
+				mock.AnythingOfType("*int"),
+			).Return(tt.mockReturn, tt.mockError)
 
-			logger := common.NewLogger(common.LogLevelDebug, "text")
-			errorMonitor := common.NewErrorMonitor(logger, 10, 300)
-			handler := NewAnimeHandler(mockService, logger, errorMonitor)
-
-			gin.SetMode(gin.TestMode)
-			router := gin.New()
+			handler, router := setupAnimeHandlerWithMock(mockService)
 			router.GET("/search/advanced", handler.AdvancedSearchAnimes)
 
 			req, _ := http.NewRequest("GET", "/search/advanced?"+tt.queryParams, nil)
@@ -584,11 +696,17 @@ func TestAnimeHandler_AdvancedSearchAnimes(t *testing.T) {
 
 			assert.Equal(t, tt.expectedStatus, w.Code)
 
-			var response map[string]any
-			err := json.Unmarshal(w.Body.Bytes(), &response)
-			assert.NoError(t, err)
-			assert.Contains(t, response, "data")
-			assert.Contains(t, response, "meta")
+			if tt.expectedStatus == http.StatusOK {
+				var response advancedSearchResponse
+				err := json.Unmarshal(w.Body.Bytes(), &response)
+				assert.NoError(t, err)
+				assert.NotNil(t, response.Data)
+				assert.NotNil(t, response.Meta)
+
+				if tt.mockReturn != nil {
+					assert.Equal(t, tt.mockReturn.Meta.Total, response.Meta.Total)
+				}
+			}
 
 			mockService.AssertExpectations(t)
 		})
