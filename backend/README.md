@@ -1,6 +1,6 @@
 # MyAnimeLogs Backend
 
-MyAnimeLogs バックエンドAPI - Go + PostgreSQL + JWT認証
+MyAnimeLogs バックエンド API - Go + PostgreSQL + JWT 認証
 
 ## 🚀 セットアップ
 
@@ -12,7 +12,7 @@ MyAnimeLogs バックエンドAPI - Go + PostgreSQL + JWT認証
 # 開発環境
 cp .env.example .env.local
 
-# テスト環境  
+# テスト環境
 cp .env.example .env.test
 
 # 本番環境
@@ -24,11 +24,13 @@ cp .env.example .env.production
 各環境ファイルで以下の値を設定してください：
 
 #### 必須設定
+
 - `POSTGRES_*`: データベース接続情報
-- `JWT_SECRET`: JWT署名用秘密鍵（本番では256bit以上）
+- `JWT_SECRET`: JWT 署名用秘密鍵（本番では 256bit 以上）
 - `ANNICT_API_KEY`: Annict API キー
 
 #### オプション設定
+
 - `DB_MAX_OPEN_CONNS`: 最大接続数（デフォルト: 25）
 - `RATE_LIMIT`: レート制限（デフォルト: 100req/min）
 
@@ -93,8 +95,9 @@ go run scripts/migrate.go
 ```
 
 **マイグレーションファイル**:
+
 - `000_create_users_table.sql` - ユーザーテーブル
-- `001_create_animes_table.sql` - アニメテーブル  
+- `001_create_animes_table.sql` - アニメテーブル
 - `002_create_episodes_table.sql` - エピソードテーブル
 - `003_create_user_favorites_table.sql` - お気に入りテーブル
 - `004_create_watch_statuses_table.sql` - 視聴状況テーブル
@@ -103,6 +106,7 @@ go run scripts/migrate.go
 - `007_create_anime_genres_table.sql` - ジャンルテーブル
 
 **特徴**:
+
 - **トランザクション保護**: 各マイグレーションが原子的に実行
 - **実行済み追跡**: 重複実行を自動検出・スキップ
 - **冪等性**: 安全な重複実行（`CREATE TABLE IF NOT EXISTS`使用）
@@ -110,31 +114,34 @@ go run scripts/migrate.go
 - **バージョン管理**: ファイルベースで変更履歴を管理
 
 **安全性**:
+
 - 破壊的な`DROP TABLE`操作を排除
 - 各マイグレーションがトランザクション内で実行
 - 失敗時の自動ロールバックでデータ整合性を保証
 
 ## 🔐 セキュリティ
 
-- JWT認証（24時間有効期限）
-- bcryptパスワードハッシュ化
+- JWT 認証（24 時間有効期限）
+- bcrypt パスワードハッシュ化
 - レート制限
-- CORS設定
+- CORS 設定
 - SQL インジェクション対策
 
-## 📝 API仕様
+## 📝 API 仕様
 
-### 認証API
+### 認証 API
+
 - `POST /api/register` - 新規ユーザー登録
-- `POST /api/login` - ログイン・JWT取得
+- `POST /api/login` - ログイン・JWT 取得
 - `GET /api/users/me` - プロフィール取得
 - `PUT /api/users/me` - プロフィール更新
 
-### 統計・エクスポートAPI
+### 統計・エクスポート API
+
 - `GET /api/users/me/stats` - 視聴統計取得
 - `GET /api/users/me/export` - データエクスポート
 
-詳細なAPI仕様は `../api-tests/test.http` を参照してください。
+詳細な API 仕様は `../api-tests/test.http` を参照してください。
 
 ## 🛠️ 開発
 
@@ -168,6 +175,7 @@ backend/
 ## 🚀 デプロイ
 
 GitHub Actions による自動デプロイ設定済み：
+
 - **Staging**: `staging` ブランチ → Fly.io staging
 - **Production**: `main` ブランチ → Fly.io production
 
@@ -175,11 +183,11 @@ GitHub Actions による自動デプロイ設定済み：
 
 ### デプロイ後のデータ同期
 
-デプロイ後、AniList APIのレート制限を回避するため、アニメデータをデータベースに事前同期することを推奨します。
+デプロイ後、AniList API のレート制限を回避するため、アニメデータをデータベースに事前同期することを推奨します。
 
 #### 自動同期（推奨）
 
-GitHub Actionsで自動的にデータ同期が実行されます。以下のSecretsを設定してください：
+GitHub Actions で自動的にデータ同期が実行されます。以下の Secrets を設定してください：
 
 ```
 ADMIN_EMAIL: 管理者のメールアドレス
@@ -198,7 +206,7 @@ ADMIN_EMAIL=your-email@example.com ADMIN_PASSWORD=your-password ./scripts/sync-s
 ADMIN_EMAIL=your-email@example.com ADMIN_PASSWORD=your-password ./scripts/sync-production-data.sh
 ```
 
-または、直接APIを呼び出す：
+または、直接 API を呼び出す：
 
 ```bash
 # 1. ログインしてトークンを取得
@@ -219,6 +227,67 @@ curl -X POST "https://myanimelogs-staging.fly.dev/api/admin/sync/popular" \
 ```
 
 **データ同期の効果**:
-- AniList APIのレート制限エラーを回避
+
+- AniList API のレート制限エラーを回避
 - 画像の表示速度向上（キャッシュから取得）
 - ユーザー体験の改善
+
+### Production 環境のデータベース問題のトラブルシューティング
+
+#### 基本的な確認手順
+
+```bash
+# 1. エラーログを確認
+flyctl logs -a myanimelogs-production -n | grep -E "(Failed|failed|error)"
+
+# 2. データ同期を実行
+echo "y" | ADMIN_EMAIL=your-email@example.com ADMIN_PASSWORD=your-password ./scripts/sync-production-data.sh
+
+# 3. アニメ数を確認
+curl -s "https://myanimelogs-production.fly.dev/api/animes" | jq '.meta.total'
+```
+
+#### よくある問題
+
+**問題: データ同期が 0 件になる**
+
+症状: `"Successfully synced 0 anime works"`
+
+確認事項:
+
+1. エラーログを確認: `flyctl logs -a myanimelogs-production -n | grep -E "(Failed|failed)"`
+2. Annict API からデータ取得を確認: `curl -s "https://myanimelogs-production.fly.dev/api/annict/works" | jq '.works | length'`
+
+解決方法:
+
+- エラーメッセージに基づいて適切なマイグレーションを作成
+- 例: `pq: null value in column "id"` → シーケンスの問題
+- 例: `ON CONFLICT` エラー → UNIQUE 制約の問題
+
+**問題: マイグレーションが実行されない**
+
+```bash
+# アプリを再起動
+flyctl apps restart myanimelogs-production
+
+# ログを確認
+flyctl logs -a myanimelogs-production -n | grep -i migration
+```
+
+#### マイグレーション履歴のリセット（緊急時のみ）
+
+⚠️ **注意: 通常の運用では使用しないでください**
+
+マイグレーションファイルを修正した後、改善版を適用する必要がある場合のみ使用:
+
+```bash
+# スクリプトを使用
+./scripts/reset-migrations.sh
+
+# または手動で
+flyctl ssh console -a myanimelogs-production
+# データベースでTRUNCATE TABLE migrations;を実行
+# アプリを再起動してマイグレーションを再実行
+```
+
+詳細は `scripts/reset-migrations.sh` のコメントを参照してください。

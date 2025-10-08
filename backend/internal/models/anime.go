@@ -13,6 +13,7 @@ type Anime struct {
 	Status        *string   `json:"status" db:"status"`
 	WatchersCount int       `json:"watchers_count" db:"watchers_count"`
 	MalAnimeID    *string   `json:"mal_anime_id" db:"mal_anime_id"` // MyAnimeList ID
+	AnnictID      *int      `json:"annict_id" db:"annict_id"`       // Annict ID
 	CreatedAt     time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at" db:"updated_at"`
 
