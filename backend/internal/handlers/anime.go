@@ -16,10 +16,10 @@ import (
 
 type AnimeHandler struct {
 	*BaseHandler
-	animeService *services.AnimeService
+	animeService services.AnimeServiceInterface
 }
 
-func NewAnimeHandler(animeService *services.AnimeService, logger *common.Logger, errorMonitor *common.ErrorMonitor) *AnimeHandler {
+func NewAnimeHandler(animeService services.AnimeServiceInterface, logger *common.Logger, errorMonitor *common.ErrorMonitor) *AnimeHandler {
 	return &AnimeHandler{
 		BaseHandler:  NewBaseHandlerWithLogger(logger, errorMonitor),
 		animeService: animeService,
