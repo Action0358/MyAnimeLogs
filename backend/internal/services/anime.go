@@ -799,10 +799,9 @@ func (s *AnimeService) GetSearchSuggestions(query string, limit int) ([]string, 
 		SELECT title
 		FROM animes
 		WHERE title ILIKE $1
-		  AND title IS NOT NULL 
-		  AND title != ''
-		GROUP BY title, watchers_count
-		ORDER BY watchers_count DESC NULLS LAST, title
+		  AND TRIM(title) <> ''
+		GROUP BY title
+		ORDER BY MAX(watchers_count) DESC NULLS LAST, title
 		LIMIT $2
 	`, query+"%", limit)
 
