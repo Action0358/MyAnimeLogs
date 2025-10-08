@@ -618,18 +618,18 @@ func (s *AnimeService) GetFilterOptions() (*models.FilterOptions, error) {
 
 	// シーズン一覧を取得
 	seasonRows, err := s.db.Query(`
-		SELECT season,
+		SELECT season
+		FROM animes
+		WHERE season IS NOT NULL AND season != ''
+		GROUP BY season
+		ORDER BY 
 			CASE season
 				WHEN $1 THEN 1
 				WHEN $2 THEN 2
 				WHEN $3 THEN 3
 				WHEN $4 THEN 4
 				ELSE 5
-			END as sort_order
-		FROM animes
-		WHERE season IS NOT NULL AND season != ''
-		GROUP BY season
-		ORDER BY sort_order
+			END
 	`, constants.SeasonSpring, constants.SeasonSummer, constants.SeasonAutumn, constants.SeasonWinter)
 	if err != nil {
 		s.logger.Error("Failed to get seasons", "error", err)
@@ -638,8 +638,7 @@ func (s *AnimeService) GetFilterOptions() (*models.FilterOptions, error) {
 		seasons := []string{}
 		for seasonRows.Next() {
 			var season string
-			var sortOrder int
-			err := seasonRows.Scan(&season, &sortOrder)
+			err := seasonRows.Scan(&season)
 			if err != nil {
 				s.logger.Error("Failed to scan season", "error", err)
 				continue
@@ -821,11 +820,6 @@ func (s *AnimeService) GetSearchSuggestions(query string, limit int) ([]string, 
 			continue
 		}
 		suggestions = append(suggestions, title)
-	}
-
-	// nilの場合は空配列を返す
-	if suggestions == nil {
-		suggestions = []string{}
 	}
 
 	return suggestions, nil
