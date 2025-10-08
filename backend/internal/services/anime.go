@@ -618,17 +618,18 @@ func (s *AnimeService) GetFilterOptions() (*models.FilterOptions, error) {
 
 	// シーズン一覧を取得
 	seasonRows, err := s.db.Query(`
-		SELECT DISTINCT season
-		FROM animes
-		WHERE season IS NOT NULL AND season != ''
-		ORDER BY 
+		SELECT season,
 			CASE season
 				WHEN $1 THEN 1
 				WHEN $2 THEN 2
 				WHEN $3 THEN 3
 				WHEN $4 THEN 4
 				ELSE 5
-			END
+			END as sort_order
+		FROM animes
+		WHERE season IS NOT NULL AND season != ''
+		GROUP BY season
+		ORDER BY sort_order
 	`, constants.SeasonSpring, constants.SeasonSummer, constants.SeasonAutumn, constants.SeasonWinter)
 	if err != nil {
 		s.logger.Error("Failed to get seasons", "error", err)
@@ -637,7 +638,8 @@ func (s *AnimeService) GetFilterOptions() (*models.FilterOptions, error) {
 		seasons := []string{}
 		for seasonRows.Next() {
 			var season string
-			err := seasonRows.Scan(&season)
+			var sortOrder int
+			err := seasonRows.Scan(&season, &sortOrder)
 			if err != nil {
 				s.logger.Error("Failed to scan season", "error", err)
 				continue
@@ -789,31 +791,23 @@ func (s *AnimeService) GetSearchSuggestions(query string, limit int) ([]string, 
 		return []string{}, nil
 	}
 
+	// limitのデフォルト値設定
 	if limit <= 0 {
 		limit = 10
 	}
 
-	// 検索候補では部分一致が重要なので、FTSと前方一致を組み合わせる
 	rows, err := s.db.Query(`
 		SELECT title
 		FROM animes
-		WHERE (
-			title ILIKE $1 OR  -- 前方一致（インデックス効率化のため）
-			to_tsvector('simple', title) @@ plainto_tsquery('simple', $2)  -- FTS検索
-		) AND title IS NOT NULL AND title != ''
-		GROUP BY title
-		ORDER BY 
-			CASE 
-				WHEN title ILIKE $1 THEN 1  -- 前方一致を最優先
-				WHEN title ILIKE $3 THEN 2  -- 部分一致を次優先
-				ELSE 3  -- FTS一致を最後
-			END,
-			LENGTH(title),
-			title
-		LIMIT $4
-	`, query+"%", query, "%"+query+"%", limit)
+		WHERE title ILIKE $1
+		  AND title IS NOT NULL 
+		  AND title != ''
+		GROUP BY title, watchers_count
+		ORDER BY watchers_count DESC NULLS LAST, title
+		LIMIT $2
+	`, query+"%", limit)
+
 	if err != nil {
-		// データベースエラーの詳細ログ出力
 		s.logger.Error("Failed to get search suggestions", "error", err, "query", query, "limit", limit)
 		return []string{}, nil // エラーでも空配列を返す
 	}
@@ -822,18 +816,18 @@ func (s *AnimeService) GetSearchSuggestions(query string, limit int) ([]string, 
 	suggestions := []string{}
 	for rows.Next() {
 		var title string
-		err := rows.Scan(&title)
-		if err != nil {
-			s.logger.Error("Failed to scan suggestion title", "error", err)
+		if err := rows.Scan(&title); err != nil {
+			s.logger.Warn("Failed to scan suggestion title", "error", err)
 			continue
 		}
-		// 空文字列やnullをスキップ
-		if strings.TrimSpace(title) != "" {
-			suggestions = append(suggestions, title)
-		}
+		suggestions = append(suggestions, title)
 	}
 
-	// 結果が0件でも正常レスポンス
+	// nilの場合は空配列を返す
+	if suggestions == nil {
+		suggestions = []string{}
+	}
+
 	return suggestions, nil
 }
 
