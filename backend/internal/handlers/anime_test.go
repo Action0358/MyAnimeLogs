@@ -264,3 +264,21 @@ func TestAnimeHandler_BasicFunctionality(t *testing.T) {
 	assert.NotNil(t, handler.GetRecentlyWatched)
 	assert.NotNil(t, handler.GetWatchlist)
 }
+
+// ===== 検索機能のテスト =====
+
+func TestAnimeHandler_GetSearchSuggestions(t *testing.T) {
+	t.Skip("Skipping test that requires database connection - needs mock implementation")
+}
+
+func TestAnimeHandler_GetFilterOptions_Success(t *testing.T) {
+	t.Skip("Skipping test that requires database connection - needs mock implementation")
+}
+
+func TestAnimeHandler_GetPopularSearches(t *testing.T) {
+	t.Skip("Skipping test that requires database connection - needs mock implementation")
+}
+
+func TestAnimeHandler_AdvancedSearchAnimes(t *testing.T) {
+	t.Skip("Skipping test that requires database connection - needs mock implementation")
+}
