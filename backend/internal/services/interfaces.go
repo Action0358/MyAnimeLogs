@@ -42,3 +42,6 @@ type AnimeServiceInterface interface {
 	GetPopularSearches(limit int) ([]string, error)
 	GetSearchSuggestions(query string, limit int) ([]string, error)
 }
+
+// Ensure AnimeService implements AnimeServiceInterface
+var _ AnimeServiceInterface = (*AnimeService)(nil)
