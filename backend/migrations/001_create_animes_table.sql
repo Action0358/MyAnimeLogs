@@ -6,6 +6,22 @@ CREATE TABLE IF NOT EXISTS animes (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Ensure id column has proper sequence (idempotent)
+DO $$
+BEGIN
+    -- Check if sequence exists, if not create it
+    IF NOT EXISTS (SELECT 1 FROM pg_class WHERE relname = 'animes_id_seq') THEN
+        CREATE SEQUENCE animes_id_seq;
+    END IF;
+    
+    -- Ensure id column uses the sequence
+    ALTER TABLE animes ALTER COLUMN id SET DEFAULT nextval('animes_id_seq');
+    ALTER SEQUENCE animes_id_seq OWNED BY animes.id;
+    
+    -- Set sequence to current max id
+    PERFORM setval('animes_id_seq', COALESCE((SELECT MAX(id) FROM animes), 0) + 1, false);
+END $$;
+
 -- Add all missing columns if they don't exist
 DO $$ 
 BEGIN 
