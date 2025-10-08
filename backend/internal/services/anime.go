@@ -799,8 +799,7 @@ func (s *AnimeService) GetSearchSuggestions(query string, limit int) ([]string, 
 		SELECT title
 		FROM animes
 		WHERE title ILIKE $1
-		  AND title IS NOT NULL 
-		  AND title != ''
+		  AND TRIM(title) <> ''
 		GROUP BY title
 		ORDER BY MAX(watchers_count) DESC NULLS LAST, title
 		LIMIT $2
@@ -819,10 +818,7 @@ func (s *AnimeService) GetSearchSuggestions(query string, limit int) ([]string, 
 			s.logger.Warn("Failed to scan suggestion title", "error", err)
 			continue
 		}
-		// 空白文字のみのタイトルをスキップ
-		if strings.TrimSpace(title) != "" {
-			suggestions = append(suggestions, title)
-		}
+		suggestions = append(suggestions, title)
 	}
 
 	return suggestions, nil
