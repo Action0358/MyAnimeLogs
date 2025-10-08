@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"myanimelogs/internal/common"
+	"myanimelogs/internal/constants"
 	"myanimelogs/internal/mocks"
 	"myanimelogs/internal/models"
 
@@ -42,18 +43,6 @@ type searchSuggestionsResponse struct {
 
 type popularSearchesResponse struct {
 	PopularSearches []string `json:"popular_searches"`
-}
-
-type filterOptionsResponse struct {
-	Genres  []models.GenreInfo `json:"genres"`
-	Years   []int              `json:"years"`
-	Seasons []string           `json:"seasons"`
-	Ratings models.RatingStats `json:"ratings"`
-}
-
-type advancedSearchResponse struct {
-	Data []models.AnimeWithUserData `json:"data"`
-	Meta models.PaginationMeta      `json:"meta"`
 }
 
 func TestAnimeHandler_GetAnimes_ValidationError(t *testing.T) {
@@ -455,7 +444,7 @@ func TestAnimeHandler_GetFilterOptions_Success(t *testing.T) {
 
 			assert.Equal(t, tt.expectedStatus, w.Code)
 
-			var response filterOptionsResponse
+			var response models.FilterOptions
 			err := json.Unmarshal(w.Body.Bytes(), &response)
 			assert.NoError(t, err)
 
@@ -467,12 +456,22 @@ func TestAnimeHandler_GetFilterOptions_Success(t *testing.T) {
 
 			if tt.expectDefaultData {
 				// デフォルト値が返されることを確認
+				assert.Equal(t, 0, len(response.Genres))
+				assert.Equal(t, 0, len(response.Years))
+				assert.NotNil(t, response.Seasons)
 				assert.Equal(t, 1.0, response.Ratings.Min)
 				assert.Equal(t, 5.0, response.Ratings.Max)
+				assert.Equal(t, 3.0, response.Ratings.Average)
+				assert.Equal(t, 0, response.Ratings.Count)
 			} else if tt.mockReturn != nil {
-				// モックの戻り値と一致することを確認
+				// モックの戻り値と完全に一致することを確認
 				assert.Equal(t, len(tt.mockReturn.Genres), len(response.Genres))
 				assert.Equal(t, len(tt.mockReturn.Years), len(response.Years))
+				assert.Equal(t, len(tt.mockReturn.Seasons), len(response.Seasons))
+				assert.Equal(t, tt.mockReturn.Ratings.Min, response.Ratings.Min)
+				assert.Equal(t, tt.mockReturn.Ratings.Max, response.Ratings.Max)
+				assert.Equal(t, tt.mockReturn.Ratings.Average, response.Ratings.Average)
+				assert.Equal(t, tt.mockReturn.Ratings.Count, response.Ratings.Count)
 			}
 
 			mockService.AssertExpectations(t)
@@ -567,7 +566,15 @@ func TestAnimeHandler_GetPopularSearches(t *testing.T) {
 				assert.Equal(t, 0, len(response.PopularSearches))
 			} else if tt.expectDefaultData {
 				// デフォルト値が返されることを確認
-				assert.Greater(t, len(response.PopularSearches), 0)
+				expectedLen := len(constants.DefaultPopularSearches)
+				if tt.expectedLimit < expectedLen {
+					expectedLen = tt.expectedLimit
+				}
+				assert.Equal(t, expectedLen, len(response.PopularSearches))
+				// デフォルト値の内容を検証
+				for i, search := range response.PopularSearches {
+					assert.Equal(t, constants.DefaultPopularSearches[i], search)
+				}
 			} else {
 				assert.Equal(t, len(tt.mockReturn), len(response.PopularSearches))
 			}
@@ -677,11 +684,46 @@ func TestAnimeHandler_AdvancedSearchAnimes(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockService := new(mocks.MockAnimeService)
-			// mock.MatchedBy を使用してパラメータの主要フィールドを検証
+			// mock.MatchedBy を使用してパラメータのすべての関連フィールドを検証
 			mockService.On("AdvancedSearchAnimes",
 				mock.MatchedBy(func(params models.AdvancedSearchParams) bool {
-					return params.Query == tt.expectedParams.Query &&
-						params.Page == tt.expectedParams.Page
+					// 基本フィールドの検証
+					if params.Query != tt.expectedParams.Query {
+						return false
+					}
+					if params.Page != tt.expectedParams.Page {
+						return false
+					}
+					// ソート関連の検証
+					if params.Sort != tt.expectedParams.Sort {
+						return false
+					}
+					if params.Order != tt.expectedParams.Order {
+						return false
+					}
+					// フィルター関連の検証
+					if params.Year != tt.expectedParams.Year {
+						return false
+					}
+					if params.Season != tt.expectedParams.Season {
+						return false
+					}
+					if params.MinRating != tt.expectedParams.MinRating {
+						return false
+					}
+					if params.MaxRating != tt.expectedParams.MaxRating {
+						return false
+					}
+					// ジャンルの検証
+					if len(params.Genres) != len(tt.expectedParams.Genres) {
+						return false
+					}
+					for i, genre := range params.Genres {
+						if genre != tt.expectedParams.Genres[i] {
+							return false
+						}
+					}
+					return true
 				}),
 				mock.AnythingOfType("*int"),
 			).Return(tt.mockReturn, tt.mockError)
@@ -697,7 +739,7 @@ func TestAnimeHandler_AdvancedSearchAnimes(t *testing.T) {
 			assert.Equal(t, tt.expectedStatus, w.Code)
 
 			if tt.expectedStatus == http.StatusOK {
-				var response advancedSearchResponse
+				var response models.PaginatedResponse
 				err := json.Unmarshal(w.Body.Bytes(), &response)
 				assert.NoError(t, err)
 				assert.NotNil(t, response.Data)
@@ -705,6 +747,8 @@ func TestAnimeHandler_AdvancedSearchAnimes(t *testing.T) {
 
 				if tt.mockReturn != nil {
 					assert.Equal(t, tt.mockReturn.Meta.Total, response.Meta.Total)
+					assert.Equal(t, tt.mockReturn.Meta.CurrentPage, response.Meta.CurrentPage)
+					assert.Equal(t, tt.mockReturn.Meta.TotalPages, response.Meta.TotalPages)
 				}
 			}
 
