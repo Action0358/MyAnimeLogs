@@ -98,10 +98,7 @@ func TestAnimeService_SetSearchDefaults(t *testing.T) {
 			params := tt.input
 			service.setSearchDefaults(&params)
 
-			assert.Equal(t, tt.expected.Page, params.Page, "Page should match")
-			assert.Equal(t, tt.expected.PerPage, params.PerPage, "PerPage should match")
-			assert.Equal(t, tt.expected.Sort, params.Sort, "Sort should match")
-			assert.Equal(t, tt.expected.Order, params.Order, "Order should match")
+			assert.Equal(t, tt.expected, params)
 		})
 	}
 }
@@ -430,27 +427,14 @@ func TestAnimeService_ErrorConstants(t *testing.T) {
 	assert.Equal(t, "episode not found", ErrEpisodeNotFound.Error())
 }
 
-// TestAnimeService_MethodsExist tests that all interface methods are implemented
-func TestAnimeService_MethodsExist(t *testing.T) {
+// TestAnimeService_ImplementsInterface verifies that AnimeService implements AnimeServiceInterface
+func TestAnimeService_ImplementsInterface(t *testing.T) {
 	logger := common.NewLogger(common.LogLevelDebug, "text")
 	service := NewAnimeService(nil, logger)
 
-	// Verify that service implements AnimeServiceInterface
+	// Verify that service implements AnimeServiceInterface (compile-time check)
 	var _ AnimeServiceInterface = service
 
-	// Test that methods exist (compile-time check)
-	assert.NotNil(t, service.SearchAnimes)
-	assert.NotNil(t, service.AdvancedSearchAnimes)
-	assert.NotNil(t, service.GetAnimeByID)
-	assert.NotNil(t, service.GetAnimeEpisodes)
-	assert.NotNil(t, service.GetUserFavorites)
-	assert.NotNil(t, service.UpdateFavorite)
-	assert.NotNil(t, service.DeleteFavorite)
-	assert.NotNil(t, service.UpdateWatchStatus)
-	assert.NotNil(t, service.UpdateRating)
-	assert.NotNil(t, service.DeleteRating)
-	assert.NotNil(t, service.GetRecentlyWatched)
-	assert.NotNil(t, service.GetFilterOptions)
-	assert.NotNil(t, service.GetPopularSearches)
-	assert.NotNil(t, service.GetSearchSuggestions)
+	// If this compiles, the interface is correctly implemented
+	assert.NotNil(t, service)
 }
