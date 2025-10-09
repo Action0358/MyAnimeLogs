@@ -7,6 +7,9 @@ node_modules/
 
 # Testing
 /coverage
+*.out
+coverage.out
+coverage.txt
 
 # Next.js
 .next/
