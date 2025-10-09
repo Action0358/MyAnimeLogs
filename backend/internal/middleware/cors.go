@@ -11,29 +11,45 @@ import (
 func CORSMiddleware() gin.HandlerFunc {
 	config := cors.DefaultConfig()
 
-	// デフォルトの許可オリジン
-	defaultOrigins := []string{
-		"http://localhost:3000",           // React development server
-		"http://localhost:3001",           // React development server (alternative port)
-		"https://stg.myanimelogs.com",     // Staging environment
-		"https://myanimelogs.com",         // Production environment
-		"https://www.myanimelogs.com",     // Production environment (www)
-		"https://myanimelogs.pages.dev",   // Cloudflare Pages (if used)
-		"https://myanimelogs.netlify.app", // Netlify (if used)
-	}
-
-	// 環境変数から追加のオリジンを取得
+	// 環境変数から許可オリジンを取得
+	allowedOrigins := []string{}
 	if envOrigins := os.Getenv("CORS_ALLOWED_ORIGINS"); envOrigins != "" {
-		additionalOrigins := strings.Split(envOrigins, ",")
-		for _, origin := range additionalOrigins {
+		origins := strings.Split(envOrigins, ",")
+		for _, origin := range origins {
 			origin = strings.TrimSpace(origin)
 			if origin != "" {
-				defaultOrigins = append(defaultOrigins, origin)
+				allowedOrigins = append(allowedOrigins, origin)
 			}
 		}
 	}
 
-	config.AllowOrigins = defaultOrigins
+	// 環境変数が設定されていない場合のフォールバック（開発環境用）
+	if len(allowedOrigins) == 0 {
+		allowedOrigins = []string{
+			"http://localhost:3000", // Local development
+			"http://localhost:3001", // Local development (alternative port)
+		}
+	}
+
+	// Cloudflare Pages プレビューデプロイの動的許可
+	// *.pages.dev ドメインを許可する場合
+	config.AllowOriginFunc = func(origin string) bool {
+		// 明示的に許可されたオリジン
+		for _, allowed := range allowedOrigins {
+			if origin == allowed {
+				return true
+			}
+		}
+
+		// Cloudflare Pages プレビューデプロイを許可
+		// 例: https://abc123.myanimelogs.pages.dev
+		if strings.HasSuffix(origin, ".myanimelogs.pages.dev") && strings.HasPrefix(origin, "https://") {
+			return true
+		}
+
+		return false
+	}
+
 	config.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
 	config.AllowHeaders = []string{"Origin", "Content-Type", "Authorization"}
 	config.AllowCredentials = true
