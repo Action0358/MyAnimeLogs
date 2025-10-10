@@ -1137,27 +1137,112 @@ components:
       properties:
         id:
           type: integer
+          description: Annict作品ID
         title:
           type: string
+          description: 作品タイトル
         title_kana:
           type: string
+          description: 作品タイトル（かな）
         title_en:
           type: string
+          description: 作品タイトル（英語）
+        media:
+          type: string
+          description: メディアタイプコード
+          example: "tv"
+        media_text:
+          type: string
+          description: メディアタイプ表示名
+          example: "TV"
         season_name:
           type: string
+          description: シーズン名
+          example: "2025-autumn"
         season_year:
           type: integer
-        watchers_count:
-          type: integer
-        reviews_count:
-          type: integer
-        mal_anime_id:
+          description: 放送年
+          example: 2025
+        released_on:
           type: string
+          description: 放送開始日
+          example: "2025-10-01"
+        released_on_about:
+          type: string
+          description: 放送開始日（概算）
+          example: "2025年10月"
         official_site_url:
           type: string
+          format: uri
+          description: 公式サイトURL
         wikipedia_url:
           type: string
+          format: uri
+          description: Wikipedia URL
         twitter_username:
           type: string
+          description: Twitter ユーザー名
         twitter_hashtag:
           type: string
+          description: Twitter ハッシュタグ
+        mal_anime_id:
+          type: string
+          nullable: true
+          description: MyAnimeList ID（nullの場合あり）
+        images:
+          type: object
+          nullable: true
+          description: Annict API画像情報
+          properties:
+            recommended_url:
+              type: string
+              format: uri
+            facebook:
+              type: object
+              nullable: true
+              properties:
+                og_image_url:
+                  type: string
+                  format: uri
+            twitter:
+              type: object
+              nullable: true
+              properties:
+                mini_avatar_url:
+                  type: string
+                  format: uri
+                normal_avatar_url:
+                  type: string
+                  format: uri
+                bigger_avatar_url:
+                  type: string
+                  format: uri
+                original_avatar_url:
+                  type: string
+                  format: uri
+                image_url:
+                  type: string
+                  format: uri
+        episodes_count:
+          type: integer
+          description: エピソード数
+          example: 12
+        watchers_count:
+          type: integer
+          description: 視聴者数
+          example: 1000
+        reviews_count:
+          type: integer
+          description: レビュー数
+          example: 50
+        no_episodes:
+          type: boolean
+          description: エピソード情報なしフラグ
+        cover_image_large:
+          type: string
+          format: uri
+          description: AniList APIから取得した大サイズカバー画像URL
+        cover_image_medium:
+          type: string
+          format: uri
+          description: AniList APIから取得した中サイズカバー画像URL
