@@ -1,9 +1,14 @@
+'use client';
+
 import type React from 'react';
 import { Container } from '@/components/layout';
 import { CurrentSeasonAnime, PopularAnime } from '@/components/anime';
+import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
 
 const HomePage: React.FC = () => {
+  const { isAuthenticated } = useAuth();
+
   return (
     <Container className="py-12">
       <div className="text-center">
@@ -14,14 +19,16 @@ const HomePage: React.FC = () => {
           あなたのアニメ視聴体験を記録・管理しましょう
         </p>
         
-        <div className="flex justify-center space-x-4">
-          <Link 
-            href={"/register" as any}
-            className="inline-flex items-center justify-center h-11 px-6 text-base font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 transition-colors"
-          >
-            今すぐ始める
-          </Link>
-        </div>
+        {!isAuthenticated && (
+          <div className="flex justify-center space-x-4">
+            <Link 
+              href="/register"
+              className="inline-flex items-center justify-center h-11 px-6 text-base font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 transition-colors"
+            >
+              今すぐ始める
+            </Link>
+          </div>
+        )}
         
         {/* 機能紹介 */}
         <div className="mt-16">

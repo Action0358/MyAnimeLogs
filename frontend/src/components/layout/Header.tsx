@@ -3,18 +3,14 @@
 import React from 'react'
 import Link from 'next/link'
 import Container from './Container'
-import Button from '../ui/Button'
-import { useAuth } from '@/hooks/useAuth'
+import { Button } from '../ui/Button'
+import { useAuth } from '@/contexts/AuthContext'
 
 const Header: React.FC = () => {
   const { user, isLoading, logout } = useAuth()
 
-  const handleLogout = async () => {
-    const result = await logout()
-    if (!result.success) {
-      // エラーハンドリング（必要に応じてトースト通知など）
-      console.error('ログアウトに失敗しました:', result.error)
-    }
+  const handleLogout = () => {
+    logout()
   }
   return (
     <header className="bg-white shadow-sm border-b border-gray-200">
@@ -34,22 +30,7 @@ const Header: React.FC = () => {
 
           {/* ナビゲーション */}
           <nav className="hidden md:flex items-center space-x-8">
-            {user && (
-              <>
-                <Link
-                  href={'/mypage' as any}
-                  className="text-gray-600 hover:text-gray-900 transition-colors"
-                >
-                  マイページ
-                </Link>
-                <Link
-                  href={'/stats' as any}
-                  className="text-gray-600 hover:text-gray-900 transition-colors"
-                >
-                  統計
-                </Link>
-              </>
-            )}
+            {/* 将来的にナビゲーションリンクを追加する場合はここに配置 */}
           </nav>
 
           {/* ユーザーメニュー */}
@@ -74,12 +55,12 @@ const Header: React.FC = () => {
               </div>
             ) : (
               <div className="flex items-center space-x-3">
-                <Link href={'/register' as any}>
+                <Link href="/register">
                   <Button variant="primary" size="sm">
                     新規登録
                   </Button>
                 </Link>
-                <Link href={'/login' as any}>
+                <Link href="/login">
                   <Button variant="ghost" size="sm">
                     ログイン
                   </Button>
