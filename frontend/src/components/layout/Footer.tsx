@@ -45,7 +45,7 @@ const Footer: React.FC = () => {
               <ul className="space-y-2">
                 <li>
                   <Link
-                    href={'/animes' as any}
+                    href="/animes"
                     className="text-gray-600 hover:text-gray-900 transition-colors"
                   >
                     アニメ一覧
@@ -53,7 +53,7 @@ const Footer: React.FC = () => {
                 </li>
                 <li>
                   <Link
-                    href={'/search' as any}
+                    href="/search"
                     className="text-gray-600 hover:text-gray-900 transition-colors"
                   >
                     検索
@@ -61,7 +61,7 @@ const Footer: React.FC = () => {
                 </li>
                 <li>
                   <Link
-                    href={'/about' as any}
+                    href="/about"
                     className="text-gray-600 hover:text-gray-900 transition-colors"
                   >
                     サイトについて
@@ -78,7 +78,7 @@ const Footer: React.FC = () => {
               <ul className="space-y-2">
                 <li>
                   <Link
-                    href={'/help' as any}
+                    href="/help"
                     className="text-gray-600 hover:text-gray-900 transition-colors"
                   >
                     ヘルプ
@@ -86,7 +86,7 @@ const Footer: React.FC = () => {
                 </li>
                 <li>
                   <Link
-                    href={'/contact' as any}
+                    href="/contact"
                     className="text-gray-600 hover:text-gray-900 transition-colors"
                   >
                     お問い合わせ
@@ -94,7 +94,7 @@ const Footer: React.FC = () => {
                 </li>
                 <li>
                   <Link
-                    href={'/privacy' as any}
+                    href="/privacy"
                     className="text-gray-600 hover:text-gray-900 transition-colors"
                   >
                     プライバシーポリシー
@@ -102,7 +102,7 @@ const Footer: React.FC = () => {
                 </li>
                 <li>
                   <Link
-                    href={'/terms' as any}
+                    href="/terms"
                     className="text-gray-600 hover:text-gray-900 transition-colors"
                   >
                     利用規約

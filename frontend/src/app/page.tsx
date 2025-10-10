@@ -22,7 +22,7 @@ const HomePage: React.FC = () => {
         {!isAuthenticated && (
           <div className="flex justify-center space-x-4">
             <Link 
-              href={"/register" as any}
+              href="/register"
               className="inline-flex items-center justify-center h-11 px-6 text-base font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 transition-colors"
             >
               今すぐ始める

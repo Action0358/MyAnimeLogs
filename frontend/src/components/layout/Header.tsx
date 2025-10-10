@@ -55,12 +55,12 @@ const Header: React.FC = () => {
               </div>
             ) : (
               <div className="flex items-center space-x-3">
-                <Link href={'/register' as any}>
+                <Link href="/register">
                   <Button variant="primary" size="sm">
                     新規登録
                   </Button>
                 </Link>
-                <Link href={'/login' as any}>
+                <Link href="/login">
                   <Button variant="ghost" size="sm">
                     ログイン
                   </Button>

@@ -39,14 +39,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // トークンとユーザー情報の初期化
   useEffect(() => {
-    const storedToken = localStorage.getItem('token')
-    const storedUser = localStorage.getItem('user')
+    try {
+      const storedToken = localStorage.getItem('token')
+      const storedUser = localStorage.getItem('user')
 
-    if (storedToken && storedUser) {
-      setToken(storedToken)
-      setUser(JSON.parse(storedUser))
+      if (storedToken && storedUser) {
+        try {
+          const parsedUser = JSON.parse(storedUser)
+          setToken(storedToken)
+          setUser(parsedUser)
+        } catch (parseError) {
+          // 不正なJSON形式の場合はlocalStorageをクリア
+          console.error('Failed to parse user data from localStorage:', parseError)
+          localStorage.removeItem('token')
+          localStorage.removeItem('user')
+        }
+      }
+    } catch (error) {
+      // localStorage自体にアクセスできない場合（プライベートモードなど）
+      console.error('Failed to access localStorage:', error)
+    } finally {
+      setIsLoading(false)
     }
-    setIsLoading(false)
   }, [])
 
   const login = useCallback(
