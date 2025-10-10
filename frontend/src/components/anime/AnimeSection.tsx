@@ -83,7 +83,7 @@ const AnimeSection: React.FC<AnimeSectionProps> = ({
   queryKey,
   queryFn,
   linkHref,
-  linkText = 'すべて見る',
+  linkText = 'もっと見る',
   emptyMessage,
   errorMessage,
   icon,
