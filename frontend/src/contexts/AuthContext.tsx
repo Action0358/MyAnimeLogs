@@ -29,6 +29,9 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+// APIベースURLを定数として定義
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
@@ -66,9 +69,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const login = useCallback(
     async (email: string, password: string) => {
       try {
-        const apiUrl =
-          process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
-        const response = await fetch(`${apiUrl}/api/login`, {
+        const response = await fetch(`${API_BASE_URL}/api/login`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -83,8 +84,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
         const data = await response.json()
 
-        // APIは access_token を返す
-        const accessToken = data.access_token || data.token
+        // OpenAPI仕様に従い、access_tokenを取得
+        const accessToken = data.access_token
 
         setToken(accessToken)
         setUser(data.user)
@@ -104,9 +105,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const register = useCallback(
     async (name: string, email: string, password: string) => {
       try {
-        const apiUrl =
-          process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
-        const response = await fetch(`${apiUrl}/api/register`, {
+        const response = await fetch(`${API_BASE_URL}/api/register`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -123,8 +122,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
         // 登録後、自動的にログイン状態にする
         if (data.user) {
-          // 登録APIがトークンを返す場合
-          const accessToken = data.access_token || data.token
+          // 登録APIがトークンを返す場合（OpenAPI仕様では定義されていないが、実装によっては返す可能性がある）
+          const accessToken = data.access_token
           if (accessToken) {
             setToken(accessToken)
             setUser(data.user)
