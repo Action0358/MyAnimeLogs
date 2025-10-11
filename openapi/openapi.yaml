@@ -506,7 +506,7 @@ paths:
                   $ref: "#/components/schemas/WatchlistItem"
   /search/animes:
     get:
-      summary: 高度なアニメ検索
+      summary: 基本的なアニメ検索
       parameters:
         - name: q
           in: query
@@ -562,6 +562,418 @@ paths:
                         type: integer
                       total:
                         type: integer
+  /search/advanced:
+    get:
+      summary: 高度なアニメ検索
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+          description: 検索クエリ
+        - name: genres
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+          description: ジャンル絞り込み（複数指定可）
+        - name: year
+          in: query
+          schema:
+            type: integer
+          description: 放送年絞り込み
+        - name: season
+          in: query
+          schema:
+            type: string
+            enum: ["spring", "summer", "autumn", "winter"]
+          description: シーズン絞り込み
+        - name: min_rating
+          in: query
+          schema:
+            type: number
+            format: float
+            minimum: 1.0
+            maximum: 5.0
+          description: 最低評価
+        - name: max_rating
+          in: query
+          schema:
+            type: number
+            format: float
+            minimum: 1.0
+            maximum: 5.0
+          description: 最高評価
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: ["airing", "finished"]
+          description: 放送状態
+        - name: user_status
+          in: query
+          schema:
+            type: string
+            enum: ["watching", "completed", "planned", "dropped"]
+          description: ユーザーの視聴ステータス（認証時のみ）
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: ["title", "rating", "year", "popularity", "updated"]
+            default: "title"
+          description: ソート条件
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: ["asc", "desc"]
+            default: "asc"
+          description: ソート順
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: 検索結果
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SearchResultAnime"
+                  meta:
+                    type: object
+                    properties:
+                      total_pages:
+                        type: integer
+                      current_page:
+                        type: integer
+                      per_page:
+                        type: integer
+                      total:
+                        type: integer
+  /search/suggestions:
+    get:
+      summary: 検索候補を取得
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+          description: 検索クエリ
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+          description: 取得件数
+      responses:
+        "200":
+          description: 検索候補一覧
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  suggestions:
+                    type: array
+                    items:
+                      type: string
+                    example: ["進撃の巨人", "進撃の巨人 Season 2"]
+  /search/popular:
+    get:
+      summary: 人気検索キーワードを取得
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+          description: 取得件数
+      responses:
+        "200":
+          description: 人気検索キーワード一覧
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  popular_searches:
+                    type: array
+                    items:
+                      type: string
+                    example: ["進撃の巨人", "鬼滅の刃", "呪術廻戦"]
+  /filters:
+    get:
+      summary: フィルター情報を取得
+      description: 検索フィルターに使用可能なジャンル、年、シーズン、評価情報を取得
+      responses:
+        "200":
+          description: フィルター情報
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  genres:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        count:
+                          type: integer
+                  years:
+                    type: array
+                    items:
+                      type: integer
+                  seasons:
+                    type: array
+                    items:
+                      type: string
+                      enum: ["spring", "summer", "autumn", "winter"]
+                  ratings:
+                    type: object
+                    properties:
+                      min:
+                        type: number
+                        format: float
+                      max:
+                        type: number
+                        format: float
+                      average:
+                        type: number
+                        format: float
+                      count:
+                        type: integer
+  /annict/works:
+    get:
+      summary: Annict APIからアニメ作品を取得
+      parameters:
+        - name: season
+          in: query
+          schema:
+            type: string
+          description: シーズン（例：2025-autumn）
+      responses:
+        "200":
+          description: Annictアニメ作品一覧
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  works:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AnnictWork"
+                  total_count:
+                    type: integer
+  /annict/popular-works:
+    get:
+      summary: Annict APIから人気アニメ作品を取得
+      responses:
+        "200":
+          description: 人気アニメ作品一覧
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  works:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AnnictWork"
+                  total_count:
+                    type: integer
+  /admin/sync/season:
+    post:
+      summary: シーズンアニメをデータベースに同期
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: season
+          in: query
+          schema:
+            type: string
+          description: シーズン（例：2025-autumn）
+      responses:
+        "200":
+          description: 同期成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  synced_count:
+                    type: integer
+        "401":
+          description: 認証が必要です
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /admin/sync/popular:
+    post:
+      summary: 人気アニメをデータベースに同期
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: 同期成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  synced_count:
+                    type: integer
+        "401":
+          description: 認証が必要です
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /admin/errors/metrics:
+    get:
+      summary: エラーメトリクスを取得
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: エラーメトリクス
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_errors:
+                    type: integer
+                  error_rate:
+                    type: number
+                    format: float
+                  errors_by_type:
+                    type: object
+                    additionalProperties:
+                      type: integer
+  /admin/errors/top:
+    get:
+      summary: トップエラーを取得
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: ["count", "rate"]
+            default: "count"
+      responses:
+        "200":
+          description: トップエラー一覧
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    error_code:
+                      type: string
+                    count:
+                      type: integer
+                    rate:
+                      type: number
+                      format: float
+  /admin/errors/reset:
+    post:
+      summary: エラーメトリクスをリセット
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: リセット成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+  /health:
+    get:
+      summary: ヘルスチェック
+      responses:
+        "200":
+          description: サービスは正常です
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+                  timestamp:
+                    type: string
+                    format: date-time
+  /health/detailed:
+    get:
+      summary: 詳細ヘルスチェック
+      responses:
+        "200":
+          description: 詳細なヘルスチェック情報
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "healthy"
+                  checks:
+                    type: object
+                    properties:
+                      database:
+                        type: object
+                        properties:
+                          status:
+                            type: string
+                          latency:
+                            type: number
+                      external_api:
+                        type: object
+                        properties:
+                          status:
+                            type: string
+                          latency:
+                            type: number
+                  timestamp:
+                    type: string
+                    format: date-time
 components:
   securitySchemes:
     bearerAuth:
@@ -720,3 +1132,117 @@ components:
           type: array
           items:
             type: string
+    AnnictWork:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Annict作品ID
+        title:
+          type: string
+          description: 作品タイトル
+        title_kana:
+          type: string
+          description: 作品タイトル（かな）
+        title_en:
+          type: string
+          description: 作品タイトル（英語）
+        media:
+          type: string
+          description: メディアタイプコード
+          example: "tv"
+        media_text:
+          type: string
+          description: メディアタイプ表示名
+          example: "TV"
+        season_name:
+          type: string
+          description: シーズン名
+          example: "2025-autumn"
+        season_year:
+          type: integer
+          description: 放送年
+          example: 2025
+        released_on:
+          type: string
+          description: 放送開始日
+          example: "2025-10-01"
+        released_on_about:
+          type: string
+          description: 放送開始日（概算）
+          example: "2025年10月"
+        official_site_url:
+          type: string
+          format: uri
+          description: 公式サイトURL
+        wikipedia_url:
+          type: string
+          format: uri
+          description: Wikipedia URL
+        twitter_username:
+          type: string
+          description: Twitter ユーザー名
+        twitter_hashtag:
+          type: string
+          description: Twitter ハッシュタグ
+        mal_anime_id:
+          type: string
+          nullable: true
+          description: MyAnimeList ID（nullの場合あり）
+        images:
+          type: object
+          nullable: true
+          description: Annict API画像情報
+          properties:
+            recommended_url:
+              type: string
+              format: uri
+            facebook:
+              type: object
+              nullable: true
+              properties:
+                og_image_url:
+                  type: string
+                  format: uri
+            twitter:
+              type: object
+              nullable: true
+              properties:
+                mini_avatar_url:
+                  type: string
+                  format: uri
+                normal_avatar_url:
+                  type: string
+                  format: uri
+                bigger_avatar_url:
+                  type: string
+                  format: uri
+                original_avatar_url:
+                  type: string
+                  format: uri
+                image_url:
+                  type: string
+                  format: uri
+        episodes_count:
+          type: integer
+          description: エピソード数
+          example: 12
+        watchers_count:
+          type: integer
+          description: 視聴者数
+          example: 1000
+        reviews_count:
+          type: integer
+          description: レビュー数
+          example: 50
+        no_episodes:
+          type: boolean
+          description: エピソード情報なしフラグ
+        cover_image_large:
+          type: string
+          format: uri
+          description: AniList APIから取得した大サイズカバー画像URL
+        cover_image_medium:
+          type: string
+          format: uri
+          description: AniList APIから取得した中サイズカバー画像URL
