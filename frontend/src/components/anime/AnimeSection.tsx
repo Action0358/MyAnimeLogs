@@ -3,6 +3,7 @@
 import type React from 'react'
 import { useState } from 'react'
 import Link from 'next/link'
+import type { Route } from 'next'
 import { useQuery } from '@tanstack/react-query'
 import { Button } from '@/components/ui'
 import type { AnnictWork } from '@/lib/api/annict'
@@ -83,7 +84,7 @@ const AnimeSection: React.FC<AnimeSectionProps> = ({
   queryKey,
   queryFn,
   linkHref,
-  linkText = 'すべて見る',
+  linkText = 'もっと見る',
   emptyMessage,
   errorMessage,
   icon,
@@ -130,7 +131,7 @@ const AnimeSection: React.FC<AnimeSectionProps> = ({
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
         <Link
-          href={linkHref as any}
+          href={linkHref as Route}
           className="inline-flex items-center justify-center h-8 px-3 text-sm font-medium rounded-md border border-gray-300 bg-transparent text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors"
         >
           {linkText}

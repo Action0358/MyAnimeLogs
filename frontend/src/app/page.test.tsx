@@ -1,7 +1,17 @@
 import { render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import '@testing-library/jest-dom'
+import { AuthProvider } from '@/contexts/AuthContext'
 import HomePage from './page'
+
+// Next.jsのuseRouterをモック
+jest.mock('next/navigation', () => ({
+  useRouter: () => ({
+    push: jest.fn(),
+    replace: jest.fn(),
+    prefetch: jest.fn(),
+  }),
+}))
 
 // テスト用のQueryClientを作成
 const createTestQueryClient = () =>
@@ -17,7 +27,9 @@ const createTestQueryClient = () =>
 const TestWrapper = ({ children }: { children: React.ReactNode }) => {
   const queryClient = createTestQueryClient()
   return (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    <AuthProvider>
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    </AuthProvider>
   )
 }
 
