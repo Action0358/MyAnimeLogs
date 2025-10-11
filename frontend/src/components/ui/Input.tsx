@@ -1,18 +1,19 @@
-'use client';
+'use client'
 
-import React, { forwardRef, useState } from 'react';
+import React, { forwardRef, useState } from 'react'
+import { cn } from '@/lib/utils'
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
-  label?: string;
-  error?: string;
-  helperText?: string;
+  label?: string
+  error?: string
+  helperText?: string
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
-  ({ label, error, helperText, className = '', type, ...props }, ref) => {
-    const [showPassword, setShowPassword] = useState(false);
-    const isPasswordField = type === 'password';
-    const inputType = isPasswordField && showPassword ? 'text' : type;
+  ({ label, error, helperText, className, type, ...props }, ref) => {
+    const [showPassword, setShowPassword] = useState(false)
+    const isPasswordField = type === 'password'
+    const inputType = isPasswordField && showPassword ? 'text' : type
 
     return (
       <div className="w-full">
@@ -26,14 +27,14 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           <input
             ref={ref}
             type={inputType}
-            className={`
-              w-full px-4 py-2 border rounded-md
-              focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
-              disabled:bg-gray-100 disabled:cursor-not-allowed
-              ${error ? 'border-red-500' : 'border-gray-300'}
-              ${isPasswordField ? 'pr-10' : ''}
-              ${className}
-            `}
+            className={cn(
+              'w-full px-4 py-2 border rounded-md',
+              'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+              'disabled:bg-gray-100 disabled:cursor-not-allowed',
+              error ? 'border-red-500' : 'border-gray-300',
+              isPasswordField && 'pr-10',
+              className
+            )}
             {...props}
           />
           {isPasswordField && (
@@ -82,15 +83,13 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             </button>
           )}
         </div>
-        {error && (
-          <p className="mt-1 text-sm text-red-600">{error}</p>
-        )}
+        {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
         {helperText && !error && (
           <p className="mt-1 text-sm text-gray-500">{helperText}</p>
         )}
       </div>
-    );
+    )
   }
-);
+)
 
-Input.displayName = 'Input';
+Input.displayName = 'Input'
