@@ -14,6 +14,10 @@ interface UserStats {
   thisMonthEpisodes: number;
 }
 
+// 定数定義
+const MINUTES_PER_EPISODE = 24;
+const HOURS_PER_EPISODE = MINUTES_PER_EPISODE / 60; // 0.4時間
+
 export const StatsPageContent: React.FC = () => {
   const { token } = useAuth();
   const router = useRouter();
@@ -189,10 +193,10 @@ export const StatsPageContent: React.FC = () => {
             <div className="text-center p-6 bg-gray-50 rounded-lg">
               <p className="text-sm text-gray-600 mb-2">今月の平均視聴時間</p>
               <p className="text-2xl font-bold text-gray-900">
-                {((stats.thisMonthEpisodes || 0) * 0.4).toFixed(1)}
+                {((stats.thisMonthEpisodes || 0) * HOURS_PER_EPISODE).toFixed(1)}
                 <span className="text-sm text-gray-600 ml-1">時間</span>
               </p>
-              <p className="text-xs text-gray-500 mt-1">※1話24分として計算</p>
+              <p className="text-xs text-gray-500 mt-1">※1話{MINUTES_PER_EPISODE}分として計算</p>
             </div>
 
             <div className="text-center p-6 bg-gray-50 rounded-lg">

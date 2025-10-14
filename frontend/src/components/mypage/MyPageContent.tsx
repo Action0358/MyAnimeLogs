@@ -52,13 +52,15 @@ export const MyPageContent: React.FC = () => {
         throw new Error('統計情報の取得に失敗しました')
       }
 
+      if (!favoritesResponse.ok) {
+        throw new Error('お気に入り情報の取得に失敗しました')
+      }
+
       const statsData = await statsResponse.json()
       setStats(statsData)
 
-      if (favoritesResponse.ok) {
-        const favoritesData = await favoritesResponse.json()
-        setFavorites(favoritesData.slice(0, 7)) // 7件取得して、6件より多いか判定
-      }
+      const favoritesData = await favoritesResponse.json()
+      setFavorites(favoritesData.slice(0, 7)) // 7件取得して、6件より多いか判定
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'データの取得に失敗しました'
