@@ -43,6 +43,7 @@ describe('StatsPage', () => {
       user: null,
       token: null,
       isLoading: false,
+      isAuthenticated: false,
     });
 
     render(<StatsPage />);
@@ -55,6 +56,7 @@ describe('StatsPage', () => {
       user: mockUser,
       token: 'test-token',
       isLoading: false,
+      isAuthenticated: true,
     });
 
     (global.fetch as jest.Mock).mockResolvedValueOnce({
@@ -76,6 +78,7 @@ describe('StatsPage', () => {
       user: mockUser,
       token: 'test-token',
       isLoading: false,
+      isAuthenticated: true,
     });
 
     (global.fetch as jest.Mock).mockResolvedValueOnce({
@@ -97,6 +100,7 @@ describe('StatsPage', () => {
       user: mockUser,
       token: 'test-token',
       isLoading: false,
+      isAuthenticated: true,
     });
 
     (global.fetch as jest.Mock).mockResolvedValueOnce({
@@ -108,5 +112,35 @@ describe('StatsPage', () => {
     await waitFor(() => {
       expect(screen.getByText('統計情報の取得に失敗しました')).toBeInTheDocument();
     });
+  });
+
+  it('ネットワークエラー時にエラーメッセージを表示する', async () => {
+    (useAuth as jest.Mock).mockReturnValue({
+      user: mockUser,
+      token: 'test-token',
+      isLoading: false,
+      isAuthenticated: true,
+    });
+
+    (global.fetch as jest.Mock).mockRejectedValue(new Error('Network error'));
+
+    render(<StatsPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('統計情報の取得に失敗しました')).toBeInTheDocument();
+    });
+  });
+
+  it('ローディング中は読み込み表示を出す', () => {
+    (useAuth as jest.Mock).mockReturnValue({
+      user: null,
+      token: null,
+      isLoading: true,
+      isAuthenticated: false,
+    });
+
+    render(<StatsPage />);
+
+    expect(screen.getByText('認証情報を確認中...')).toBeInTheDocument();
   });
 });

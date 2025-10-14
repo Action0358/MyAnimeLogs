@@ -44,6 +44,7 @@ describe('MyPage', () => {
       user: null,
       token: null,
       isLoading: false,
+      isAuthenticated: false,
     });
 
     render(<MyPage />);
@@ -56,16 +57,23 @@ describe('MyPage', () => {
       user: mockUser,
       token: 'test-token',
       isLoading: false,
+      isAuthenticated: true,
     });
 
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      json: async () => mockStats,
-    });
-
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      json: async () => [],
+    (global.fetch as jest.Mock).mockImplementation((url) => {
+      if (url.includes('/stats')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => mockStats,
+        });
+      }
+      if (url.includes('/favorites')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => [],
+        });
+      }
+      return Promise.reject(new Error('Unknown URL'));
     });
 
     render(<MyPage />);
@@ -81,36 +89,82 @@ describe('MyPage', () => {
       user: mockUser,
       token: 'test-token',
       isLoading: false,
+      isAuthenticated: true,
     });
 
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      json: async () => mockStats,
-    });
-
-    (global.fetch as jest.Mock).mockResolvedValueOnce({
-      ok: true,
-      json: async () => [],
+    (global.fetch as jest.Mock).mockImplementation((url) => {
+      if (url.includes('/stats')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => mockStats,
+        });
+      }
+      if (url.includes('/favorites')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => [],
+        });
+      }
+      return Promise.reject(new Error('Unknown URL'));
     });
 
     render(<MyPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('100')).toBeInTheDocument(); // totalEpisodesWatched
-      expect(screen.getByText('10')).toBeInTheDocument(); // totalAnimesCompleted
-      expect(screen.getByText('15')).toBeInTheDocument(); // thisMonthEpisodes
+      expect(screen.getByText('100')).toBeInTheDocument();
+      expect(screen.getByText('10')).toBeInTheDocument();
+      expect(screen.getByText('15')).toBeInTheDocument();
     });
   });
 
-  it('ローディング中は読み込み表示を出す', () => {
+  it('ローディング中は認証情報確認中を表示する', () => {
     (useAuth as jest.Mock).mockReturnValue({
-      user: mockUser,
-      token: 'test-token',
+      user: null,
+      token: null,
       isLoading: true,
+      isAuthenticated: false,
     });
 
     render(<MyPage />);
 
-    expect(screen.getByText('読み込み中...')).toBeInTheDocument();
+    expect(screen.getByText('認証情報を確認中...')).toBeInTheDocument();
+  });
+
+  it('データ取得エラー時にエラーメッセージを表示する', async () => {
+    (useAuth as jest.Mock).mockReturnValue({
+      user: mockUser,
+      token: 'test-token',
+      isLoading: false,
+      isAuthenticated: true,
+    });
+
+    (global.fetch as jest.Mock).mockImplementation(() => {
+      return Promise.resolve({
+        ok: false,
+      });
+    });
+
+    render(<MyPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('統計情報の取得に失敗しました')).toBeInTheDocument();
+    });
+  });
+
+  it('ネットワークエラー時にエラーメッセージを表示する', async () => {
+    (useAuth as jest.Mock).mockReturnValue({
+      user: mockUser,
+      token: 'test-token',
+      isLoading: false,
+      isAuthenticated: true,
+    });
+
+    (global.fetch as jest.Mock).mockRejectedValue(new Error('Network error'));
+
+    render(<MyPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText('データの取得に失敗しました')).toBeInTheDocument();
+    });
   });
 });
