@@ -35,27 +35,6 @@ describe('MyPage', () => {
     thisMonthEpisodes: 15,
   };
 
-  const mockFetchImplementation = (statsData: any = mockStats, favoritesData: any = []) => {
-    return (url: string) => {
-      if (url.includes('/stats')) {
-        return Promise.resolve({
-          ok: true,
-          json: async () => statsData,
-        });
-      }
-      if (url.includes('/favorites')) {
-        return Promise.resolve({
-          ok: true,
-          json: async () => favoritesData,
-        });
-      }
-      return Promise.resolve({
-        ok: false,
-        status: 404,
-      });
-    };
-  };
-
   beforeEach(() => {
     jest.clearAllMocks();
     (useRouter as jest.Mock).mockReturnValue(mockRouter);

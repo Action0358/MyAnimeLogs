@@ -247,10 +247,12 @@ export const StatsPageContent: React.FC = () => {
                 1作品あたりの平均エピソード数
               </p>
               <p className="text-2xl font-bold text-gray-900">
-                {Math.floor(
-                  (stats.totalEpisodesWatched ?? 0) /
-                    (stats.totalAnimesCompleted || 1)
-                )}
+                {stats.totalAnimesCompleted > 0
+                  ? Math.floor(
+                      (stats.totalEpisodesWatched ?? 0) /
+                        stats.totalAnimesCompleted
+                    )
+                  : 0}
                 <span className="text-sm text-gray-600 ml-1">話</span>
               </p>
             </div>
