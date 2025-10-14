@@ -5,18 +5,12 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Container } from '@/components/layout';
 import { Button } from '@/components/ui/Button';
-
-interface UserStats {
-  totalEpisodesWatched: number;
-  totalAnimesCompleted: number;
-  totalWatchTimeHours: number;
-  favoriteGenres: string[];
-  thisMonthEpisodes: number;
-}
-
-// 定数定義
-const MINUTES_PER_EPISODE = 24;
-const HOURS_PER_EPISODE = MINUTES_PER_EPISODE / 60; // 0.4時間
+import {
+  DEFAULT_USER_STATS,
+  HOURS_PER_EPISODE,
+  MINUTES_PER_EPISODE,
+  type UserStats,
+} from '@/constants/stats';
 
 export const StatsPageContent: React.FC = () => {
   const { token } = useAuth();
@@ -38,18 +32,31 @@ export const StatsPageContent: React.FC = () => {
         },
       });
 
-      if (!response.ok) {
-        throw new Error('統計情報の取得に失敗しました');
+      // 認証エラーの場合はログインページにリダイレクト
+      if (response.status === 401) {
+        router.push('/login');
+        return;
       }
 
-      const data = await response.json();
-      setStats(data);
+      // レスポンスを処理してから状態を更新
+      let statsData: UserStats;
+
+      if (response.status === 404) {
+        statsData = DEFAULT_USER_STATS;
+      } else if (!response.ok) {
+        throw new Error('統計情報の取得に失敗しました');
+      } else {
+        statsData = await response.json();
+      }
+
+      // データが正常に取得できた場合のみ状態を更新
+      setStats(statsData);
     } catch (err) {
       setError(err instanceof Error ? err.message : '統計情報の取得に失敗しました');
     } finally {
       setIsLoading(false);
     }
-  }, [token, API_BASE_URL]);
+  }, [token, API_BASE_URL, router]);
 
   useEffect(() => {
     if (token) {
