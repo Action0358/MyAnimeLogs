@@ -31,14 +31,6 @@ export const MyPageContent: React.FC = () => {
     setIsLoading(true)
     setError(null)
 
-    // デバッグ: トークンの存在確認
-    if (!token) {
-      console.error('Token is missing or undefined')
-      setError('認証トークンが見つかりません。再ログインしてください。')
-      setIsLoading(false)
-      return
-    }
-
     try {
       const [statsResponse, favoritesResponse] = await Promise.all([
         fetch(`${API_BASE_URL}/api/users/me/stats`, {
@@ -55,25 +47,32 @@ export const MyPageContent: React.FC = () => {
         return
       }
 
-      // 統計APIが未実装の場合（404）はデフォルト値を使用
+      // 両方のレスポンスを処理してから状態を更新（整合性を保つ）
+      let statsData: UserStats
+      let favoritesData: FavoriteAnime[]
+
+      // 統計情報の処理
       if (statsResponse.status === 404) {
-        setStats(DEFAULT_USER_STATS)
+        statsData = DEFAULT_USER_STATS
       } else if (!statsResponse.ok) {
         throw new Error('統計情報の取得に失敗しました')
       } else {
-        const statsData = await statsResponse.json()
-        setStats(statsData)
+        statsData = await statsResponse.json()
       }
 
-      // お気に入りAPIが未実装の場合（404）は空配列を使用
+      // お気に入り情報の処理
       if (favoritesResponse.status === 404) {
-        setFavorites([])
+        favoritesData = []
       } else if (!favoritesResponse.ok) {
         throw new Error('お気に入り情報の取得に失敗しました')
       } else {
-        const favoritesData = await favoritesResponse.json()
-        setFavorites(favoritesData.slice(0, 7)) // 7件取得して、6件より多いか判定
+        const data = await favoritesResponse.json()
+        favoritesData = data.slice(0, 7) // 7件取得して、6件より多いか判定
       }
+
+      // 両方のデータが正常に取得できた場合のみ状態を更新
+      setStats(statsData)
+      setFavorites(favoritesData)
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'データの取得に失敗しました'
