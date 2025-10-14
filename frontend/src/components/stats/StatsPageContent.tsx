@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Container } from '@/components/layout';
@@ -23,34 +23,35 @@ export const StatsPageContent: React.FC = () => {
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      if (!token) return;
+  const fetchStats = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
 
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/users/me/stats`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/users/me/stats`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
 
-        if (!response.ok) {
-          throw new Error('統計情報の取得に失敗しました');
-        }
-
-        const data = await response.json();
-        setStats(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : '統計情報の取得に失敗しました');
-      } finally {
-        setIsLoading(false);
+      if (!response.ok) {
+        throw new Error('統計情報の取得に失敗しました');
       }
-    };
 
+      const data = await response.json();
+      setStats(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '統計情報の取得に失敗しました');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [token, API_BASE_URL]);
+
+  useEffect(() => {
     if (token) {
       fetchStats();
     }
-  }, [token, API_BASE_URL]);
+  }, [token, fetchStats]);
 
   if (isLoading) {
     return (
@@ -75,7 +76,7 @@ export const StatsPageContent: React.FC = () => {
             <span className="text-red-600 text-3xl">⚠️</span>
           </div>
           <p className="text-red-600 mb-4">{error}</p>
-          <Button variant="primary" size="md" onClick={() => window.location.reload()}>
+          <Button variant="primary" size="md" onClick={fetchStats}>
             再読み込み
           </Button>
         </div>

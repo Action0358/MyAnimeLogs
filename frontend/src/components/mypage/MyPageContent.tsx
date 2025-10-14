@@ -1,78 +1,79 @@
-'use client';
+'use client'
 
-import React, { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
-import { Container } from '@/components/layout';
-import { Button } from '@/components/ui/Button';
-import { getAnimeStatusConfig } from '@/utils/animeStatus';
+import React, { useCallback, useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@/contexts/AuthContext'
+import { Container } from '@/components/layout'
+import { Button } from '@/components/ui/Button'
+import { getAnimeStatusConfig } from '@/utils/animeStatus'
 
 interface UserStats {
-  totalEpisodesWatched: number;
-  totalAnimesCompleted: number;
-  totalWatchTimeHours: number;
-  favoriteGenres: string[];
-  thisMonthEpisodes: number;
+  totalEpisodesWatched: number
+  totalAnimesCompleted: number
+  totalWatchTimeHours: number
+  favoriteGenres: string[]
+  thisMonthEpisodes: number
 }
 
 interface FavoriteAnime {
-  id: number;
-  title: string;
-  status: string;
-  imageUrl?: string;
+  id: number
+  title: string
+  status: string
+  imageUrl?: string
 }
 
 export const MyPageContent: React.FC = () => {
-  const { user, token } = useAuth();
-  const router = useRouter();
-  const [stats, setStats] = useState<UserStats | null>(null);
-  const [favorites, setFavorites] = useState<FavoriteAnime[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { user, token } = useAuth()
+  const router = useRouter()
+  const [stats, setStats] = useState<UserStats | null>(null)
+  const [favorites, setFavorites] = useState<FavoriteAnime[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+  const API_BASE_URL =
+    process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
 
   // 統計情報とお気に入りアニメを並列で取得
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!token) return;
+  const fetchData = useCallback(async () => {
+    setIsLoading(true)
+    setError(null)
 
-      setIsLoading(true);
-      setError(null);
+    try {
+      const [statsResponse, favoritesResponse] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/users/me/stats`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch(`${API_BASE_URL}/api/users/me/favorites`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ])
 
-      try {
-        const [statsResponse, favoritesResponse] = await Promise.all([
-          fetch(`${API_BASE_URL}/api/users/me/stats`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          fetch(`${API_BASE_URL}/api/users/me/favorites`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-        ]);
-
-        if (!statsResponse.ok) {
-          throw new Error('統計情報の取得に失敗しました');
-        }
-
-        const statsData = await statsResponse.json();
-        setStats(statsData);
-
-        if (favoritesResponse.ok) {
-          const favoritesData = await favoritesResponse.json();
-          setFavorites(favoritesData.slice(0, 7)); // 7件取得して、6件より多いか判定
-        }
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'データの取得に失敗しました');
-        console.error('Failed to fetch data:', err);
-      } finally {
-        setIsLoading(false);
+      if (!statsResponse.ok) {
+        throw new Error('統計情報の取得に失敗しました')
       }
-    };
 
-    if (user && token) {
-      fetchData();
+      const statsData = await statsResponse.json()
+      setStats(statsData)
+
+      if (favoritesResponse.ok) {
+        const favoritesData = await favoritesResponse.json()
+        setFavorites(favoritesData.slice(0, 7)) // 7件取得して、6件より多いか判定
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'データの取得に失敗しました'
+      )
+      console.error('Failed to fetch data:', err)
+    } finally {
+      setIsLoading(false)
     }
-  }, [user, token, API_BASE_URL]);
+  }, [token, API_BASE_URL])
+
+  useEffect(() => {
+    if (user && token) {
+      fetchData()
+    }
+  }, [user, token, fetchData])
 
   if (isLoading) {
     return (
@@ -84,7 +85,7 @@ export const MyPageContent: React.FC = () => {
           </div>
         </div>
       </Container>
-    );
+    )
   }
 
   if (error) {
@@ -95,12 +96,12 @@ export const MyPageContent: React.FC = () => {
             <span className="text-red-600 text-3xl">⚠️</span>
           </div>
           <p className="text-red-600 mb-4">{error}</p>
-          <Button variant="primary" size="md" onClick={() => window.location.reload()}>
+          <Button variant="primary" size="md" onClick={fetchData}>
             再読み込み
           </Button>
         </div>
       </Container>
-    );
+    )
   }
 
   return (
@@ -124,9 +125,13 @@ export const MyPageContent: React.FC = () => {
 
             {/* ユーザー情報 */}
             <div className="flex-1">
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">{user?.name}</h1>
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">
+                {user?.name}
+              </h1>
               <p className="text-gray-600 mb-4">{user?.email}</p>
-              {user?.description && <p className="text-gray-700">{user.description}</p>}
+              {user?.description && (
+                <p className="text-gray-700">{user.description}</p>
+              )}
             </div>
 
             {/* 編集ボタン */}
@@ -136,7 +141,7 @@ export const MyPageContent: React.FC = () => {
                 size="md"
                 onClick={() => {
                   // TODO: プロフィール編集ページ実装後に有効化
-                  alert('プロフィール編集機能は準備中です');
+                  alert('プロフィール編集機能は準備中です')
                 }}
               >
                 プロフィール編集
@@ -149,7 +154,11 @@ export const MyPageContent: React.FC = () => {
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-2xl font-bold text-gray-900">視聴統計</h2>
-            <Button variant="ghost" size="sm" onClick={() => router.push('/stats')}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push('/stats')}
+            >
               詳細を見る →
             </Button>
           </div>
@@ -229,14 +238,16 @@ export const MyPageContent: React.FC = () => {
         {/* お気に入りアニメセクション */}
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-bold text-gray-900">お気に入りアニメ</h2>
+            <h2 className="text-2xl font-bold text-gray-900">
+              お気に入りアニメ
+            </h2>
             {favorites.length > 6 && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => {
                   // TODO: お気に入り一覧ページ実装後に有効化
-                  alert('お気に入り一覧ページは準備中です');
+                  alert('お気に入り一覧ページは準備中です')
                 }}
               >
                 すべて見る →
@@ -247,14 +258,14 @@ export const MyPageContent: React.FC = () => {
           {favorites.length > 0 ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
               {favorites.slice(0, 6).map((anime) => {
-                const statusConfig = getAnimeStatusConfig(anime.status);
+                const statusConfig = getAnimeStatusConfig(anime.status)
                 return (
                   <div
                     key={anime.id}
                     className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer"
                     onClick={() => {
                       // TODO: アニメ詳細ページ実装後に有効化
-                      alert(`アニメ詳細ページは準備中です (ID: ${anime.id})`);
+                      alert(`アニメ詳細ページは準備中です (ID: ${anime.id})`)
                     }}
                   >
                     {anime.imageUrl ? (
@@ -279,7 +290,7 @@ export const MyPageContent: React.FC = () => {
                       </span>
                     </div>
                   </div>
-                );
+                )
               })}
             </div>
           ) : (
@@ -287,8 +298,14 @@ export const MyPageContent: React.FC = () => {
               <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <span className="text-gray-400 text-3xl">📺</span>
               </div>
-              <p className="text-gray-600 mb-4">まだお気に入りのアニメがありません</p>
-              <Button variant="primary" size="md" onClick={() => router.push('/')}>
+              <p className="text-gray-600 mb-4">
+                まだお気に入りのアニメがありません
+              </p>
+              <Button
+                variant="primary"
+                size="md"
+                onClick={() => router.push('/')}
+              >
                 アニメを探す
               </Button>
             </div>
@@ -296,5 +313,5 @@ export const MyPageContent: React.FC = () => {
         </div>
       </div>
     </Container>
-  );
-};
+  )
+}
