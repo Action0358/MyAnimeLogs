@@ -42,14 +42,7 @@ const Header: React.FC = () => {
               </div>
             ) : user ? (
               <div className="flex items-center space-x-3">
-                <span className="text-sm text-gray-700">
-                  こんにちは、{user.name}さん
-                </span>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={handleLogout}
-                >
+                <Button variant="ghost" size="sm" onClick={handleLogout}>
                   ログアウト
                 </Button>
               </div>
