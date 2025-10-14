@@ -120,7 +120,7 @@ describe('MyPage', () => {
     });
   });
 
-  it('データローディング中は読み込み表示を出す', async () => {
+  it('データローディング中は読み込み表示を出す', () => {
     (useAuth as jest.Mock).mockReturnValue({
       user: mockUser,
       token: 'test-token',
@@ -128,12 +128,9 @@ describe('MyPage', () => {
       isAuthenticated: true,
     });
 
-    // fetchを遅延させる
-    (global.fetch as jest.Mock).mockImplementation(() => 
-      new Promise(resolve => setTimeout(() => resolve({
-        ok: true,
-        json: async () => mockStats,
-      }), 100))
+    // fetchを未解決のPromiseとしてモック
+    (global.fetch as jest.Mock).mockImplementation(
+      () => new Promise(() => {}) // 永遠に解決しないPromise
     );
 
     render(<MyPage />);

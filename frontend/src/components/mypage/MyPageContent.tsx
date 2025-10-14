@@ -6,7 +6,11 @@ import { useAuth } from '@/contexts/AuthContext'
 import { Container } from '@/components/layout'
 import { Button } from '@/components/ui/Button'
 import { getAnimeStatusConfig } from '@/utils/animeStatus'
-import { DEFAULT_USER_STATS, type UserStats } from '@/constants/stats'
+import {
+  DEFAULT_USER_STATS,
+  ERROR_MESSAGES,
+  type UserStats,
+} from '@/constants/stats'
 
 interface FavoriteAnime {
   id: number
@@ -55,7 +59,7 @@ export const MyPageContent: React.FC = () => {
       if (statsResponse.status === 404) {
         statsData = DEFAULT_USER_STATS
       } else if (!statsResponse.ok) {
-        throw new Error('統計情報の取得に失敗しました')
+        throw new Error(ERROR_MESSAGES.STATS_FETCH_FAILED)
       } else {
         statsData = await statsResponse.json()
       }
@@ -64,19 +68,20 @@ export const MyPageContent: React.FC = () => {
       if (favoritesResponse.status === 404) {
         favoritesData = []
       } else if (!favoritesResponse.ok) {
-        throw new Error('お気に入り情報の取得に失敗しました')
+        throw new Error(ERROR_MESSAGES.FAVORITES_FETCH_FAILED)
       } else {
         const data = await favoritesResponse.json()
-        favoritesData = data.slice(0, 7) // 7件取得して、6件より多いか判定
+        // 7件取得して「すべて見る」ボタンの表示判定に使用し、表示は6件のみ
+        favoritesData = data.slice(0, 7)
       }
 
       // 両方のデータが正常に取得できた場合のみ状態を更新
       setStats(statsData)
       setFavorites(favoritesData)
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'データの取得に失敗しました'
-      )
+      const errorMessage =
+        err instanceof Error ? err.message : ERROR_MESSAGES.DATA_FETCH_FAILED
+      setError(errorMessage)
       console.error('Failed to fetch data:', err)
     } finally {
       setIsLoading(false)
@@ -155,8 +160,9 @@ export const MyPageContent: React.FC = () => {
                 size="md"
                 onClick={() => {
                   // TODO: プロフィール編集ページ実装後に有効化
-                  alert('プロフィール編集機能は準備中です')
+                  console.info('プロフィール編集機能は準備中です')
                 }}
+                disabled
               >
                 プロフィール編集
               </Button>
@@ -261,8 +267,9 @@ export const MyPageContent: React.FC = () => {
                 size="sm"
                 onClick={() => {
                   // TODO: お気に入り一覧ページ実装後に有効化
-                  alert('お気に入り一覧ページは準備中です')
+                  console.info('お気に入り一覧ページは準備中です')
                 }}
+                disabled
               >
                 すべて見る →
               </Button>
@@ -279,7 +286,18 @@ export const MyPageContent: React.FC = () => {
                     className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer"
                     onClick={() => {
                       // TODO: アニメ詳細ページ実装後に有効化
-                      alert(`アニメ詳細ページは準備中です (ID: ${anime.id})`)
+                      console.info(
+                        `アニメ詳細ページは準備中です (ID: ${anime.id})`
+                      )
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        console.info(
+                          `アニメ詳細ページは準備中です (ID: ${anime.id})`
+                        )
+                      }
                     }}
                   >
                     {anime.imageUrl ? (
