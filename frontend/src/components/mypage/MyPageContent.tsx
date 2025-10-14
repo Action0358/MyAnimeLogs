@@ -6,14 +6,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { Container } from '@/components/layout'
 import { Button } from '@/components/ui/Button'
 import { getAnimeStatusConfig } from '@/utils/animeStatus'
-
-interface UserStats {
-  totalEpisodesWatched: number
-  totalAnimesCompleted: number
-  totalWatchTimeHours: number
-  favoriteGenres: string[]
-  thisMonthEpisodes: number
-}
+import { DEFAULT_USER_STATS, type UserStats } from '@/constants/stats'
 
 interface FavoriteAnime {
   id: number
@@ -64,13 +57,7 @@ export const MyPageContent: React.FC = () => {
 
       // 統計APIが未実装の場合（404）はデフォルト値を使用
       if (statsResponse.status === 404) {
-        setStats({
-          totalEpisodesWatched: 0,
-          totalAnimesCompleted: 0,
-          totalWatchTimeHours: 0,
-          favoriteGenres: [],
-          thisMonthEpisodes: 0,
-        })
+        setStats(DEFAULT_USER_STATS)
       } else if (!statsResponse.ok) {
         throw new Error('統計情報の取得に失敗しました')
       } else {

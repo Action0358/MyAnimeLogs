@@ -5,18 +5,12 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Container } from '@/components/layout';
 import { Button } from '@/components/ui/Button';
-
-interface UserStats {
-  totalEpisodesWatched: number;
-  totalAnimesCompleted: number;
-  totalWatchTimeHours: number;
-  favoriteGenres: string[];
-  thisMonthEpisodes: number;
-}
-
-// 定数定義
-const MINUTES_PER_EPISODE = 24;
-const HOURS_PER_EPISODE = MINUTES_PER_EPISODE / 60; // 0.4時間
+import {
+  DEFAULT_USER_STATS,
+  HOURS_PER_EPISODE,
+  MINUTES_PER_EPISODE,
+  type UserStats,
+} from '@/constants/stats';
 
 export const StatsPageContent: React.FC = () => {
   const { token } = useAuth();
@@ -54,13 +48,7 @@ export const StatsPageContent: React.FC = () => {
 
       // 統計APIが未実装の場合（404）はデフォルト値を使用
       if (response.status === 404) {
-        setStats({
-          totalEpisodesWatched: 0,
-          totalAnimesCompleted: 0,
-          totalWatchTimeHours: 0,
-          favoriteGenres: [],
-          thisMonthEpisodes: 0,
-        });
+        setStats(DEFAULT_USER_STATS);
       } else if (!response.ok) {
         throw new Error('統計情報の取得に失敗しました');
       } else {
