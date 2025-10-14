@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { Container } from '@/components/layout'
@@ -34,48 +34,46 @@ export const MyPageContent: React.FC = () => {
     process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
 
   // 統計情報とお気に入りアニメを並列で取得
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!token) return
+  const fetchData = useCallback(async () => {
+    setIsLoading(true)
+    setError(null)
 
-      setIsLoading(true)
-      setError(null)
+    try {
+      const [statsResponse, favoritesResponse] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/users/me/stats`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch(`${API_BASE_URL}/api/users/me/favorites`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ])
 
-      try {
-        const [statsResponse, favoritesResponse] = await Promise.all([
-          fetch(`${API_BASE_URL}/api/users/me/stats`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          fetch(`${API_BASE_URL}/api/users/me/favorites`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-        ])
-
-        if (!statsResponse.ok) {
-          throw new Error('統計情報の取得に失敗しました')
-        }
-
-        const statsData = await statsResponse.json()
-        setStats(statsData)
-
-        if (favoritesResponse.ok) {
-          const favoritesData = await favoritesResponse.json()
-          setFavorites(favoritesData.slice(0, 7)) // 7件取得して、6件より多いか判定
-        }
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : 'データの取得に失敗しました'
-        )
-        console.error('Failed to fetch data:', err)
-      } finally {
-        setIsLoading(false)
+      if (!statsResponse.ok) {
+        throw new Error('統計情報の取得に失敗しました')
       }
-    }
 
+      const statsData = await statsResponse.json()
+      setStats(statsData)
+
+      if (favoritesResponse.ok) {
+        const favoritesData = await favoritesResponse.json()
+        setFavorites(favoritesData.slice(0, 7)) // 7件取得して、6件より多いか判定
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'データの取得に失敗しました'
+      )
+      console.error('Failed to fetch data:', err)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [token, API_BASE_URL])
+
+  useEffect(() => {
     if (user && token) {
       fetchData()
     }
-  }, [user, token, API_BASE_URL])
+  }, [user, token, fetchData])
 
   if (isLoading) {
     return (
@@ -98,11 +96,7 @@ export const MyPageContent: React.FC = () => {
             <span className="text-red-600 text-3xl">⚠️</span>
           </div>
           <p className="text-red-600 mb-4">{error}</p>
-          <Button
-            variant="primary"
-            size="md"
-            onClick={() => window.location.reload()}
-          >
+          <Button variant="primary" size="md" onClick={fetchData}>
             再読み込み
           </Button>
         </div>
