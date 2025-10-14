@@ -31,6 +31,14 @@ export const StatsPageContent: React.FC = () => {
     setIsLoading(true);
     setError(null);
 
+    // デバッグ: トークンの存在確認
+    if (!token) {
+      console.error('Token is missing or undefined');
+      setError('認証トークンが見つかりません。再ログインしてください。');
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const response = await fetch(`${API_BASE_URL}/api/users/me/stats`, {
         headers: {
@@ -38,18 +46,33 @@ export const StatsPageContent: React.FC = () => {
         },
       });
 
-      if (!response.ok) {
-        throw new Error('統計情報の取得に失敗しました');
+      // 認証エラーの場合はログインページにリダイレクト
+      if (response.status === 401) {
+        router.push('/login');
+        return;
       }
 
-      const data = await response.json();
-      setStats(data);
+      // 統計APIが未実装の場合（404）はデフォルト値を使用
+      if (response.status === 404) {
+        setStats({
+          totalEpisodesWatched: 0,
+          totalAnimesCompleted: 0,
+          totalWatchTimeHours: 0,
+          favoriteGenres: [],
+          thisMonthEpisodes: 0,
+        });
+      } else if (!response.ok) {
+        throw new Error('統計情報の取得に失敗しました');
+      } else {
+        const data = await response.json();
+        setStats(data);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : '統計情報の取得に失敗しました');
     } finally {
       setIsLoading(false);
     }
-  }, [token, API_BASE_URL]);
+  }, [token, API_BASE_URL, router]);
 
   useEffect(() => {
     if (token) {

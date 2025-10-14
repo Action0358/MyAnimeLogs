@@ -38,6 +38,14 @@ export const MyPageContent: React.FC = () => {
     setIsLoading(true)
     setError(null)
 
+    // デバッグ: トークンの存在確認
+    if (!token) {
+      console.error('Token is missing or undefined')
+      setError('認証トークンが見つかりません。再ログインしてください。')
+      setIsLoading(false)
+      return
+    }
+
     try {
       const [statsResponse, favoritesResponse] = await Promise.all([
         fetch(`${API_BASE_URL}/api/users/me/stats`, {
@@ -48,19 +56,37 @@ export const MyPageContent: React.FC = () => {
         }),
       ])
 
-      if (!statsResponse.ok) {
+      // 認証エラーの場合はログインページにリダイレクト
+      if (statsResponse.status === 401 || favoritesResponse.status === 401) {
+        router.push('/login')
+        return
+      }
+
+      // 統計APIが未実装の場合（404）はデフォルト値を使用
+      if (statsResponse.status === 404) {
+        setStats({
+          totalEpisodesWatched: 0,
+          totalAnimesCompleted: 0,
+          totalWatchTimeHours: 0,
+          favoriteGenres: [],
+          thisMonthEpisodes: 0,
+        })
+      } else if (!statsResponse.ok) {
         throw new Error('統計情報の取得に失敗しました')
+      } else {
+        const statsData = await statsResponse.json()
+        setStats(statsData)
       }
 
-      if (!favoritesResponse.ok) {
+      // お気に入りAPIが未実装の場合（404）は空配列を使用
+      if (favoritesResponse.status === 404) {
+        setFavorites([])
+      } else if (!favoritesResponse.ok) {
         throw new Error('お気に入り情報の取得に失敗しました')
+      } else {
+        const favoritesData = await favoritesResponse.json()
+        setFavorites(favoritesData.slice(0, 7)) // 7件取得して、6件より多いか判定
       }
-
-      const statsData = await statsResponse.json()
-      setStats(statsData)
-
-      const favoritesData = await favoritesResponse.json()
-      setFavorites(favoritesData.slice(0, 7)) // 7件取得して、6件より多いか判定
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'データの取得に失敗しました'
@@ -69,7 +95,7 @@ export const MyPageContent: React.FC = () => {
     } finally {
       setIsLoading(false)
     }
-  }, [token, API_BASE_URL])
+  }, [token, API_BASE_URL, router])
 
   useEffect(() => {
     if (user && token) {
