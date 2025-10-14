@@ -2,22 +2,15 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import StatsPage from './page';
+import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'next/navigation';
 
 // Mock dependencies
-jest.mock('@/contexts/AuthContext', () => ({
-  useAuth: jest.fn(),
-}));
-
-jest.mock('next/navigation', () => ({
-  useRouter: jest.fn(),
-}));
-
+jest.mock('@/contexts/AuthContext');
+jest.mock('next/navigation');
 jest.mock('@/components/auth/ProtectedRoute', () => ({
   ProtectedRoute: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
-
-const { useAuth } = require('@/contexts/AuthContext');
-const { useRouter } = require('next/navigation');
 
 // Mock fetch
 global.fetch = jest.fn();
