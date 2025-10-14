@@ -26,3 +26,13 @@ export const DEFAULT_USER_STATS: UserStats = {
  */
 export const MINUTES_PER_EPISODE = 24;
 export const HOURS_PER_EPISODE = MINUTES_PER_EPISODE / 60; // 0.4時間
+
+/**
+ * エラーメッセージ定数
+ */
+export const ERROR_MESSAGES = {
+  STATS_FETCH_FAILED: '統計情報の取得に失敗しました',
+  FAVORITES_FETCH_FAILED: 'お気に入り情報の取得に失敗しました',
+  DATA_FETCH_FAILED: 'データの取得に失敗しました',
+  NETWORK_ERROR: 'ネットワークエラーが発生しました。再度お試しください。',
+} as const;

@@ -1,68 +1,72 @@
-'use client';
+'use client'
 
-import React, { useCallback, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
-import { Container } from '@/components/layout';
-import { Button } from '@/components/ui/Button';
+import React, { useCallback, useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@/contexts/AuthContext'
+import { Container } from '@/components/layout'
+import { Button } from '@/components/ui/Button'
 import {
   DEFAULT_USER_STATS,
+  ERROR_MESSAGES,
   HOURS_PER_EPISODE,
   MINUTES_PER_EPISODE,
   type UserStats,
-} from '@/constants/stats';
+} from '@/constants/stats'
 
 export const StatsPageContent: React.FC = () => {
-  const { token } = useAuth();
-  const router = useRouter();
-  const [stats, setStats] = useState<UserStats | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { token } = useAuth()
+  const router = useRouter()
+  const [stats, setStats] = useState<UserStats | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+  const API_BASE_URL =
+    process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
 
   const fetchStats = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
+    setIsLoading(true)
+    setError(null)
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/users/me/stats`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
-      });
+      })
 
       // 認証エラーの場合はログインページにリダイレクト
       if (response.status === 401) {
-        router.push('/login');
-        return;
+        router.push('/login')
+        return
       }
 
       // レスポンスを処理してから状態を更新
-      let statsData: UserStats;
+      let statsData: UserStats
 
       if (response.status === 404) {
-        statsData = DEFAULT_USER_STATS;
+        statsData = DEFAULT_USER_STATS
       } else if (!response.ok) {
-        throw new Error('統計情報の取得に失敗しました');
+        throw new Error(ERROR_MESSAGES.STATS_FETCH_FAILED)
       } else {
-        statsData = await response.json();
+        statsData = await response.json()
       }
 
       // データが正常に取得できた場合のみ状態を更新
-      setStats(statsData);
+      setStats(statsData)
     } catch (err) {
-      setError(err instanceof Error ? err.message : '統計情報の取得に失敗しました');
+      const errorMessage =
+        err instanceof Error ? err.message : ERROR_MESSAGES.STATS_FETCH_FAILED
+      setError(errorMessage)
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  }, [token, API_BASE_URL, router]);
+  }, [token, API_BASE_URL, router])
 
   useEffect(() => {
     if (token) {
-      fetchStats();
+      fetchStats()
     }
-  }, [token, fetchStats]);
+  }, [token, fetchStats])
 
   if (isLoading) {
     return (
@@ -76,7 +80,7 @@ export const StatsPageContent: React.FC = () => {
           </div>
         </div>
       </Container>
-    );
+    )
   }
 
   if (error) {
@@ -92,11 +96,11 @@ export const StatsPageContent: React.FC = () => {
           </Button>
         </div>
       </Container>
-    );
+    )
   }
 
   if (!stats) {
-    return null;
+    return null
   }
 
   return (
@@ -105,10 +109,16 @@ export const StatsPageContent: React.FC = () => {
         <div className="mb-8">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">視聴統計</h1>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                視聴統計
+              </h1>
               <p className="text-gray-600">あなたのアニメ視聴データを可視化</p>
             </div>
-            <Button variant="ghost" size="sm" onClick={() => router.push('/mypage')}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push('/mypage')}
+            >
               ← マイページに戻る
             </Button>
           </div>
@@ -120,8 +130,12 @@ export const StatsPageContent: React.FC = () => {
               <span className="text-blue-600 text-2xl">📺</span>
             </div>
             <p className="text-sm text-gray-600 mb-1">総視聴エピソード</p>
-            <p className="text-3xl font-bold text-gray-900 mb-2">{stats.totalEpisodesWatched || 0}</p>
-            <p className="text-xs text-gray-500">これまでに視聴したエピソード数</p>
+            <p className="text-3xl font-bold text-gray-900 mb-2">
+              {stats.totalEpisodesWatched || 0}
+            </p>
+            <p className="text-xs text-gray-500">
+              これまでに視聴したエピソード数
+            </p>
           </div>
 
           <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
@@ -129,8 +143,12 @@ export const StatsPageContent: React.FC = () => {
               <span className="text-green-600 text-2xl">✅</span>
             </div>
             <p className="text-sm text-gray-600 mb-1">完了アニメ</p>
-            <p className="text-3xl font-bold text-gray-900 mb-2">{stats.totalAnimesCompleted || 0}</p>
-            <p className="text-xs text-gray-500">最後まで視聴したアニメ作品数</p>
+            <p className="text-3xl font-bold text-gray-900 mb-2">
+              {stats.totalAnimesCompleted || 0}
+            </p>
+            <p className="text-xs text-gray-500">
+              最後まで視聴したアニメ作品数
+            </p>
           </div>
 
           <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
@@ -142,7 +160,10 @@ export const StatsPageContent: React.FC = () => {
               {(stats.totalWatchTimeHours || 0).toFixed(1)}
               <span className="text-lg text-gray-600 ml-1">時間</span>
             </p>
-            <p className="text-xs text-gray-500">約{Math.floor((stats.totalWatchTimeHours || 0) / 24)}日分の視聴時間</p>
+            <p className="text-xs text-gray-500">
+              約{Math.floor((stats.totalWatchTimeHours || 0) / 24)}
+              日分の視聴時間
+            </p>
           </div>
 
           <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
@@ -150,7 +171,9 @@ export const StatsPageContent: React.FC = () => {
               <span className="text-orange-600 text-2xl">📅</span>
             </div>
             <p className="text-sm text-gray-600 mb-1">今月の視聴</p>
-            <p className="text-3xl font-bold text-gray-900 mb-2">{stats.thisMonthEpisodes || 0}</p>
+            <p className="text-3xl font-bold text-gray-900 mb-2">
+              {stats.thisMonthEpisodes || 0}
+            </p>
             <p className="text-xs text-gray-500">今月視聴したエピソード数</p>
           </div>
         </div>
@@ -161,7 +184,9 @@ export const StatsPageContent: React.FC = () => {
               <span className="text-pink-600 text-2xl">❤️</span>
             </div>
             <div>
-              <h2 className="text-xl font-bold text-gray-900">お気に入りジャンル</h2>
+              <h2 className="text-xl font-bold text-gray-900">
+                お気に入りジャンル
+              </h2>
               <p className="text-sm text-gray-600">よく視聴するジャンルTOP3</p>
             </div>
           </div>
@@ -169,10 +194,17 @@ export const StatsPageContent: React.FC = () => {
           {stats.favoriteGenres && stats.favoriteGenres.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {stats.favoriteGenres.map((genre, index) => (
-                <div key={index} className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-lg p-6 border border-blue-100">
+                <div
+                  key={index}
+                  className="bg-gradient-to-br from-blue-50 to-purple-50 rounded-lg p-6 border border-blue-100"
+                >
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-2xl font-bold text-blue-600">#{index + 1}</span>
-                    <span className="text-3xl">{index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}</span>
+                    <span className="text-2xl font-bold text-blue-600">
+                      #{index + 1}
+                    </span>
+                    <span className="text-3xl">
+                      {index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉'}
+                    </span>
                   </div>
                   <p className="text-lg font-semibold text-gray-900">{genre}</p>
                 </div>
@@ -200,18 +232,25 @@ export const StatsPageContent: React.FC = () => {
             <div className="text-center p-6 bg-gray-50 rounded-lg">
               <p className="text-sm text-gray-600 mb-2">今月の平均視聴時間</p>
               <p className="text-2xl font-bold text-gray-900">
-                {((stats.thisMonthEpisodes || 0) * HOURS_PER_EPISODE).toFixed(1)}
+                {((stats.thisMonthEpisodes || 0) * HOURS_PER_EPISODE).toFixed(
+                  1
+                )}
                 <span className="text-sm text-gray-600 ml-1">時間</span>
               </p>
-              <p className="text-xs text-gray-500 mt-1">※1話{MINUTES_PER_EPISODE}分として計算</p>
+              <p className="text-xs text-gray-500 mt-1">
+                ※1話{MINUTES_PER_EPISODE}分として計算
+              </p>
             </div>
 
             <div className="text-center p-6 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-600 mb-2">1作品あたりの平均エピソード数</p>
+              <p className="text-sm text-gray-600 mb-2">
+                1作品あたりの平均エピソード数
+              </p>
               <p className="text-2xl font-bold text-gray-900">
-                {(stats.totalAnimesCompleted || 0) > 0 
-                  ? Math.floor((stats.totalEpisodesWatched || 0) / (stats.totalAnimesCompleted || 1)) 
-                  : 0}
+                {Math.floor(
+                  (stats.totalEpisodesWatched ?? 0) /
+                    (stats.totalAnimesCompleted || 1)
+                )}
                 <span className="text-sm text-gray-600 ml-1">話</span>
               </p>
             </div>
@@ -232,5 +271,5 @@ export const StatsPageContent: React.FC = () => {
         </div>
       </div>
     </Container>
-  );
-};
+  )
+}
