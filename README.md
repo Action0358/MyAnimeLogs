@@ -203,7 +203,7 @@ docker compose exec backend go mod tidy
 - **Frontend**: Cloudflare Pages (`staging` ブランチ, 別プロジェクト)
 - **Backend**: Fly.io (`myanimelogs-staging` アプリ)
 - **Database**: Supabase (ステージング用プロジェクト)
-- **URL**: `https://staging.myanimelogs.com`
+- **URL**: `https://stg.myanimelogs.com`
 - **アクセス制限**: Cloudflare Accessにより、許可されたユーザーのみ閲覧可能です。
 
 ## 貢献

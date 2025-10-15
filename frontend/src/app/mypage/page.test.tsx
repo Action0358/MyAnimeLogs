@@ -83,7 +83,7 @@ describe('MyPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('テストユーザー')).toBeInTheDocument();
-      expect(screen.getByText('test@example.com')).toBeInTheDocument();
+      expect(screen.getByText('テスト説明')).toBeInTheDocument();
     });
   });
 
