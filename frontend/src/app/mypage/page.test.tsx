@@ -16,6 +16,8 @@ jest.mock('@/components/auth/ProtectedRoute', () => ({
 global.fetch = jest.fn();
 
 describe('MyPage', () => {
+  let consoleErrorSpy: jest.SpyInstance;
+
   const mockRouter = {
     push: jest.fn(),
   };
@@ -39,12 +41,12 @@ describe('MyPage', () => {
     jest.clearAllMocks();
     (useRouter as jest.Mock).mockReturnValue(mockRouter);
     // console.errorをモックしてテスト出力をクリーンに保つ
-    jest.spyOn(console, 'error').mockImplementation(() => {});
+    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
   });
 
   afterEach(() => {
-    // console.errorのモックをリストア
-    jest.restoreAllMocks();
+    // console.errorのモックのみをリストア
+    consoleErrorSpy.mockRestore();
   });
 
   it('未認証時は何も表示しない（ProtectedRouteが処理）', () => {
