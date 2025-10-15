@@ -112,7 +112,6 @@ export const StatsPageContent: React.FC = () => {
               <h1 className="text-3xl font-bold text-gray-900 mb-2">
                 視聴統計
               </h1>
-              <p className="text-gray-600">あなたのアニメ視聴データを可視化</p>
             </div>
             <Button
               variant="ghost"
@@ -129,12 +128,12 @@ export const StatsPageContent: React.FC = () => {
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
               <span className="text-blue-600 text-2xl">📺</span>
             </div>
-            <p className="text-sm text-gray-600 mb-1">総視聴エピソード</p>
+            <p className="text-sm text-gray-600 mb-1">エピソード総数</p>
             <p className="text-3xl font-bold text-gray-900 mb-2">
               {stats.totalEpisodesWatched || 0}
             </p>
             <p className="text-xs text-gray-500">
-              これまでに視聴したエピソード数
+              視聴したエピソード総数
             </p>
           </div>
 
@@ -147,7 +146,7 @@ export const StatsPageContent: React.FC = () => {
               {stats.totalAnimesCompleted || 0}
             </p>
             <p className="text-xs text-gray-500">
-              最後まで視聴したアニメ作品数
+              最後まで視聴した作品数
             </p>
           </div>
 
@@ -170,11 +169,11 @@ export const StatsPageContent: React.FC = () => {
             <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center mb-4">
               <span className="text-orange-600 text-2xl">📅</span>
             </div>
-            <p className="text-sm text-gray-600 mb-1">今月の視聴</p>
+            <p className="text-sm text-gray-600 mb-1">今月のエピソード数</p>
             <p className="text-3xl font-bold text-gray-900 mb-2">
               {stats.thisMonthEpisodes || 0}
             </p>
-            <p className="text-xs text-gray-500">今月視聴したエピソード数</p>
+            <p className="text-xs text-gray-500">視聴したエピソード数</p>
           </div>
         </div>
 
@@ -244,7 +243,7 @@ export const StatsPageContent: React.FC = () => {
 
             <div className="text-center p-6 bg-gray-50 rounded-lg">
               <p className="text-sm text-gray-600 mb-2">
-                1作品あたりの平均エピソード数
+                1作品の平均エピソード数
               </p>
               <p className="text-2xl font-bold text-gray-900">
                 {stats.totalAnimesCompleted > 0

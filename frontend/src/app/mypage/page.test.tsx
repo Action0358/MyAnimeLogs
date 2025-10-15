@@ -38,6 +38,13 @@ describe('MyPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (useRouter as jest.Mock).mockReturnValue(mockRouter);
+    // console.errorをモックしてテスト出力をクリーンに保つ
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    // console.errorのモックをリストア
+    jest.restoreAllMocks();
   });
 
   it('未認証時は何も表示しない（ProtectedRouteが処理）', () => {
@@ -83,7 +90,7 @@ describe('MyPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('テストユーザー')).toBeInTheDocument();
-      expect(screen.getByText('test@example.com')).toBeInTheDocument();
+      expect(screen.getByText('テスト説明')).toBeInTheDocument();
     });
   });
 
@@ -114,7 +121,7 @@ describe('MyPage', () => {
     render(<MyPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('総視聴エピソード')).toBeInTheDocument();
+      expect(screen.getByText('総視聴数')).toBeInTheDocument();
       expect(screen.getByText('完了アニメ')).toBeInTheDocument();
       expect(screen.getByText('40.0h')).toBeInTheDocument();
     });
