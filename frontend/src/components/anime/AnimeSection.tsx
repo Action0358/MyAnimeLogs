@@ -71,9 +71,6 @@ const AnimeCard: React.FC<AnimeCardProps> = ({
         <h3 className="text-sm font-medium text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-2">
           {anime.title}
         </h3>
-        <p className="text-xs text-gray-500">
-          {anime.season_year || ''} {anime.season_name}
-        </p>
       </div>
     </div>
   )

@@ -147,7 +147,6 @@ export const MyPageContent: React.FC = () => {
               <h1 className="text-2xl font-bold text-gray-900 mb-2">
                 {user?.name}
               </h1>
-              <p className="text-gray-600 mb-4">{user?.email}</p>
               {user?.description && (
                 <p className="text-gray-700">{user.description}</p>
               )}
@@ -190,7 +189,7 @@ export const MyPageContent: React.FC = () => {
                 <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
                   <span className="text-blue-600 text-xl">📺</span>
                 </div>
-                <p className="text-sm text-gray-600 mb-1">総視聴エピソード</p>
+                <p className="text-sm text-gray-600 mb-1">総視聴数</p>
                 <p className="text-2xl font-bold text-gray-900">
                   {stats.totalEpisodesWatched || 0}
                 </p>
@@ -223,7 +222,7 @@ export const MyPageContent: React.FC = () => {
                 <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center mb-4">
                   <span className="text-orange-600 text-xl">📅</span>
                 </div>
-                <p className="text-sm text-gray-600 mb-1">今月の視聴</p>
+                <p className="text-sm text-gray-600 mb-1">今月の視聴数</p>
                 <p className="text-2xl font-bold text-gray-900">
                   {stats.thisMonthEpisodes || 0}
                 </p>
