@@ -63,7 +63,6 @@ describe('StatsPage', () => {
       isLoading: false,
       isAuthenticated: true,
     })
-
     ;(global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: true,
       json: async () => mockStats,
@@ -73,7 +72,7 @@ describe('StatsPage', () => {
 
     await waitFor(() => {
       expect(screen.getByText('視聴統計')).toBeInTheDocument()
-      expect(screen.getByText('総視聴エピソード')).toBeInTheDocument()
+      expect(screen.getByText('エピソード総数')).toBeInTheDocument()
       expect(screen.getByText('完了アニメ')).toBeInTheDocument()
       expect(screen.getByText('40.0')).toBeInTheDocument() // totalWatchTimeHours
     })
@@ -86,7 +85,6 @@ describe('StatsPage', () => {
       isLoading: false,
       isAuthenticated: true,
     })
-
     ;(global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: true,
       json: async () => mockStats,
@@ -108,7 +106,6 @@ describe('StatsPage', () => {
       isLoading: false,
       isAuthenticated: true,
     })
-
     ;(global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: false,
     })
@@ -129,7 +126,6 @@ describe('StatsPage', () => {
       isLoading: false,
       isAuthenticated: true,
     })
-
     ;(global.fetch as jest.Mock).mockRejectedValue(new Error('Network error'))
 
     render(<StatsPage />)

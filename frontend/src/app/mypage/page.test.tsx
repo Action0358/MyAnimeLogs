@@ -121,7 +121,7 @@ describe('MyPage', () => {
     render(<MyPage />);
 
     await waitFor(() => {
-      expect(screen.getByText('総視聴エピソード')).toBeInTheDocument();
+      expect(screen.getByText('総視聴数')).toBeInTheDocument();
       expect(screen.getByText('完了アニメ')).toBeInTheDocument();
       expect(screen.getByText('40.0h')).toBeInTheDocument();
     });
