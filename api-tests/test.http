@@ -549,3 +549,166 @@ GET {{baseUrl}}/api/search/suggestions?q=PSYCHO
 
 ### 91. 人気検索（最大件数テスト）
 GET {{baseUrl}}/api/search/popular?limit=50
+
+### =====
+ Jikan API 連携機能テスト =====
+
+### 92. エピソード視聴時間の自動取得テスト
+# エピソード情報を取得すると、バックグラウンドでJikan APIから視聴時間が自動取得される
+# 最初のリクエストではduration_minutesがnullの可能性がある
+# 数秒後に再度リクエストすると、duration_minutesが設定されているはず
+GET {{baseUrl}}/api/animes/1/episodes
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 93. エピソード視聴時間の確認（2回目）
+# 5秒待ってから再度リクエストして、duration_minutesが設定されているか確認
+GET {{baseUrl}}/api/animes/1/episodes
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 94. 管理者API - 全アニメのエピソード視聴時間を同期
+# MAL IDが設定されている全アニメのエピソード視聴時間をJikan APIから取得
+POST {{baseUrl}}/api/admin/sync/episode-durations
+Content-Type: {{contentType}}
+Authorization: Bearer {{login.response.body.access_token}}
+
+{}
+
+### 95. 管理者API - 特定アニメのエピソード視聴時間を同期
+# 特定のアニメのみエピソード視聴時間を同期
+POST {{baseUrl}}/api/admin/sync/episode-durations
+Content-Type: {{contentType}}
+Authorization: Bearer {{login.response.body.access_token}}
+
+{
+  "anime_id": 1
+}
+
+### 96. ユーザー統計 - 視聴時間データを含む統計取得
+# total_watch_time_minutesに実際のエピソード視聴時間が反映される
+GET {{baseUrl}}/api/users/me/stats
+Authorization: Bearer {{login.response.body.access_token}}
+
+### ===== Jikan API エラーケーステスト =====
+
+### 97. 存在しないアニメIDで同期
+POST {{baseUrl}}/api/admin/sync/episode-durations
+Content-Type: {{contentType}}
+Authorization: Bearer {{login.response.body.access_token}}
+
+{
+  "anime_id": 99999
+}
+
+### 98. MAL IDがないアニメのエピソード取得
+# MAL IDが設定されていないアニメの場合、視聴時間は取得されない（nullのまま）
+GET {{baseUrl}}/api/animes/999/episodes
+Authorization: Bearer {{login.response.body.access_token}}
+
+### ===== Jikan API 統合テストシナリオ =====
+
+### 99. シナリオ1: 新規アニメの視聴時間取得フロー
+# 1. アニメ一覧を取得してMAL IDがあるアニメを確認
+GET {{baseUrl}}/api/animes?per_page=5
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 100. シナリオ2: エピソード情報取得（初回）
+# duration_minutesがnullの可能性がある
+GET {{baseUrl}}/api/animes/1/episodes
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 101. シナリオ3: エピソード視聴状態を更新
+# エピソードを視聴済みにする
+PUT {{baseUrl}}/api/episodes/1/watch
+Content-Type: {{contentType}}
+Authorization: Bearer {{login.response.body.access_token}}
+
+{
+  "viewed": true
+}
+
+### 102. シナリオ4: 統計情報で視聴時間を確認
+# total_watch_time_minutesに視聴時間が反映される
+GET {{baseUrl}}/api/users/me/stats
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 103. シナリオ5: 管理者による一括同期
+# 全アニメのエピソード視聴時間を一括で同期
+POST {{baseUrl}}/api/admin/sync/episode-durations
+Content-Type: {{contentType}}
+Authorization: Bearer {{login.response.body.access_token}}
+
+{}
+
+### 104. シナリオ6: 同期後のエピソード情報確認
+# duration_minutesが設定されているはず
+GET {{baseUrl}}/api/animes/1/episodes
+Authorization: Bearer {{login.response.body.access_token}}
+
+### ===== Jikan API パフォーマンステスト =====
+
+### 105. 複数アニメのエピソード情報を連続取得
+# レート制限（1秒3リクエスト）が正しく機能するかテスト
+GET {{baseUrl}}/api/animes/1/episodes
+Authorization: Bearer {{login.response.body.access_token}}
+
+###
+GET {{baseUrl}}/api/animes/2/episodes
+Authorization: Bearer {{login.response.body.access_token}}
+
+###
+GET {{baseUrl}}/api/animes/3/episodes
+Authorization: Bearer {{login.response.body.access_token}}
+
+### ===== Jikan API データ検証テスト =====
+
+### 106. エピソード視聴時間の妥当性確認
+# duration_minutesが1〜180分の範囲内であることを確認
+GET {{baseUrl}}/api/animes/1/episodes
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 107. 視聴時間データの統計計算確認
+# 複数エピソードを視聴済みにして、総視聴時間が正しく計算されるか確認
+PUT {{baseUrl}}/api/episodes/1/watch
+Content-Type: {{contentType}}
+Authorization: Bearer {{login.response.body.access_token}}
+
+{
+  "viewed": true
+}
+
+###
+PUT {{baseUrl}}/api/episodes/2/watch
+Content-Type: {{contentType}}
+Authorization: Bearer {{login.response.body.access_token}}
+
+{
+  "viewed": true
+}
+
+###
+GET {{baseUrl}}/api/users/me/stats
+Authorization: Bearer {{login.response.body.access_token}}
+
+### ===== 注意事項 =====
+# 
+# Jikan API連携のテストについて:
+# 
+# 1. 自動取得のテスト（92-93）
+#    - 最初のリクエストではduration_minutesがnullの可能性があります
+#    - バックグラウンド処理が完了するまで数秒待ってから再度リクエストしてください
+# 
+# 2. 管理者APIのテスト（94-95）
+#    - 管理者権限が必要です
+#    - MAL IDが設定されているアニメのみ同期されます
+#    - レート制限により、大量のアニメを同期する場合は時間がかかります
+# 
+# 3. レート制限（105）
+#    - Jikan APIは1秒間に3リクエストまでの制限があります
+#    - 連続でリクエストすると、自動的にレート制限が適用されます
+# 
+# 4. データの確認
+#    - pgAdminなどでデータベースを直接確認することもできます:
+#      SELECT e.id, e.title, e.episode_number, e.duration_minutes
+#      FROM episodes e
+#      WHERE e.anime_id = 1
+#      ORDER BY e.episode_number;

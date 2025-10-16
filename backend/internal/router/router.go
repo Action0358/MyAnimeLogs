@@ -49,6 +49,7 @@ func Setup(db *database.DB, cfg *config.Config) *gin.Engine {
 	authHandler := handlers.NewAuthHandler(authService, logger, errorMonitor)
 	animeHandler := handlers.NewAnimeHandler(animeService, logger, errorMonitor)
 	annictHandler := handlers.NewAnnictHandler(annictService, logger, errorMonitor)
+	adminHandler := handlers.NewAdminHandler(animeService, logger, errorMonitor)
 	monitoringHandler := handlers.NewMonitoringHandler(logger, errorMonitor)
 
 	// ヘルスチェックと監視エンドポイント
@@ -99,6 +100,7 @@ func Setup(db *database.DB, cfg *config.Config) *gin.Engine {
 			// データ同期
 			admin.POST("/sync/season", annictHandler.SyncWorksBySeason)
 			admin.POST("/sync/popular", annictHandler.SyncPopularWorks)
+			admin.POST("/sync/episode-durations", adminHandler.SyncEpisodeDurations)
 
 			// エラー監視
 			admin.GET("/errors/metrics", monitoringHandler.GetErrorMetrics)

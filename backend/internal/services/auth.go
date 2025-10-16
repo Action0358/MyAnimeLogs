@@ -352,8 +352,24 @@ func (s *AuthService) GetUserStats(userID int) (*models.UserStats, error) {
 		return nil, fmt.Errorf("failed to get completed animes: %w", err)
 	}
 
-	// Estimate total watch time (assuming 24 minutes per episode)
-	stats.TotalWatchTimeHours = float64(stats.TotalEpisodesWatched) * 0.4
+	// Get actual total watch time from episode durations
+	var totalMinutes int
+	err = s.db.QueryRow(`
+		SELECT COALESCE(SUM(e.duration_minutes), 0)
+		FROM watch_statuses ws
+		JOIN episodes e ON ws.episode_id = e.id
+		WHERE ws.user_id = $1 AND ws.viewed = true AND e.duration_minutes IS NOT NULL
+	`, userID).Scan(&totalMinutes)
+	if err != nil {
+		// Fallback to estimate if query fails
+		stats.TotalWatchTimeHours = float64(stats.TotalEpisodesWatched) * 0.4
+	} else if totalMinutes > 0 {
+		// Convert minutes to hours
+		stats.TotalWatchTimeHours = float64(totalMinutes) / 60.0
+	} else {
+		// Fallback to estimate if no duration data available
+		stats.TotalWatchTimeHours = float64(stats.TotalEpisodesWatched) * 0.4
+	}
 
 	// Get favorite genres (top 3)
 	rows, err := s.db.Query(`
