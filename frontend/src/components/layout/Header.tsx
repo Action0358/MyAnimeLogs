@@ -9,6 +9,8 @@ import { useAuth } from '@/contexts/AuthContext'
 const Header: React.FC = () => {
   const { user, isLoading, logout } = useAuth()
 
+  const authButtonClassName = "text-xs sm:text-sm px-2 py-1 sm:px-4 sm:py-2 whitespace-nowrap"
+
   const handleLogout = () => {
     logout()
   }
@@ -54,7 +56,7 @@ const Header: React.FC = () => {
                   <Button
                     variant="primary"
                     size="sm"
-                    className="text-xs sm:text-sm px-2 py-1 sm:px-4 sm:py-2 whitespace-nowrap"
+                    className={authButtonClassName}
                   >
                     新規登録
                   </Button>
@@ -63,7 +65,7 @@ const Header: React.FC = () => {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="text-xs sm:text-sm px-2 py-1 sm:px-4 sm:py-2 whitespace-nowrap"
+                    className={authButtonClassName}
                   >
                     ログイン
                   </Button>
