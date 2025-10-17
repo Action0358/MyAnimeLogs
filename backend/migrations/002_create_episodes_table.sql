@@ -11,11 +11,6 @@ CREATE TABLE IF NOT EXISTS episodes (
 -- Add missing columns if they don't exist
 DO $$ 
 BEGIN 
-    -- Add description column
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='episodes' AND column_name='description') THEN
-        ALTER TABLE episodes ADD COLUMN description TEXT;
-    END IF;
-    
     -- Add air_date column
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='episodes' AND column_name='air_date') THEN
         ALTER TABLE episodes ADD COLUMN air_date DATE;
@@ -24,11 +19,6 @@ BEGIN
     -- Add duration_minutes column
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='episodes' AND column_name='duration_minutes') THEN
         ALTER TABLE episodes ADD COLUMN duration_minutes INTEGER;
-    END IF;
-    
-    -- Add annict_id column
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='episodes' AND column_name='annict_id') THEN
-        ALTER TABLE episodes ADD COLUMN annict_id INTEGER;
     END IF;
 END $$;
 
@@ -48,10 +38,6 @@ BEGIN
     
     IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='episodes' AND column_name='air_date') THEN
         CREATE INDEX IF NOT EXISTS idx_episodes_air_date ON episodes(air_date);
-    END IF;
-    
-    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='episodes' AND column_name='annict_id') THEN
-        CREATE INDEX IF NOT EXISTS idx_episodes_annict_id ON episodes(annict_id);
     END IF;
 END $$;
 

@@ -7,9 +7,8 @@ import (
 type Anime struct {
 	ID            int       `json:"id" db:"id"`
 	Title         string    `json:"title" db:"title"`
-	Description   string    `json:"description" db:"description"`
 	ImageURL      *string   `json:"image_url" db:"image_url"`
-	Season        *string   `json:"season" db:"season"`
+	Season        *string   `json:"season" db:"season"` // Format: "YYYY-season" (e.g., "2025-summer")
 	Status        *string   `json:"status" db:"status"`
 	WatchersCount int       `json:"watchers_count" db:"watchers_count"`
 	MalAnimeID    *string   `json:"mal_anime_id" db:"mal_anime_id"` // MyAnimeList ID
@@ -30,11 +29,15 @@ type AnimeWithUserData struct {
 }
 
 type Episode struct {
-	ID            int    `json:"id" db:"id"`
-	AnimeID       int    `json:"anime_id" db:"anime_id"`
-	Title         string `json:"title" db:"title"`
-	EpisodeNumber int    `json:"episode_number" db:"episode_number"`
-	Viewed        bool   `json:"viewed,omitempty"` // Only included when user is authenticated
+	ID              int        `json:"id" db:"id"`
+	AnimeID         int        `json:"anime_id" db:"anime_id"`
+	Title           string     `json:"title" db:"title"`
+	EpisodeNumber   int        `json:"episode_number" db:"episode_number"`
+	AirDate         *time.Time `json:"air_date,omitempty" db:"air_date"`       // null if not yet fetched from Jikan API
+	DurationMinutes *int       `json:"duration_minutes" db:"duration_minutes"` // null if not yet fetched from Jikan API
+	Viewed          bool       `json:"viewed"`                                 // false if not authenticated or not viewed
+	CreatedAt       time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt       time.Time  `json:"updated_at" db:"updated_at"`
 }
 
 type UserFavorite struct {

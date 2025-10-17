@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"myanimelogs/internal/common"
 	"myanimelogs/internal/constants"
@@ -23,6 +24,7 @@ type AnimeService struct {
 	db            *database.DB
 	logger        *common.Logger
 	anilistClient *AniListClient
+	jikanClient   *JikanClient
 }
 
 func NewAnimeService(db *database.DB, logger *common.Logger) *AnimeService {
@@ -30,6 +32,7 @@ func NewAnimeService(db *database.DB, logger *common.Logger) *AnimeService {
 		db:            db,
 		logger:        logger,
 		anilistClient: NewAniListClient(),
+		jikanClient:   NewJikanClient(logger),
 	}
 }
 
@@ -94,7 +97,7 @@ func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int
 
 	// Get animes
 	query := fmt.Sprintf(`
-		SELECT id, title, description, image_url, season, status, mal_anime_id, annict_id, created_at, updated_at, watchers_count
+		SELECT id, title, image_url, season, status, mal_anime_id, annict_id, created_at, updated_at, watchers_count
 		FROM animes %s %s
 		LIMIT $%d OFFSET $%d
 	`, whereClause, orderBy, argIndex, argIndex+1)
@@ -110,7 +113,7 @@ func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int
 	animes := []models.AnimeWithUserData{}
 	for rows.Next() {
 		var anime models.Anime
-		err := rows.Scan(&anime.ID, &anime.Title, &anime.Description, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount)
+		err := rows.Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount)
 		if err != nil {
 			continue
 		}
@@ -176,9 +179,9 @@ func (s *AnimeService) AdvancedSearchAnimes(params models.AdvancedSearchParams, 
 
 	// Get animes
 	query := fmt.Sprintf(`
-		SELECT a.id, a.title, a.description, a.image_url, a.season, a.status, a.mal_anime_id, a.annict_id, a.created_at, a.updated_at, a.watchers_count
+		SELECT a.id, a.title, a.image_url, a.season, a.status, a.mal_anime_id, a.annict_id, a.created_at, a.updated_at, a.watchers_count
 		%s %s
-		GROUP BY a.id, a.title, a.description, a.image_url, a.season, a.status, a.mal_anime_id, a.annict_id, a.created_at, a.updated_at, a.watchers_count
+		GROUP BY a.id, a.title, a.image_url, a.season, a.status, a.mal_anime_id, a.annict_id, a.created_at, a.updated_at, a.watchers_count
 		%s
 		LIMIT $%d OFFSET $%d
 	`, baseQuery, whereClause, orderBy, argIndex, argIndex+1)
@@ -194,7 +197,7 @@ func (s *AnimeService) AdvancedSearchAnimes(params models.AdvancedSearchParams, 
 	animes := []models.AnimeWithUserData{}
 	for rows.Next() {
 		var anime models.Anime
-		err := rows.Scan(&anime.ID, &anime.Title, &anime.Description, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount)
+		err := rows.Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount)
 		if err != nil {
 			continue
 		}
@@ -239,9 +242,9 @@ func (s *AnimeService) AdvancedSearchAnimes(params models.AdvancedSearchParams, 
 func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWithUserData, error) {
 	var anime models.Anime
 	err := s.db.QueryRow(`
-		SELECT id, title, description, image_url, season, status, mal_anime_id, annict_id, created_at, updated_at, watchers_count
+		SELECT id, title, image_url, season, status, mal_anime_id, annict_id, created_at, updated_at, watchers_count
 		FROM animes WHERE id = $1
-	`, animeID).Scan(&anime.ID, &anime.Title, &anime.Description, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount)
+	`, animeID).Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrAnimeNotFound
@@ -281,9 +284,10 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 }
 
 func (s *AnimeService) GetAnimeEpisodes(animeID int, userID *int) ([]models.Episode, error) {
-	// Check if anime exists
+	// Check if anime exists and get MAL ID
 	var exists bool
-	err := s.db.QueryRow("SELECT EXISTS(SELECT 1 FROM animes WHERE id = $1)", animeID).Scan(&exists)
+	var malAnimeID *string
+	err := s.db.QueryRow("SELECT EXISTS(SELECT 1 FROM animes WHERE id = $1), mal_anime_id FROM animes WHERE id = $1", animeID).Scan(&exists, &malAnimeID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check anime existence: %w", err)
 	}
@@ -292,7 +296,7 @@ func (s *AnimeService) GetAnimeEpisodes(animeID int, userID *int) ([]models.Epis
 	}
 
 	rows, err := s.db.Query(`
-		SELECT id, anime_id, title, episode_number
+		SELECT id, anime_id, title, episode_number, duration_minutes, air_date, created_at, updated_at
 		FROM episodes WHERE anime_id = $1
 		ORDER BY episode_number
 	`, animeID)
@@ -302,11 +306,17 @@ func (s *AnimeService) GetAnimeEpisodes(animeID int, userID *int) ([]models.Epis
 	defer rows.Close()
 
 	episodes := []models.Episode{}
+	hasMissingDurations := false
 	for rows.Next() {
 		var episode models.Episode
-		err := rows.Scan(&episode.ID, &episode.AnimeID, &episode.Title, &episode.EpisodeNumber)
+		err := rows.Scan(&episode.ID, &episode.AnimeID, &episode.Title, &episode.EpisodeNumber, &episode.DurationMinutes, &episode.AirDate, &episode.CreatedAt, &episode.UpdatedAt)
 		if err != nil {
 			continue
+		}
+
+		// Check if duration or air_date is missing
+		if episode.DurationMinutes == nil || episode.AirDate == nil {
+			hasMissingDurations = true
 		}
 
 		// Add watch status if user is authenticated
@@ -324,6 +334,19 @@ func (s *AnimeService) GetAnimeEpisodes(animeID int, userID *int) ([]models.Epis
 		episodes = append(episodes, episode)
 	}
 
+	// If there are missing durations and we have a MAL ID, try to fetch them in background
+	if hasMissingDurations && malAnimeID != nil && *malAnimeID != "" {
+		go func() {
+			err := s.enrichEpisodesWithDuration(animeID, *malAnimeID)
+			if err != nil {
+				s.logger.Warn("Failed to enrich episodes with duration",
+					"anime_id", animeID,
+					"mal_anime_id", *malAnimeID,
+					"error", err)
+			}
+		}()
+	}
+
 	return episodes, nil
 }
 
@@ -338,7 +361,7 @@ func (s *AnimeService) GetUserFavorites(userID int, status string) ([]models.Ani
 	}
 
 	query := fmt.Sprintf(`
-		SELECT a.id, a.title, a.description, a.image_url, a.season, a.status, a.mal_anime_id, a.created_at, a.updated_at, a.watchers_count,
+		SELECT a.id, a.title, a.image_url, a.season, a.status, a.mal_anime_id, a.created_at, a.updated_at, a.watchers_count,
 		       uf.id, uf.user_id, uf.anime_id, uf.status, uf.created_at, uf.updated_at
 		FROM animes a
 		JOIN user_favorites uf ON a.id = uf.anime_id
@@ -357,7 +380,7 @@ func (s *AnimeService) GetUserFavorites(userID int, status string) ([]models.Ani
 		var anime models.Anime
 		var favorite models.UserFavorite
 		err := rows.Scan(
-			&anime.ID, &anime.Title, &anime.Description, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount,
+			&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount,
 			&favorite.ID, &favorite.UserID, &favorite.AnimeID, &favorite.Status, &favorite.CreatedAt, &favorite.UpdatedAt,
 		)
 		if err != nil {
@@ -590,14 +613,15 @@ func (s *AnimeService) GetFilterOptions() (*models.FilterOptions, error) {
 		filterOptions.Genres = genres
 	}
 
-	// 放送年一覧を取得
+	// 放送年一覧を取得（season から年を抽出）
 	yearRows, err := s.db.Query(`
-		SELECT DISTINCT season_year
+		SELECT DISTINCT CAST(SUBSTRING(season FROM 1 FOR 4) AS INTEGER) as year
 		FROM animes
-		WHERE season_year IS NOT NULL 
-		  AND season_year > 1900 
-		  AND season_year <= EXTRACT(YEAR FROM CURRENT_DATE) + 1
-		ORDER BY season_year DESC
+		WHERE season IS NOT NULL 
+		  AND season ~ '^\d{4}-'
+		  AND CAST(SUBSTRING(season FROM 1 FOR 4) AS INTEGER) > 1900
+		  AND CAST(SUBSTRING(season FROM 1 FOR 4) AS INTEGER) <= EXTRACT(YEAR FROM CURRENT_DATE) + 1
+		ORDER BY year DESC
 	`)
 	if err != nil {
 		s.logger.Error("Failed to get years", "error", err)
@@ -974,10 +998,10 @@ func (s *AnimeService) buildWhereClause(params models.AdvancedSearchParams, user
 		whereClauses = append(whereClauses, fmt.Sprintf("ag.genre IN (%s)", strings.Join(genrePlaceholders, ",")))
 	}
 
-	// 年検索
+	// 年検索（season から年を抽出して比較）
 	if params.Year > 0 {
-		whereClauses = append(whereClauses, fmt.Sprintf("a.season_year = $%d", argIndex))
-		args = append(args, params.Year)
+		whereClauses = append(whereClauses, fmt.Sprintf("a.season ~ $%d", argIndex))
+		args = append(args, fmt.Sprintf("^%d-", params.Year))
 		argIndex++
 	}
 
@@ -1053,7 +1077,8 @@ func (s *AnimeService) buildOrderByClause(params models.AdvancedSearchParams) st
 	case SortByRating:
 		return fmt.Sprintf("ORDER BY avg_ratings.avg_rating %s NULLS LAST", orderDirection)
 	case SortByYear:
-		return fmt.Sprintf("ORDER BY a.season_year %s, a.season %s", orderDirection, orderDirection)
+		// season から年を抽出してソート
+		return fmt.Sprintf("ORDER BY SUBSTRING(a.season FROM 1 FOR 4) %s, a.season %s", orderDirection, orderDirection)
 	case SortByPopularity:
 		return fmt.Sprintf("ORDER BY a.watchers_count %s", orderDirection)
 	case SortByUpdated:
@@ -1061,4 +1086,266 @@ func (s *AnimeService) buildOrderByClause(params models.AdvancedSearchParams) st
 	default:
 		return fmt.Sprintf("ORDER BY a.title %s", orderDirection)
 	}
+}
+
+// enrichEpisodesWithDuration fetches episode durations from Jikan API and updates the database
+func (s *AnimeService) enrichEpisodesWithDuration(animeID int, malAnimeID string) error {
+	// Fetch episodes from Jikan API
+	jikanEpisodes, err := s.jikanClient.GetAnimeEpisodes(malAnimeID)
+	if err != nil {
+		return fmt.Errorf("failed to fetch episodes from Jikan API: %w", err)
+	}
+
+	if len(jikanEpisodes) == 0 {
+		s.logger.Debug("No episodes found in Jikan API", "mal_anime_id", malAnimeID)
+		return nil
+	}
+
+	// Get existing episodes from database
+	rows, err := s.db.Query(`
+		SELECT id, episode_number, duration_minutes, air_date
+		FROM episodes
+		WHERE anime_id = $1
+		ORDER BY episode_number
+	`, animeID)
+	if err != nil {
+		return fmt.Errorf("failed to get episodes from database: %w", err)
+	}
+	defer rows.Close()
+
+	// Create a map of episode number to episode ID
+	episodeMap := make(map[int]struct {
+		id              int
+		durationMinutes *int
+		airDate         *time.Time
+	})
+	for rows.Next() {
+		var id, episodeNumber int
+		var durationMinutes *int
+		var airDate *time.Time
+		if err := rows.Scan(&id, &episodeNumber, &durationMinutes, &airDate); err != nil {
+			continue
+		}
+		episodeMap[episodeNumber] = struct {
+			id              int
+			durationMinutes *int
+			airDate         *time.Time
+		}{id, durationMinutes, airDate}
+	}
+
+	// Update episodes with duration from Jikan API
+	updatedCount := 0
+	for _, jikanEp := range jikanEpisodes {
+		// Extract episode number from URL
+		episodeNumber, err := s.jikanClient.ExtractEpisodeNumber(jikanEp.URL)
+		if err != nil {
+			s.logger.Warn("Failed to extract episode number",
+				"url", jikanEp.URL,
+				"mal_anime_id", malAnimeID,
+				"error", err)
+			continue
+		}
+
+		if episodeNumber <= 0 {
+			s.logger.Debug("Invalid episode number from Jikan API",
+				"episode_number", episodeNumber,
+				"url", jikanEp.URL,
+				"mal_anime_id", malAnimeID)
+			continue
+		}
+
+		// Check if episode exists in database
+		dbEpisode, exists := episodeMap[episodeNumber]
+		if !exists {
+			s.logger.Debug("Episode not found in database",
+				"episode_number", episodeNumber,
+				"mal_anime_id", malAnimeID)
+			continue
+		}
+
+		// Check if we need to update this episode
+		// Skip only if both duration and air_date already exist
+		hasDuration := dbEpisode.durationMinutes != nil
+		hasAirDate := dbEpisode.airDate != nil
+
+		if hasDuration && hasAirDate {
+			// Both fields are already set, skip this episode
+			continue
+		}
+
+		// Parse air_date from Jikan API
+		// Only update if not already set
+		var airDate *time.Time
+		if dbEpisode.airDate == nil && jikanEp.Aired != nil && *jikanEp.Aired != "" {
+			// Try ISO 8601 format first (e.g., "2025-07-06T00:00:00+00:00")
+			parsedDate, err := time.Parse(time.RFC3339, *jikanEp.Aired)
+			if err != nil {
+				// Try simple date format (e.g., "2025-07-06")
+				parsedDate, err = time.Parse("2006-01-02", *jikanEp.Aired)
+			}
+			if err == nil {
+				airDate = &parsedDate
+			} else {
+				s.logger.Debug("Failed to parse air_date from Jikan API",
+					"episode_number", episodeNumber,
+					"aired", *jikanEp.Aired,
+					"error", err)
+			}
+		}
+
+		// Validate duration (should be between 1 and 180 minutes)
+		// Only update if not already set
+		var duration *int
+		if dbEpisode.durationMinutes == nil {
+			if jikanEp.Duration >= 1 && jikanEp.Duration <= 180 {
+				duration = &jikanEp.Duration
+			} else if jikanEp.Duration != 0 {
+				s.logger.Warn("Invalid duration value from Jikan API",
+					"episode_number", episodeNumber,
+					"duration", jikanEp.Duration,
+					"mal_anime_id", malAnimeID)
+			}
+		}
+
+		// Update episode duration and air_date
+		err = s.updateEpisodeMetadata(dbEpisode.id, duration, airDate)
+		if err != nil {
+			s.logger.Warn("Failed to update episode metadata",
+				"episode_id", dbEpisode.id,
+				"episode_number", episodeNumber,
+				"error", err)
+			continue
+		}
+
+		updatedCount++
+	}
+
+	s.logger.Info("Successfully enriched episodes with metadata",
+		"anime_id", animeID,
+		"mal_anime_id", malAnimeID,
+		"updated_count", updatedCount,
+		"total_jikan_episodes", len(jikanEpisodes))
+
+	return nil
+}
+
+// updateEpisodeDuration updates the duration of a single episode (deprecated, use updateEpisodeMetadata)
+func (s *AnimeService) updateEpisodeDuration(episodeID int, duration int) error {
+	_, err := s.db.Exec(`
+		UPDATE episodes
+		SET duration_minutes = $1, updated_at = CURRENT_TIMESTAMP
+		WHERE id = $2
+	`, duration, episodeID)
+	return err
+}
+
+// updateEpisodeMetadata updates the duration and air_date of a single episode
+func (s *AnimeService) updateEpisodeMetadata(episodeID int, duration *int, airDate *time.Time) error {
+	// Build dynamic UPDATE query based on which fields need updating
+	updates := []string{}
+	args := []interface{}{}
+	argIndex := 1
+
+	if duration != nil {
+		updates = append(updates, fmt.Sprintf("duration_minutes = $%d", argIndex))
+		args = append(args, *duration)
+		argIndex++
+	}
+
+	if airDate != nil {
+		updates = append(updates, fmt.Sprintf("air_date = $%d", argIndex))
+		args = append(args, *airDate)
+		argIndex++
+	}
+
+	if len(updates) == 0 {
+		return nil // Nothing to update
+	}
+
+	updates = append(updates, "updated_at = CURRENT_TIMESTAMP")
+	args = append(args, episodeID)
+
+	query := fmt.Sprintf(`
+		UPDATE episodes
+		SET %s
+		WHERE id = $%d
+	`, strings.Join(updates, ", "), argIndex)
+
+	_, err := s.db.Exec(query, args...)
+	return err
+}
+
+// SyncEpisodeDurations synchronizes episode durations for a specific anime or all animes
+func (s *AnimeService) SyncEpisodeDurations(animeID *int) (int, int, int, []string, error) {
+	var animes []struct {
+		id         int
+		malAnimeID string
+	}
+
+	// Get animes to sync
+	var rows *sql.Rows
+	var err error
+	if animeID != nil {
+		// Sync specific anime
+		rows, err = s.db.Query(`
+			SELECT id, mal_anime_id
+			FROM animes
+			WHERE id = $1 AND mal_anime_id IS NOT NULL AND mal_anime_id != ''
+		`, *animeID)
+	} else {
+		// Sync all animes with MAL ID
+		rows, err = s.db.Query(`
+			SELECT id, mal_anime_id
+			FROM animes
+			WHERE mal_anime_id IS NOT NULL AND mal_anime_id != ''
+			ORDER BY id
+		`)
+	}
+
+	if err != nil {
+		return 0, 0, 0, nil, fmt.Errorf("failed to get animes: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var id int
+		var malAnimeID string
+		if err := rows.Scan(&id, &malAnimeID); err != nil {
+			continue
+		}
+		animes = append(animes, struct {
+			id         int
+			malAnimeID string
+		}{id, malAnimeID})
+	}
+
+	// Sync each anime
+	successCount := 0
+	failureCount := 0
+	skippedCount := 0
+	errors := []string{}
+
+	for _, anime := range animes {
+		err := s.enrichEpisodesWithDuration(anime.id, anime.malAnimeID)
+		if err != nil {
+			failureCount++
+			errorMsg := fmt.Sprintf("Anime ID %d: %s", anime.id, err.Error())
+			errors = append(errors, errorMsg)
+			s.logger.Warn("Failed to sync episode durations",
+				"anime_id", anime.id,
+				"mal_anime_id", anime.malAnimeID,
+				"error", err)
+		} else {
+			successCount++
+		}
+	}
+
+	totalAnimes := len(animes)
+	s.logger.Info("Episode duration sync completed",
+		"total_animes", totalAnimes,
+		"success_count", successCount,
+		"failure_count", failureCount,
+		"skipped_count", skippedCount)
+
+	return totalAnimes, successCount, failureCount, errors, nil
 }
