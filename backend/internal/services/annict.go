@@ -17,7 +17,7 @@ const (
 	defaultSortOrder = "desc"
 	defaultPerPage   = "50"
 	// AnnictAPIのデフォルトフィールド定義
-	annictAPIDefaultFields = "id,title,title_kana,title_en,media,media_text,season_name,season_year,released_on,released_on_about,official_site_url,wikipedia_url,twitter_username,twitter_hashtag,mal_anime_id,images,episodes_count,watchers_count,reviews_count,no_episodes"
+	annictAPIDefaultFields = "id,title,title_kana,title_en,media,media_text,season_name,released_on,released_on_about,official_site_url,wikipedia_url,twitter_username,twitter_hashtag,mal_anime_id,images,episodes_count,watchers_count,reviews_count,no_episodes"
 )
 
 type AnnictClient struct {
@@ -137,19 +137,20 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork) (*models.Anim
 		}
 	}
 
-	// Convert season format (e.g., "2024-winter" -> "2024-winter")
+	// Use season name directly (format: "YYYY-season", e.g., "2024-winter")
 	season := work.SeasonName
-	if season == "" && work.SeasonYear > 0 {
-		season = fmt.Sprintf("%d-unknown", work.SeasonYear)
-	}
 
 	// Determine status based on season and current date
 	status := "finished"
 	if work.SeasonName != "" {
-		// Simple logic: if it's current year, might be airing
-		currentYear := time.Now().Year()
-		if work.SeasonYear >= currentYear {
-			status = "airing"
+		// Extract year from season name (format: "YYYY-season")
+		var seasonYear int
+		_, err := fmt.Sscanf(work.SeasonName, "%d-", &seasonYear)
+		if err == nil {
+			currentYear := time.Now().Year()
+			if seasonYear >= currentYear {
+				status = "airing"
+			}
 		}
 	}
 
@@ -170,26 +171,25 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork) (*models.Anim
 				title_en = $3,
 				image_url = $4,
 				season = $5,
-				season_year = $6,
-				status = $7,
-				media = $8,
-				episodes_count = $9,
-				official_site_url = $10,
-				wikipedia_url = $11,
-				twitter_username = $12,
-				twitter_hashtag = $13,
-				mal_anime_id = $14,
-				watchers_count = $15,
-				reviews_count = $16,
+				status = $6,
+				media = $7,
+				episodes_count = $8,
+				official_site_url = $9,
+				wikipedia_url = $10,
+				twitter_username = $11,
+				twitter_hashtag = $12,
+				mal_anime_id = $13,
+				watchers_count = $14,
+				reviews_count = $15,
 				updated_at = CURRENT_TIMESTAMP
-			WHERE annict_id = $17
-			RETURNING id, title, description, image_url, season, status, annict_id, created_at, updated_at
+			WHERE annict_id = $16
+			RETURNING id, title, image_url, season, status, annict_id, created_at, updated_at
 		`,
-			work.Title, work.TitleKana, work.TitleEn, imageURL, season, work.SeasonYear,
+			work.Title, work.TitleKana, work.TitleEn, imageURL, season,
 			status, work.Media, work.EpisodesCount, work.OfficialSiteURL, work.WikipediaURL,
 			work.TwitterUsername, work.TwitterHashtag, work.MalAnimeID,
 			work.WatchersCount, work.ReviewsCount, work.ID,
-		).Scan(&anime.ID, &anime.Title, &anime.Description, &anime.ImageURL, &anime.Season, &anime.Status, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt)
+		).Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt)
 
 		if err != nil {
 			return nil, fmt.Errorf("failed to update anime (annict_id=%d): %w", work.ID, err)
@@ -199,21 +199,21 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork) (*models.Anim
 		// Use RETURNING to get the inserted row in a single query
 		err = c.DB.QueryRow(`
 			INSERT INTO animes (
-				id, title, title_kana, title_en, description, image_url, season, season_year,
+				id, title, title_kana, title_en, image_url, season,
 				status, media, episodes_count, official_site_url, wikipedia_url,
 				twitter_username, twitter_hashtag, mal_anime_id, annict_id,
 				watchers_count, reviews_count, created_at, updated_at
 			) VALUES (
-				DEFAULT, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18,
+				DEFAULT, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
 				CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 			)
-			RETURNING id, title, description, image_url, season, status, annict_id, created_at, updated_at
+			RETURNING id, title, image_url, season, status, annict_id, created_at, updated_at
 		`,
-			work.Title, work.TitleKana, work.TitleEn, "", imageURL, season, work.SeasonYear,
+			work.Title, work.TitleKana, work.TitleEn, imageURL, season,
 			status, work.Media, work.EpisodesCount, work.OfficialSiteURL, work.WikipediaURL,
 			work.TwitterUsername, work.TwitterHashtag, work.MalAnimeID, work.ID,
 			work.WatchersCount, work.ReviewsCount,
-		).Scan(&anime.ID, &anime.Title, &anime.Description, &anime.ImageURL, &anime.Season, &anime.Status, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt)
+		).Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt)
 
 		if err != nil {
 			return nil, fmt.Errorf("failed to insert anime (annict_id=%d): %w", work.ID, err)

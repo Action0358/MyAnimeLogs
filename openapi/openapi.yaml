@@ -923,6 +923,71 @@ paths:
                 properties:
                   message:
                     type: string
+  /admin/sync/episode-durations:
+    post:
+      summary: エピソード視聴時間をJikan APIから同期
+      description: Jikan APIからエピソードの視聴時間を取得してデータベースに保存します
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                anime_id:
+                  type: integer
+                  description: 同期対象のアニメID（未指定の場合は全アニメ）
+                  example: 123
+      responses:
+        "200":
+          description: 同期完了
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total_animes:
+                    type: integer
+                    description: 処理対象のアニメ数
+                    example: 100
+                  success_count:
+                    type: integer
+                    description: 成功した同期数
+                    example: 95
+                  failure_count:
+                    type: integer
+                    description: 失敗した同期数
+                    example: 3
+                  skipped_count:
+                    type: integer
+                    description: スキップされた同期数
+                    example: 2
+                  errors:
+                    type: array
+                    description: エラーメッセージのリスト
+                    items:
+                      type: string
+                    example: ["Anime ID 456: MAL ID not found"]
+        "400":
+          description: リクエストエラー
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: 認証エラー
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: サーバーエラー
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /health:
     get:
       summary: ヘルスチェック
@@ -1058,8 +1123,19 @@ components:
           type: string
         episode_number:
           type: integer
+        duration_minutes:
+          type: integer
+          nullable: true
+          description: エピソードの視聴時間（分）
+          example: 24
         viewed:
           type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
     Favorite:
       type: object
       properties:

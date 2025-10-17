@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"myanimelogs/internal/common"
 	"myanimelogs/internal/database"
 	"myanimelogs/internal/models"
 	"myanimelogs/internal/utils"
@@ -21,25 +22,33 @@ var (
 )
 
 type AuthService struct {
-	userRepo  UserRepositoryInterface
-	db        *database.DB // Keep for stats and export methods temporarily
-	jwtSecret string
+	userRepo     UserRepositoryInterface
+	db           *database.DB // Keep for export methods temporarily
+	statsService *StatsService
+	logger       *common.Logger
+	jwtSecret    string
 }
 
 func NewAuthService(db *database.DB, jwtSecret string) *AuthService {
+	logger := common.NewLogger(common.LogLevelInfo, "json")
 	return &AuthService{
-		userRepo:  nil, // Will be set by NewAuthServiceWithRepo
-		db:        db,
-		jwtSecret: jwtSecret,
+		userRepo:     nil, // Will be set by NewAuthServiceWithRepo
+		db:           db,
+		statsService: NewStatsService(db, logger),
+		logger:       logger,
+		jwtSecret:    jwtSecret,
 	}
 }
 
 // NewAuthServiceWithRepo creates a new AuthService with dependency injection
 func NewAuthServiceWithRepo(userRepo UserRepositoryInterface, db *database.DB, jwtSecret string) *AuthService {
+	logger := common.NewLogger(common.LogLevelInfo, "json")
 	return &AuthService{
-		userRepo:  userRepo,
-		db:        db, // Keep for stats and export methods temporarily
-		jwtSecret: jwtSecret,
+		userRepo:     userRepo,
+		db:           db,
+		statsService: NewStatsService(db, logger),
+		logger:       logger,
+		jwtSecret:    jwtSecret,
 	}
 }
 
@@ -332,63 +341,8 @@ func (s *AuthService) updateUserWithDB(userID int, req models.UserUpdateRequest)
 }
 
 func (s *AuthService) GetUserStats(userID int) (*models.UserStats, error) {
-	stats := &models.UserStats{}
-
-	// Get total episodes watched
-	err := s.db.QueryRow(`
-		SELECT COUNT(*) FROM watch_statuses 
-		WHERE user_id = $1 AND viewed = true
-	`, userID).Scan(&stats.TotalEpisodesWatched)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get episodes watched: %w", err)
-	}
-
-	// Get total animes completed
-	err = s.db.QueryRow(`
-		SELECT COUNT(*) FROM user_favorites 
-		WHERE user_id = $1 AND status = 'completed'
-	`, userID).Scan(&stats.TotalAnimesCompleted)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get completed animes: %w", err)
-	}
-
-	// Estimate total watch time (assuming 24 minutes per episode)
-	stats.TotalWatchTimeHours = float64(stats.TotalEpisodesWatched) * 0.4
-
-	// Get favorite genres (top 3)
-	rows, err := s.db.Query(`
-		SELECT ag.genre, COUNT(*) as count
-		FROM anime_genres ag
-		JOIN user_favorites uf ON ag.anime_id = uf.anime_id
-		WHERE uf.user_id = $1
-		GROUP BY ag.genre
-		ORDER BY count DESC
-		LIMIT 3
-	`, userID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get favorite genres: %w", err)
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var genre string
-		var count int
-		if err := rows.Scan(&genre, &count); err != nil {
-			continue
-		}
-		stats.FavoriteGenres = append(stats.FavoriteGenres, genre)
-	}
-
-	// Get this month's episodes
-	err = s.db.QueryRow(`
-		SELECT COUNT(*) FROM watch_history 
-		WHERE user_id = $1 AND watched_at >= date_trunc('month', CURRENT_DATE)
-	`, userID).Scan(&stats.ThisMonthEpisodes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get this month episodes: %w", err)
-	}
-
-	return stats, nil
+	// Delegate to StatsService
+	return s.statsService.GetUserStats(userID)
 }
 
 func (s *AuthService) ExportUserData(userID int, format string) (interface{}, error) {
