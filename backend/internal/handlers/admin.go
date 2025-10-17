@@ -11,7 +11,7 @@ import (
 
 // AnimeServiceInterface defines the interface for anime service operations
 type AnimeServiceInterface interface {
-	SyncEpisodeDurations(animeID *int) (int, int, int, []string, error)
+	SyncEpisodeDurations(animeID *int) (int, int, int, int, []string, error)
 	SearchAnimes(params models.AnimeSearchParams, userID *int) (*models.PaginatedResponse, error)
 	AdvancedSearchAnimes(params models.AdvancedSearchParams, userID *int) (*models.PaginatedResponse, error)
 	GetAnimeByID(animeID int, userID *int) (*models.AnimeWithUserData, error)
@@ -73,15 +73,12 @@ func (h *AdminHandler) SyncEpisodeDurations(c *gin.Context) {
 	}
 
 	// Perform sync
-	totalAnimes, successCount, failureCount, errors, err := h.animeService.SyncEpisodeDurations(req.AnimeID)
+	totalAnimes, successCount, failureCount, skippedCount, errors, err := h.animeService.SyncEpisodeDurations(req.AnimeID)
 	if err != nil {
 		h.logger.Error("Failed to sync episode durations", "error", err)
 		h.response.InternalServerError(c, "Failed to sync episode durations")
 		return
 	}
-
-	// Calculate skipped count (animes without MAL ID)
-	skippedCount := 0
 
 	response := SyncEpisodeDurationsResponse{
 		TotalAnimes:  totalAnimes,
