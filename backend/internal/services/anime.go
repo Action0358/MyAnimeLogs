@@ -1136,13 +1136,20 @@ func (s *AnimeService) enrichEpisodesWithDuration(animeID int, malAnimeID string
 	// Update episodes with duration from Jikan API
 	updatedCount := 0
 	for _, jikanEp := range jikanEpisodes {
-		// Use mal_id as episode number (Jikan API's episode field is often empty)
-		episodeNumber := jikanEp.MalID
+		// Extract episode number from URL
+		episodeNumber, err := s.jikanClient.ExtractEpisodeNumber(jikanEp.URL)
+		if err != nil {
+			s.logger.Warn("Failed to extract episode number",
+				"url", jikanEp.URL,
+				"mal_anime_id", malAnimeID,
+				"error", err)
+			continue
+		}
 
 		if episodeNumber <= 0 {
 			s.logger.Debug("Invalid episode number from Jikan API",
-				"mal_id", jikanEp.MalID,
-				"episode", jikanEp.Episode,
+				"episode_number", episodeNumber,
+				"url", jikanEp.URL,
 				"mal_anime_id", malAnimeID)
 			continue
 		}
@@ -1150,6 +1157,9 @@ func (s *AnimeService) enrichEpisodesWithDuration(animeID int, malAnimeID string
 		// Check if episode exists in database
 		dbEpisode, exists := episodeMap[episodeNumber]
 		if !exists {
+			s.logger.Debug("Episode not found in database",
+				"episode_number", episodeNumber,
+				"mal_anime_id", malAnimeID)
 			continue
 		}
 

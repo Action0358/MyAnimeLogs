@@ -7,6 +7,8 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"regexp"
+	"strconv"
 	"time"
 
 	"golang.org/x/time/rate"
@@ -250,4 +252,28 @@ func parseDuration(durationStr string) int {
 	}
 
 	return 0
+}
+
+// extractEpisodeNumber extracts episode number from Jikan API episode URL
+// Example: https://myanimelist.net/anime/53065/.../episode/1 -> 1
+func extractEpisodeNumber(url string) (int, error) {
+	// Extract /episode/{number} from the end of the URL
+	re := regexp.MustCompile(`/episode/(\d+)$`)
+	matches := re.FindStringSubmatch(url)
+
+	if len(matches) < 2 {
+		return 0, fmt.Errorf("episode number not found in URL: %s", url)
+	}
+
+	episodeNumber, err := strconv.Atoi(matches[1])
+	if err != nil {
+		return 0, fmt.Errorf("failed to parse episode number: %w", err)
+	}
+
+	return episodeNumber, nil
+}
+
+// ExtractEpisodeNumber extracts episode number from URL (public method)
+func (c *JikanClient) ExtractEpisodeNumber(url string) (int, error) {
+	return extractEpisodeNumber(url)
 }

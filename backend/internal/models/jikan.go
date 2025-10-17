@@ -8,11 +8,17 @@ type JikanEpisodeResponse struct {
 
 // JikanEpisode represents a single episode from Jikan API
 type JikanEpisode struct {
-	MalID    int     `json:"mal_id"`
-	Title    string  `json:"title"`
-	Episode  string  `json:"episode"`
-	Duration int     `json:"duration"` // Duration in minutes (not provided by episodes endpoint)
-	Aired    *string `json:"aired"`
+	MalID         int     `json:"mal_id"`
+	URL           string  `json:"url"` // Episode URL (used to extract episode number)
+	Title         string  `json:"title"`
+	TitleJapanese *string `json:"title_japanese"` // Japanese title
+	TitleRomanji  *string `json:"title_romanji"`  // Romanji title
+	Aired         *string `json:"aired"`
+	Score         float64 `json:"score"`     // Episode rating
+	Filler        bool    `json:"filler"`    // Is filler episode
+	Recap         bool    `json:"recap"`     // Is recap episode
+	ForumURL      string  `json:"forum_url"` // Forum URL
+	Duration      int     `json:"-"`         // Duration in minutes (set from anime detail endpoint, not in JSON)
 }
 
 // JikanPagination represents pagination info from Jikan API

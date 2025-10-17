@@ -39,8 +39,8 @@ func TestJikanClient_GetAnimeEpisodes(t *testing.T) {
 			if r.URL.Path == "/anime/1/episodes" {
 				episodeResponse := models.JikanEpisodeResponse{
 					Data: []models.JikanEpisode{
-						{MalID: 1, Title: "Episode 1", Episode: "1"},
-						{MalID: 2, Title: "Episode 2", Episode: "2"},
+						{MalID: 1, URL: "https://myanimelist.net/anime/1/Test_Anime/episode/1", Title: "Episode 1"},
+						{MalID: 2, URL: "https://myanimelist.net/anime/1/Test_Anime/episode/2", Title: "Episode 2"},
 					},
 					Pagination: models.JikanPagination{
 						LastVisiblePage: 1,
@@ -90,7 +90,7 @@ func TestJikanClient_GetAnimeEpisodes(t *testing.T) {
 				if episodePageCount == 1 {
 					response = models.JikanEpisodeResponse{
 						Data: []models.JikanEpisode{
-							{MalID: 1, Title: "Episode 1", Episode: "1"},
+							{MalID: 1, URL: "https://myanimelist.net/anime/1/Test_Anime/episode/1", Title: "Episode 1"},
 						},
 						Pagination: models.JikanPagination{
 							LastVisiblePage: 2,
@@ -100,7 +100,7 @@ func TestJikanClient_GetAnimeEpisodes(t *testing.T) {
 				} else {
 					response = models.JikanEpisodeResponse{
 						Data: []models.JikanEpisode{
-							{MalID: 2, Title: "Episode 2", Episode: "2"},
+							{MalID: 2, URL: "https://myanimelist.net/anime/1/Test_Anime/episode/2", Title: "Episode 2"},
 						},
 						Pagination: models.JikanPagination{
 							LastVisiblePage: 2,
@@ -184,7 +184,7 @@ func TestJikanClient_RateLimiting(t *testing.T) {
 		// Handle episodes endpoint
 		response := models.JikanEpisodeResponse{
 			Data: []models.JikanEpisode{
-				{MalID: 1, Title: "Episode 1", Episode: "1"},
+				{MalID: 1, URL: "https://myanimelist.net/anime/1/Test_Anime/episode/1", Title: "Episode 1"},
 			},
 			Pagination: models.JikanPagination{
 				LastVisiblePage: 1,
@@ -229,6 +229,75 @@ func TestParseDuration(t *testing.T) {
 			assert.Equal(t, tt.expected, result)
 		})
 	}
+}
+
+func TestExtractEpisodeNumber(t *testing.T) {
+	tests := []struct {
+		name        string
+		url         string
+		expected    int
+		expectError bool
+	}{
+		{
+			name:     "正常なURL",
+			url:      "https://myanimelist.net/anime/53065/Sono_Bisque_Doll_wa_Koi_wo_Suru_Season_2/episode/1",
+			expected: 1,
+		},
+		{
+			name:     "エピソード番号が2桁",
+			url:      "https://myanimelist.net/anime/53065/Test_Anime/episode/12",
+			expected: 12,
+		},
+		{
+			name:     "エピソード番号が3桁",
+			url:      "https://myanimelist.net/anime/53065/Test_Anime/episode/123",
+			expected: 123,
+		},
+		{
+			name:        "エピソード番号がない",
+			url:         "https://myanimelist.net/anime/53065/",
+			expectError: true,
+		},
+		{
+			name:        "不正なURL",
+			url:         "invalid-url",
+			expectError: true,
+		},
+		{
+			name:        "空のURL",
+			url:         "",
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := extractEpisodeNumber(tt.url)
+
+			if tt.expectError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expected, result)
+			}
+		})
+	}
+}
+
+func TestJikanClient_ExtractEpisodeNumber(t *testing.T) {
+	logger := common.NewLogger(common.LogLevelDebug, "text")
+	client := NewJikanClient(logger)
+
+	t.Run("Success", func(t *testing.T) {
+		episodeNumber, err := client.ExtractEpisodeNumber("https://myanimelist.net/anime/53065/Test/episode/5")
+		require.NoError(t, err)
+		assert.Equal(t, 5, episodeNumber)
+	})
+
+	t.Run("Error", func(t *testing.T) {
+		_, err := client.ExtractEpisodeNumber("invalid-url")
+		assert.Error(t, err)
+	})
 }
 
 func TestJikanClient_GetAnimeDuration(t *testing.T) {
