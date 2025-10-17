@@ -127,9 +127,9 @@ func (m *MockAnimeService) GetSearchSuggestions(query string, limit int) ([]stri
 	return args.Get(0).([]string), args.Error(1)
 }
 
-func (m *MockAnimeService) SyncEpisodeDurations(animeID *int) (int, int, int, []string, error) {
+func (m *MockAnimeService) SyncEpisodeDurations(animeID *int) (int, int, int, int, []string, error) {
 	args := m.Called(animeID)
-	return args.Int(0), args.Int(1), args.Int(2), args.Get(3).([]string), args.Error(4)
+	return args.Int(0), args.Int(1), args.Int(2), args.Int(3), args.Get(4).([]string), args.Error(5)
 }
 
 func TestAdminHandler_SyncEpisodeDurations(t *testing.T) {
@@ -141,7 +141,7 @@ func TestAdminHandler_SyncEpisodeDurations(t *testing.T) {
 		// Setup mock
 		mockService := new(MockAnimeService)
 		mockService.On("SyncEpisodeDurations", (*int)(nil)).
-			Return(100, 95, 5, []string{}, nil)
+			Return(100, 90, 5, 5, []string{}, nil)
 
 		handler := NewAdminHandler(mockService, logger, errorMonitor)
 
@@ -165,8 +165,9 @@ func TestAdminHandler_SyncEpisodeDurations(t *testing.T) {
 		err := json.Unmarshal(w.Body.Bytes(), &response)
 		assert.NoError(t, err)
 		assert.Equal(t, float64(100), response["total_animes"])
-		assert.Equal(t, float64(95), response["success_count"])
+		assert.Equal(t, float64(90), response["success_count"])
 		assert.Equal(t, float64(5), response["failure_count"])
+		assert.Equal(t, float64(5), response["skipped_count"])
 
 		mockService.AssertExpectations(t)
 	})
@@ -176,7 +177,7 @@ func TestAdminHandler_SyncEpisodeDurations(t *testing.T) {
 		mockService := new(MockAnimeService)
 		animeID := 123
 		mockService.On("SyncEpisodeDurations", &animeID).
-			Return(1, 1, 0, []string{}, nil)
+			Return(1, 1, 0, 0, []string{}, nil)
 
 		handler := NewAdminHandler(mockService, logger, errorMonitor)
 
@@ -202,6 +203,43 @@ func TestAdminHandler_SyncEpisodeDurations(t *testing.T) {
 		assert.Equal(t, float64(1), response["total_animes"])
 		assert.Equal(t, float64(1), response["success_count"])
 		assert.Equal(t, float64(0), response["failure_count"])
+		assert.Equal(t, float64(0), response["skipped_count"])
+
+		mockService.AssertExpectations(t)
+	})
+
+	t.Run("Success - Sync Specific Anime Without MAL ID (Skipped)", func(t *testing.T) {
+		// Setup mock
+		mockService := new(MockAnimeService)
+		animeID := 456
+		mockService.On("SyncEpisodeDurations", &animeID).
+			Return(1, 0, 0, 1, []string{}, nil)
+
+		handler := NewAdminHandler(mockService, logger, errorMonitor)
+
+		// Create request
+		reqBody := SyncEpisodeDurationsRequest{AnimeID: &animeID}
+		body, _ := json.Marshal(reqBody)
+		req := httptest.NewRequest(http.MethodPost, "/api/admin/sync/episode-durations", bytes.NewBuffer(body))
+		req.Header.Set("Content-Type", "application/json")
+
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = req
+
+		// Execute handler
+		handler.SyncEpisodeDurations(c)
+
+		// Assert
+		assert.Equal(t, http.StatusOK, w.Code)
+
+		var response map[string]interface{}
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		assert.NoError(t, err)
+		assert.Equal(t, float64(1), response["total_animes"])
+		assert.Equal(t, float64(0), response["success_count"])
+		assert.Equal(t, float64(0), response["failure_count"])
+		assert.Equal(t, float64(1), response["skipped_count"])
 
 		mockService.AssertExpectations(t)
 	})

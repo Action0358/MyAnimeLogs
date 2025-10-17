@@ -1229,16 +1229,6 @@ func (s *AnimeService) enrichEpisodesWithDuration(animeID int, malAnimeID string
 	return nil
 }
 
-// updateEpisodeDuration updates the duration of a single episode (deprecated, use updateEpisodeMetadata)
-func (s *AnimeService) updateEpisodeDuration(episodeID int, duration int) error {
-	_, err := s.db.Exec(`
-		UPDATE episodes
-		SET duration_minutes = $1, updated_at = CURRENT_TIMESTAMP
-		WHERE id = $2
-	`, duration, episodeID)
-	return err
-}
-
 // updateEpisodeMetadata updates the duration and air_date of a single episode
 func (s *AnimeService) updateEpisodeMetadata(episodeID int, duration *int, airDate *time.Time) error {
 	// Build dynamic UPDATE query based on which fields need updating
@@ -1276,53 +1266,85 @@ func (s *AnimeService) updateEpisodeMetadata(episodeID int, duration *int, airDa
 }
 
 // SyncEpisodeDurations synchronizes episode durations for a specific anime or all animes
-func (s *AnimeService) SyncEpisodeDurations(animeID *int) (int, int, int, []string, error) {
+func (s *AnimeService) SyncEpisodeDurations(animeID *int) (int, int, int, int, []string, error) {
 	var animes []struct {
 		id         int
 		malAnimeID string
 	}
 
-	// Get animes to sync
-	var rows *sql.Rows
-	var err error
+	var totalAnimes int
+	var skippedCount int
+
+	// Get total anime count and skipped count
 	if animeID != nil {
-		// Sync specific anime
-		rows, err = s.db.Query(`
-			SELECT id, mal_anime_id
+		// Sync specific anime - check if it has MAL ID
+		var malAnimeID sql.NullString
+		err := s.db.QueryRow(`
+			SELECT mal_anime_id
 			FROM animes
-			WHERE id = $1 AND mal_anime_id IS NOT NULL AND mal_anime_id != ''
-		`, *animeID)
+			WHERE id = $1
+		`, *animeID).Scan(&malAnimeID)
+
+		if err != nil {
+			if err == sql.ErrNoRows {
+				return 0, 0, 0, 0, nil, fmt.Errorf("anime not found")
+			}
+			return 0, 0, 0, 0, nil, fmt.Errorf("failed to get anime: %w", err)
+		}
+
+		totalAnimes = 1
+
+		// If no MAL ID, skip this anime
+		if !malAnimeID.Valid || malAnimeID.String == "" {
+			skippedCount = 1
+			s.logger.Info("Anime skipped (no MAL ID)",
+				"anime_id", *animeID)
+			return totalAnimes, 0, 0, skippedCount, nil, nil
+		}
+
+		// Add to sync list
+		animes = append(animes, struct {
+			id         int
+			malAnimeID string
+		}{*animeID, malAnimeID.String})
 	} else {
-		// Sync all animes with MAL ID
-		rows, err = s.db.Query(`
+		// Sync all animes - get total count
+		err := s.db.QueryRow(`SELECT COUNT(*) FROM animes`).Scan(&totalAnimes)
+		if err != nil {
+			return 0, 0, 0, 0, nil, fmt.Errorf("failed to count animes: %w", err)
+		}
+
+		// Get animes with MAL ID
+		rows, err := s.db.Query(`
 			SELECT id, mal_anime_id
 			FROM animes
 			WHERE mal_anime_id IS NOT NULL AND mal_anime_id != ''
 			ORDER BY id
 		`)
-	}
-
-	if err != nil {
-		return 0, 0, 0, nil, fmt.Errorf("failed to get animes: %w", err)
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var id int
-		var malAnimeID string
-		if err := rows.Scan(&id, &malAnimeID); err != nil {
-			continue
+		if err != nil {
+			return 0, 0, 0, 0, nil, fmt.Errorf("failed to get animes: %w", err)
 		}
-		animes = append(animes, struct {
-			id         int
-			malAnimeID string
-		}{id, malAnimeID})
+		defer rows.Close()
+
+		for rows.Next() {
+			var id int
+			var malAnimeID string
+			if err := rows.Scan(&id, &malAnimeID); err != nil {
+				continue
+			}
+			animes = append(animes, struct {
+				id         int
+				malAnimeID string
+			}{id, malAnimeID})
+		}
+
+		// Calculate skipped count (animes without MAL ID)
+		skippedCount = totalAnimes - len(animes)
 	}
 
 	// Sync each anime
 	successCount := 0
 	failureCount := 0
-	skippedCount := 0
 	errors := []string{}
 
 	for _, anime := range animes {
@@ -1340,12 +1362,11 @@ func (s *AnimeService) SyncEpisodeDurations(animeID *int) (int, int, int, []stri
 		}
 	}
 
-	totalAnimes := len(animes)
 	s.logger.Info("Episode duration sync completed",
 		"total_animes", totalAnimes,
 		"success_count", successCount,
 		"failure_count", failureCount,
 		"skipped_count", skippedCount)
 
-	return totalAnimes, successCount, failureCount, errors, nil
+	return totalAnimes, successCount, failureCount, skippedCount, errors, nil
 }

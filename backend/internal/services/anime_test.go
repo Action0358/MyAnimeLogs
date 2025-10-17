@@ -438,17 +438,6 @@ func TestAnimeService_ImplementsInterface(t *testing.T) {
 	assert.NotNil(t, service)
 }
 
-// TestAnimeService_UpdateEpisodeDuration tests episode duration update
-func TestAnimeService_UpdateEpisodeDuration(t *testing.T) {
-	logger := common.NewLogger(common.LogLevelDebug, "text")
-	service := NewAnimeService(nil, logger)
-
-	// This is a unit test for the updateEpisodeDuration method
-	// In a real scenario, this would require a database connection
-	// For now, we just verify the method exists and has the correct signature
-	assert.NotNil(t, service)
-}
-
 // TestAnimeService_JikanClientIntegration tests Jikan client integration
 func TestAnimeService_JikanClientIntegration(t *testing.T) {
 	logger := common.NewLogger(common.LogLevelDebug, "text")
