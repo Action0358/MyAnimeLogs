@@ -140,7 +140,7 @@ func TestJikanClient_GetAnimeEpisodes(t *testing.T) {
 
 		_, err := client.GetAnimeEpisodes("999999")
 		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "404")
+		assert.ErrorIs(t, err, ErrJikanNotFound)
 	})
 
 	t.Run("Error - Invalid JSON", func(t *testing.T) {
