@@ -35,24 +35,14 @@ BEGIN
         ALTER TABLE animes ADD COLUMN title_en VARCHAR(255);
     END IF;
     
-    -- Add description column
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='animes' AND column_name='description') THEN
-        ALTER TABLE animes ADD COLUMN description TEXT DEFAULT '';
-    END IF;
-    
     -- Add image_url column
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='animes' AND column_name='image_url') THEN
         ALTER TABLE animes ADD COLUMN image_url VARCHAR(500);
     END IF;
     
-    -- Add season column
+    -- Add season column (format: YYYY-season, e.g., "2025-summer")
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='animes' AND column_name='season') THEN
         ALTER TABLE animes ADD COLUMN season VARCHAR(50);
-    END IF;
-    
-    -- Add season_year column
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='animes' AND column_name='season_year') THEN
-        ALTER TABLE animes ADD COLUMN season_year INTEGER;
     END IF;
     
     -- Add status column
@@ -131,12 +121,14 @@ BEGIN
         CREATE INDEX IF NOT EXISTS idx_animes_status ON animes(status);
     END IF;
     
-    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='animes' AND column_name='season_year') THEN
-        CREATE INDEX IF NOT EXISTS idx_animes_season_year ON animes(season_year);
-    END IF;
-    
     IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='animes' AND column_name='annict_id') THEN
         CREATE INDEX IF NOT EXISTS idx_animes_annict_id ON animes(annict_id);
+    END IF;
+    
+    -- Create composite index for status and season
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='animes' AND column_name='status') 
+       AND EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='animes' AND column_name='season') THEN
+        CREATE INDEX IF NOT EXISTS idx_animes_status_season ON animes(status, season);
     END IF;
     
     -- Create text search indexes
@@ -148,6 +140,11 @@ BEGIN
     
     IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='animes' AND column_name='title_en') THEN
         CREATE INDEX IF NOT EXISTS idx_animes_title_en ON animes USING gin(to_tsvector('english', COALESCE(title_en, '')));
+    END IF;
+    
+    -- Create index for MAL anime ID (used for Jikan API lookups)
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='animes' AND column_name='mal_anime_id') THEN
+        CREATE INDEX IF NOT EXISTS idx_animes_mal_anime_id ON animes(mal_anime_id) WHERE mal_anime_id IS NOT NULL;
     END IF;
 END $$;
 

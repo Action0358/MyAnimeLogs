@@ -8,8 +8,7 @@ type AnnictWork struct {
 	TitleEn         string            `json:"title_en"`
 	Media           string            `json:"media"`
 	MediaText       string            `json:"media_text"`
-	SeasonName      string            `json:"season_name"`
-	SeasonYear      int               `json:"season_year"`
+	SeasonName      string            `json:"season_name"` // Format: "YYYY-season" (e.g., "2025-summer")
 	ReleasedOn      string            `json:"released_on"`
 	ReleasedOnAbout string            `json:"released_on_about"`
 	OfficialSiteURL string            `json:"official_site_url"`
