@@ -38,6 +38,17 @@ yarn-error.log*
 /backend/tmp/
 /backend/build-errors.log
 
+# Database migration files
+/backend/backups/
+/backend/logs/
+/backend/scripts/backups/
+/backend/scripts/logs/
+*.sql.backup
+
+# Test databases
+myanimelogs_test_migration
+myanimelogs_sql_validation
+
 # Documentation files
 /docs/*.csv
 /docs/README.md

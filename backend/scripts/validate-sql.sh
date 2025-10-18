@@ -1,0 +1,52 @@
+#!/bin/bash
+
+# SQLファイルの構文チェック
+# PostgreSQLの--dry-runオプションを使用して構文を検証
+
+set -e
+
+echo "🔍 Validating SQL migration files..."
+echo ""
+
+# テスト用のデータベース
+TEST_DB="myanimelogs_sql_validation"
+TEST_USER="${USER}"
+
+# 一時的なテストデータベースを作成
+createdb "$TEST_DB" 2>/dev/null || {
+    dropdb "$TEST_DB" 2>/dev/null
+    createdb "$TEST_DB"
+}
+
+export DATABASE_URL="postgresql://$TEST_USER@localhost/$TEST_DB"
+
+ALL_VALID=true
+
+for migration in migrations/*.sql; do
+    echo -n "Validating $(basename $migration)... "
+    
+    # SQLファイルをトランザクション内で実行し、ロールバック
+    if psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<EOF 2>&1 | grep -q "ERROR"
+BEGIN;
+\i $migration
+ROLLBACK;
+EOF
+    then
+        echo "❌ FAILED"
+        ALL_VALID=false
+    else
+        echo "✅ OK"
+    fi
+done
+
+# クリーンアップ
+dropdb "$TEST_DB" 2>/dev/null
+
+echo ""
+if [ "$ALL_VALID" = true ]; then
+    echo "✅ All SQL files are valid!"
+    exit 0
+else
+    echo "❌ Some SQL files have errors!"
+    exit 1
+fi
