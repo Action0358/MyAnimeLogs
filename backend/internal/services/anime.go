@@ -998,10 +998,10 @@ func (s *AnimeService) buildWhereClause(params models.AdvancedSearchParams, user
 		whereClauses = append(whereClauses, fmt.Sprintf("ag.genre IN (%s)", strings.Join(genrePlaceholders, ",")))
 	}
 
-	// 年検索（season から年を抽出して比較）
+	// 年検索（LIKE演算子を使用してインデックスを活用）
 	if params.Year > 0 {
-		whereClauses = append(whereClauses, fmt.Sprintf("a.season ~ $%d", argIndex))
-		args = append(args, fmt.Sprintf("^%d-", params.Year))
+		whereClauses = append(whereClauses, fmt.Sprintf("a.season LIKE $%d", argIndex))
+		args = append(args, fmt.Sprintf("%d-%%", params.Year))
 		argIndex++
 	}
 
@@ -1078,6 +1078,10 @@ func (s *AnimeService) buildOrderByClause(params models.AdvancedSearchParams) st
 		return fmt.Sprintf("ORDER BY avg_ratings.avg_rating %s NULLS LAST", orderDirection)
 	case SortByYear:
 		// season から年を抽出してソート
+		// NOTE: SUBSTRING関数を使用しているため、インデックスが利用されません
+		// 大規模データセットでパフォーマンスが問題になる場合は、
+		// CREATE INDEX idx_animes_season_year ON animes (SUBSTRING(season FROM 1 FOR 4))
+		// のような関数ベースのインデックスを作成することを検討してください
 		return fmt.Sprintf("ORDER BY SUBSTRING(a.season FROM 1 FOR 4) %s, a.season %s", orderDirection, orderDirection)
 	case SortByPopularity:
 		return fmt.Sprintf("ORDER BY a.watchers_count %s", orderDirection)
@@ -1287,7 +1291,7 @@ func (s *AnimeService) SyncEpisodeDurations(animeID *int) (int, int, int, int, [
 
 		if err != nil {
 			if err == sql.ErrNoRows {
-				return 0, 0, 0, 0, nil, fmt.Errorf("anime not found")
+				return 0, 0, 0, 0, nil, ErrAnimeNotFound
 			}
 			return 0, 0, 0, 0, nil, fmt.Errorf("failed to get anime: %w", err)
 		}

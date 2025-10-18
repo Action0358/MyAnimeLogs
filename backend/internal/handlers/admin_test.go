@@ -14,6 +14,7 @@ import (
 
 	"myanimelogs/internal/common"
 	"myanimelogs/internal/models"
+	"myanimelogs/internal/services"
 )
 
 // MockAnimeService for testing
@@ -129,6 +130,9 @@ func (m *MockAnimeService) GetSearchSuggestions(query string, limit int) ([]stri
 
 func (m *MockAnimeService) SyncEpisodeDurations(animeID *int) (int, int, int, int, []string, error) {
 	args := m.Called(animeID)
+	if args.Get(4) == nil {
+		return args.Int(0), args.Int(1), args.Int(2), args.Int(3), nil, args.Error(5)
+	}
 	return args.Int(0), args.Int(1), args.Int(2), args.Int(3), args.Get(4).([]string), args.Error(5)
 }
 
@@ -259,6 +263,30 @@ func TestAdminHandler_SyncEpisodeDurations(t *testing.T) {
 		handler.SyncEpisodeDurations(c)
 
 		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("Error - Anime Not Found (404)", func(t *testing.T) {
+		mockService := new(MockAnimeService)
+		animeID := 999
+		mockService.On("SyncEpisodeDurations", &animeID).
+			Return(0, 0, 0, 0, nil, services.ErrAnimeNotFound)
+
+		handler := NewAdminHandler(mockService, logger, errorMonitor)
+
+		reqBody := SyncEpisodeDurationsRequest{AnimeID: &animeID}
+		body, _ := json.Marshal(reqBody)
+		req := httptest.NewRequest(http.MethodPost, "/api/admin/sync/episode-durations", bytes.NewBuffer(body))
+		req.Header.Set("Content-Type", "application/json")
+
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = req
+
+		handler.SyncEpisodeDurations(c)
+
+		assert.Equal(t, http.StatusNotFound, w.Code)
+
+		mockService.AssertExpectations(t)
 	})
 }
 
