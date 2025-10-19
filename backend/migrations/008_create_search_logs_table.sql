@@ -17,11 +17,10 @@ CREATE INDEX IF NOT EXISTS idx_search_logs_filters ON search_logs USING gin(filt
 
 -- Create full-text search indexes for animes table
 CREATE INDEX IF NOT EXISTS idx_animes_fulltext_title_desc ON animes USING gin(
-    to_tsvector('simple', COALESCE(title, '') || ' ' || COALESCE(description, ''))
+    to_tsvector('simple', COALESCE(title, ''))
 );
 
 -- Create composite indexes for advanced search
-CREATE INDEX IF NOT EXISTS idx_animes_season_year ON animes(season, season_year);
 CREATE INDEX IF NOT EXISTS idx_animes_status_season ON animes(status, season);
 
 -- Create index for anime_genres search optimization

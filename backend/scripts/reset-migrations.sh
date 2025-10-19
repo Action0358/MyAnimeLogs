@@ -1,4 +1,6 @@
 #!/bin/bash
+set -e
+set -o pipefail
 
 # Production環境のマイグレーション履歴をリセットして001から再実行
 # 

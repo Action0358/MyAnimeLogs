@@ -23,7 +23,9 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /app/migrate ./scripts
 FROM alpine:3.19
 
 # 必要なパッケージのみインストール（安定版のAlpineを使用）
-RUN apk add --no-cache ca-certificates tzdata curl
+# postgresql-client: マイグレーション実行用
+# bash: シェルスクリプト実行用
+RUN apk add --no-cache ca-certificates tzdata curl postgresql-client bash
 
 # 非rootユーザーとグループを作成
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
@@ -35,11 +37,12 @@ WORKDIR /app
 COPY --from=builder --chown=appuser:appgroup /app/main /app/main
 COPY --from=builder --chown=appuser:appgroup /app/migrate /app/migrate
 
-# マイグレーションファイルをコピー
+# マイグレーションファイルとスクリプトをコピー
 COPY --from=builder --chown=appuser:appgroup /app/migrations /app/migrations
+COPY --from=builder --chown=appuser:appgroup /app/scripts/migrate.sh /app/migrate.sh
 
-# バイナリに実行権限を付与
-RUN chmod +x /app/main /app/migrate
+# バイナリとスクリプトに実行権限を付与
+RUN chmod +x /app/main /app/migrate /app/migrate.sh
 
 # アプリが実行されるポートを公開
 EXPOSE 8080
