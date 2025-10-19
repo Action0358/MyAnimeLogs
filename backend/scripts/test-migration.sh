@@ -28,18 +28,20 @@ echo "✅ Test database created: $DATABASE_URL"
 echo ""
 
 # マイグレーションを実行
-echo "📝 Running migrations..."
-for migration in migrations/*.sql; do
-    echo "  - Testing $(basename $migration)..."
-    psql "$DATABASE_URL" -f "$migration" -v ON_ERROR_STOP=1 || {
-        echo "❌ Migration failed: $(basename $migration)"
-        exit 1
-    }
-done
+echo "📝 Running migrations using migrate.go..."
+echo ""
 
-echo ""
-echo "✅ All migrations applied successfully!"
-echo ""
+# migrate.goを使用してマイグレーションを実行
+# これにより、本番環境と同じロジックでテストできる
+if go run scripts/migrate.go; then
+    echo ""
+    echo "✅ All migrations applied successfully!"
+    echo ""
+else
+    echo ""
+    echo "❌ Migration failed!"
+    exit 1
+fi
 
 # スキーマを確認
 echo "📋 Verifying schema..."
