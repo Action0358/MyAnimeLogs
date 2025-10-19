@@ -1,4 +1,6 @@
 #!/bin/bash
+set -e
+set -o pipefail
 
 # スキーマの差分をチェックするスクリプト
 # Usage: ./scripts/check-schema-diff.sh [staging|production]

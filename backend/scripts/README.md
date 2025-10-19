@@ -66,7 +66,6 @@
 | `sync-staging-data.sh`    | アニメデータ取得   | 1 分     | 🟡 注意       |
 | `sync-production-data.sh` | 本番データ取得     | 1 分     | 🔴 慎重に     |
 | `verify-deployment.sh`    | 動作確認           | 10 秒    | 🟢 安全       |
-| `deploy-staging.sh`       | 完全デプロイ       | 2 分     | 🟡 注意       |
 | `reset-migrations.sh`     | 履歴リセット       | 1 分     | 🔴 緊急時のみ |
 
 ---
@@ -302,37 +301,6 @@ Validating 001_create_animes_table.sql... ✅ OK
 ---
 
 ### 🚢 デプロイ
-
-<details>
-<summary><strong>deploy-staging.sh</strong> - ステージング環境への完全デプロイ</summary>
-
-**いつ使う？**
-
-- ステージング環境に新しいバージョンをデプロイするとき
-
-**何をする？**
-
-1. スキーマの差分を確認
-2. 「続行しますか？」と確認
-3. データベースマイグレーション
-4. アプリケーションをビルド
-5. テストを実行
-6. デプロイ
-
-**使い方**
-
-```bash
-./scripts/deploy-staging.sh
-```
-
-**注意点**
-
-- ⚠️ 各ステップで確認が入る
-- ✅ エラーが起きたら途中で停止
-
-</details>
-
----
 
 ### 📊 データ同期
 

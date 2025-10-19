@@ -1,4 +1,6 @@
 #!/bin/bash
+set -e
+set -o pipefail
 
 # SQLファイルの構文チェック
 # PostgreSQLの--dry-runオプションを使用して構文を検証
