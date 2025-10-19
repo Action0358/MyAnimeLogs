@@ -17,12 +17,17 @@ echo ""
 
 # /app/migrateバイナリを使用してマイグレーションを実行
 # このバイナリは実行済みマイグレーションを追跡し、未実行のものだけを実行する
-if [ -f "/app/migrate" ]; then
+if [ -x "/app/migrate" ]; then
     echo "📝 Running migrations using /app/migrate..."
     echo ""
     /app/migrate
+elif [ -f "/app/migrate" ]; then
+    echo "❌ Error: /app/migrate exists but is not executable"
+    echo "   Please check file permissions"
+    exit 1
 else
     echo "❌ Error: /app/migrate binary not found"
+    echo "   Please ensure the Docker image was built correctly"
     exit 1
 fi
 
@@ -33,9 +38,9 @@ echo ""
 # スキーマ情報を表示
 echo "📋 Current database schema:"
 if command -v psql > /dev/null 2>&1; then
-    psql "$DATABASE_URL" -c "\dt" 2>/dev/null || echo "Could not retrieve table list"
+    psql "$DATABASE_URL" -c "\dt" || echo "⚠️  Warning: Could not retrieve table list (this is not critical)"
 else
-    echo "psql not available, skipping schema display"
+    echo "ℹ️  psql not available, skipping schema display"
 fi
 
 exit 0

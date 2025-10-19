@@ -63,7 +63,7 @@ func main() {
 }
 
 // executeMigrationWithTransaction トランザクション内で単一のマイグレーションを実行
-func executeMigrationWithTransaction(db *database.DB, filename, migrationsDir string) error {
+func executeMigrationWithTransaction(db *database.DB, filename, migrationsDir string) (err error) {
 	// トランザクションを開始
 	tx, err := db.Begin()
 	if err != nil {
@@ -94,27 +94,33 @@ func executeMigrationWithTransaction(db *database.DB, filename, migrationsDir st
 
 	// マイグレーションファイルを読み込む
 	filePath := filepath.Join(migrationsDir, filename)
-	content, err := os.ReadFile(filePath)
+	var content []byte
+	content, err = os.ReadFile(filePath)
 	if err != nil {
-		return fmt.Errorf("failed to read migration file: %w", err)
+		err = fmt.Errorf("failed to read migration file: %w", err)
+		return err
 	}
 
 	// マイグレーションSQLを実行
 	fmt.Printf("Executing migration %s...\n", filename)
 	_, err = tx.Exec(string(content))
 	if err != nil {
-		return fmt.Errorf("failed to execute migration SQL: %w", err)
+		err = fmt.Errorf("failed to execute migration SQL: %w", err)
+		return err
 	}
 
 	// 同じトランザクション内でマイグレーションを記録
 	_, err = tx.Exec("INSERT INTO migrations (filename) VALUES ($1)", filename)
 	if err != nil {
-		return fmt.Errorf("failed to record migration: %w", err)
+		err = fmt.Errorf("failed to record migration: %w", err)
+		return err
 	}
 
 	// トランザクションをコミット
-	if commitErr := tx.Commit(); commitErr != nil {
-		return fmt.Errorf("failed to commit transaction: %w", commitErr)
+	err = tx.Commit()
+	if err != nil {
+		err = fmt.Errorf("failed to commit transaction: %w", err)
+		return err
 	}
 
 	fmt.Printf("Migration %s executed successfully\n", filename)
