@@ -38,9 +38,9 @@ echo ""
 # スキーマ情報を表示
 echo "📋 Current database schema:"
 if command -v psql > /dev/null 2>&1; then
-    psql "$DATABASE_URL" -c "\dt" 2>/dev/null || echo "Could not retrieve table list"
+    psql "$DATABASE_URL" -c "\dt" || echo "⚠️  Warning: Could not retrieve table list (this is not critical)"
 else
-    echo "psql not available, skipping schema display"
+    echo "ℹ️  psql not available, skipping schema display"
 fi
 
 exit 0
