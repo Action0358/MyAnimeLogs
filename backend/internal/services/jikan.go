@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -22,6 +23,17 @@ const (
 	jikanRateLimit      = 3                // 3 requests per second
 	jikanRequestTimeout = 10 * time.Second // 10 seconds timeout
 	maxRetries          = 3
+)
+
+var (
+	// ErrJikanNotFound is returned when a resource is not found in Jikan API
+	ErrJikanNotFound = errors.New("jikan: resource not found")
+	// ErrJikanRateLimit is returned when rate limit is exceeded
+	ErrJikanRateLimit = errors.New("jikan: rate limit exceeded")
+
+	// Compiled regex patterns for performance
+	durationRegex      = regexp.MustCompile(`(?:(\d+)\s*hr)?(?:\s*(\d+)\s*min)?(?:\s*(\d+)\s*sec)?`)
+	episodeNumberRegex = regexp.MustCompile(`/episode/(\d+)$`)
 )
 
 // JikanClient handles communication with Jikan API
@@ -172,13 +184,13 @@ func (c *JikanClient) makeRequestWithRetry(url string, result interface{}) error
 			return nil
 
 		case http.StatusNotFound:
-			// Anime not found - not an error, just return empty
+			// Anime not found - return sentinel error
 			c.logger.Debug("Anime not found in Jikan API", "url", url)
-			return fmt.Errorf("anime not found (404)")
+			return ErrJikanNotFound
 
 		case http.StatusTooManyRequests:
 			// Rate limit exceeded - retry with backoff
-			lastErr = fmt.Errorf("rate limit exceeded (429)")
+			lastErr = ErrJikanRateLimit
 			c.logger.Warn("Jikan API rate limit exceeded, retrying",
 				"url", url,
 				"attempt", attempt+1)
@@ -211,55 +223,52 @@ func (c *JikanClient) backoff(attempt int) {
 	time.Sleep(backoffDuration)
 }
 
-// parseDuration parses duration string from Jikan API
+// parseDuration parses duration string from Jikan API using regex
 // Examples: "24 min per ep" -> 24, "1 hr 30 min" -> 90, "Unknown" -> 0
 func parseDuration(durationStr string) int {
 	if durationStr == "" || durationStr == "Unknown" {
 		return 0
 	}
 
-	var hours, minutes int
+	// Use pre-compiled regex pattern for performance
+	// Matches: "1 hr 30 min", "24 min per ep", "45 min", "2 hr", "90 sec"
+	matches := durationRegex.FindStringSubmatch(durationStr)
 
-	// Try to parse "X hr Y min" format
-	_, err := fmt.Sscanf(durationStr, "%d hr %d min", &hours, &minutes)
-	if err == nil {
-		return hours*60 + minutes
+	if len(matches) < 4 {
+		return 0
 	}
 
-	// Try to parse "X hr" format
-	_, err = fmt.Sscanf(durationStr, "%d hr", &hours)
-	if err == nil {
-		return hours * 60
+	var totalMinutes int
+
+	// Parse hours
+	if matches[1] != "" {
+		if hours, err := strconv.Atoi(matches[1]); err == nil {
+			totalMinutes += hours * 60
+		}
 	}
 
-	// Try to parse "X min per ep" format
-	_, err = fmt.Sscanf(durationStr, "%d min per ep", &minutes)
-	if err == nil {
-		return minutes
+	// Parse minutes
+	if matches[2] != "" {
+		if minutes, err := strconv.Atoi(matches[2]); err == nil {
+			totalMinutes += minutes
+		}
 	}
 
-	// Try to parse "X min" format
-	_, err = fmt.Sscanf(durationStr, "%d min", &minutes)
-	if err == nil {
-		return minutes
+	// Parse seconds (convert to minutes)
+	if matches[3] != "" {
+		if seconds, err := strconv.Atoi(matches[3]); err == nil {
+			totalMinutes += seconds / 60
+		}
 	}
 
-	// Try to parse "X sec" format (convert to minutes)
-	var seconds int
-	_, err = fmt.Sscanf(durationStr, "%d sec", &seconds)
-	if err == nil {
-		return seconds / 60
-	}
-
-	return 0
+	return totalMinutes
 }
 
 // extractEpisodeNumber extracts episode number from Jikan API episode URL
 // Example: https://myanimelist.net/anime/53065/.../episode/1 -> 1
 func extractEpisodeNumber(url string) (int, error) {
-	// Extract /episode/{number} from the end of the URL
-	re := regexp.MustCompile(`/episode/(\d+)$`)
-	matches := re.FindStringSubmatch(url)
+	// Use pre-compiled regex pattern for performance
+	matches := episodeNumberRegex.FindStringSubmatch(url)
 
 	if len(matches) < 2 {
 		return 0, fmt.Errorf("episode number not found in URL: %s", url)

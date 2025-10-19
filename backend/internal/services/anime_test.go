@@ -322,7 +322,7 @@ func TestAnimeService_BuildWhereClause(t *testing.T) {
 			userID:       nil,
 			expectedArgs: 1,
 			shouldContain: []string{
-				"a.season ~",
+				"a.season LIKE",
 			},
 		},
 		{
@@ -396,7 +396,7 @@ func TestAnimeService_BuildWhereClause(t *testing.T) {
 			expectedArgs: 8, // query(2) + year + season + genre + minRating + user_id + userStatus
 			shouldContain: []string{
 				"to_tsvector",
-				"a.season ~",
+				"a.season LIKE",
 				"ag.genre IN",
 				"avg_ratings.avg_rating >=",
 				"uf.user_id",

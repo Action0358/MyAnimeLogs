@@ -1,41 +1,28 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
 	"myanimelogs/internal/common"
-	"myanimelogs/internal/models"
+	"myanimelogs/internal/services"
 )
 
-// AnimeServiceInterface defines the interface for anime service operations
-type AnimeServiceInterface interface {
+// AdminAnimeService defines the minimal interface needed by AdminHandler
+type AdminAnimeService interface {
 	SyncEpisodeDurations(animeID *int) (int, int, int, int, []string, error)
-	SearchAnimes(params models.AnimeSearchParams, userID *int) (*models.PaginatedResponse, error)
-	AdvancedSearchAnimes(params models.AdvancedSearchParams, userID *int) (*models.PaginatedResponse, error)
-	GetAnimeByID(animeID int, userID *int) (*models.AnimeWithUserData, error)
-	GetAnimeEpisodes(animeID int, userID *int) ([]models.Episode, error)
-	GetUserFavorites(userID int, status string) ([]models.AnimeWithUserData, error)
-	UpdateFavorite(userID, animeID int, status string) (*models.UserFavorite, error)
-	DeleteFavorite(userID, animeID int) error
-	UpdateWatchStatus(userID, episodeID int, viewed bool) (*models.WatchStatus, error)
-	UpdateRating(userID, animeID int, rating float64, comment *string) (*models.UserRating, error)
-	DeleteRating(userID, animeID int) error
-	GetRecentlyWatched(userID, limit int) ([]models.WatchHistory, error)
-	GetFilterOptions() (*models.FilterOptions, error)
-	GetPopularSearches(limit int) ([]string, error)
-	GetSearchSuggestions(query string, limit int) ([]string, error)
 }
 
 // AdminHandler handles admin-related requests
 type AdminHandler struct {
 	*BaseHandler
-	animeService AnimeServiceInterface
+	animeService AdminAnimeService
 }
 
 // NewAdminHandler creates a new admin handler
-func NewAdminHandler(animeService AnimeServiceInterface, logger *common.Logger, errorMonitor *common.ErrorMonitor) *AdminHandler {
+func NewAdminHandler(animeService AdminAnimeService, logger *common.Logger, errorMonitor *common.ErrorMonitor) *AdminHandler {
 	return &AdminHandler{
 		BaseHandler:  NewBaseHandlerWithLogger(logger, errorMonitor),
 		animeService: animeService,
@@ -73,9 +60,16 @@ func (h *AdminHandler) SyncEpisodeDurations(c *gin.Context) {
 	}
 
 	// Perform sync
-	totalAnimes, successCount, failureCount, skippedCount, errors, err := h.animeService.SyncEpisodeDurations(req.AnimeID)
+	totalAnimes, successCount, failureCount, skippedCount, errs, err := h.animeService.SyncEpisodeDurations(req.AnimeID)
 	if err != nil {
 		h.logger.Error("Failed to sync episode durations", "error", err)
+
+		// Check for specific error types
+		if errors.Is(err, services.ErrAnimeNotFound) {
+			h.response.NotFoundError(c, "指定されたアニメが見つかりません")
+			return
+		}
+
 		h.response.InternalServerError(c, "Failed to sync episode durations")
 		return
 	}
@@ -85,7 +79,7 @@ func (h *AdminHandler) SyncEpisodeDurations(c *gin.Context) {
 		SuccessCount: successCount,
 		FailureCount: failureCount,
 		SkippedCount: skippedCount,
-		Errors:       errors,
+		Errors:       errs,
 	}
 
 	h.logger.Info("Episode duration sync completed",
