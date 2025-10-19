@@ -94,6 +94,7 @@ func (s *AuthService) registerWithRepo(req models.UserRegisterRequest) (*models.
 		Email:       user.Email,
 		Description: user.Description,
 		Icon:        user.Icon,
+		CreatedAt:   user.CreatedAt,
 	}, nil
 }
 
@@ -133,6 +134,7 @@ func (s *AuthService) registerWithDB(req models.UserRegisterRequest) (*models.Us
 		Email:       user.Email,
 		Description: user.Description,
 		Icon:        user.Icon,
+		CreatedAt:   user.CreatedAt,
 	}, nil
 }
 
@@ -174,6 +176,7 @@ func (s *AuthService) loginWithRepo(req models.UserLoginRequest) (*models.LoginR
 			Email:       user.Email,
 			Description: user.Description,
 			Icon:        user.Icon,
+			CreatedAt:   user.CreatedAt,
 		},
 	}, nil
 }
@@ -181,9 +184,9 @@ func (s *AuthService) loginWithRepo(req models.UserLoginRequest) (*models.LoginR
 func (s *AuthService) loginWithDB(req models.UserLoginRequest) (*models.LoginResponse, error) {
 	var user models.User
 	err := s.db.QueryRow(`
-		SELECT id, name, email, password, description, icon
+		SELECT id, name, email, password, description, icon, created_at
 		FROM users WHERE email = $1
-	`, req.Email).Scan(&user.ID, &user.Name, &user.Email, &user.Password, &user.Description, &user.Icon)
+	`, req.Email).Scan(&user.ID, &user.Name, &user.Email, &user.Password, &user.Description, &user.Icon, &user.CreatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrInvalidCredentials
@@ -212,6 +215,7 @@ func (s *AuthService) loginWithDB(req models.UserLoginRequest) (*models.LoginRes
 			Email:       user.Email,
 			Description: user.Description,
 			Icon:        user.Icon,
+			CreatedAt:   user.CreatedAt,
 		},
 	}, nil
 }
@@ -239,15 +243,16 @@ func (s *AuthService) getUserByIDWithRepo(userID int) (*models.UserResponse, err
 		Email:       user.Email,
 		Description: user.Description,
 		Icon:        user.Icon,
+		CreatedAt:   user.CreatedAt,
 	}, nil
 }
 
 func (s *AuthService) getUserByIDWithDB(userID int) (*models.UserResponse, error) {
 	var user models.User
 	err := s.db.QueryRow(`
-		SELECT id, name, email, description, icon
+		SELECT id, name, email, description, icon, created_at
 		FROM users WHERE id = $1
-	`, userID).Scan(&user.ID, &user.Name, &user.Email, &user.Description, &user.Icon)
+	`, userID).Scan(&user.ID, &user.Name, &user.Email, &user.Description, &user.Icon, &user.CreatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrUserNotFound
@@ -261,6 +266,7 @@ func (s *AuthService) getUserByIDWithDB(userID int) (*models.UserResponse, error
 		Email:       user.Email,
 		Description: user.Description,
 		Icon:        user.Icon,
+		CreatedAt:   user.CreatedAt,
 	}, nil
 }
 
@@ -284,6 +290,7 @@ func (s *AuthService) updateUserWithRepo(userID int, req models.UserUpdateReques
 		Email:       user.Email,
 		Description: user.Description,
 		Icon:        user.Icon,
+		CreatedAt:   user.CreatedAt,
 	}, nil
 }
 
@@ -320,12 +327,12 @@ func (s *AuthService) updateUserWithDB(userID int, req models.UserUpdateRequest)
 	query := fmt.Sprintf(`
 		UPDATE users SET %s
 		WHERE id = $%d
-		RETURNING id, name, email, description, icon
+		RETURNING id, name, email, description, icon, created_at
 	`, strings.Join(setParts, ", "), argIndex)
 
 	var user models.User
 	err := s.db.QueryRow(query, args...).Scan(
-		&user.ID, &user.Name, &user.Email, &user.Description, &user.Icon,
+		&user.ID, &user.Name, &user.Email, &user.Description, &user.Icon, &user.CreatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update user: %w", err)
@@ -337,6 +344,7 @@ func (s *AuthService) updateUserWithDB(userID int, req models.UserUpdateRequest)
 		Email:       user.Email,
 		Description: user.Description,
 		Icon:        user.Icon,
+		CreatedAt:   user.CreatedAt,
 	}, nil
 }
 

@@ -19,24 +19,32 @@ interface FavoriteAnime {
   imageUrl?: string
 }
 
+type TabType = 'favorites' | 'stats' | 'history'
+
 export const MyPageContent: React.FC = () => {
-  const { user, token } = useAuth()
+  const { user: authUser, token } = useAuth()
   const router = useRouter()
+  const [user, setUser] = useState(authUser)
   const [stats, setStats] = useState<UserStats | null>(null)
   const [favorites, setFavorites] = useState<FavoriteAnime[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<TabType>('favorites')
+  const [favoriteAnime, setFavoriteAnime] = useState('')
+  const [snsLink, setSnsLink] = useState('')
 
   const API_BASE_URL =
     process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
 
-  // 統計情報とお気に入りアニメを並列で取得
   const fetchData = useCallback(async () => {
     setIsLoading(true)
     setError(null)
 
     try {
-      const [statsResponse, favoritesResponse] = await Promise.all([
+      const [userResponse, statsResponse, favoritesResponse] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/users/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
         fetch(`${API_BASE_URL}/api/users/me/stats`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
@@ -45,17 +53,21 @@ export const MyPageContent: React.FC = () => {
         }),
       ])
 
-      // 認証エラーの場合はログインページにリダイレクト
-      if (statsResponse.status === 401 || favoritesResponse.status === 401) {
+      if (userResponse.status === 401 || statsResponse.status === 401 || favoritesResponse.status === 401) {
         router.push('/login')
         return
       }
 
-      // 両方のレスポンスを処理してから状態を更新（整合性を保つ）
+      // ユーザー情報を取得
+      let userData
+      if (userResponse.ok) {
+        userData = await userResponse.json()
+        setUser(userData)
+      }
+
       let statsData: UserStats
       let favoritesData: FavoriteAnime[]
 
-      // 統計情報の処理
       if (statsResponse.status === 404) {
         statsData = DEFAULT_USER_STATS
       } else if (!statsResponse.ok) {
@@ -64,18 +76,15 @@ export const MyPageContent: React.FC = () => {
         statsData = await statsResponse.json()
       }
 
-      // お気に入り情報の処理
       if (favoritesResponse.status === 404) {
         favoritesData = []
       } else if (!favoritesResponse.ok) {
         throw new Error(ERROR_MESSAGES.FAVORITES_FETCH_FAILED)
       } else {
         const data = await favoritesResponse.json()
-        // 7件取得して「すべて見る」ボタンの表示判定に使用し、表示は6件のみ
-        favoritesData = data.slice(0, 7)
+        favoritesData = data.slice(0, 20)
       }
 
-      // 両方のデータが正常に取得できた場合のみ状態を更新
       setStats(statsData)
       setFavorites(favoritesData)
     } catch (err) {
@@ -89,10 +98,26 @@ export const MyPageContent: React.FC = () => {
   }, [token, API_BASE_URL, router])
 
   useEffect(() => {
-    if (user && token) {
+    if (authUser && token) {
       fetchData()
     }
-  }, [user, token, fetchData])
+  }, [authUser, token])
+
+  // localStorageから好きなアニメとSNSリンクを読み込む（ユーザーIDごとに分離）
+  useEffect(() => {
+    if (authUser?.id) {
+      const storedFavoriteAnime = localStorage.getItem(`user_${authUser.id}_favorite_anime`)
+      const storedSnsLink = localStorage.getItem(`user_${authUser.id}_sns_link`)
+
+      if (storedFavoriteAnime) {
+        setFavoriteAnime(storedFavoriteAnime)
+      }
+
+      if (storedSnsLink) {
+        setSnsLink(storedSnsLink)
+      }
+    }
+  }, [authUser?.id])
 
   if (isLoading) {
     return (
@@ -123,226 +148,269 @@ export const MyPageContent: React.FC = () => {
     )
   }
 
+  const registrationDate = (() => {
+    if (!user?.created_at) {
+      // created_atがない場合は現在日時を表示（フォールバック）
+      return new Date().toLocaleDateString('ja-JP', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      })
+    }
+
+    const date = new Date(user.created_at)
+    // ゼロ値（0001-01-01）をチェック - この場合も現在日時を表示
+    if (date.getFullYear() === 1 || isNaN(date.getTime())) {
+      return new Date().toLocaleDateString('ja-JP', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      })
+    }
+
+    return date.toLocaleDateString('ja-JP', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    })
+  })()
+
   return (
-    <Container className="py-12">
-      <div className="max-w-6xl mx-auto">
-        {/* ヘッダーセクション */}
-        <div className="bg-white rounded-lg border border-gray-200 p-8 shadow-sm mb-8">
-          <div className="flex items-center space-x-6">
-            {/* ユーザーアイコン */}
-            <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-              {user?.icon ? (
-                <img
-                  src={user.icon}
-                  alt={user.name}
-                  className="w-20 h-20 rounded-full object-cover"
-                />
-              ) : (
-                <span className="text-blue-600 text-3xl">👤</span>
-              )}
-            </div>
-
-            {/* ユーザー情報 */}
-            <div className="flex-1">
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">
-                {user?.name}
-              </h1>
-              {user?.description && (
-                <p className="text-gray-700">{user.description}</p>
-              )}
-            </div>
-
-            {/* 編集ボタン */}
-            <div>
-              <Button
-                variant="outline"
-                size="md"
-                onClick={() => {
-                  // TODO: プロフィール編集ページ実装後に有効化
-                  console.info('プロフィール編集機能は準備中です')
-                }}
-                disabled
-              >
-                プロフィール編集
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {/* 統計情報セクション */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-bold text-gray-900">視聴統計</h2>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => router.push('/stats')}
-            >
-              詳細を見る →
-            </Button>
-          </div>
-
-          {stats ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-              {/* 総視聴エピソード数 */}
-              <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-4">
-                  <span className="text-blue-600 text-xl">📺</span>
-                </div>
-                <p className="text-sm text-gray-600 mb-1">総視聴数</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {stats.totalEpisodesWatched || 0}
-                </p>
+    <div className="bg-gray-50 min-h-screen">
+      <Container className="py-8">
+        <div className="max-w-6xl mx-auto">
+          <div className="bg-white rounded-lg shadow-sm">
+            {/* ヘッダー部分 */}
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-sm text-gray-500">{registrationDate} 登録</p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => router.push('/mypage/edit')}
+                >
+                  ⚙️ 設定
+                </Button>
               </div>
 
-              {/* 完了アニメ数 */}
-              <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-                <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-4">
-                  <span className="text-green-600 text-xl">✅</span>
-                </div>
-                <p className="text-sm text-gray-600 mb-1">完了アニメ</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {stats.totalAnimesCompleted || 0}
-                </p>
-              </div>
-
-              {/* 総視聴時間 */}
-              <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-                <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-4">
-                  <span className="text-purple-600 text-xl">⏱️</span>
-                </div>
-                <p className="text-sm text-gray-600 mb-1">総視聴時間</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {(stats.totalWatchTimeHours || 0).toFixed(1)}h
-                </p>
-              </div>
-
-              {/* 今月の視聴 */}
-              <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-                <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center mb-4">
-                  <span className="text-orange-600 text-xl">📅</span>
-                </div>
-                <p className="text-sm text-gray-600 mb-1">今月の視聴数</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {stats.thisMonthEpisodes || 0}
-                </p>
-              </div>
-
-              {/* お気に入りジャンル */}
-              <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-                <div className="w-12 h-12 bg-pink-100 rounded-lg flex items-center justify-center mb-4">
-                  <span className="text-pink-600 text-xl">❤️</span>
-                </div>
-                <p className="text-sm text-gray-600 mb-1">好きなジャンル</p>
-                <div className="text-sm font-medium text-gray-900">
-                  {stats.favoriteGenres && stats.favoriteGenres.length > 0 ? (
-                    stats.favoriteGenres.slice(0, 2).map((genre, index) => (
-                      <span key={index} className="block">
-                        {genre}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="text-gray-500">-</span>
-                  )}
-                </div>
-              </div>
-            </div>
-          ) : (
-            <div className="bg-white rounded-lg border border-gray-200 p-8 shadow-sm text-center">
-              <p className="text-gray-600">統計情報を取得できませんでした</p>
-            </div>
-          )}
-        </div>
-
-        {/* お気に入りアニメセクション */}
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-bold text-gray-900">
-              お気に入りアニメ
-            </h2>
-            {favorites.length > 6 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  // TODO: お気に入り一覧ページ実装後に有効化
-                  console.info('お気に入り一覧ページは準備中です')
-                }}
-                disabled
-              >
-                すべて見る →
-              </Button>
-            )}
-          </div>
-
-          {favorites.length > 0 ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-              {favorites.slice(0, 6).map((anime) => {
-                const statusConfig = getAnimeStatusConfig(anime.status)
-                return (
-                  <div
-                    key={anime.id}
-                    className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-                    onClick={() => {
-                      // TODO: アニメ詳細ページ実装後に有効化
-                      console.info(
-                        `アニメ詳細ページは準備中です (ID: ${anime.id})`
-                      )
-                    }}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        console.info(
-                          `アニメ詳細ページは準備中です (ID: ${anime.id})`
-                        )
-                      }
-                    }}
-                  >
-                    {anime.imageUrl ? (
+              {/* プロフィール情報 */}
+              <div className="flex items-start space-x-6">
+                {/* 左側: アイコン */}
+                <div className="flex-shrink-0">
+                  <div className="w-32 h-32 bg-gray-100 rounded-full overflow-hidden">
+                    {user?.icon ? (
                       <img
-                        src={anime.imageUrl}
-                        alt={anime.title}
-                        className="w-full h-48 object-cover"
+                        src={user.icon}
+                        alt={user.name}
+                        className="w-full h-full object-cover"
                       />
                     ) : (
-                      <div className="w-full h-48 bg-gray-200 flex items-center justify-center">
-                        <span className="text-gray-400 text-4xl">📺</span>
+                      <div className="w-full h-full flex items-center justify-center">
+                        <span className="text-gray-400 text-5xl">👤</span>
                       </div>
                     )}
-                    <div className="p-3">
-                      <h3 className="text-sm font-medium text-gray-900 line-clamp-2 mb-2">
-                        {anime.title}
-                      </h3>
-                      <span
-                        className={`inline-block px-2 py-1 text-xs rounded-full ${statusConfig.bgColor} ${statusConfig.textColor}`}
-                      >
-                        {statusConfig.label}
-                      </span>
+                  </div>
+                </div>
+
+                {/* 右側: ユーザー情報とプロフィール詳細 */}
+                <div className="flex-1">
+                  {/* ユーザー名と統計 */}
+                  <div className="mb-6">
+                    <h1 className="text-3xl font-bold text-gray-900 mb-3">
+                      {user?.name}
+                    </h1>
+
+                    {/* 統計バッジ */}
+                    <div className="flex items-center space-x-6">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-xl">📺</span>
+                        <div>
+                          <p className="text-xs text-gray-500">視聴数</p>
+                          <p className="text-base font-bold text-gray-900">
+                            {stats?.totalEpisodesWatched || 0}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-xl">✅</span>
+                        <div>
+                          <p className="text-xs text-gray-500">完了</p>
+                          <p className="text-base font-bold text-gray-900">
+                            {stats?.totalAnimesCompleted || 0}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                )
-              })}
-            </div>
-          ) : (
-            <div className="bg-white rounded-lg border border-gray-200 p-12 shadow-sm text-center">
-              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-gray-400 text-3xl">📺</span>
+
+                  {/* プロフィール詳細 */}
+                  <div className="space-y-4 max-w-3xl">
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500 mb-2">
+                        プロフィール
+                      </h3>
+                      <p className="text-gray-900 whitespace-pre-wrap text-sm leading-relaxed">
+                        {user?.description || '未設定'}
+                      </p>
+                    </div>
+
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500 mb-2">
+                        好きなアニメ
+                      </h3>
+                      <p className="text-gray-900 text-sm leading-relaxed">
+                        {favoriteAnime || '未設定'}
+                      </p>
+                    </div>
+
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500 mb-2">
+                        リンク
+                      </h3>
+                      {snsLink ? (
+                        <a
+                          href={snsLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline text-sm"
+                        >
+                          {snsLink}
+                        </a>
+                      ) : (
+                        <p className="text-gray-500 text-sm">未設定</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
-              <p className="text-gray-600 mb-4">
-                まだお気に入りのアニメがありません
-              </p>
-              <Button
-                variant="primary"
-                size="md"
-                onClick={() => router.push('/')}
-              >
-                アニメを探す
-              </Button>
             </div>
-          )}
+
+            {/* タブナビゲーション */}
+            <div className="border-b border-gray-200">
+              <div className="flex space-x-8 px-6">
+                <button
+                  onClick={() => setActiveTab('favorites')}
+                  className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
+                    activeTab === 'favorites'
+                      ? 'border-blue-600 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  お気に入り
+                  <span className="ml-2 text-xs">{favorites.length}</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('stats')}
+                  className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
+                    activeTab === 'stats'
+                      ? 'border-blue-600 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  統計レポート
+                </button>
+                <button
+                  onClick={() => setActiveTab('history')}
+                  className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
+                    activeTab === 'history'
+                      ? 'border-blue-600 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  視聴履歴
+                </button>
+              </div>
+            </div>
+
+            {/* タブコンテンツ */}
+            <div className="p-6">
+              {activeTab === 'favorites' && (
+                <div>
+                  {favorites.length > 0 ? (
+                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                      {favorites.map((anime) => {
+                        const statusConfig = getAnimeStatusConfig(anime.status)
+                        return (
+                          <div
+                            key={anime.id}
+                            className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
+                            onClick={() => {
+                              console.info(
+                                `アニメ詳細ページは準備中です (ID: ${anime.id})`
+                              )
+                            }}
+                          >
+                            {anime.imageUrl ? (
+                              <img
+                                src={anime.imageUrl}
+                                alt={anime.title}
+                                className="w-full h-40 object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-40 bg-gray-200 flex items-center justify-center">
+                                <span className="text-gray-400 text-3xl">
+                                  📺
+                                </span>
+                              </div>
+                            )}
+                            <div className="p-3">
+                              <h3 className="text-sm font-medium text-gray-900 line-clamp-2 mb-2">
+                                {anime.title}
+                              </h3>
+                              <span
+                                className={`inline-block px-2 py-1 text-xs rounded-full ${statusConfig.bgColor} ${statusConfig.textColor}`}
+                              >
+                                {statusConfig.label}
+                              </span>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12">
+                      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <span className="text-gray-400 text-3xl">📺</span>
+                      </div>
+                      <p className="text-gray-600 mb-4">
+                        まだお気に入りのアニメがありません
+                      </p>
+                      <Button
+                        variant="primary"
+                        size="md"
+                        onClick={() => router.push('/')}
+                      >
+                        アニメを探す
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeTab === 'stats' && (
+                <div className="text-center py-12">
+                  <p className="text-gray-600 mb-4">
+                    統計レポート機能は準備中です
+                  </p>
+                  <Button
+                    variant="primary"
+                    size="md"
+                    onClick={() => router.push('/stats')}
+                  >
+                    詳細統計を見る
+                  </Button>
+                </div>
+              )}
+
+              {activeTab === 'history' && (
+                <div className="text-center py-12">
+                  <p className="text-gray-600">視聴履歴機能は準備中です</p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
-      </div>
-    </Container>
+      </Container>
+    </div>
   )
 }

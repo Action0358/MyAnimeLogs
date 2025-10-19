@@ -82,6 +82,11 @@ const buildConfig = () => {
           protocol: 'https',
           hostname: '*.twimg.com',
         },
+        // ユーザーアイコン用：任意のHTTPSドメインを許可
+        {
+          protocol: 'https',
+          hostname: '**',
+        },
       ],
       dangerouslyAllowSVG: false,
     },
@@ -117,8 +122,8 @@ const buildConfig = () => {
               "default-src 'self'",
               "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
               "style-src 'self' 'unsafe-inline'",
-              // 画像ソースを厳格に制限（必要なドメインのみ）
-              "img-src 'self' data: blob: https://*.anilist.co https://cdn.myanimelist.net https://*.twimg.com",
+              // 画像ソースを許可（ユーザーアイコン用にHTTPSを広く許可）
+              "img-src 'self' data: blob: https:",
               "font-src 'self'",
               "connect-src 'self' http://localhost:* ws://localhost:*",
               "frame-ancestors 'none'",
