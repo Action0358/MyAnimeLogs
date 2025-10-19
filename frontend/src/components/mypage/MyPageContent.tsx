@@ -101,7 +101,7 @@ export const MyPageContent: React.FC = () => {
     if (authUser && token) {
       fetchData()
     }
-  }, [authUser, token])
+  }, [authUser, token, fetchData])
 
   // localStorageから好きなアニメとSNSリンクを読み込む（ユーザーIDごとに分離）
   useEffect(() => {
@@ -149,30 +149,24 @@ export const MyPageContent: React.FC = () => {
   }
 
   const registrationDate = (() => {
-    if (!user?.created_at) {
-      // created_atがない場合は現在日時を表示（フォールバック）
-      return new Date().toLocaleDateString('ja-JP', {
+    const formatDate = (date: Date) =>
+      date.toLocaleDateString('ja-JP', {
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
       })
+
+    if (!user?.created_at) {
+      return formatDate(new Date())
     }
 
     const date = new Date(user.created_at)
-    // ゼロ値（0001-01-01）をチェック - この場合も現在日時を表示
-    if (date.getFullYear() === 1 || isNaN(date.getTime())) {
-      return new Date().toLocaleDateString('ja-JP', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-      })
+    // 無効な日付またはゼロ値の場合はフォールバック
+    if (isNaN(date.getTime()) || date.getFullYear() === 1) {
+      return formatDate(new Date())
     }
 
-    return date.toLocaleDateString('ja-JP', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    })
+    return formatDate(date)
   })()
 
   return (
@@ -335,9 +329,8 @@ export const MyPageContent: React.FC = () => {
                             key={anime.id}
                             className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
                             onClick={() => {
-                              console.info(
-                                `アニメ詳細ページは準備中です (ID: ${anime.id})`
-                              )
+                              // アニメ詳細ページは準備中
+                              // TODO: router.push(`/anime/${anime.id}`)
                             }}
                           >
                             {anime.imageUrl ? (

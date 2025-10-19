@@ -82,10 +82,42 @@ const buildConfig = () => {
           protocol: 'https',
           hostname: '*.twimg.com',
         },
-        // ユーザーアイコン用：任意のHTTPSドメインを許可
+        // ユーザーアイコン用：信頼できる画像ホスティングサービスのみ
         {
           protocol: 'https',
-          hostname: '**',
+          hostname: 'i.imgur.com',
+        },
+        {
+          protocol: 'https',
+          hostname: 'imgur.com',
+        },
+        {
+          protocol: 'https',
+          hostname: 'avatars.githubusercontent.com',
+        },
+        {
+          protocol: 'https',
+          hostname: 'github.com',
+        },
+        {
+          protocol: 'https',
+          hostname: 'raw.githubusercontent.com',
+        },
+        {
+          protocol: 'https',
+          hostname: 'gravatar.com',
+        },
+        {
+          protocol: 'https',
+          hostname: '*.gravatar.com',
+        },
+        {
+          protocol: 'https',
+          hostname: 'cloudinary.com',
+        },
+        {
+          protocol: 'https',
+          hostname: '*.cloudinary.com',
         },
       ],
       dangerouslyAllowSVG: false,
@@ -122,8 +154,8 @@ const buildConfig = () => {
               "default-src 'self'",
               "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
               "style-src 'self' 'unsafe-inline'",
-              // 画像ソースを許可（ユーザーアイコン用にHTTPSを広く許可）
-              "img-src 'self' data: blob: https:",
+              // 画像ソースを信頼できるドメインに限定
+              "img-src 'self' data: blob: https://*.anilist.co https://cdn.myanimelist.net https://*.twimg.com https://i.imgur.com https://imgur.com https://avatars.githubusercontent.com https://github.com https://raw.githubusercontent.com https://*.gravatar.com https://*.cloudinary.com",
               "font-src 'self'",
               "connect-src 'self' http://localhost:* ws://localhost:*",
               "frame-ancestors 'none'",

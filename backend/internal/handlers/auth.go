@@ -6,6 +6,7 @@ import (
 	"myanimelogs/internal/common"
 	"myanimelogs/internal/models"
 	"myanimelogs/internal/services"
+	"myanimelogs/internal/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -92,6 +93,18 @@ func (h *AuthHandler) UpdateMe(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.response.ValidationError(c, err.Error())
 		return
+	}
+
+	// アイコンURLのバリデーション
+	if req.Icon != nil {
+		if err := utils.ValidateImageURLSize(*req.Icon); err != nil {
+			h.response.ValidationError(c, err.Error())
+			return
+		}
+		if err := utils.ValidateImageURL(*req.Icon); err != nil {
+			h.response.ValidationError(c, err.Error())
+			return
+		}
 	}
 
 	user, err := h.authService.UpdateUser(userID, req)

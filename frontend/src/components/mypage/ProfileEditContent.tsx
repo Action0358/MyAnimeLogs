@@ -12,18 +12,29 @@ export const ProfileEditContent: React.FC = () => {
   const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const [name, setName] = useState(user?.name || '')
-  const [description, setDescription] = useState(user?.description || '')
-  const [favoriteAnime, setFavoriteAnime] = useState(
-    typeof window !== 'undefined' && user?.id
-      ? localStorage.getItem(`user_${user.id}_favorite_anime`) || ''
-      : ''
-  )
-  const [snsLink, setSnsLink] = useState(
-    typeof window !== 'undefined' && user?.id
-      ? localStorage.getItem(`user_${user.id}_sns_link`) || ''
-      : ''
-  )
+  // 初期値を保持（変更検知用）
+  const [initialValues] = useState(() => {
+    const storedFavoriteAnime =
+      typeof window !== 'undefined' && user?.id
+        ? localStorage.getItem(`user_${user.id}_favorite_anime`) || ''
+        : ''
+    const storedSnsLink =
+      typeof window !== 'undefined' && user?.id
+        ? localStorage.getItem(`user_${user.id}_sns_link`) || ''
+        : ''
+    
+    return {
+      name: user?.name || '',
+      description: user?.description || '',
+      favoriteAnime: storedFavoriteAnime,
+      snsLink: storedSnsLink,
+    }
+  })
+
+  const [name, setName] = useState(initialValues.name)
+  const [description, setDescription] = useState(initialValues.description)
+  const [favoriteAnime, setFavoriteAnime] = useState(initialValues.favoriteAnime)
+  const [snsLink, setSnsLink] = useState(initialValues.snsLink)
   const [iconFile, setIconFile] = useState<File | null>(null)
   const [iconPreview, setIconPreview] = useState<string | null>(
     user?.icon || null
@@ -35,7 +46,7 @@ export const ProfileEditContent: React.FC = () => {
   const API_BASE_URL =
     process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
 
-  // 変更検知
+  // 変更検知（初期値と現在値を比較）
   const checkForChanges = (
     newName: string,
     newDescription: string,
@@ -43,17 +54,18 @@ export const ProfileEditContent: React.FC = () => {
     newSnsLink: string,
     newIconFile: File | null
   ) => {
-    const nameChanged = newName !== (user?.name || '')
-    const descriptionChanged = newDescription !== (user?.description || '')
-    const favoriteAnimeChanged = newFavoriteAnime !== ''
-    const snsLinkChanged = newSnsLink !== ''
-    // 画像アップロード機能は一時的に無効化
-    // const iconChanged = newIconFile !== null
+    const nameChanged = newName !== initialValues.name
+    const descriptionChanged = newDescription !== initialValues.description
+    const favoriteAnimeChanged = newFavoriteAnime !== initialValues.favoriteAnime
+    const snsLinkChanged = newSnsLink !== initialValues.snsLink
+    const iconChanged = newIconFile !== null
+    
     setHasChanges(
       nameChanged ||
         descriptionChanged ||
         favoriteAnimeChanged ||
-        snsLinkChanged
+        snsLinkChanged ||
+        iconChanged
     )
   }
 
