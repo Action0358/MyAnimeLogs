@@ -1,8 +1,8 @@
 #!/bin/bash
+set -e
+set -o pipefail
 
 # MyAnimeLogs Deployment Verification Script
-
-set -e
 
 # Colors for output
 RED='\033[0;31m'
