@@ -16,6 +16,7 @@ interface User {
   email: string
   description?: string
   icon?: string
+  created_at?: string
 }
 
 interface AuthContextType {
@@ -48,26 +49,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // トークンとユーザー情報の初期化
   useEffect(() => {
-    const initAuth = () => {
-      try {
-        const storedToken = storage.get(TOKEN_KEY)
-        const storedUser = storage.get(USER_KEY)
+    try {
+      const storedToken = storage.getUnsafe(TOKEN_KEY)
+      const storedUser = storage.getUnsafe(USER_KEY)
 
-        if (storedToken && storedUser) {
-          setToken(storedToken)
-          setUser(storedUser)
-        }
-      } catch (error) {
-        console.error('Failed to initialize auth state:', error)
-        // エラー時はストレージをクリア
-        storage.remove(TOKEN_KEY)
-        storage.remove(USER_KEY)
-      } finally {
-        setIsLoading(false)
+      if (storedToken && storedUser) {
+        setToken(storedToken)
+        setUser(storedUser)
       }
+    } catch (error) {
+      console.error('Failed to initialize auth state:', error)
+      // 不正なデータの場合はストレージをクリア（エラー回復）
+      storage.remove(TOKEN_KEY)
+      storage.remove(USER_KEY)
+    } finally {
+      setIsLoading(false)
     }
-
-    initAuth()
   }, [])
 
   const login = useCallback(
@@ -90,6 +87,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
         // OpenAPI仕様に従い、access_tokenを取得
         const accessToken = data.access_token
+
+        // デバッグ: ユーザー情報を確認
+        console.log('Login response user data:', data.user)
 
         setToken(accessToken)
         setUser(data.user)

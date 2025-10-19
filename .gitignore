@@ -58,3 +58,5 @@ myanimelogs_sql_validation
 
 # Editor specific files
 .vscode/
+*.bak
+*~

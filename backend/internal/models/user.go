@@ -33,11 +33,12 @@ type UserUpdateRequest struct {
 }
 
 type UserResponse struct {
-	ID          int     `json:"id"`
-	Name        string  `json:"name"`
-	Email       string  `json:"email"`
-	Description string  `json:"description"`
-	Icon        *string `json:"icon"`
+	ID          int       `json:"id"`
+	Name        string    `json:"name"`
+	Email       string    `json:"email"`
+	Description string    `json:"description"`
+	Icon        *string   `json:"icon"`
+	CreatedAt   time.Time `json:"created_at"`
 }
 
 type LoginResponse struct {
