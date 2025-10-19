@@ -17,12 +17,17 @@ echo ""
 
 # /app/migrateバイナリを使用してマイグレーションを実行
 # このバイナリは実行済みマイグレーションを追跡し、未実行のものだけを実行する
-if [ -f "/app/migrate" ]; then
+if [ -x "/app/migrate" ]; then
     echo "📝 Running migrations using /app/migrate..."
     echo ""
     /app/migrate
+elif [ -f "/app/migrate" ]; then
+    echo "❌ Error: /app/migrate exists but is not executable"
+    echo "   Please check file permissions"
+    exit 1
 else
     echo "❌ Error: /app/migrate binary not found"
+    echo "   Please ensure the Docker image was built correctly"
     exit 1
 fi
 
