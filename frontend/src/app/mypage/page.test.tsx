@@ -41,6 +41,32 @@ describe('MyPage', () => {
     thisMonthEpisodes: 15,
   }
 
+  // 成功時のfetchモックを作成するヘルパー関数
+  const createSuccessfulFetchMock = () => {
+    return (url: string) => {
+      // より厳密なURLマッチングを使用
+      if (url.endsWith('/api/users/me/favorites')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => [],
+        })
+      }
+      if (url.endsWith('/api/users/me/stats')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => mockStats,
+        })
+      }
+      if (url.endsWith('/api/users/me')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => mockUser,
+        })
+      }
+      return Promise.reject(new Error('Unknown URL'))
+    }
+  }
+
   beforeEach(() => {
     jest.clearAllMocks()
     ;(useRouter as jest.Mock).mockReturnValue(mockRouter)
@@ -68,139 +94,80 @@ describe('MyPage', () => {
     expect(container).toBeInTheDocument()
   })
 
-  it('認証済みユーザーの情報を表示する', async () => {
-    ;(useAuth as jest.Mock).mockReturnValue({
-      user: mockUser,
-      token: 'test-token',
-      isLoading: false,
-      isAuthenticated: true,
-    })
-
-    ;(global.fetch as jest.Mock).mockImplementation((url) => {
-      if (url.includes('/favorites')) {
-        return Promise.resolve({
-          ok: true,
-          json: async () => [],
-        })
-      }
-      if (url.includes('/stats')) {
-        return Promise.resolve({
-          ok: true,
-          json: async () => mockStats,
-        })
-      }
-      if (url.includes('/users/me')) {
-        return Promise.resolve({
-          ok: true,
-          json: async () => mockUser,
-        })
-      }
-      return Promise.reject(new Error('Unknown URL'))
-    })
-
-    render(<MyPage />)
-
-    await waitFor(() => {
-      expect(screen.getByText('テストユーザー')).toBeInTheDocument()
-      expect(screen.getByText('テスト説明')).toBeInTheDocument()
-    })
-  })
-
-  it('統計情報を正しく表示する', async () => {
-    ;(useAuth as jest.Mock).mockReturnValue({
-      user: mockUser,
-      token: 'test-token',
-      isLoading: false,
-      isAuthenticated: true,
-    })
-
-    ;(global.fetch as jest.Mock).mockImplementation((url) => {
-      if (url.includes('/favorites')) {
-        return Promise.resolve({
-          ok: true,
-          json: async () => [],
-        })
-      }
-      if (url.includes('/stats')) {
-        return Promise.resolve({
-          ok: true,
-          json: async () => mockStats,
-        })
-      }
-      if (url.includes('/users/me')) {
-        return Promise.resolve({
-          ok: true,
-          json: async () => mockUser,
-        })
-      }
-      return Promise.reject(new Error('Unknown URL'))
-    })
-
-    render(<MyPage />)
-
-    await waitFor(() => {
-      expect(screen.getByText('視聴数')).toBeInTheDocument()
-      expect(screen.getByText('完了')).toBeInTheDocument()
-      expect(screen.getByText('100')).toBeInTheDocument()
-      expect(screen.getByText('10')).toBeInTheDocument()
-    })
-  })
-
-  it('データローディング中は読み込み表示を出す', () => {
-    ;(useAuth as jest.Mock).mockReturnValue({
-      user: mockUser,
-      token: 'test-token',
-      isLoading: false,
-      isAuthenticated: true,
-    })
-
-    // fetchを未解決のPromiseとしてモック
-    ;(global.fetch as jest.Mock).mockImplementation(
-      () => new Promise(() => {}) // 永遠に解決しないPromise
-    )
-
-    render(<MyPage />)
-
-    expect(screen.getByText('読み込み中...')).toBeInTheDocument()
-  })
-
-  it('データ取得エラー時にエラーメッセージを表示する', async () => {
-    ;(useAuth as jest.Mock).mockReturnValue({
-      user: mockUser,
-      token: 'test-token',
-      isLoading: false,
-      isAuthenticated: true,
-    })
-
-    ;(global.fetch as jest.Mock).mockImplementation(() => {
-      return Promise.resolve({
-        ok: false,
+  describe('認証済みユーザー', () => {
+    beforeEach(() => {
+      // 認証済みユーザーの共通セットアップ
+      ;(useAuth as jest.Mock).mockReturnValue({
+        user: mockUser,
+        token: 'test-token',
+        isLoading: false,
+        isAuthenticated: true,
       })
     })
 
-    render(<MyPage />)
+    it('ユーザー情報を表示する', async () => {
+      ;(global.fetch as jest.Mock).mockImplementation(
+        createSuccessfulFetchMock()
+      )
 
-    await waitFor(() => {
-      expect(
-        screen.getByText('統計情報の取得に失敗しました')
-      ).toBeInTheDocument()
-    })
-  })
+      render(<MyPage />)
 
-  it('ネットワークエラー時にエラーメッセージを表示する', async () => {
-    ;(useAuth as jest.Mock).mockReturnValue({
-      user: mockUser,
-      token: 'test-token',
-      isLoading: false,
-      isAuthenticated: true,
+      await waitFor(() => {
+        expect(screen.getByText('テストユーザー')).toBeInTheDocument()
+        expect(screen.getByText('テスト説明')).toBeInTheDocument()
+      })
     })
 
-    ;(global.fetch as jest.Mock).mockRejectedValue(new Error('Network error'))
+    it('統計情報を正しく表示する', async () => {
+      ;(global.fetch as jest.Mock).mockImplementation(
+        createSuccessfulFetchMock()
+      )
 
-    render(<MyPage />)
+      render(<MyPage />)
 
-    await waitFor(() => {
-      expect(screen.getByText('Network error')).toBeInTheDocument()
+      await waitFor(() => {
+        expect(screen.getByText('視聴数')).toBeInTheDocument()
+        expect(screen.getByText('完了')).toBeInTheDocument()
+        expect(screen.getByText('100')).toBeInTheDocument()
+        expect(screen.getByText('10')).toBeInTheDocument()
+      })
+    })
+
+    it('データローディング中は読み込み表示を出す', () => {
+      // fetchを未解決のPromiseとしてモック
+      ;(global.fetch as jest.Mock).mockImplementation(
+        () => new Promise(() => {}) // 永遠に解決しないPromise
+      )
+
+      render(<MyPage />)
+
+      expect(screen.getByText('読み込み中...')).toBeInTheDocument()
+    })
+
+    it('データ取得エラー時にエラーメッセージを表示する', async () => {
+      ;(global.fetch as jest.Mock).mockImplementation(() => {
+        return Promise.resolve({
+          ok: false,
+        })
+      })
+
+      render(<MyPage />)
+
+      await waitFor(() => {
+        expect(
+          screen.getByText('統計情報の取得に失敗しました')
+        ).toBeInTheDocument()
+      })
+    })
+
+    it('ネットワークエラー時にエラーメッセージを表示する', async () => {
+      ;(global.fetch as jest.Mock).mockRejectedValue(new Error('Network error'))
+
+      render(<MyPage />)
+
+      await waitFor(() => {
+        expect(screen.getByText('Network error')).toBeInTheDocument()
+      })
     })
   })
 })
