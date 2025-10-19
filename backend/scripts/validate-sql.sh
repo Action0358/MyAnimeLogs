@@ -28,16 +28,26 @@ for migration in migrations/*.sql; do
     echo -n "Validating $(basename $migration)... "
     
     # SQLファイルをトランザクション内で実行し、ロールバック
-    if psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<EOF 2>&1 | grep -q "ERROR"
+    # psqlコマンドの終了コードを直接評価
+    if psql "$DATABASE_URL" -v ON_ERROR_STOP=1 > /dev/null 2>&1 <<EOF
 BEGIN;
 \i $migration
 ROLLBACK;
 EOF
     then
-        echo "❌ FAILED"
-        ALL_VALID=false
-    else
         echo "✅ OK"
+    else
+        echo "❌ FAILED"
+        echo ""
+        echo "Error details:"
+        # エラー詳細を表示するため再実行（|| true で失敗を許容）
+        psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<EOF || true
+BEGIN;
+\i $migration
+ROLLBACK;
+EOF
+        echo ""
+        ALL_VALID=false
     fi
 done
 
