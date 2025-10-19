@@ -38,6 +38,15 @@ EOF
         echo "✅ OK"
     else
         echo "❌ FAILED"
+        echo ""
+        echo "Error details:"
+        # エラー詳細を表示するため再実行（|| true で失敗を許容）
+        psql "$DATABASE_URL" -v ON_ERROR_STOP=1 <<EOF || true
+BEGIN;
+\i $migration
+ROLLBACK;
+EOF
+        echo ""
         ALL_VALID=false
     fi
 done
