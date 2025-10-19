@@ -107,6 +107,14 @@ func (h *AuthHandler) UpdateMe(c *gin.Context) {
 		}
 	}
 
+	// SNSリンクのバリデーション
+	if req.SnsLink != nil {
+		if err := utils.ValidateURL(*req.SnsLink); err != nil {
+			h.response.ValidationError(c, "SNSリンクのURL形式が正しくありません")
+			return
+		}
+	}
+
 	user, err := h.authService.UpdateUser(userID, req)
 	if err != nil {
 		h.response.InternalServerError(c, "プロフィール更新に失敗しました")

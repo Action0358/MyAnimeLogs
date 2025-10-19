@@ -5,14 +5,16 @@ import (
 )
 
 type User struct {
-	ID          int       `json:"id" db:"id"`
-	Name        string    `json:"name" db:"name"`
-	Email       string    `json:"email" db:"email"`
-	Password    string    `json:"-" db:"password"` // Never expose password in JSON
-	Description string    `json:"description" db:"description"`
-	Icon        *string   `json:"icon" db:"icon"`
-	CreatedAt   time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
+	ID            int       `json:"id" db:"id"`
+	Name          string    `json:"name" db:"name"`
+	Email         string    `json:"email" db:"email"`
+	Password      string    `json:"-" db:"password"` // Never expose password in JSON
+	Description   string    `json:"description" db:"description"`
+	Icon          *string   `json:"icon" db:"icon"`
+	FavoriteAnime *string   `json:"favorite_anime" db:"favorite_anime"`
+	SnsLink       *string   `json:"sns_link" db:"sns_link"`
+	CreatedAt     time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at" db:"updated_at"`
 }
 
 type UserRegisterRequest struct {
@@ -27,18 +29,22 @@ type UserLoginRequest struct {
 }
 
 type UserUpdateRequest struct {
-	Name        *string `json:"name,omitempty" binding:"omitempty,min=1,max=100"`
-	Description *string `json:"description,omitempty" binding:"omitempty,max=10000"`
-	Icon        *string `json:"icon,omitempty" binding:"omitempty,url"`
+	Name          *string `json:"name,omitempty" binding:"omitempty,min=1,max=100"`
+	Description   *string `json:"description,omitempty" binding:"omitempty,max=10000"`
+	Icon          *string `json:"icon,omitempty" binding:"omitempty,url"`
+	FavoriteAnime *string `json:"favorite_anime,omitempty" binding:"omitempty,max=300"`
+	SnsLink       *string `json:"sns_link,omitempty" binding:"omitempty,url,max=500"`
 }
 
 type UserResponse struct {
-	ID          int       `json:"id"`
-	Name        string    `json:"name"`
-	Email       string    `json:"email"`
-	Description string    `json:"description"`
-	Icon        *string   `json:"icon"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID            int       `json:"id"`
+	Name          string    `json:"name"`
+	Email         string    `json:"email"`
+	Description   string    `json:"description"`
+	Icon          *string   `json:"icon"`
+	FavoriteAnime *string   `json:"favorite_anime"`
+	SnsLink       *string   `json:"sns_link"`
+	CreatedAt     time.Time `json:"created_at"`
 }
 
 type LoginResponse struct {

@@ -89,12 +89,14 @@ func (s *AuthService) registerWithRepo(req models.UserRegisterRequest) (*models.
 	}
 
 	return &models.UserResponse{
-		ID:          user.ID,
-		Name:        user.Name,
-		Email:       user.Email,
-		Description: user.Description,
-		Icon:        user.Icon,
-		CreatedAt:   user.CreatedAt,
+		ID:            user.ID,
+		Name:          user.Name,
+		Email:         user.Email,
+		Description:   user.Description,
+		Icon:          user.Icon,
+		FavoriteAnime: user.FavoriteAnime,
+		SnsLink:       user.SnsLink,
+		CreatedAt:     user.CreatedAt,
 	}, nil
 }
 
@@ -120,21 +122,23 @@ func (s *AuthService) registerWithDB(req models.UserRegisterRequest) (*models.Us
 	err = s.db.QueryRow(`
 		INSERT INTO users (name, email, password, created_at, updated_at)
 		VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-		RETURNING id, name, email, description, icon, created_at, updated_at
+		RETURNING id, name, email, description, icon, favorite_anime, sns_link, created_at, updated_at
 	`, req.Name, req.Email, string(hashedPassword)).Scan(
-		&user.ID, &user.Name, &user.Email, &user.Description, &user.Icon, &user.CreatedAt, &user.UpdatedAt,
+		&user.ID, &user.Name, &user.Email, &user.Description, &user.Icon, &user.FavoriteAnime, &user.SnsLink, &user.CreatedAt, &user.UpdatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
 
 	return &models.UserResponse{
-		ID:          user.ID,
-		Name:        user.Name,
-		Email:       user.Email,
-		Description: user.Description,
-		Icon:        user.Icon,
-		CreatedAt:   user.CreatedAt,
+		ID:            user.ID,
+		Name:          user.Name,
+		Email:         user.Email,
+		Description:   user.Description,
+		Icon:          user.Icon,
+		FavoriteAnime: user.FavoriteAnime,
+		SnsLink:       user.SnsLink,
+		CreatedAt:     user.CreatedAt,
 	}, nil
 }
 
@@ -184,9 +188,9 @@ func (s *AuthService) loginWithRepo(req models.UserLoginRequest) (*models.LoginR
 func (s *AuthService) loginWithDB(req models.UserLoginRequest) (*models.LoginResponse, error) {
 	var user models.User
 	err := s.db.QueryRow(`
-		SELECT id, name, email, password, description, icon, created_at
+		SELECT id, name, email, password, description, icon, favorite_anime, sns_link, created_at
 		FROM users WHERE email = $1
-	`, req.Email).Scan(&user.ID, &user.Name, &user.Email, &user.Password, &user.Description, &user.Icon, &user.CreatedAt)
+	`, req.Email).Scan(&user.ID, &user.Name, &user.Email, &user.Password, &user.Description, &user.Icon, &user.FavoriteAnime, &user.SnsLink, &user.CreatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrInvalidCredentials
@@ -210,12 +214,14 @@ func (s *AuthService) loginWithDB(req models.UserLoginRequest) (*models.LoginRes
 		AccessToken: token,
 		TokenType:   "Bearer",
 		User: models.UserResponse{
-			ID:          user.ID,
-			Name:        user.Name,
-			Email:       user.Email,
-			Description: user.Description,
-			Icon:        user.Icon,
-			CreatedAt:   user.CreatedAt,
+			ID:            user.ID,
+			Name:          user.Name,
+			Email:         user.Email,
+			Description:   user.Description,
+			Icon:          user.Icon,
+			FavoriteAnime: user.FavoriteAnime,
+			SnsLink:       user.SnsLink,
+			CreatedAt:     user.CreatedAt,
 		},
 	}, nil
 }
@@ -238,21 +244,23 @@ func (s *AuthService) getUserByIDWithRepo(userID int) (*models.UserResponse, err
 	}
 
 	return &models.UserResponse{
-		ID:          user.ID,
-		Name:        user.Name,
-		Email:       user.Email,
-		Description: user.Description,
-		Icon:        user.Icon,
-		CreatedAt:   user.CreatedAt,
+		ID:            user.ID,
+		Name:          user.Name,
+		Email:         user.Email,
+		Description:   user.Description,
+		Icon:          user.Icon,
+		FavoriteAnime: user.FavoriteAnime,
+		SnsLink:       user.SnsLink,
+		CreatedAt:     user.CreatedAt,
 	}, nil
 }
 
 func (s *AuthService) getUserByIDWithDB(userID int) (*models.UserResponse, error) {
 	var user models.User
 	err := s.db.QueryRow(`
-		SELECT id, name, email, description, icon, created_at
+		SELECT id, name, email, description, icon, favorite_anime, sns_link, created_at
 		FROM users WHERE id = $1
-	`, userID).Scan(&user.ID, &user.Name, &user.Email, &user.Description, &user.Icon, &user.CreatedAt)
+	`, userID).Scan(&user.ID, &user.Name, &user.Email, &user.Description, &user.Icon, &user.FavoriteAnime, &user.SnsLink, &user.CreatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrUserNotFound
@@ -261,12 +269,14 @@ func (s *AuthService) getUserByIDWithDB(userID int) (*models.UserResponse, error
 	}
 
 	return &models.UserResponse{
-		ID:          user.ID,
-		Name:        user.Name,
-		Email:       user.Email,
-		Description: user.Description,
-		Icon:        user.Icon,
-		CreatedAt:   user.CreatedAt,
+		ID:            user.ID,
+		Name:          user.Name,
+		Email:         user.Email,
+		Description:   user.Description,
+		Icon:          user.Icon,
+		FavoriteAnime: user.FavoriteAnime,
+		SnsLink:       user.SnsLink,
+		CreatedAt:     user.CreatedAt,
 	}, nil
 }
 
@@ -285,12 +295,14 @@ func (s *AuthService) updateUserWithRepo(userID int, req models.UserUpdateReques
 	}
 
 	return &models.UserResponse{
-		ID:          user.ID,
-		Name:        user.Name,
-		Email:       user.Email,
-		Description: user.Description,
-		Icon:        user.Icon,
-		CreatedAt:   user.CreatedAt,
+		ID:            user.ID,
+		Name:          user.Name,
+		Email:         user.Email,
+		Description:   user.Description,
+		Icon:          user.Icon,
+		FavoriteAnime: user.FavoriteAnime,
+		SnsLink:       user.SnsLink,
+		CreatedAt:     user.CreatedAt,
 	}, nil
 }
 
@@ -315,6 +327,16 @@ func (s *AuthService) updateUserWithDB(userID int, req models.UserUpdateRequest)
 		args = append(args, *req.Icon)
 		argIndex++
 	}
+	if req.FavoriteAnime != nil {
+		setParts = append(setParts, fmt.Sprintf("favorite_anime = $%d", argIndex))
+		args = append(args, *req.FavoriteAnime)
+		argIndex++
+	}
+	if req.SnsLink != nil {
+		setParts = append(setParts, fmt.Sprintf("sns_link = $%d", argIndex))
+		args = append(args, *req.SnsLink)
+		argIndex++
+	}
 
 	if len(setParts) == 0 {
 		// No fields to update, just return current user
@@ -327,24 +349,26 @@ func (s *AuthService) updateUserWithDB(userID int, req models.UserUpdateRequest)
 	query := fmt.Sprintf(`
 		UPDATE users SET %s
 		WHERE id = $%d
-		RETURNING id, name, email, description, icon, created_at
+		RETURNING id, name, email, description, icon, favorite_anime, sns_link, created_at
 	`, strings.Join(setParts, ", "), argIndex)
 
 	var user models.User
 	err := s.db.QueryRow(query, args...).Scan(
-		&user.ID, &user.Name, &user.Email, &user.Description, &user.Icon, &user.CreatedAt,
+		&user.ID, &user.Name, &user.Email, &user.Description, &user.Icon, &user.FavoriteAnime, &user.SnsLink, &user.CreatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update user: %w", err)
 	}
 
 	return &models.UserResponse{
-		ID:          user.ID,
-		Name:        user.Name,
-		Email:       user.Email,
-		Description: user.Description,
-		Icon:        user.Icon,
-		CreatedAt:   user.CreatedAt,
+		ID:            user.ID,
+		Name:          user.Name,
+		Email:         user.Email,
+		Description:   user.Description,
+		Icon:          user.Icon,
+		FavoriteAnime: user.FavoriteAnime,
+		SnsLink:       user.SnsLink,
+		CreatedAt:     user.CreatedAt,
 	}, nil
 }
 

@@ -99,3 +99,61 @@ func TestValidateImageURLSize(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateURL(t *testing.T) {
+	tests := []struct {
+		name    string
+		url     string
+		wantErr bool
+	}{
+		{
+			name:    "空文字列は許可",
+			url:     "",
+			wantErr: false,
+		},
+		{
+			name:    "有効なHTTPS URL",
+			url:     "https://twitter.com/username",
+			wantErr: false,
+		},
+		{
+			name:    "有効なHTTP URL",
+			url:     "http://example.com",
+			wantErr: false,
+		},
+		{
+			name:    "GitHub URL",
+			url:     "https://github.com/username",
+			wantErr: false,
+		},
+		{
+			name:    "Twitter URL",
+			url:     "https://twitter.com/username",
+			wantErr: false,
+		},
+		{
+			name:    "無効なURL形式",
+			url:     "not-a-url",
+			wantErr: true,
+		},
+		{
+			name:    "スキームなし",
+			url:     "example.com",
+			wantErr: true,
+		},
+		{
+			name:    "無効なスキーム",
+			url:     "ftp://example.com",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateURL(tt.url)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateURL() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
