@@ -60,3 +60,4 @@ myanimelogs_sql_validation
 .vscode/
 *.bak
 *~
+*.tsbuildinfo

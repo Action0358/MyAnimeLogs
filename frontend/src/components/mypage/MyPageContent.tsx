@@ -103,21 +103,13 @@ export const MyPageContent: React.FC = () => {
     }
   }, [authUser, token, fetchData])
 
-  // localStorageから好きなアニメとSNSリンクを読み込む（ユーザーIDごとに分離）
+  // ユーザー情報から好きなアニメとSNSリンクを設定
   useEffect(() => {
-    if (authUser?.id) {
-      const storedFavoriteAnime = localStorage.getItem(`user_${authUser.id}_favorite_anime`)
-      const storedSnsLink = localStorage.getItem(`user_${authUser.id}_sns_link`)
-
-      if (storedFavoriteAnime) {
-        setFavoriteAnime(storedFavoriteAnime)
-      }
-
-      if (storedSnsLink) {
-        setSnsLink(storedSnsLink)
-      }
+    if (user) {
+      setFavoriteAnime(user.favorite_anime || '')
+      setSnsLink(user.sns_link || '')
     }
-  }, [authUser?.id])
+  }, [user])
 
   if (isLoading) {
     return (

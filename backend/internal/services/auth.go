@@ -1,15 +1,14 @@
 package services
 
 import (
-	"database/sql"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"myanimelogs/internal/common"
 	"myanimelogs/internal/database"
 	"myanimelogs/internal/models"
+	"myanimelogs/internal/repository"
 	"myanimelogs/internal/utils"
 
 	"golang.org/x/crypto/bcrypt"
@@ -53,16 +52,19 @@ func NewAuthServiceWithRepo(userRepo UserRepositoryInterface, db *database.DB, j
 }
 
 func (s *AuthService) Register(req models.UserRegisterRequest) (*models.UserResponse, error) {
-	// Use repository if available, otherwise fallback to direct DB access
-	if s.userRepo != nil {
-		return s.registerWithRepo(req)
+	// Always use repository pattern for consistency
+	repo := s.userRepo
+	if repo == nil {
+		// Fallback: create repository instance if not injected
+		repo = repository.NewUserRepository(s.db)
 	}
-	return s.registerWithDB(req)
+	return s.registerWithRepo(req, repo)
 }
 
-func (s *AuthService) registerWithRepo(req models.UserRegisterRequest) (*models.UserResponse, error) {
+// registerWithRepo handles user registration through repository
+func (s *AuthService) registerWithRepo(req models.UserRegisterRequest, repo UserRepositoryInterface) (*models.UserResponse, error) {
 	// Check if email already exists
-	exists, err := s.userRepo.EmailExists(req.Email)
+	exists, err := repo.EmailExists(req.Email)
 	if err != nil {
 		return nil, fmt.Errorf("failed to check email existence: %w", err)
 	}
@@ -83,71 +85,43 @@ func (s *AuthService) registerWithRepo(req models.UserRegisterRequest) (*models.
 		Password: string(hashedPassword),
 	}
 
-	err = s.userRepo.Create(user)
+	err = repo.Create(user)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
 
 	return &models.UserResponse{
-		ID:          user.ID,
-		Name:        user.Name,
-		Email:       user.Email,
-		Description: user.Description,
-		Icon:        user.Icon,
-		CreatedAt:   user.CreatedAt,
+		ID:            user.ID,
+		Name:          user.Name,
+		Email:         user.Email,
+		Description:   user.Description,
+		Icon:          user.Icon,
+		FavoriteAnime: user.FavoriteAnime,
+		SnsLink:       user.SnsLink,
+		CreatedAt:     user.CreatedAt,
 	}, nil
 }
 
+// registerWithDB is kept for backward compatibility but delegates to repository
+// Deprecated: Use Register instead
 func (s *AuthService) registerWithDB(req models.UserRegisterRequest) (*models.UserResponse, error) {
-	// Check if email already exists
-	var exists bool
-	err := s.db.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)", req.Email).Scan(&exists)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check email existence: %w", err)
-	}
-	if exists {
-		return nil, ErrEmailAlreadyExists
-	}
-
-	// Hash password
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
-	if err != nil {
-		return nil, fmt.Errorf("failed to hash password: %w", err)
-	}
-
-	// Insert user
-	var user models.User
-	err = s.db.QueryRow(`
-		INSERT INTO users (name, email, password, created_at, updated_at)
-		VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-		RETURNING id, name, email, description, icon, created_at, updated_at
-	`, req.Name, req.Email, string(hashedPassword)).Scan(
-		&user.ID, &user.Name, &user.Email, &user.Description, &user.Icon, &user.CreatedAt, &user.UpdatedAt,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create user: %w", err)
-	}
-
-	return &models.UserResponse{
-		ID:          user.ID,
-		Name:        user.Name,
-		Email:       user.Email,
-		Description: user.Description,
-		Icon:        user.Icon,
-		CreatedAt:   user.CreatedAt,
-	}, nil
+	repo := repository.NewUserRepository(s.db)
+	return s.registerWithRepo(req, repo)
 }
 
 func (s *AuthService) Login(req models.UserLoginRequest) (*models.LoginResponse, error) {
-	// Use repository if available, otherwise fallback to direct DB access
-	if s.userRepo != nil {
-		return s.loginWithRepo(req)
+	// Always use repository pattern for consistency
+	repo := s.userRepo
+	if repo == nil {
+		// Fallback: create repository instance if not injected
+		repo = repository.NewUserRepository(s.db)
 	}
-	return s.loginWithDB(req)
+	return s.loginWithRepo(req, repo)
 }
 
-func (s *AuthService) loginWithRepo(req models.UserLoginRequest) (*models.LoginResponse, error) {
-	user, err := s.userRepo.GetByEmail(req.Email)
+// loginWithRepo handles user login through repository
+func (s *AuthService) loginWithRepo(req models.UserLoginRequest, repo UserRepositoryInterface) (*models.LoginResponse, error) {
+	user, err := repo.GetByEmail(req.Email)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
@@ -171,65 +145,45 @@ func (s *AuthService) loginWithRepo(req models.UserLoginRequest) (*models.LoginR
 		AccessToken: token,
 		TokenType:   "Bearer",
 		User: models.UserResponse{
-			ID:          user.ID,
-			Name:        user.Name,
-			Email:       user.Email,
-			Description: user.Description,
-			Icon:        user.Icon,
-			CreatedAt:   user.CreatedAt,
+			ID:            user.ID,
+			Name:          user.Name,
+			Email:         user.Email,
+			Description:   user.Description,
+			Icon:          user.Icon,
+			FavoriteAnime: user.FavoriteAnime,
+			SnsLink:       user.SnsLink,
+			CreatedAt:     user.CreatedAt,
 		},
 	}, nil
 }
 
+// loginWithDB is kept for backward compatibility but delegates to repository
+// Deprecated: Use Login instead
 func (s *AuthService) loginWithDB(req models.UserLoginRequest) (*models.LoginResponse, error) {
-	var user models.User
-	err := s.db.QueryRow(`
-		SELECT id, name, email, password, description, icon, created_at
-		FROM users WHERE email = $1
-	`, req.Email).Scan(&user.ID, &user.Name, &user.Email, &user.Password, &user.Description, &user.Icon, &user.CreatedAt)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, ErrInvalidCredentials
-		}
-		return nil, fmt.Errorf("failed to get user: %w", err)
-	}
-
-	// Check password
-	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password))
-	if err != nil {
-		return nil, ErrInvalidCredentials
-	}
-
-	// Generate JWT token
-	token, err := utils.GenerateJWT(user.ID, user.Email, user.Name, s.jwtSecret)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate token: %w", err)
-	}
-
-	return &models.LoginResponse{
-		AccessToken: token,
-		TokenType:   "Bearer",
-		User: models.UserResponse{
-			ID:          user.ID,
-			Name:        user.Name,
-			Email:       user.Email,
-			Description: user.Description,
-			Icon:        user.Icon,
-			CreatedAt:   user.CreatedAt,
-		},
-	}, nil
+	repo := repository.NewUserRepository(s.db)
+	return s.loginWithRepo(req, repo)
 }
 
 func (s *AuthService) GetUserByID(userID int) (*models.UserResponse, error) {
-	// Use repository if available, otherwise fallback to direct DB access
-	if s.userRepo != nil {
-		return s.getUserByIDWithRepo(userID)
+	// Always use repository pattern for consistency
+	repo := s.userRepo
+	if repo == nil {
+		// Fallback: create repository instance if not injected
+		repo = repository.NewUserRepository(s.db)
 	}
-	return s.getUserByIDWithDB(userID)
+	return s.getUserByIDWithRepo(userID, repo)
 }
 
-func (s *AuthService) getUserByIDWithRepo(userID int) (*models.UserResponse, error) {
-	user, err := s.userRepo.GetByID(userID)
+// getUserByIDWithDB is kept for backward compatibility but delegates to repository
+// Deprecated: Use GetUserByID instead
+func (s *AuthService) getUserByIDWithDB(userID int) (*models.UserResponse, error) {
+	repo := repository.NewUserRepository(s.db)
+	return s.getUserByIDWithRepo(userID, repo)
+}
+
+// getUserByIDWithRepo handles user retrieval through repository
+func (s *AuthService) getUserByIDWithRepo(userID int, repo UserRepositoryInterface) (*models.UserResponse, error) {
+	user, err := repo.GetByID(userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
@@ -238,114 +192,51 @@ func (s *AuthService) getUserByIDWithRepo(userID int) (*models.UserResponse, err
 	}
 
 	return &models.UserResponse{
-		ID:          user.ID,
-		Name:        user.Name,
-		Email:       user.Email,
-		Description: user.Description,
-		Icon:        user.Icon,
-		CreatedAt:   user.CreatedAt,
-	}, nil
-}
-
-func (s *AuthService) getUserByIDWithDB(userID int) (*models.UserResponse, error) {
-	var user models.User
-	err := s.db.QueryRow(`
-		SELECT id, name, email, description, icon, created_at
-		FROM users WHERE id = $1
-	`, userID).Scan(&user.ID, &user.Name, &user.Email, &user.Description, &user.Icon, &user.CreatedAt)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, ErrUserNotFound
-		}
-		return nil, fmt.Errorf("failed to get user: %w", err)
-	}
-
-	return &models.UserResponse{
-		ID:          user.ID,
-		Name:        user.Name,
-		Email:       user.Email,
-		Description: user.Description,
-		Icon:        user.Icon,
-		CreatedAt:   user.CreatedAt,
+		ID:            user.ID,
+		Name:          user.Name,
+		Email:         user.Email,
+		Description:   user.Description,
+		Icon:          user.Icon,
+		FavoriteAnime: user.FavoriteAnime,
+		SnsLink:       user.SnsLink,
+		CreatedAt:     user.CreatedAt,
 	}, nil
 }
 
 func (s *AuthService) UpdateUser(userID int, req models.UserUpdateRequest) (*models.UserResponse, error) {
-	// Use repository if available, otherwise fallback to direct DB access
-	if s.userRepo != nil {
-		return s.updateUserWithRepo(userID, req)
+	// Always use repository pattern for consistency
+	repo := s.userRepo
+	if repo == nil {
+		// Fallback: create repository instance if not injected
+		repo = repository.NewUserRepository(s.db)
 	}
-	return s.updateUserWithDB(userID, req)
+	return s.updateUserWithRepo(userID, req, repo)
 }
 
-func (s *AuthService) updateUserWithRepo(userID int, req models.UserUpdateRequest) (*models.UserResponse, error) {
-	user, err := s.userRepo.UpdatePartial(userID, req)
+// updateUserWithRepo handles user update through repository
+func (s *AuthService) updateUserWithRepo(userID int, req models.UserUpdateRequest, repo UserRepositoryInterface) (*models.UserResponse, error) {
+	user, err := repo.UpdatePartial(userID, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update user: %w", err)
 	}
 
 	return &models.UserResponse{
-		ID:          user.ID,
-		Name:        user.Name,
-		Email:       user.Email,
-		Description: user.Description,
-		Icon:        user.Icon,
-		CreatedAt:   user.CreatedAt,
+		ID:            user.ID,
+		Name:          user.Name,
+		Email:         user.Email,
+		Description:   user.Description,
+		Icon:          user.Icon,
+		FavoriteAnime: user.FavoriteAnime,
+		SnsLink:       user.SnsLink,
+		CreatedAt:     user.CreatedAt,
 	}, nil
 }
 
+// updateUserWithDB is kept for backward compatibility but delegates to repository
+// Deprecated: Use UpdateUser instead
 func (s *AuthService) updateUserWithDB(userID int, req models.UserUpdateRequest) (*models.UserResponse, error) {
-	// Build dynamic update query
-	setParts := []string{}
-	args := []interface{}{}
-	argIndex := 1
-
-	if req.Name != nil {
-		setParts = append(setParts, fmt.Sprintf("name = $%d", argIndex))
-		args = append(args, *req.Name)
-		argIndex++
-	}
-	if req.Description != nil {
-		setParts = append(setParts, fmt.Sprintf("description = $%d", argIndex))
-		args = append(args, *req.Description)
-		argIndex++
-	}
-	if req.Icon != nil {
-		setParts = append(setParts, fmt.Sprintf("icon = $%d", argIndex))
-		args = append(args, *req.Icon)
-		argIndex++
-	}
-
-	if len(setParts) == 0 {
-		// No fields to update, just return current user
-		return s.GetUserByID(userID)
-	}
-
-	setParts = append(setParts, "updated_at = CURRENT_TIMESTAMP")
-	args = append(args, userID)
-
-	query := fmt.Sprintf(`
-		UPDATE users SET %s
-		WHERE id = $%d
-		RETURNING id, name, email, description, icon, created_at
-	`, strings.Join(setParts, ", "), argIndex)
-
-	var user models.User
-	err := s.db.QueryRow(query, args...).Scan(
-		&user.ID, &user.Name, &user.Email, &user.Description, &user.Icon, &user.CreatedAt,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to update user: %w", err)
-	}
-
-	return &models.UserResponse{
-		ID:          user.ID,
-		Name:        user.Name,
-		Email:       user.Email,
-		Description: user.Description,
-		Icon:        user.Icon,
-		CreatedAt:   user.CreatedAt,
-	}, nil
+	repo := repository.NewUserRepository(s.db)
+	return s.updateUserWithRepo(userID, req, repo)
 }
 
 func (s *AuthService) GetUserStats(userID int) (*models.UserStats, error) {

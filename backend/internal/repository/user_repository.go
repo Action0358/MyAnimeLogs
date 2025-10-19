@@ -20,11 +20,11 @@ func NewUserRepository(db *database.DB) *UserRepository {
 func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
 	var user models.User
 	err := r.db.QueryRow(`
-		SELECT id, name, email, password, description, icon, created_at, updated_at
+		SELECT id, name, email, password, description, icon, favorite_anime, sns_link, created_at, updated_at
 		FROM users WHERE email = $1
 	`, email).Scan(
 		&user.ID, &user.Name, &user.Email, &user.Password,
-		&user.Description, &user.Icon, &user.CreatedAt, &user.UpdatedAt,
+		&user.Description, &user.Icon, &user.FavoriteAnime, &user.SnsLink, &user.CreatedAt, &user.UpdatedAt,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -38,11 +38,11 @@ func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
 func (r *UserRepository) GetByID(id int) (*models.User, error) {
 	var user models.User
 	err := r.db.QueryRow(`
-		SELECT id, name, email, description, icon, created_at, updated_at
+		SELECT id, name, email, description, icon, favorite_anime, sns_link, created_at, updated_at
 		FROM users WHERE id = $1
 	`, id).Scan(
 		&user.ID, &user.Name, &user.Email,
-		&user.Description, &user.Icon, &user.CreatedAt, &user.UpdatedAt,
+		&user.Description, &user.Icon, &user.FavoriteAnime, &user.SnsLink, &user.CreatedAt, &user.UpdatedAt,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -102,6 +102,16 @@ func (r *UserRepository) UpdatePartial(userID int, req models.UserUpdateRequest)
 		args = append(args, *req.Icon)
 		argIndex++
 	}
+	if req.FavoriteAnime != nil {
+		setParts = append(setParts, fmt.Sprintf("favorite_anime = $%d", argIndex))
+		args = append(args, *req.FavoriteAnime)
+		argIndex++
+	}
+	if req.SnsLink != nil {
+		setParts = append(setParts, fmt.Sprintf("sns_link = $%d", argIndex))
+		args = append(args, *req.SnsLink)
+		argIndex++
+	}
 
 	if len(setParts) == 0 {
 		// No fields to update, just return current user
@@ -114,12 +124,12 @@ func (r *UserRepository) UpdatePartial(userID int, req models.UserUpdateRequest)
 	query := fmt.Sprintf(`
 		UPDATE users SET %s
 		WHERE id = $%d
-		RETURNING id, name, email, description, icon, created_at, updated_at
+		RETURNING id, name, email, description, icon, favorite_anime, sns_link, created_at, updated_at
 	`, strings.Join(setParts, ", "), argIndex)
 
 	var user models.User
 	err := r.db.QueryRow(query, args...).Scan(
-		&user.ID, &user.Name, &user.Email, &user.Description, &user.Icon, &user.CreatedAt, &user.UpdatedAt,
+		&user.ID, &user.Name, &user.Email, &user.Description, &user.Icon, &user.FavoriteAnime, &user.SnsLink, &user.CreatedAt, &user.UpdatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update user: %w", err)

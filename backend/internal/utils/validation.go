@@ -64,3 +64,29 @@ func ValidateImageURLSize(imageURL string) error {
 	}
 	return nil
 }
+
+// ValidateURL は一般的なURLの形式を検証します
+func ValidateURL(urlStr string) error {
+	// 空文字列は許可
+	if urlStr == "" {
+		return nil
+	}
+
+	// URLをパース
+	parsedURL, err := url.Parse(urlStr)
+	if err != nil {
+		return fmt.Errorf("無効なURL形式です")
+	}
+
+	// スキームとホストが必要
+	if parsedURL.Scheme == "" || parsedURL.Host == "" {
+		return fmt.Errorf("無効なURL形式です")
+	}
+
+	// HTTPまたはHTTPSのみ許可
+	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
+		return fmt.Errorf("HTTPまたはHTTPSのURLのみ許可されています")
+	}
+
+	return nil
+}

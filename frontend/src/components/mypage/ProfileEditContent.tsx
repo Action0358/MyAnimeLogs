@@ -13,23 +13,12 @@ export const ProfileEditContent: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // 初期値を保持（変更検知用）
-  const [initialValues] = useState(() => {
-    const storedFavoriteAnime =
-      typeof window !== 'undefined' && user?.id
-        ? localStorage.getItem(`user_${user.id}_favorite_anime`) || ''
-        : ''
-    const storedSnsLink =
-      typeof window !== 'undefined' && user?.id
-        ? localStorage.getItem(`user_${user.id}_sns_link`) || ''
-        : ''
-    
-    return {
-      name: user?.name || '',
-      description: user?.description || '',
-      favoriteAnime: storedFavoriteAnime,
-      snsLink: storedSnsLink,
-    }
-  })
+  const [initialValues] = useState(() => ({
+    name: user?.name || '',
+    description: user?.description || '',
+    favoriteAnime: user?.favorite_anime || '',
+    snsLink: user?.sns_link || '',
+  }))
 
   const [name, setName] = useState(initialValues.name)
   const [description, setDescription] = useState(initialValues.description)
@@ -166,26 +155,14 @@ export const ProfileEditContent: React.FC = () => {
       const requestBody: {
         name: string
         description: string
+        favorite_anime?: string | null
+        sns_link?: string | null
         icon?: string
       } = {
         name: name.trim(),
         description: description.trim(),
-      }
-
-      // 好きなアニメとSNSリンクをlocalStorageに保存（ユーザーIDごとに分離）
-      // TODO: バックエンドAPIに対応するフィールドを追加後、requestBodyに含める
-      if (user?.id) {
-        if (favoriteAnime.trim()) {
-          localStorage.setItem(`user_${user.id}_favorite_anime`, favoriteAnime.trim())
-        } else {
-          localStorage.removeItem(`user_${user.id}_favorite_anime`)
-        }
-
-        if (snsLink.trim()) {
-          localStorage.setItem(`user_${user.id}_sns_link`, snsLink.trim())
-        } else {
-          localStorage.removeItem(`user_${user.id}_sns_link`)
-        }
+        favorite_anime: favoriteAnime.trim() || null,
+        sns_link: snsLink.trim() || null,
       }
 
       // 画像がある場合はBase64エンコードして送信

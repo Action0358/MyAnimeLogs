@@ -16,6 +16,8 @@ interface User {
   email: string
   description?: string
   icon?: string
+  favorite_anime?: string
+  sns_link?: string
   created_at?: string
 }
 
