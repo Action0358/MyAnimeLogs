@@ -8,6 +8,7 @@ import React, {
   useCallback,
 } from 'react'
 import { useRouter } from 'next/navigation'
+import { storage } from '@/lib/utils'
 
 interface User {
   id: number
@@ -15,6 +16,9 @@ interface User {
   email: string
   description?: string
   icon?: string
+  favorite_anime?: string
+  sns_link?: string
+  created_at?: string
 }
 
 interface AuthContextType {
@@ -23,6 +27,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>
   register: (name: string, email: string, password: string) => Promise<void>
   logout: () => void
+  updateUser: (userData: User) => void
   isLoading: boolean
   isAuthenticated: boolean
 }
@@ -31,6 +36,10 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 // APIベースURLを定数として定義
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
+
+// ストレージキーを定数として定義
+const TOKEN_KEY = 'auth_token'
+const USER_KEY = 'user_data'
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
@@ -43,24 +52,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   // トークンとユーザー情報の初期化
   useEffect(() => {
     try {
-      const storedToken = localStorage.getItem('token')
-      const storedUser = localStorage.getItem('user')
+      const storedToken = storage.getUnsafe(TOKEN_KEY)
+      const storedUser = storage.getUnsafe(USER_KEY)
 
       if (storedToken && storedUser) {
-        try {
-          const parsedUser = JSON.parse(storedUser)
-          setToken(storedToken)
-          setUser(parsedUser)
-        } catch (parseError) {
-          // 不正なJSON形式の場合はlocalStorageをクリア
-          console.error('Failed to parse user data from localStorage:', parseError)
-          localStorage.removeItem('token')
-          localStorage.removeItem('user')
-        }
+        setToken(storedToken)
+        setUser(storedUser)
       }
     } catch (error) {
-      // localStorage自体にアクセスできない場合（プライベートモードなど）
-      console.error('Failed to access localStorage:', error)
+      console.error('Failed to initialize auth state:', error)
+      // 不正なデータの場合はストレージをクリア（エラー回復）
+      storage.remove(TOKEN_KEY)
+      storage.remove(USER_KEY)
     } finally {
       setIsLoading(false)
     }
@@ -87,11 +90,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         // OpenAPI仕様に従い、access_tokenを取得
         const accessToken = data.access_token
 
+        // デバッグ: ユーザー情報を確認
+        console.log('Login response user data:', data.user)
+
         setToken(accessToken)
         setUser(data.user)
 
-        localStorage.setItem('token', accessToken)
-        localStorage.setItem('user', JSON.stringify(data.user))
+        storage.set(TOKEN_KEY, accessToken)
+        storage.set(USER_KEY, data.user)
 
         router.push('/')
       } catch (error) {
@@ -127,8 +133,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           if (accessToken) {
             setToken(accessToken)
             setUser(data.user)
-            localStorage.setItem('token', accessToken)
-            localStorage.setItem('user', JSON.stringify(data.user))
+            storage.set(TOKEN_KEY, accessToken)
+            storage.set(USER_KEY, data.user)
             router.push('/')
           } else {
             // トークンがない場合はログインページへ
@@ -146,10 +152,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const logout = useCallback(() => {
     setUser(null)
     setToken(null)
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
+    storage.remove(TOKEN_KEY)
+    storage.remove(USER_KEY)
     router.push('/')
   }, [router])
+
+  const updateUser = useCallback((userData: User) => {
+    setUser(userData)
+    storage.set(USER_KEY, userData)
+  }, [])
 
   const value = {
     user,
@@ -157,6 +168,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     login,
     register,
     logout,
+    updateUser,
     isLoading,
     isAuthenticated: !!user && !!token,
   }
