@@ -445,8 +445,10 @@ func TestUserRepository_UpdatePartial_WithNewFields(t *testing.T) {
 	rows := sqlmock.NewRows([]string{"id", "name", "email", "description", "icon", "favorite_anime", "sns_link", "created_at", "updated_at"}).
 		AddRow(userID, name, "test@example.com", "", nil, favoriteAnime, snsLink, time.Now(), time.Now())
 
-	// Use regex pattern that matches regardless of field order
-	mock.ExpectQuery(`UPDATE users SET .+ WHERE id = \$\d+ RETURNING`).
+	// Use regex pattern that matches the UPDATE query structure
+	// This pattern validates that all expected fields are updated
+	// while being flexible about their order
+	mock.ExpectQuery(`UPDATE users SET .*name = \$\d+.*favorite_anime = \$\d+.*sns_link = \$\d+.*updated_at = CURRENT_TIMESTAMP WHERE id = \$\d+ RETURNING id, name, email, description, icon, favorite_anime, sns_link, created_at, updated_at`).
 		WithArgs(name, favoriteAnime, snsLink, userID).
 		WillReturnRows(rows)
 
