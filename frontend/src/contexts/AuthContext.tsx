@@ -90,9 +90,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         // OpenAPI仕様に従い、access_tokenを取得
         const accessToken = data.access_token
 
-        // デバッグ: ユーザー情報を確認
-        console.log('Login response user data:', data.user)
-
         setToken(accessToken)
         setUser(data.user)
 
