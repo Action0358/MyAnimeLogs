@@ -24,16 +24,30 @@ export const getErrorMessage = (error: unknown): string => {
 
 // ローカルストレージ操作
 export const storage = {
+  /**
+   * localStorageから値を取得（エラーをスローする）
+   * @throws {Error} パースエラーや不正なデータの場合
+   */
+  getUnsafe: (key: string) => {
+    if (typeof window === 'undefined') return null;
+    const item = localStorage.getItem(key);
+    if (!item) return null;
+    return JSON.parse(item); // エラーをスローする可能性がある
+  },
+
+  /**
+   * localStorageから値を取得（エラーを捕捉してnullを返す）
+   */
   get: (key: string) => {
     if (typeof window === 'undefined') return null;
     try {
-      const item = localStorage.getItem(key);
-      return item ? JSON.parse(item) : null;
+      return storage.getUnsafe(key);
     } catch (error) {
       console.error(`Failed to get item from localStorage with key "${key}":`, error);
       return null;
     }
   },
+
   set: (key: string, value: any) => {
     if (typeof window === 'undefined') return;
     try {
@@ -42,6 +56,7 @@ export const storage = {
       console.error(`Failed to set item in localStorage with key "${key}":`, error);
     }
   },
+
   remove: (key: string) => {
     if (typeof window === 'undefined') return;
     try {
