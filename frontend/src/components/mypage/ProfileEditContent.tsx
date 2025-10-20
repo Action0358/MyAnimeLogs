@@ -143,8 +143,8 @@ export const ProfileEditContent: React.FC = () => {
       return
     }
 
-    if (description.length > 500) {
-      setError('自己紹介は500文字以内で入力してください')
+    if (description.length > 10000) {
+      setError('自己紹介は10000文字以内で入力してください')
       return
     }
 
@@ -317,11 +317,11 @@ export const ProfileEditContent: React.FC = () => {
                 onChange={handleDescriptionChange}
                 placeholder="アニメが大好きです！"
                 rows={4}
-                maxLength={500}
+                maxLength={10000}
                 className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
               />
               <p className="text-xs text-gray-500 mt-2">
-                {description.length}/500文字
+                {description.length}/10000文字
               </p>
             </div>
 

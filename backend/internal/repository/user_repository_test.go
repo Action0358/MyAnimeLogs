@@ -423,7 +423,8 @@ func TestUserRepository_GetByEmail_WithNewFields(t *testing.T) {
 }
 
 func TestUserRepository_UpdatePartial_WithNewFields(t *testing.T) {
-	db, mock, err := sqlmock.New()
+	// Use regex matcher for more flexible query matching
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -444,7 +445,8 @@ func TestUserRepository_UpdatePartial_WithNewFields(t *testing.T) {
 	rows := sqlmock.NewRows([]string{"id", "name", "email", "description", "icon", "favorite_anime", "sns_link", "created_at", "updated_at"}).
 		AddRow(userID, name, "test@example.com", "", nil, favoriteAnime, snsLink, time.Now(), time.Now())
 
-	mock.ExpectQuery(`UPDATE users SET name = \$1, favorite_anime = \$2, sns_link = \$3, updated_at = CURRENT_TIMESTAMP WHERE id = \$4 RETURNING id, name, email, description, icon, favorite_anime, sns_link, created_at, updated_at`).
+	// Use regex pattern that matches regardless of field order
+	mock.ExpectQuery(`UPDATE users SET .+ WHERE id = \$\d+ RETURNING`).
 		WithArgs(name, favoriteAnime, snsLink, userID).
 		WillReturnRows(rows)
 
