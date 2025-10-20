@@ -51,14 +51,17 @@ func NewAuthServiceWithRepo(userRepo UserRepositoryInterface, db *database.DB, j
 	}
 }
 
-func (s *AuthService) Register(req models.UserRegisterRequest) (*models.UserResponse, error) {
-	// Always use repository pattern for consistency
-	repo := s.userRepo
-	if repo == nil {
-		// Fallback: create repository instance if not injected
-		repo = repository.NewUserRepository(s.db)
+// getRepository returns the repository instance, creating one if not injected
+func (s *AuthService) getRepository() UserRepositoryInterface {
+	if s.userRepo != nil {
+		return s.userRepo
 	}
-	return s.registerWithRepo(req, repo)
+	// Fallback: create repository instance if not injected
+	return repository.NewUserRepository(s.db)
+}
+
+func (s *AuthService) Register(req models.UserRegisterRequest) (*models.UserResponse, error) {
+	return s.registerWithRepo(req, s.getRepository())
 }
 
 // registerWithRepo handles user registration through repository
@@ -110,13 +113,7 @@ func (s *AuthService) registerWithDB(req models.UserRegisterRequest) (*models.Us
 }
 
 func (s *AuthService) Login(req models.UserLoginRequest) (*models.LoginResponse, error) {
-	// Always use repository pattern for consistency
-	repo := s.userRepo
-	if repo == nil {
-		// Fallback: create repository instance if not injected
-		repo = repository.NewUserRepository(s.db)
-	}
-	return s.loginWithRepo(req, repo)
+	return s.loginWithRepo(req, s.getRepository())
 }
 
 // loginWithRepo handles user login through repository
@@ -165,13 +162,7 @@ func (s *AuthService) loginWithDB(req models.UserLoginRequest) (*models.LoginRes
 }
 
 func (s *AuthService) GetUserByID(userID int) (*models.UserResponse, error) {
-	// Always use repository pattern for consistency
-	repo := s.userRepo
-	if repo == nil {
-		// Fallback: create repository instance if not injected
-		repo = repository.NewUserRepository(s.db)
-	}
-	return s.getUserByIDWithRepo(userID, repo)
+	return s.getUserByIDWithRepo(userID, s.getRepository())
 }
 
 // getUserByIDWithDB is kept for backward compatibility but delegates to repository
@@ -204,13 +195,7 @@ func (s *AuthService) getUserByIDWithRepo(userID int, repo UserRepositoryInterfa
 }
 
 func (s *AuthService) UpdateUser(userID int, req models.UserUpdateRequest) (*models.UserResponse, error) {
-	// Always use repository pattern for consistency
-	repo := s.userRepo
-	if repo == nil {
-		// Fallback: create repository instance if not injected
-		repo = repository.NewUserRepository(s.db)
-	}
-	return s.updateUserWithRepo(userID, req, repo)
+	return s.updateUserWithRepo(userID, req, s.getRepository())
 }
 
 // updateUserWithRepo handles user update through repository
