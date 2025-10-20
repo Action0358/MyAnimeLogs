@@ -81,37 +81,27 @@ func (r *UserRepository) Update(user *models.User) error {
 	return nil
 }
 
+// addFieldToUpdate is a helper function to add a field to the update query
+func addFieldToUpdate(setParts *[]string, args *[]interface{}, argIndex *int, fieldName string, value *string) {
+	if value != nil {
+		*setParts = append(*setParts, fmt.Sprintf("%s = $%d", fieldName, *argIndex))
+		*args = append(*args, *value)
+		*argIndex++
+	}
+}
+
 func (r *UserRepository) UpdatePartial(userID int, req models.UserUpdateRequest) (*models.User, error) {
 	// Build dynamic update query
 	setParts := []string{}
 	args := []interface{}{}
 	argIndex := 1
 
-	if req.Name != nil {
-		setParts = append(setParts, fmt.Sprintf("name = $%d", argIndex))
-		args = append(args, *req.Name)
-		argIndex++
-	}
-	if req.Description != nil {
-		setParts = append(setParts, fmt.Sprintf("description = $%d", argIndex))
-		args = append(args, *req.Description)
-		argIndex++
-	}
-	if req.Icon != nil {
-		setParts = append(setParts, fmt.Sprintf("icon = $%d", argIndex))
-		args = append(args, *req.Icon)
-		argIndex++
-	}
-	if req.FavoriteAnime != nil {
-		setParts = append(setParts, fmt.Sprintf("favorite_anime = $%d", argIndex))
-		args = append(args, *req.FavoriteAnime)
-		argIndex++
-	}
-	if req.SnsLink != nil {
-		setParts = append(setParts, fmt.Sprintf("sns_link = $%d", argIndex))
-		args = append(args, *req.SnsLink)
-		argIndex++
-	}
+	// Add fields to update using helper function
+	addFieldToUpdate(&setParts, &args, &argIndex, "name", req.Name)
+	addFieldToUpdate(&setParts, &args, &argIndex, "description", req.Description)
+	addFieldToUpdate(&setParts, &args, &argIndex, "icon", req.Icon)
+	addFieldToUpdate(&setParts, &args, &argIndex, "favorite_anime", req.FavoriteAnime)
+	addFieldToUpdate(&setParts, &args, &argIndex, "sns_link", req.SnsLink)
 
 	if len(setParts) == 0 {
 		// No fields to update, just return current user

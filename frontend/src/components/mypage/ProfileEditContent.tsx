@@ -7,6 +7,11 @@ import { Container } from '@/components/layout'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 
+// Validation constants
+const MAX_NAME_LENGTH = 100
+const MAX_DESCRIPTION_LENGTH = 10000
+const MAX_FAVORITE_ANIME_LENGTH = 300
+
 export const ProfileEditContent: React.FC = () => {
   const { user, token, updateUser } = useAuth()
   const router = useRouter()
@@ -138,13 +143,13 @@ export const ProfileEditContent: React.FC = () => {
       return
     }
 
-    if (name.length > 100) {
-      setError('ユーザー名は100文字以内で入力してください')
+    if (name.length > MAX_NAME_LENGTH) {
+      setError(`ユーザー名は${MAX_NAME_LENGTH}文字以内で入力してください`)
       return
     }
 
-    if (description.length > 500) {
-      setError('自己紹介は500文字以内で入力してください')
+    if (description.length > MAX_DESCRIPTION_LENGTH) {
+      setError(`自己紹介は${MAX_DESCRIPTION_LENGTH}文字以内で入力してください`)
       return
     }
 
@@ -304,7 +309,7 @@ export const ProfileEditContent: React.FC = () => {
               onChange={handleNameChange}
               placeholder="マイアニメログ"
               required
-              helperText="1〜100文字で入力してください"
+              helperText={`1〜${MAX_NAME_LENGTH}文字で入力してください`}
             />
 
             {/* プロフィール */}
@@ -317,11 +322,11 @@ export const ProfileEditContent: React.FC = () => {
                 onChange={handleDescriptionChange}
                 placeholder="アニメが大好きです！"
                 rows={4}
-                maxLength={500}
+                maxLength={MAX_DESCRIPTION_LENGTH}
                 className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
               />
               <p className="text-xs text-gray-500 mt-2">
-                {description.length}/500文字
+                {description.length}/{MAX_DESCRIPTION_LENGTH}文字
               </p>
             </div>
 
@@ -335,11 +340,11 @@ export const ProfileEditContent: React.FC = () => {
                 onChange={handleFavoriteAnimeChange}
                 placeholder="アクション、ファンタジー系のアニメが好きです"
                 rows={3}
-                maxLength={300}
+                maxLength={MAX_FAVORITE_ANIME_LENGTH}
                 className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
               />
               <p className="text-xs text-gray-500 mt-2">
-                {favoriteAnime.length}/300文字
+                {favoriteAnime.length}/{MAX_FAVORITE_ANIME_LENGTH}文字
               </p>
             </div>
 

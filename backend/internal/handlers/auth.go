@@ -110,7 +110,7 @@ func (h *AuthHandler) UpdateMe(c *gin.Context) {
 	// SNSリンクのバリデーション
 	if req.SnsLink != nil {
 		if err := utils.ValidateURL(*req.SnsLink); err != nil {
-			h.response.ValidationError(c, "SNSリンクのURL形式が正しくありません")
+			h.response.ValidationError(c, err.Error())
 			return
 		}
 	}
