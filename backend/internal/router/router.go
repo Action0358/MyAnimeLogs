@@ -44,9 +44,10 @@ func Setup(db *database.DB, cfg *config.Config) *gin.Engine {
 	authService := services.NewAuthService(db, cfg.JWTSecret)
 	animeService := services.NewAnimeService(db, logger)
 	annictService := services.NewAnnictClientWithDB(cfg.AnnictAPIKey, db) // Annictサービスを初期化
+	uploadService := services.NewUploadService(cfg.UploadDir, cfg.MaxUploadSize, logger)
 
 	// 強化されたエラーハンドリングを持つハンドラー
-	authHandler := handlers.NewAuthHandler(authService, logger, errorMonitor)
+	authHandler := handlers.NewAuthHandlerWithUpload(authService, uploadService, logger, errorMonitor)
 	animeHandler := handlers.NewAnimeHandler(animeService, logger, errorMonitor)
 	annictHandler := handlers.NewAnnictHandler(annictService, logger, errorMonitor)
 	adminHandler := handlers.NewAdminHandler(animeService, logger, errorMonitor)
@@ -115,6 +116,8 @@ func Setup(db *database.DB, cfg *config.Config) *gin.Engine {
 			// ユーザールート
 			protected.GET("/users/me", authHandler.GetMe)
 			protected.PUT("/users/me", authHandler.UpdateMe)
+			protected.POST("/users/me/icon", authHandler.UploadIcon)
+			protected.DELETE("/users/me/icon", authHandler.DeleteIcon)
 			protected.GET("/users/me/stats", authHandler.GetStats)
 			protected.GET("/users/me/export", authHandler.ExportData)
 
@@ -135,6 +138,9 @@ func Setup(db *database.DB, cfg *config.Config) *gin.Engine {
 			protected.GET("/users/me/watchlist", animeHandler.GetWatchlist)
 		}
 	}
+
+	// 静的ファイル配信（アップロードされた画像）
+	r.Static("/uploads", "./uploads")
 
 	return r
 }

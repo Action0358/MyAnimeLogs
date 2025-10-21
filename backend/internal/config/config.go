@@ -27,6 +27,9 @@ type Config struct {
 	// Error monitoring configuration
 	ErrorAlertThreshold int
 	ErrorTimeWindow     int // in minutes
+	// Upload configuration
+	UploadDir     string
+	MaxUploadSize int64 // in bytes
 }
 
 // New creates a new Config struct from environment variables
@@ -66,6 +69,10 @@ func New() *Config {
 	errorAlertThreshold := getEnvAsInt("ERROR_ALERT_THRESHOLD", 10)
 	errorTimeWindow := getEnvAsInt("ERROR_TIME_WINDOW", 5) // 5 minutes
 
+	// Upload configuration
+	uploadDir := getEnv("UPLOAD_DIR", "./uploads/icons")
+	maxUploadSize := int64(getEnvAsInt("MAX_UPLOAD_SIZE", 5*1024*1024)) // 5MB default
+
 	return &Config{
 		DatabaseURL:         databaseURL,
 		Port:                port,
@@ -83,6 +90,8 @@ func New() *Config {
 		LogOutput:           logOutput,
 		ErrorAlertThreshold: errorAlertThreshold,
 		ErrorTimeWindow:     errorTimeWindow,
+		UploadDir:           uploadDir,
+		MaxUploadSize:       maxUploadSize,
 	}
 }
 

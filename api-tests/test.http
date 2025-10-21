@@ -45,8 +45,26 @@ Authorization: Bearer {{login.response.body.access_token}}
 {
   "name": "更新されたAPIテストユーザー",
   "description": "REST Clientでテスト中のユーザーです",
-  "icon": "https://example.com/test-icon.png"
+  "favorite_anime": "アクション、ファンタジー系のアニメが好きです",
+  "sns_link": "https://twitter.com/apitest"
 }
+
+### 4-1. プロフィール画像アップロード
+# 注意: このテストはcURLまたはPostmanで実行してください
+# REST Clientでファイルアップロードをテストする場合は、実際の画像ファイルが必要です
+# 
+# cURLでのテスト例:
+# curl -X POST http://localhost:8080/api/users/me/icon \
+#   -H "Authorization: Bearer YOUR_TOKEN" \
+#   -F "icon=@/path/to/image.jpg"
+#
+# 制限:
+# - 最大ファイルサイズ: 5MB
+# - 許可形式: JPEG, PNG, GIF, WebP
+
+### 4-2. プロフィール画像削除
+DELETE {{baseUrl}}/api/users/me/icon
+Authorization: Bearer {{login.response.body.access_token}}
 
 ### 5. ユーザー統計取得
 GET {{baseUrl}}/api/users/me/stats
@@ -64,6 +82,14 @@ Authorization: Bearer {{login.response.body.access_token}}
 
 ### 8. 認証なしアクセス
 GET {{baseUrl}}/api/users/me
+
+### 8-1. プロフィール画像アップロード（認証なし）
+# エラー: 401 Unauthorized
+DELETE {{baseUrl}}/api/users/me/icon
+
+### 8-2. プロフィール画像削除（認証なし）
+# エラー: 401 Unauthorized
+DELETE {{baseUrl}}/api/users/me/icon
 
 ### 9. 無効なトークン
 GET {{baseUrl}}/api/users/me

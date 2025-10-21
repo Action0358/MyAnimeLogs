@@ -31,7 +31,6 @@ type UserLoginRequest struct {
 type UserUpdateRequest struct {
 	Name          *string `json:"name,omitempty" binding:"omitempty,min=1,max=100"`
 	Description   *string `json:"description,omitempty" binding:"omitempty,max=10000"`
-	Icon          *string `json:"icon,omitempty" binding:"omitempty,url"`
 	FavoriteAnime *string `json:"favorite_anime,omitempty" binding:"omitempty,max=300"`
 	SnsLink       *string `json:"sns_link,omitempty" binding:"omitempty,url,max=500"`
 }
