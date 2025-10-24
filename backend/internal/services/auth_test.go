@@ -50,6 +50,14 @@ func (m *MockUserRepository) UpdatePartial(userID int, req models.UserUpdateRequ
 	return args.Get(0).(*models.User), args.Error(1)
 }
 
+func (m *MockUserRepository) UpdateIcon(userID int, iconURL string) (*models.User, error) {
+	args := m.Called(userID, iconURL)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.User), args.Error(1)
+}
+
 func (m *MockUserRepository) EmailExists(email string) (bool, error) {
 	args := m.Called(email)
 	return args.Bool(0), args.Error(1)
@@ -365,3 +373,76 @@ REMAINING LIMITATIONS:
 - These methods require further refactoring for complete testability
 - Stats and export functionality could be moved to separate services
 */
+
+// Test UpdateUserIcon method - Success
+func TestAuthService_UpdateUserIcon_Success(t *testing.T) {
+	mockRepo := new(MockUserRepository)
+	service := NewAuthServiceWithRepo(mockRepo, nil, "test-secret")
+
+	userID := 1
+	iconURL := "/uploads/icons/user_1_1234567890.jpg"
+	expectedUser := &models.User{
+		ID:          userID,
+		Name:        "Test User",
+		Email:       "test@example.com",
+		Description: "Test description",
+		Icon:        &iconURL,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}
+
+	mockRepo.On("UpdateIcon", userID, iconURL).Return(expectedUser, nil)
+
+	result, err := service.UpdateUserIcon(userID, iconURL)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, userID, result.ID)
+	assert.Equal(t, &iconURL, result.Icon)
+	mockRepo.AssertExpectations(t)
+}
+
+// Test UpdateUserIcon method - Delete icon
+func TestAuthService_UpdateUserIcon_DeleteIcon(t *testing.T) {
+	mockRepo := new(MockUserRepository)
+	service := NewAuthServiceWithRepo(mockRepo, nil, "test-secret")
+
+	userID := 1
+	expectedUser := &models.User{
+		ID:          userID,
+		Name:        "Test User",
+		Email:       "test@example.com",
+		Description: "Test description",
+		Icon:        nil,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}
+
+	mockRepo.On("UpdateIcon", userID, "").Return(expectedUser, nil)
+
+	result, err := service.UpdateUserIcon(userID, "")
+
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, userID, result.ID)
+	assert.Nil(t, result.Icon)
+	mockRepo.AssertExpectations(t)
+}
+
+// Test UpdateUserIcon method - Repository error
+func TestAuthService_UpdateUserIcon_RepositoryError(t *testing.T) {
+	mockRepo := new(MockUserRepository)
+	service := NewAuthServiceWithRepo(mockRepo, nil, "test-secret")
+
+	userID := 1
+	iconURL := "/uploads/icons/user_1_1234567890.jpg"
+
+	mockRepo.On("UpdateIcon", userID, iconURL).Return(nil, assert.AnError)
+
+	result, err := service.UpdateUserIcon(userID, iconURL)
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "failed to update user icon")
+	mockRepo.AssertExpectations(t)
+}

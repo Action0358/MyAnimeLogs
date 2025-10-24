@@ -99,7 +99,6 @@ func (r *UserRepository) UpdatePartial(userID int, req models.UserUpdateRequest)
 	// Add fields to update using helper function
 	addFieldToUpdate(&setParts, &args, &argIndex, "name", req.Name)
 	addFieldToUpdate(&setParts, &args, &argIndex, "description", req.Description)
-	addFieldToUpdate(&setParts, &args, &argIndex, "icon", req.Icon)
 	addFieldToUpdate(&setParts, &args, &argIndex, "favorite_anime", req.FavoriteAnime)
 	addFieldToUpdate(&setParts, &args, &argIndex, "sns_link", req.SnsLink)
 
@@ -135,4 +134,31 @@ func (r *UserRepository) EmailExists(email string) (bool, error) {
 		return false, fmt.Errorf("failed to check email existence: %w", err)
 	}
 	return exists, nil
+}
+
+// UpdateIcon updates only the user's icon field
+func (r *UserRepository) UpdateIcon(userID int, iconURL string) (*models.User, error) {
+	var user models.User
+	var iconValue interface{}
+
+	if iconURL == "" {
+		iconValue = nil
+	} else {
+		iconValue = iconURL
+	}
+
+	err := r.db.QueryRow(`
+		UPDATE users SET icon = $1, updated_at = CURRENT_TIMESTAMP
+		WHERE id = $2
+		RETURNING id, name, email, description, icon, favorite_anime, sns_link, created_at, updated_at
+	`, iconValue, userID).Scan(
+		&user.ID, &user.Name, &user.Email, &user.Description, &user.Icon,
+		&user.FavoriteAnime, &user.SnsLink, &user.CreatedAt, &user.UpdatedAt,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to update user icon: %w", err)
+	}
+
+	return &user, nil
 }
