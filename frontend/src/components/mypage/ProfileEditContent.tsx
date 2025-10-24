@@ -17,6 +17,9 @@ export const ProfileEditContent: React.FC = () => {
   const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  const API_BASE_URL =
+    process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
+
   // 初期値を保持（変更検知用）
   const [initialValues] = useState(() => ({
     name: user?.name || '',
@@ -27,18 +30,78 @@ export const ProfileEditContent: React.FC = () => {
 
   const [name, setName] = useState(initialValues.name)
   const [description, setDescription] = useState(initialValues.description)
-  const [favoriteAnime, setFavoriteAnime] = useState(initialValues.favoriteAnime)
+  const [favoriteAnime, setFavoriteAnime] = useState(
+    initialValues.favoriteAnime
+  )
   const [snsLink, setSnsLink] = useState(initialValues.snsLink)
   const [iconFile, setIconFile] = useState<File | null>(null)
   const [iconPreview, setIconPreview] = useState<string | null>(
-    user?.icon || null
+    user?.icon ? `${API_BASE_URL}${user.icon}` : null
   )
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [isUploadingIcon, setIsUploadingIcon] = useState(false)
   const [hasChanges, setHasChanges] = useState(false)
 
-  const API_BASE_URL =
-    process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
+  // 画像アップロードAPI
+  const uploadIcon = async (file: File): Promise<void> => {
+    setIsUploadingIcon(true)
+    try {
+      const formData = new FormData()
+      formData.append('icon', file)
+
+      const response = await fetch(`${API_BASE_URL}/api/users/me/icon`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || '画像のアップロードに失敗しました')
+      }
+
+      const data = await response.json()
+      updateUser(data.user)
+    } finally {
+      setIsUploadingIcon(false)
+    }
+  }
+
+  // 画像削除API
+  const deleteIcon = async (): Promise<void> => {
+    if (!user?.icon) return
+
+    if (!confirm('プロフィール画像を削除してもよろしいですか？')) {
+      return
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/users/me/icon`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || '画像の削除に失敗しました')
+      }
+
+      const data = await response.json()
+      updateUser(data.user)
+      setIconFile(null)
+      setIconPreview(null)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '画像の削除に失敗しました')
+    }
+  }
 
   // 変更検知（初期値と現在値を比較）
   const checkForChanges = (
@@ -50,10 +113,11 @@ export const ProfileEditContent: React.FC = () => {
   ) => {
     const nameChanged = newName !== initialValues.name
     const descriptionChanged = newDescription !== initialValues.description
-    const favoriteAnimeChanged = newFavoriteAnime !== initialValues.favoriteAnime
+    const favoriteAnimeChanged =
+      newFavoriteAnime !== initialValues.favoriteAnime
     const snsLinkChanged = newSnsLink !== initialValues.snsLink
     const iconChanged = newIconFile !== null
-    
+
     setHasChanges(
       nameChanged ||
         descriptionChanged ||
@@ -102,8 +166,9 @@ export const ProfileEditContent: React.FC = () => {
     }
 
     // ファイル形式チェック
-    if (!file.type.startsWith('image/')) {
-      setError('画像ファイルを選択してください')
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+    if (!allowedTypes.includes(file.type)) {
+      setError('JPEG、PNG、GIF、WebP形式の画像を選択してください')
       return
     }
 
@@ -156,28 +221,18 @@ export const ProfileEditContent: React.FC = () => {
     setIsLoading(true)
 
     try {
-      // リクエストボディを構築（JSON形式）
-      const requestBody: {
-        name: string
-        description: string
-        favorite_anime?: string | null
-        sns_link?: string | null
-        icon?: string
-      } = {
+      // 1. 画像がある場合は先にアップロード
+      if (iconFile) {
+        await uploadIcon(iconFile)
+      }
+
+      // 2. プロフィール情報を更新（iconフィールドは除外）
+      const requestBody = {
         name: name.trim(),
         description: description.trim(),
         favorite_anime: favoriteAnime.trim() || null,
         sns_link: snsLink.trim() || null,
       }
-
-      // 画像がある場合はBase64エンコードして送信
-      // 注: 現在のバックエンドはiconフィールドにURLを期待しているため、
-      // 画像アップロード機能は一旦無効化
-      // TODO: バックエンドに画像アップロードAPIを実装後に有効化
-      // if (iconFile) {
-      //   const base64 = await convertFileToBase64(iconFile);
-      //   requestBody.icon = base64;
-      // }
 
       const response = await fetch(`${API_BASE_URL}/api/users/me`, {
         method: 'PUT',
@@ -242,11 +297,10 @@ export const ProfileEditContent: React.FC = () => {
               </div>
             )}
 
-            {/* アイコン画像 - 一時的に無効化 */}
-            <div className="opacity-50">
+            {/* アイコン画像 */}
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-3">
                 プロフィール画像
-                <span className="ml-2 text-xs text-gray-500">（準備中）</span>
               </label>
               <div className="flex items-center space-x-6">
                 {/* プレビュー */}
@@ -267,10 +321,9 @@ export const ProfileEditContent: React.FC = () => {
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept="image/*"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
                     onChange={handleIconChange}
                     className="hidden"
-                    disabled
                   />
                   <div className="flex space-x-3">
                     <Button
@@ -278,24 +331,24 @@ export const ProfileEditContent: React.FC = () => {
                       variant="outline"
                       size="sm"
                       onClick={handleIconClick}
-                      disabled
+                      disabled={isLoading || isUploadingIcon}
                     >
                       画像を選択
                     </Button>
-                    {iconPreview && (
+                    {iconPreview && user?.icon && (
                       <Button
                         type="button"
                         variant="ghost"
                         size="sm"
-                        onClick={handleRemoveIcon}
-                        disabled
+                        onClick={deleteIcon}
+                        disabled={isLoading || isUploadingIcon}
                       >
                         削除
                       </Button>
                     )}
                   </div>
                   <p className="text-xs text-gray-500 mt-2">
-                    画像アップロード機能は準備中です
+                    JPEG、PNG、GIF、WebP形式（最大5MB）
                   </p>
                 </div>
               </div>
@@ -363,18 +416,18 @@ export const ProfileEditContent: React.FC = () => {
                 type="submit"
                 variant="primary"
                 size="lg"
-                isLoading={isLoading}
-                disabled={!hasChanges}
+                isLoading={isLoading || isUploadingIcon}
+                disabled={!hasChanges || isLoading || isUploadingIcon}
                 className="flex-1"
               >
-                保存する
+                {isUploadingIcon ? '画像をアップロード中...' : '保存する'}
               </Button>
               <Button
                 type="button"
                 variant="outline"
                 size="lg"
                 onClick={handleCancel}
-                disabled={isLoading}
+                disabled={isLoading || isUploadingIcon}
                 className="flex-1"
               >
                 キャンセル

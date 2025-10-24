@@ -186,7 +186,7 @@ export const MyPageContent: React.FC = () => {
                   <div className="w-32 h-32 bg-gray-100 rounded-full overflow-hidden">
                     {user?.icon ? (
                       <img
-                        src={user.icon}
+                        src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${user.icon}`}
                         alt={user.name}
                         className="w-full h-full object-cover"
                       />
