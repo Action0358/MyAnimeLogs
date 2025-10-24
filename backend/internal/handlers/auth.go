@@ -144,14 +144,14 @@ func (h *AuthHandler) UploadIcon(c *gin.Context) {
 		return
 	}
 
-	// 現在のユーザー情報を取得（古い画像を削除するため）
+	// 現在のユーザー情報を取得（古い画像のURLを保持）
 	currentUser, err := h.authService.GetUserByID(userID)
+	var oldIconURL string
 	if err == nil && currentUser.Icon != nil && *currentUser.Icon != "" {
-		// 古い画像を削除（エラーは無視）
-		_ = h.uploadService.DeleteUserIcon(*currentUser.Icon)
+		oldIconURL = *currentUser.Icon
 	}
 
-	// 画像を保存
+	// 新しい画像を保存
 	iconURL, err := h.uploadService.SaveUserIcon(userID, file)
 	if err != nil {
 		h.response.ValidationError(c, err.Error())
@@ -161,10 +161,15 @@ func (h *AuthHandler) UploadIcon(c *gin.Context) {
 	// DBを更新
 	user, err := h.authService.UpdateUserIcon(userID, iconURL)
 	if err != nil {
-		// 保存に失敗した場合、アップロードした画像を削除
+		// DB更新に失敗した場合、アップロードした新しい画像を削除
 		_ = h.uploadService.DeleteUserIcon(iconURL)
 		h.response.InternalServerError(c, "画像の保存に失敗しました")
 		return
+	}
+
+	// 全ての処理が成功した後に古い画像を削除
+	if oldIconURL != "" {
+		_ = h.uploadService.DeleteUserIcon(oldIconURL)
 	}
 
 	h.response.Success(c, gin.H{

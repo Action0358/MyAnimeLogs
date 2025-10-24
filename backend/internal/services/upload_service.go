@@ -15,12 +15,13 @@ import (
 )
 
 type UploadService struct {
-	uploadDir string
-	maxSize   int64
-	logger    *common.Logger
+	uploadDir  string
+	publicPath string // Public URL path (e.g., "/uploads")
+	maxSize    int64
+	logger     *common.Logger
 }
 
-func NewUploadService(uploadDir string, maxSize int64, logger *common.Logger) *UploadService {
+func NewUploadService(uploadDir string, publicPath string, maxSize int64, logger *common.Logger) *UploadService {
 	// アップロードディレクトリが存在しない場合は作成
 	if err := os.MkdirAll(uploadDir, 0755); err != nil {
 		logger.Error("Failed to create upload directory",
@@ -29,9 +30,10 @@ func NewUploadService(uploadDir string, maxSize int64, logger *common.Logger) *U
 	}
 
 	return &UploadService{
-		uploadDir: uploadDir,
-		maxSize:   maxSize,
-		logger:    logger,
+		uploadDir:  uploadDir,
+		publicPath: publicPath,
+		maxSize:    maxSize,
+		logger:     logger,
 	}
 }
 
@@ -110,20 +112,48 @@ func (s *UploadService) validateImage(file *multipart.FileHeader) error {
 
 // generateFilename generates a unique filename for the user icon
 func (s *UploadService) generateFilename(userID int, originalFilename string) string {
-	ext := strings.ToLower(filepath.Ext(originalFilename))
+	// ファイル名をサニタイズしてから拡張子を取得
+	sanitized := sanitizeFilename(originalFilename)
+	ext := strings.ToLower(filepath.Ext(sanitized))
+
+	// 拡張子が不正な場合はデフォルトを使用
+	if ext == "" || len(ext) > 10 {
+		ext = ".jpg"
+	}
+
 	timestamp := time.Now().Unix()
 	return fmt.Sprintf("user_%d_%d%s", userID, timestamp, ext)
 }
 
 // saveFile saves the uploaded file to disk
-func (s *UploadService) saveFile(file *multipart.FileHeader, filepath string) error {
+func (s *UploadService) saveFile(file *multipart.FileHeader, targetPath string) error {
+	// パストラバーサル対策: 最終パスがアップロードディレクトリ内にあることを確認
+	absUploadDir, err := filepath.Abs(s.uploadDir)
+	if err != nil {
+		return fmt.Errorf("ディレクトリパスの取得に失敗しました: %w", err)
+	}
+
+	absTargetPath, err := filepath.Abs(targetPath)
+	if err != nil {
+		return fmt.Errorf("ファイルパスの取得に失敗しました: %w", err)
+	}
+
+	// 最終パスがアップロードディレクトリ内にあることを確認
+	if !strings.HasPrefix(absTargetPath, absUploadDir+string(filepath.Separator)) &&
+		absTargetPath != absUploadDir {
+		s.logger.Warn("Path traversal attempt detected in saveFile",
+			"upload_dir", absUploadDir,
+			"target_path", absTargetPath)
+		return errors.New("不正なファイルパスです")
+	}
+
 	src, err := file.Open()
 	if err != nil {
 		return fmt.Errorf("ファイルを開けませんでした: %w", err)
 	}
 	defer src.Close()
 
-	dst, err := os.Create(filepath)
+	dst, err := os.Create(absTargetPath)
 	if err != nil {
 		return fmt.Errorf("ファイルを作成できませんでした: %w", err)
 	}
@@ -138,7 +168,11 @@ func (s *UploadService) saveFile(file *multipart.FileHeader, filepath string) er
 
 // generateURL generates the URL for the uploaded file
 func (s *UploadService) generateURL(filename string) string {
-	return fmt.Sprintf("/uploads/icons/%s", filename)
+	// publicPathから相対的なサブディレクトリを計算
+	// uploadDir: "./uploads/icons" -> subdir: "icons"
+	// publicPath: "/uploads" -> URL: "/uploads/icons/filename"
+	subdir := filepath.Base(s.uploadDir)
+	return fmt.Sprintf("%s/%s/%s", s.publicPath, subdir, filename)
 }
 
 // DeleteUserIcon deletes the user icon file
@@ -150,28 +184,80 @@ func (s *UploadService) DeleteUserIcon(iconURL string) error {
 	// URLからファイル名を抽出
 	filename := filepath.Base(iconURL)
 
+	// ファイル名のサニタイズ（パストラバーサル対策）
+	filename = sanitizeFilename(filename)
+	if filename == "" || filename == "." || filename == ".." {
+		s.logger.Warn("Invalid filename detected",
+			"original_url", iconURL,
+			"sanitized_filename", filename)
+		return errors.New("無効なファイル名です")
+	}
+
+	// 追加のバリデーション: ファイル名に不正な文字が含まれていないか確認
+	if strings.Contains(filename, "..") || strings.Contains(filename, "/") || strings.Contains(filename, "\\") {
+		s.logger.Warn("Invalid characters in filename after sanitization",
+			"filename", filename,
+			"original_url", iconURL)
+		return errors.New("無効なファイル名です")
+	}
+
 	// ファイルパスを構築
-	filepath := filepath.Join(s.uploadDir, filename)
+	targetPath := filepath.Join(s.uploadDir, filename)
+
+	// パストラバーサル対策: 最終パスがアップロードディレクトリ内にあることを確認
+	absUploadDir, err := filepath.Abs(s.uploadDir)
+	if err != nil {
+		s.logger.Error("Failed to get absolute upload directory path",
+			"error", err.Error())
+		return fmt.Errorf("ディレクトリパスの取得に失敗しました: %w", err)
+	}
+
+	absTargetPath, err := filepath.Abs(targetPath)
+	if err != nil {
+		s.logger.Error("Failed to get absolute target path",
+			"error", err.Error())
+		return fmt.Errorf("ファイルパスの取得に失敗しました: %w", err)
+	}
+
+	// 最終パスがアップロードディレクトリ内にあることを確認
+	if !strings.HasPrefix(absTargetPath, absUploadDir+string(filepath.Separator)) &&
+		absTargetPath != absUploadDir {
+		s.logger.Warn("Path traversal attempt detected",
+			"upload_dir", absUploadDir,
+			"target_path", absTargetPath,
+			"original_url", iconURL)
+		return errors.New("不正なファイルパスです")
+	}
 
 	// ファイルが存在するか確認
-	if _, err := os.Stat(filepath); os.IsNotExist(err) {
+	if _, err := os.Stat(absTargetPath); os.IsNotExist(err) {
 		s.logger.Warn("Icon file not found for deletion",
-			"filepath", filepath)
+			"filepath", absTargetPath)
 		return nil // ファイルが存在しない場合はエラーにしない
 	}
 
 	// ファイルを削除
-	if err := os.Remove(filepath); err != nil {
+	if err := os.Remove(absTargetPath); err != nil {
 		s.logger.Error("Failed to delete icon file",
 			"error", err.Error(),
-			"filepath", filepath)
+			"filepath", absTargetPath)
 		return fmt.Errorf("ファイルの削除に失敗しました: %w", err)
 	}
 
 	s.logger.Info("Icon file deleted successfully",
-		"filepath", filepath)
+		"filepath", absTargetPath)
 
 	return nil
+}
+
+// sanitizeFilename removes dangerous characters from filename
+func sanitizeFilename(filename string) string {
+	// パストラバーサル対策: 危険な文字を削除
+	filename = strings.ReplaceAll(filename, "..", "")
+	filename = strings.ReplaceAll(filename, "/", "")
+	filename = strings.ReplaceAll(filename, "\\", "")
+	filename = strings.ReplaceAll(filename, "\x00", "") // NULL byte
+	return filename
 }
 
 // contains checks if a slice contains a string

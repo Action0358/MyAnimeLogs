@@ -1,6 +1,7 @@
 package router
 
 import (
+	"path/filepath"
 	"time"
 
 	"myanimelogs/internal/common"
@@ -44,7 +45,7 @@ func Setup(db *database.DB, cfg *config.Config) *gin.Engine {
 	authService := services.NewAuthService(db, cfg.JWTSecret)
 	animeService := services.NewAnimeService(db, logger)
 	annictService := services.NewAnnictClientWithDB(cfg.AnnictAPIKey, db) // Annictサービスを初期化
-	uploadService := services.NewUploadService(cfg.UploadDir, cfg.MaxUploadSize, logger)
+	uploadService := services.NewUploadService(cfg.UploadDir, cfg.UploadPublicPath, cfg.MaxUploadSize, logger)
 
 	// 強化されたエラーハンドリングを持つハンドラー
 	authHandler := handlers.NewAuthHandlerWithUpload(authService, uploadService, logger, errorMonitor)
@@ -140,7 +141,9 @@ func Setup(db *database.DB, cfg *config.Config) *gin.Engine {
 	}
 
 	// 静的ファイル配信（アップロードされた画像）
-	r.Static("/uploads", "./uploads")
+	// 設定から公開パスとファイルシステムパスを取得
+	uploadRootDir := filepath.Dir(cfg.UploadDir) // "./uploads/icons" -> "./uploads"
+	r.Static(cfg.UploadPublicPath, uploadRootDir)
 
 	return r
 }

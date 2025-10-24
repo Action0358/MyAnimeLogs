@@ -85,7 +85,8 @@ GET {{baseUrl}}/api/users/me
 
 ### 8-1. プロフィール画像アップロード（認証なし）
 # エラー: 401 Unauthorized
-DELETE {{baseUrl}}/api/users/me/icon
+# 注意: ファイルアップロードのテストはcURLまたはPostmanで実行してください
+POST {{baseUrl}}/api/users/me/icon
 
 ### 8-2. プロフィール画像削除（認証なし）
 # エラー: 401 Unauthorized

@@ -13,7 +13,7 @@ import (
 
 func TestUploadService_validateImage(t *testing.T) {
 	logger := common.NewLogger(common.LogLevelInfo, "json")
-	service := NewUploadService("./test_uploads", 5*1024*1024, logger)
+	service := NewUploadService("./test_uploads", "/uploads", 5*1024*1024, logger)
 
 	tests := []struct {
 		name        string
@@ -81,7 +81,7 @@ func TestUploadService_validateImage(t *testing.T) {
 
 func TestUploadService_generateFilename(t *testing.T) {
 	logger := common.NewLogger(common.LogLevelInfo, "json")
-	service := NewUploadService("./test_uploads", 5*1024*1024, logger)
+	service := NewUploadService("./test_uploads", "/uploads", 5*1024*1024, logger)
 
 	tests := []struct {
 		name             string
@@ -130,7 +130,7 @@ func TestUploadService_generateFilename(t *testing.T) {
 
 func TestUploadService_generateURL(t *testing.T) {
 	logger := common.NewLogger(common.LogLevelInfo, "json")
-	service := NewUploadService("./test_uploads", 5*1024*1024, logger)
+	service := NewUploadService("./test_uploads/icons", "/uploads", 5*1024*1024, logger)
 
 	tests := []struct {
 		name     string
@@ -157,7 +157,7 @@ func TestUploadService_generateURL(t *testing.T) {
 func TestUploadService_DeleteUserIcon(t *testing.T) {
 	logger := common.NewLogger(common.LogLevelInfo, "json")
 	uploadDir := "./test_uploads_delete"
-	service := NewUploadService(uploadDir, 5*1024*1024, logger)
+	service := NewUploadService(uploadDir, "/uploads", 5*1024*1024, logger)
 
 	// Create test directory
 	os.MkdirAll(uploadDir, 0755)
@@ -246,4 +246,173 @@ func createMockFileHeader(filename, contentType string, size int64) *multipart.F
 	fileHeader.Size = size
 
 	return fileHeader
+}
+
+// Test path traversal protection
+func TestUploadService_DeleteUserIcon_PathTraversal(t *testing.T) {
+	logger := common.NewLogger(common.LogLevelInfo, "json")
+	uploadDir := "./test_uploads_security"
+	service := NewUploadService(uploadDir, "/uploads", 5*1024*1024, logger)
+
+	// Create test directory
+	os.MkdirAll(uploadDir, 0755)
+	defer os.RemoveAll(uploadDir)
+
+	tests := []struct {
+		name        string
+		iconURL     string
+		createFile  bool
+		wantErr     bool
+		description string
+	}{
+		{
+			name:        "Path traversal with .. (empty after sanitization)",
+			iconURL:     "/uploads/icons/..",
+			createFile:  false,
+			wantErr:     true,
+			description: "Should reject empty filename after sanitization",
+		},
+		{
+			name:        "Valid filename (file not exists)",
+			iconURL:     "/uploads/icons/user_123_1234567890.jpg",
+			createFile:  false,
+			wantErr:     false,
+			description: "Should not error when file doesn't exist (idempotent)",
+		},
+		{
+			name:        "Valid filename (file exists)",
+			iconURL:     "/uploads/icons/user_456_1234567890.jpg",
+			createFile:  true,
+			wantErr:     false,
+			description: "Should successfully delete existing file",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create file if needed
+			if tt.createFile {
+				filename := filepath.Base(tt.iconURL)
+				filepath := filepath.Join(uploadDir, filename)
+				os.WriteFile(filepath, []byte("test"), 0644)
+			}
+
+			err := service.DeleteUserIcon(tt.iconURL)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("DeleteUserIcon() error = %v, wantErr %v (%s)", err, tt.wantErr, tt.description)
+			}
+		})
+	}
+}
+
+// Test sanitization prevents path traversal
+func TestUploadService_DeleteUserIcon_SanitizationPreventsTraversal(t *testing.T) {
+	logger := common.NewLogger(common.LogLevelInfo, "json")
+	uploadDir := "./test_uploads_sanitization"
+	service := NewUploadService(uploadDir, "/uploads", 5*1024*1024, logger)
+
+	// Create test directory and parent directory file
+	os.MkdirAll(uploadDir, 0755)
+	defer os.RemoveAll(uploadDir)
+
+	// Create a file in parent directory that should NOT be deleted
+	parentFile := filepath.Join(filepath.Dir(uploadDir), "important_file.txt")
+	os.WriteFile(parentFile, []byte("important data"), 0644)
+	defer os.Remove(parentFile)
+
+	// Try to delete parent file using path traversal
+	// After sanitization, this should become "important_file.txt" in uploadDir
+	err := service.DeleteUserIcon("/uploads/icons/../important_file.txt")
+
+	// Should not error (file doesn't exist in uploadDir)
+	if err != nil {
+		t.Errorf("DeleteUserIcon() should not error for non-existent file, got: %v", err)
+	}
+
+	// Verify parent file still exists (was not deleted)
+	if _, err := os.Stat(parentFile); os.IsNotExist(err) {
+		t.Error("Parent directory file was deleted! Path traversal vulnerability exists!")
+	}
+}
+
+func TestSanitizeFilename(t *testing.T) {
+	tests := []struct {
+		name     string
+		filename string
+		want     string
+	}{
+		{
+			name:     "Normal filename",
+			filename: "test.jpg",
+			want:     "test.jpg",
+		},
+		{
+			name:     "Filename with path traversal",
+			filename: "../../../etc/passwd",
+			want:     "etcpasswd",
+		},
+		{
+			name:     "Filename with backslash",
+			filename: "..\\..\\file.txt",
+			want:     "file.txt",
+		},
+		{
+			name:     "Filename with NULL byte",
+			filename: "file.jpg\x00.txt",
+			want:     "file.jpg.txt",
+		},
+		{
+			name:     "Filename with forward slash",
+			filename: "path/to/file.jpg",
+			want:     "pathtofile.jpg",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := sanitizeFilename(tt.filename)
+			if got != tt.want {
+				t.Errorf("sanitizeFilename() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestUploadService_SaveFile_PathTraversal(t *testing.T) {
+	logger := common.NewLogger(common.LogLevelInfo, "json")
+	uploadDir := "./test_uploads_save_security"
+	service := NewUploadService(uploadDir, "/uploads", 5*1024*1024, logger)
+
+	// Create test directory
+	os.MkdirAll(uploadDir, 0755)
+	defer os.RemoveAll(uploadDir)
+
+	// Create a mock file
+	fileHeader := createMockFileHeader("test.jpg", "image/jpeg", 1024)
+
+	tests := []struct {
+		name       string
+		targetPath string
+		wantErr    bool
+	}{
+		{
+			name:       "Valid path",
+			targetPath: filepath.Join(uploadDir, "test.jpg"),
+			wantErr:    false,
+		},
+		{
+			name:       "Path traversal attempt",
+			targetPath: filepath.Join(uploadDir, "../../../etc/passwd"),
+			wantErr:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := service.saveFile(fileHeader, tt.targetPath)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("saveFile() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
 }
