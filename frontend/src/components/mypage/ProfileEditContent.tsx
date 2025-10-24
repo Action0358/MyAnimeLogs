@@ -34,6 +34,7 @@ export const ProfileEditContent: React.FC = () => {
     initialValues.favoriteAnime
   )
   const [snsLink, setSnsLink] = useState(initialValues.snsLink)
+
   const [iconFile, setIconFile] = useState<File | null>(null)
   const [iconPreview, setIconPreview] = useState<string | null>(
     user?.icon ? `${API_BASE_URL}${user.icon}` : null
@@ -93,7 +94,6 @@ export const ProfileEditContent: React.FC = () => {
 
       const data = await response.json()
       updateUser(data.user)
-      setIconFile(null)
       setIconPreview(null)
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
@@ -109,7 +109,7 @@ export const ProfileEditContent: React.FC = () => {
     newDescription: string,
     newFavoriteAnime: string,
     newSnsLink: string,
-    newIconFile: File | null
+    newIconFile: File | null = iconFile
   ) => {
     const nameChanged = newName !== initialValues.name
     const descriptionChanged = newDescription !== initialValues.description
@@ -130,7 +130,7 @@ export const ProfileEditContent: React.FC = () => {
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newName = e.target.value
     setName(newName)
-    checkForChanges(newName, description, favoriteAnime, snsLink, iconFile)
+    checkForChanges(newName, description, favoriteAnime, snsLink)
   }
 
   const handleDescriptionChange = (
@@ -138,7 +138,7 @@ export const ProfileEditContent: React.FC = () => {
   ) => {
     const newDescription = e.target.value
     setDescription(newDescription)
-    checkForChanges(name, newDescription, favoriteAnime, snsLink, iconFile)
+    checkForChanges(name, newDescription, favoriteAnime, snsLink)
   }
 
   const handleFavoriteAnimeChange = (
@@ -146,13 +146,13 @@ export const ProfileEditContent: React.FC = () => {
   ) => {
     const newFavoriteAnime = e.target.value
     setFavoriteAnime(newFavoriteAnime)
-    checkForChanges(name, description, newFavoriteAnime, snsLink, iconFile)
+    checkForChanges(name, description, newFavoriteAnime, snsLink)
   }
 
   const handleSnsLinkChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newSnsLink = e.target.value
     setSnsLink(newSnsLink)
-    checkForChanges(name, description, favoriteAnime, newSnsLink, iconFile)
+    checkForChanges(name, description, favoriteAnime, newSnsLink)
   }
 
   const handleIconChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -189,15 +189,6 @@ export const ProfileEditContent: React.FC = () => {
     fileInputRef.current?.click()
   }
 
-  const handleRemoveIcon = () => {
-    setIconFile(null)
-    setIconPreview(null)
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
-    }
-    checkForChanges(name, description, favoriteAnime, snsLink, null)
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -226,7 +217,7 @@ export const ProfileEditContent: React.FC = () => {
         await uploadIcon(iconFile)
       }
 
-      // 2. プロフィール情報を更新（iconフィールドは除外）
+      // 2. プロフィール情報を更新
       const requestBody = {
         name: name.trim(),
         description: description.trim(),
@@ -299,9 +290,6 @@ export const ProfileEditContent: React.FC = () => {
 
             {/* アイコン画像 */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                プロフィール画像
-              </label>
               <div className="flex items-center space-x-6">
                 {/* プレビュー */}
                 <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center overflow-hidden">
@@ -316,7 +304,7 @@ export const ProfileEditContent: React.FC = () => {
                   )}
                 </div>
 
-                {/* ボタン */}
+                {/* ボタンと説明 */}
                 <div className="flex-1">
                   <input
                     ref={fileInputRef}
@@ -325,28 +313,15 @@ export const ProfileEditContent: React.FC = () => {
                     onChange={handleIconChange}
                     className="hidden"
                   />
-                  <div className="flex space-x-3">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={handleIconClick}
-                      disabled={isLoading || isUploadingIcon}
-                    >
-                      画像を選択
-                    </Button>
-                    {iconPreview && user?.icon && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={deleteIcon}
-                        disabled={isLoading || isUploadingIcon}
-                      >
-                        削除
-                      </Button>
-                    )}
-                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleIconClick}
+                    disabled={isLoading || isUploadingIcon}
+                  >
+                    {isUploadingIcon ? 'アップロード中...' : 'アイコン変更'}
+                  </Button>
                   <p className="text-xs text-gray-500 mt-2">
                     JPEG、PNG、GIF、WebP形式（最大5MB）
                   </p>
