@@ -9,6 +9,7 @@ type UserRepositoryInterface interface {
 	Create(user *models.User) error
 	Update(user *models.User) error
 	UpdatePartial(userID int, req models.UserUpdateRequest) (*models.User, error)
+	UpdateIcon(userID int, iconURL string) (*models.User, error)
 	EmailExists(email string) (bool, error)
 }
 
@@ -18,6 +19,7 @@ type AuthServiceInterface interface {
 	Login(req models.UserLoginRequest) (*models.LoginResponse, error)
 	GetUserByID(userID int) (*models.UserResponse, error)
 	UpdateUser(userID int, req models.UserUpdateRequest) (*models.UserResponse, error)
+	UpdateUserIcon(userID int, iconURL string) (*models.UserResponse, error)
 	GetUserStats(userID int) (*models.UserStats, error)
 	ExportUserData(userID int, format string) (interface{}, error)
 }

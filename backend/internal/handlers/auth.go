@@ -13,13 +13,23 @@ import (
 
 type AuthHandler struct {
 	*BaseHandler
-	authService services.AuthServiceInterface
+	authService   services.AuthServiceInterface
+	uploadService *services.UploadService
 }
 
 func NewAuthHandler(authService services.AuthServiceInterface, logger *common.Logger, errorMonitor *common.ErrorMonitor) *AuthHandler {
 	return &AuthHandler{
-		BaseHandler: NewBaseHandlerWithLogger(logger, errorMonitor),
-		authService: authService,
+		BaseHandler:   NewBaseHandlerWithLogger(logger, errorMonitor),
+		authService:   authService,
+		uploadService: nil,
+	}
+}
+
+func NewAuthHandlerWithUpload(authService services.AuthServiceInterface, uploadService *services.UploadService, logger *common.Logger, errorMonitor *common.ErrorMonitor) *AuthHandler {
+	return &AuthHandler{
+		BaseHandler:   NewBaseHandlerWithLogger(logger, errorMonitor),
+		authService:   authService,
+		uploadService: uploadService,
 	}
 }
 
@@ -95,18 +105,6 @@ func (h *AuthHandler) UpdateMe(c *gin.Context) {
 		return
 	}
 
-	// アイコンURLのバリデーション
-	if req.Icon != nil {
-		if err := utils.ValidateImageURLSize(*req.Icon); err != nil {
-			h.response.ValidationError(c, err.Error())
-			return
-		}
-		if err := utils.ValidateImageURL(*req.Icon); err != nil {
-			h.response.ValidationError(c, err.Error())
-			return
-		}
-	}
-
 	// SNSリンクのバリデーション
 	if req.SnsLink != nil {
 		if err := utils.ValidateURL(*req.SnsLink); err != nil {
@@ -123,6 +121,59 @@ func (h *AuthHandler) UpdateMe(c *gin.Context) {
 
 	h.response.Success(c, gin.H{
 		"message": "プロフィールを更新しました。",
+		"user":    user,
+	})
+}
+
+func (h *AuthHandler) UploadIcon(c *gin.Context) {
+	userID, err := h.validator.GetUserIDFromContext(c)
+	if err != nil {
+		h.response.UnauthorizedError(c, "認証が必要です")
+		return
+	}
+
+	if h.uploadService == nil {
+		h.response.InternalServerError(c, "アップロードサービスが利用できません")
+		return
+	}
+
+	// ファイルを取得
+	file, err := c.FormFile("icon")
+	if err != nil {
+		h.response.ValidationError(c, "画像ファイルが必要です")
+		return
+	}
+
+	// 現在のユーザー情報を取得（古い画像のURLを保持）
+	currentUser, err := h.authService.GetUserByID(userID)
+	var oldIconURL string
+	if err == nil && currentUser.Icon != nil && *currentUser.Icon != "" {
+		oldIconURL = *currentUser.Icon
+	}
+
+	// 新しい画像を保存
+	iconURL, err := h.uploadService.SaveUserIcon(userID, file)
+	if err != nil {
+		h.response.ValidationError(c, err.Error())
+		return
+	}
+
+	// DBを更新
+	user, err := h.authService.UpdateUserIcon(userID, iconURL)
+	if err != nil {
+		// DB更新に失敗した場合、アップロードした新しい画像を削除
+		_ = h.uploadService.DeleteUserIcon(iconURL)
+		h.response.InternalServerError(c, "画像の保存に失敗しました")
+		return
+	}
+
+	// 全ての処理が成功した後に古い画像を削除
+	if oldIconURL != "" {
+		_ = h.uploadService.DeleteUserIcon(oldIconURL)
+	}
+
+	h.response.Success(c, gin.H{
+		"message": "プロフィール画像を更新しました",
 		"user":    user,
 	})
 }

@@ -229,6 +229,29 @@ func (s *AuthService) GetUserStats(userID int) (*models.UserStats, error) {
 	return s.statsService.GetUserStats(userID)
 }
 
+func (s *AuthService) UpdateUserIcon(userID int, iconURL string) (*models.UserResponse, error) {
+	return s.updateUserIconWithRepo(userID, iconURL, s.getRepository())
+}
+
+// updateUserIconWithRepo handles user icon update through repository
+func (s *AuthService) updateUserIconWithRepo(userID int, iconURL string, repo UserRepositoryInterface) (*models.UserResponse, error) {
+	user, err := repo.UpdateIcon(userID, iconURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update user icon: %w", err)
+	}
+
+	return &models.UserResponse{
+		ID:            user.ID,
+		Name:          user.Name,
+		Email:         user.Email,
+		Description:   user.Description,
+		Icon:          user.Icon,
+		FavoriteAnime: user.FavoriteAnime,
+		SnsLink:       user.SnsLink,
+		CreatedAt:     user.CreatedAt,
+	}, nil
+}
+
 func (s *AuthService) ExportUserData(userID int, format string) (interface{}, error) {
 	// Get user info
 	user, err := s.GetUserByID(userID)

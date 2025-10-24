@@ -17,6 +17,9 @@ export const ProfileEditContent: React.FC = () => {
   const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  const API_BASE_URL =
+    process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
+
   // 初期値を保持（変更検知用）
   const [initialValues] = useState(() => ({
     name: user?.name || '',
@@ -27,18 +30,46 @@ export const ProfileEditContent: React.FC = () => {
 
   const [name, setName] = useState(initialValues.name)
   const [description, setDescription] = useState(initialValues.description)
-  const [favoriteAnime, setFavoriteAnime] = useState(initialValues.favoriteAnime)
+  const [favoriteAnime, setFavoriteAnime] = useState(
+    initialValues.favoriteAnime
+  )
   const [snsLink, setSnsLink] = useState(initialValues.snsLink)
+
   const [iconFile, setIconFile] = useState<File | null>(null)
   const [iconPreview, setIconPreview] = useState<string | null>(
-    user?.icon || null
+    user?.icon ? `${API_BASE_URL}${user.icon}` : null
   )
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [isUploadingIcon, setIsUploadingIcon] = useState(false)
   const [hasChanges, setHasChanges] = useState(false)
 
-  const API_BASE_URL =
-    process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
+  // 画像アップロードAPI
+  const uploadIcon = async (file: File): Promise<void> => {
+    setIsUploadingIcon(true)
+    try {
+      const formData = new FormData()
+      formData.append('icon', file)
+
+      const response = await fetch(`${API_BASE_URL}/api/users/me/icon`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || '画像のアップロードに失敗しました')
+      }
+
+      const data = await response.json()
+      updateUser(data.user)
+    } finally {
+      setIsUploadingIcon(false)
+    }
+  }
 
   // 変更検知（初期値と現在値を比較）
   const checkForChanges = (
@@ -46,14 +77,15 @@ export const ProfileEditContent: React.FC = () => {
     newDescription: string,
     newFavoriteAnime: string,
     newSnsLink: string,
-    newIconFile: File | null
+    newIconFile: File | null = iconFile
   ) => {
     const nameChanged = newName !== initialValues.name
     const descriptionChanged = newDescription !== initialValues.description
-    const favoriteAnimeChanged = newFavoriteAnime !== initialValues.favoriteAnime
+    const favoriteAnimeChanged =
+      newFavoriteAnime !== initialValues.favoriteAnime
     const snsLinkChanged = newSnsLink !== initialValues.snsLink
     const iconChanged = newIconFile !== null
-    
+
     setHasChanges(
       nameChanged ||
         descriptionChanged ||
@@ -66,7 +98,7 @@ export const ProfileEditContent: React.FC = () => {
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newName = e.target.value
     setName(newName)
-    checkForChanges(newName, description, favoriteAnime, snsLink, iconFile)
+    checkForChanges(newName, description, favoriteAnime, snsLink)
   }
 
   const handleDescriptionChange = (
@@ -74,7 +106,7 @@ export const ProfileEditContent: React.FC = () => {
   ) => {
     const newDescription = e.target.value
     setDescription(newDescription)
-    checkForChanges(name, newDescription, favoriteAnime, snsLink, iconFile)
+    checkForChanges(name, newDescription, favoriteAnime, snsLink)
   }
 
   const handleFavoriteAnimeChange = (
@@ -82,13 +114,13 @@ export const ProfileEditContent: React.FC = () => {
   ) => {
     const newFavoriteAnime = e.target.value
     setFavoriteAnime(newFavoriteAnime)
-    checkForChanges(name, description, newFavoriteAnime, snsLink, iconFile)
+    checkForChanges(name, description, newFavoriteAnime, snsLink)
   }
 
   const handleSnsLinkChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newSnsLink = e.target.value
     setSnsLink(newSnsLink)
-    checkForChanges(name, description, favoriteAnime, newSnsLink, iconFile)
+    checkForChanges(name, description, favoriteAnime, newSnsLink)
   }
 
   const handleIconChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -102,8 +134,9 @@ export const ProfileEditContent: React.FC = () => {
     }
 
     // ファイル形式チェック
-    if (!file.type.startsWith('image/')) {
-      setError('画像ファイルを選択してください')
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+    if (!allowedTypes.includes(file.type)) {
+      setError('JPEG、PNG、GIF、WebP形式の画像を選択してください')
       return
     }
 
@@ -122,15 +155,6 @@ export const ProfileEditContent: React.FC = () => {
 
   const handleIconClick = () => {
     fileInputRef.current?.click()
-  }
-
-  const handleRemoveIcon = () => {
-    setIconFile(null)
-    setIconPreview(null)
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
-    }
-    checkForChanges(name, description, favoriteAnime, snsLink, null)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -156,28 +180,18 @@ export const ProfileEditContent: React.FC = () => {
     setIsLoading(true)
 
     try {
-      // リクエストボディを構築（JSON形式）
-      const requestBody: {
-        name: string
-        description: string
-        favorite_anime?: string | null
-        sns_link?: string | null
-        icon?: string
-      } = {
+      // 1. 画像がある場合は先にアップロード
+      if (iconFile) {
+        await uploadIcon(iconFile)
+      }
+
+      // 2. プロフィール情報を更新
+      const requestBody = {
         name: name.trim(),
         description: description.trim(),
         favorite_anime: favoriteAnime.trim() || null,
         sns_link: snsLink.trim() || null,
       }
-
-      // 画像がある場合はBase64エンコードして送信
-      // 注: 現在のバックエンドはiconフィールドにURLを期待しているため、
-      // 画像アップロード機能は一旦無効化
-      // TODO: バックエンドに画像アップロードAPIを実装後に有効化
-      // if (iconFile) {
-      //   const base64 = await convertFileToBase64(iconFile);
-      //   requestBody.icon = base64;
-      // }
 
       const response = await fetch(`${API_BASE_URL}/api/users/me`, {
         method: 'PUT',
@@ -242,12 +256,8 @@ export const ProfileEditContent: React.FC = () => {
               </div>
             )}
 
-            {/* アイコン画像 - 一時的に無効化 */}
-            <div className="opacity-50">
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                プロフィール画像
-                <span className="ml-2 text-xs text-gray-500">（準備中）</span>
-              </label>
+            {/* アイコン画像 */}
+            <div>
               <div className="flex items-center space-x-6">
                 {/* プレビュー */}
                 <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center overflow-hidden">
@@ -262,40 +272,26 @@ export const ProfileEditContent: React.FC = () => {
                   )}
                 </div>
 
-                {/* ボタン */}
+                {/* ボタンと説明 */}
                 <div className="flex-1">
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept="image/*"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
                     onChange={handleIconChange}
                     className="hidden"
-                    disabled
                   />
-                  <div className="flex space-x-3">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={handleIconClick}
-                      disabled
-                    >
-                      画像を選択
-                    </Button>
-                    {iconPreview && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleRemoveIcon}
-                        disabled
-                      >
-                        削除
-                      </Button>
-                    )}
-                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleIconClick}
+                    disabled={isLoading || isUploadingIcon}
+                  >
+                    {isUploadingIcon ? 'アップロード中...' : 'アイコン変更'}
+                  </Button>
                   <p className="text-xs text-gray-500 mt-2">
-                    画像アップロード機能は準備中です
+                    JPEG、PNG、GIF、WebP形式（最大5MB）
                   </p>
                 </div>
               </div>
@@ -314,7 +310,7 @@ export const ProfileEditContent: React.FC = () => {
 
             {/* プロフィール */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-base font-bold text-gray-700 mb-2 px-2">
                 プロフィール
               </label>
               <textarea
@@ -323,16 +319,16 @@ export const ProfileEditContent: React.FC = () => {
                 placeholder="アニメが大好きです！"
                 rows={4}
                 maxLength={MAX_DESCRIPTION_LENGTH}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                className="w-full px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
               />
-              <p className="text-xs text-gray-500 mt-2">
+              <p className="text-sm text-gray-500 mt-2 px-2">
                 {description.length}/{MAX_DESCRIPTION_LENGTH}文字
               </p>
             </div>
 
             {/* 好きなアニメ */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-base font-bold text-gray-700 mb-2 px-2">
                 好きなアニメ
               </label>
               <textarea
@@ -341,9 +337,9 @@ export const ProfileEditContent: React.FC = () => {
                 placeholder="アクション、ファンタジー系のアニメが好きです"
                 rows={3}
                 maxLength={MAX_FAVORITE_ANIME_LENGTH}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                className="w-full px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
               />
-              <p className="text-xs text-gray-500 mt-2">
+              <p className="text-sm text-gray-500 mt-2 px-2">
                 {favoriteAnime.length}/{MAX_FAVORITE_ANIME_LENGTH}文字
               </p>
             </div>
@@ -363,18 +359,18 @@ export const ProfileEditContent: React.FC = () => {
                 type="submit"
                 variant="primary"
                 size="lg"
-                isLoading={isLoading}
-                disabled={!hasChanges}
+                isLoading={isLoading || isUploadingIcon}
+                disabled={!hasChanges || isLoading || isUploadingIcon}
                 className="flex-1"
               >
-                保存する
+                {isLoading || isUploadingIcon ? '保存中...' : '保存する'}
               </Button>
               <Button
                 type="button"
                 variant="outline"
                 size="lg"
                 onClick={handleCancel}
-                disabled={isLoading}
+                disabled={isLoading || isUploadingIcon}
                 className="flex-1"
               >
                 キャンセル

@@ -54,6 +54,14 @@ func (m *MockAuthService) UpdateUser(userID int, req models.UserUpdateRequest) (
 	return args.Get(0).(*models.UserResponse), args.Error(1)
 }
 
+func (m *MockAuthService) UpdateUserIcon(userID int, iconURL string) (*models.UserResponse, error) {
+	args := m.Called(userID, iconURL)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.UserResponse), args.Error(1)
+}
+
 func (m *MockAuthService) GetUserStats(userID int) (*models.UserStats, error) {
 	args := m.Called(userID)
 	if args.Get(0) == nil {

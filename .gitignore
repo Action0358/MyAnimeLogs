@@ -38,6 +38,10 @@ yarn-error.log*
 /backend/tmp/
 /backend/build-errors.log
 
+# Uploaded files
+/backend/uploads/
+/uploads/
+
 # Database migration files
 /backend/backups/
 /backend/logs/

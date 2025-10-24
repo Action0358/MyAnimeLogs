@@ -465,3 +465,103 @@ func TestUserRepository_UpdatePartial_WithNewFields(t *testing.T) {
 
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
+
+func TestUserRepository_UpdateIcon_Success(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	dbWrapper := &database.DB{DB: db}
+	repo := NewUserRepository(dbWrapper)
+
+	userID := 1
+	iconURL := "/uploads/icons/user_1_1234567890.jpg"
+	expectedUser := models.User{
+		ID:            userID,
+		Name:          "Test User",
+		Email:         "test@example.com",
+		Description:   "Test description",
+		Icon:          &iconURL,
+		FavoriteAnime: nil,
+		SnsLink:       nil,
+		CreatedAt:     time.Now(),
+		UpdatedAt:     time.Now(),
+	}
+
+	rows := sqlmock.NewRows([]string{"id", "name", "email", "description", "icon", "favorite_anime", "sns_link", "created_at", "updated_at"}).
+		AddRow(expectedUser.ID, expectedUser.Name, expectedUser.Email, expectedUser.Description,
+			expectedUser.Icon, expectedUser.FavoriteAnime, expectedUser.SnsLink, expectedUser.CreatedAt, expectedUser.UpdatedAt)
+
+	mock.ExpectQuery(`UPDATE users SET icon = \$1, updated_at = CURRENT_TIMESTAMP WHERE id = \$2`).
+		WithArgs(iconURL, userID).
+		WillReturnRows(rows)
+
+	result, err := repo.UpdateIcon(userID, iconURL)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, userID, result.ID)
+	assert.Equal(t, &iconURL, result.Icon)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestUserRepository_UpdateIcon_DeleteIcon(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	dbWrapper := &database.DB{DB: db}
+	repo := NewUserRepository(dbWrapper)
+
+	userID := 1
+	expectedUser := models.User{
+		ID:            userID,
+		Name:          "Test User",
+		Email:         "test@example.com",
+		Description:   "Test description",
+		Icon:          nil,
+		FavoriteAnime: nil,
+		SnsLink:       nil,
+		CreatedAt:     time.Now(),
+		UpdatedAt:     time.Now(),
+	}
+
+	rows := sqlmock.NewRows([]string{"id", "name", "email", "description", "icon", "favorite_anime", "sns_link", "created_at", "updated_at"}).
+		AddRow(expectedUser.ID, expectedUser.Name, expectedUser.Email, expectedUser.Description,
+			expectedUser.Icon, expectedUser.FavoriteAnime, expectedUser.SnsLink, expectedUser.CreatedAt, expectedUser.UpdatedAt)
+
+	mock.ExpectQuery(`UPDATE users SET icon = \$1, updated_at = CURRENT_TIMESTAMP WHERE id = \$2`).
+		WithArgs(nil, userID).
+		WillReturnRows(rows)
+
+	result, err := repo.UpdateIcon(userID, "")
+
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, userID, result.ID)
+	assert.Nil(t, result.Icon)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestUserRepository_UpdateIcon_Error(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	dbWrapper := &database.DB{DB: db}
+	repo := NewUserRepository(dbWrapper)
+
+	userID := 1
+	iconURL := "/uploads/icons/user_1_1234567890.jpg"
+
+	mock.ExpectQuery(`UPDATE users SET icon = \$1, updated_at = CURRENT_TIMESTAMP WHERE id = \$2`).
+		WithArgs(iconURL, userID).
+		WillReturnError(errors.New("database error"))
+
+	result, err := repo.UpdateIcon(userID, iconURL)
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "failed to update user icon")
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
