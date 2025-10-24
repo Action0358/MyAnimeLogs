@@ -41,19 +41,24 @@ export const MyPageContent: React.FC = () => {
     setError(null)
 
     try {
-      const [userResponse, statsResponse, favoritesResponse] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/users/me`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        fetch(`${API_BASE_URL}/api/users/me/stats`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        fetch(`${API_BASE_URL}/api/users/me/favorites`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-      ])
+      const [userResponse, statsResponse, favoritesResponse] =
+        await Promise.all([
+          fetch(`${API_BASE_URL}/api/users/me`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          fetch(`${API_BASE_URL}/api/users/me/stats`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          fetch(`${API_BASE_URL}/api/users/me/favorites`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+        ])
 
-      if (userResponse.status === 401 || statsResponse.status === 401 || favoritesResponse.status === 401) {
+      if (
+        userResponse.status === 401 ||
+        statsResponse.status === 401 ||
+        favoritesResponse.status === 401
+      ) {
         router.push('/login')
         return
       }
@@ -230,9 +235,9 @@ export const MyPageContent: React.FC = () => {
                   </div>
 
                   {/* プロフィール詳細 */}
-                  <div className="space-y-4 max-w-3xl">
+                  <div className="space-y-6 max-w-3xl">
                     <div>
-                      <h3 className="text-sm font-medium text-gray-500 mb-2">
+                      <h3 className="text-lg font-bold text-gray-900 mb-2">
                         プロフィール
                       </h3>
                       <p className="text-gray-900 whitespace-pre-wrap text-sm leading-relaxed">
@@ -241,7 +246,7 @@ export const MyPageContent: React.FC = () => {
                     </div>
 
                     <div>
-                      <h3 className="text-sm font-medium text-gray-500 mb-2">
+                      <h3 className="text-lg font-bold text-gray-900 mb-2">
                         好きなアニメ
                       </h3>
                       <p className="text-gray-900 text-sm leading-relaxed">
@@ -250,21 +255,23 @@ export const MyPageContent: React.FC = () => {
                     </div>
 
                     <div>
-                      <h3 className="text-sm font-medium text-gray-500 mb-2">
-                        リンク
+                      <h3 className="text-lg font-bold text-gray-900 mb-2">
+                        SNSリンク
                       </h3>
-                      {snsLink ? (
-                        <a
-                          href={snsLink}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-blue-600 hover:underline text-sm"
-                        >
-                          {snsLink}
-                        </a>
-                      ) : (
-                        <p className="text-gray-500 text-sm">未設定</p>
-                      )}
+                      <div>
+                        {snsLink ? (
+                          <a
+                            href={snsLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:underline text-sm"
+                          >
+                            {snsLink}
+                          </a>
+                        ) : (
+                          <p className="text-gray-500 text-sm">未設定</p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
