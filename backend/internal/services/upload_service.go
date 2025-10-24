@@ -264,11 +264,19 @@ func (s *UploadService) extractFilenameFromURL(iconURL string) (string, error) {
 	// クエリパラメータを含む可能性があるため、'?'で分割
 	urlWithoutQuery := strings.Split(iconURL, "?")[0]
 
+	// 末尾のスラッシュを削除
+	urlWithoutQuery = strings.TrimSuffix(urlWithoutQuery, "/")
+
 	// パスからファイル名を取得
 	filename := filepath.Base(urlWithoutQuery)
 
 	if filename == "" || filename == "." || filename == "/" {
 		return "", errors.New("無効なURLです")
+	}
+
+	// ファイル名に拡張子があるか確認（ディレクトリ名ではなくファイル名であることを確認）
+	if !strings.Contains(filename, ".") {
+		return "", errors.New("無効なファイル名です（拡張子がありません）")
 	}
 
 	return filename, nil
