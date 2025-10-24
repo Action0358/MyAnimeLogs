@@ -319,7 +319,7 @@ export const ProfileEditContent: React.FC = () => {
                 placeholder="アニメが大好きです！"
                 rows={4}
                 maxLength={MAX_DESCRIPTION_LENGTH}
-                className="w-full px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                className="block w-full px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
               />
               <p className="text-sm text-gray-500 mt-2 px-2">
                 {description.length}/{MAX_DESCRIPTION_LENGTH}文字
@@ -337,7 +337,7 @@ export const ProfileEditContent: React.FC = () => {
                 placeholder="アクション、ファンタジー系のアニメが好きです"
                 rows={3}
                 maxLength={MAX_FAVORITE_ANIME_LENGTH}
-                className="w-full px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                className="block w-full px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
               />
               <p className="text-sm text-gray-500 mt-2 px-2">
                 {favoriteAnime.length}/{MAX_FAVORITE_ANIME_LENGTH}文字
