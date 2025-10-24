@@ -197,9 +197,10 @@ func (h *AuthHandler) DeleteIcon(c *gin.Context) {
 		return
 	}
 
-	// 画像ファイルを削除
+	// 古い画像URLを保持
+	var oldIconURL string
 	if currentUser.Icon != nil && *currentUser.Icon != "" {
-		_ = h.uploadService.DeleteUserIcon(*currentUser.Icon)
+		oldIconURL = *currentUser.Icon
 	}
 
 	// DBを更新（iconをNULLに）
@@ -207,6 +208,11 @@ func (h *AuthHandler) DeleteIcon(c *gin.Context) {
 	if err != nil {
 		h.response.InternalServerError(c, "画像の削除に失敗しました")
 		return
+	}
+
+	// DB更新が成功した後に画像ファイルを削除
+	if oldIconURL != "" {
+		_ = h.uploadService.DeleteUserIcon(oldIconURL)
 	}
 
 	h.response.Success(c, gin.H{
