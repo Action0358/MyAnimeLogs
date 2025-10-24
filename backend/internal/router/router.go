@@ -118,7 +118,6 @@ func Setup(db *database.DB, cfg *config.Config) *gin.Engine {
 			protected.GET("/users/me", authHandler.GetMe)
 			protected.PUT("/users/me", authHandler.UpdateMe)
 			protected.POST("/users/me/icon", authHandler.UploadIcon)
-			protected.DELETE("/users/me/icon", authHandler.DeleteIcon)
 			protected.GET("/users/me/stats", authHandler.GetStats)
 			protected.GET("/users/me/export", authHandler.ExportData)
 
