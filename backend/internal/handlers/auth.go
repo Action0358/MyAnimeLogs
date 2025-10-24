@@ -178,43 +178,6 @@ func (h *AuthHandler) UploadIcon(c *gin.Context) {
 	})
 }
 
-func (h *AuthHandler) DeleteIcon(c *gin.Context) {
-	userID, err := h.validator.GetUserIDFromContext(c)
-	if err != nil {
-		h.response.UnauthorizedError(c, "認証が必要です")
-		return
-	}
-
-	if h.uploadService == nil {
-		h.response.InternalServerError(c, "アップロードサービスが利用できません")
-		return
-	}
-
-	// 現在のユーザー情報を取得
-	currentUser, err := h.authService.GetUserByID(userID)
-	if err != nil {
-		h.response.NotFoundError(c, "ユーザーが見つかりません")
-		return
-	}
-
-	// 画像ファイルを削除
-	if currentUser.Icon != nil && *currentUser.Icon != "" {
-		_ = h.uploadService.DeleteUserIcon(*currentUser.Icon)
-	}
-
-	// DBを更新（iconをNULLに）
-	user, err := h.authService.UpdateUserIcon(userID, "")
-	if err != nil {
-		h.response.InternalServerError(c, "画像の削除に失敗しました")
-		return
-	}
-
-	h.response.Success(c, gin.H{
-		"message": "プロフィール画像を削除しました",
-		"user":    user,
-	})
-}
-
 func (h *AuthHandler) GetStats(c *gin.Context) {
 	userID, err := h.validator.GetUserIDFromContext(c)
 	if err != nil {

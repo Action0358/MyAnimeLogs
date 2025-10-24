@@ -71,38 +71,6 @@ export const ProfileEditContent: React.FC = () => {
     }
   }
 
-  // 画像削除API
-  const deleteIcon = async (): Promise<void> => {
-    if (!user?.icon) return
-
-    if (!confirm('プロフィール画像を削除してもよろしいですか？')) {
-      return
-    }
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/users/me/icon`, {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || '画像の削除に失敗しました')
-      }
-
-      const data = await response.json()
-      updateUser(data.user)
-      setIconPreview(null)
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ''
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '画像の削除に失敗しました')
-    }
-  }
-
   // 変更検知（初期値と現在値を比較）
   const checkForChanges = (
     newName: string,

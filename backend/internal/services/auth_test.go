@@ -402,33 +402,6 @@ func TestAuthService_UpdateUserIcon_Success(t *testing.T) {
 	mockRepo.AssertExpectations(t)
 }
 
-// Test UpdateUserIcon method - Delete icon
-func TestAuthService_UpdateUserIcon_DeleteIcon(t *testing.T) {
-	mockRepo := new(MockUserRepository)
-	service := NewAuthServiceWithRepo(mockRepo, nil, "test-secret")
-
-	userID := 1
-	expectedUser := &models.User{
-		ID:          userID,
-		Name:        "Test User",
-		Email:       "test@example.com",
-		Description: "Test description",
-		Icon:        nil,
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
-	}
-
-	mockRepo.On("UpdateIcon", userID, "").Return(expectedUser, nil)
-
-	result, err := service.UpdateUserIcon(userID, "")
-
-	assert.NoError(t, err)
-	assert.NotNil(t, result)
-	assert.Equal(t, userID, result.ID)
-	assert.Nil(t, result.Icon)
-	mockRepo.AssertExpectations(t)
-}
-
 // Test UpdateUserIcon method - Repository error
 func TestAuthService_UpdateUserIcon_RepositoryError(t *testing.T) {
 	mockRepo := new(MockUserRepository)
