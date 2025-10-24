@@ -181,8 +181,14 @@ func (s *UploadService) DeleteUserIcon(iconURL string) error {
 		return nil
 	}
 
-	// URLからファイル名を抽出
-	filename := filepath.Base(iconURL)
+	// URLからファイル名を抽出（クエリパラメータを除去）
+	filename, err := s.extractFilenameFromURL(iconURL)
+	if err != nil {
+		s.logger.Warn("Failed to extract filename from URL",
+			"url", iconURL,
+			"error", err.Error())
+		return err
+	}
 
 	// ファイル名のサニタイズ（パストラバーサル対策）
 	filename = sanitizeFilename(filename)
@@ -248,6 +254,32 @@ func (s *UploadService) DeleteUserIcon(iconURL string) error {
 		"filepath", absTargetPath)
 
 	return nil
+}
+
+// extractFilenameFromURL extracts filename from URL, handling query parameters
+func (s *UploadService) extractFilenameFromURL(iconURL string) (string, error) {
+	// URLパスからファイル名を抽出（クエリパラメータを除去）
+	// 例: "/uploads/icons/user_1_123.jpg?v=456" -> "user_1_123.jpg"
+
+	// クエリパラメータを含む可能性があるため、'?'で分割
+	urlWithoutQuery := strings.Split(iconURL, "?")[0]
+
+	// 末尾のスラッシュを削除
+	urlWithoutQuery = strings.TrimSuffix(urlWithoutQuery, "/")
+
+	// パスからファイル名を取得
+	filename := filepath.Base(urlWithoutQuery)
+
+	if filename == "" || filename == "." || filename == "/" {
+		return "", errors.New("無効なURLです")
+	}
+
+	// ファイル名に拡張子があるか確認（ディレクトリ名ではなくファイル名であることを確認）
+	if !strings.Contains(filename, ".") {
+		return "", errors.New("無効なファイル名です（拡張子がありません）")
+	}
+
+	return filename, nil
 }
 
 // sanitizeFilename removes dangerous characters from filename

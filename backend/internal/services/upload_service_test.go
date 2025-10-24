@@ -335,6 +335,68 @@ func TestUploadService_DeleteUserIcon_SanitizationPreventsTraversal(t *testing.T
 	}
 }
 
+func TestUploadService_ExtractFilenameFromURL(t *testing.T) {
+	logger := common.NewLogger(common.LogLevelInfo, "json")
+	service := NewUploadService("./test_uploads", "/uploads", 5*1024*1024, logger)
+
+	tests := []struct {
+		name    string
+		iconURL string
+		want    string
+		wantErr bool
+	}{
+		{
+			name:    "Simple URL without query params",
+			iconURL: "/uploads/icons/user_123_1234567890.jpg",
+			want:    "user_123_1234567890.jpg",
+			wantErr: false,
+		},
+		{
+			name:    "URL with query parameters",
+			iconURL: "/uploads/icons/user_456_9876543210.png?v=123",
+			want:    "user_456_9876543210.png",
+			wantErr: false,
+		},
+		{
+			name:    "URL with multiple query parameters",
+			iconURL: "/uploads/icons/user_789_1111111111.webp?v=456&cache=bust",
+			want:    "user_789_1111111111.webp",
+			wantErr: false,
+		},
+		{
+			name:    "Empty URL",
+			iconURL: "",
+			want:    "",
+			wantErr: true,
+		},
+		{
+			name:    "URL ending with slash",
+			iconURL: "/uploads/icons/",
+			want:    "",
+			wantErr: true,
+		},
+		{
+			name:    "Root path",
+			iconURL: "/",
+			want:    "",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := service.extractFilenameFromURL(tt.iconURL)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("extractFilenameFromURL() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("extractFilenameFromURL() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestSanitizeFilename(t *testing.T) {
 	tests := []struct {
 		name     string
