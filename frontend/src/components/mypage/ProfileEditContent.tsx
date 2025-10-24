@@ -395,7 +395,7 @@ export const ProfileEditContent: React.FC = () => {
                 disabled={!hasChanges || isLoading || isUploadingIcon}
                 className="flex-1"
               >
-                {isUploadingIcon ? '画像をアップロード中...' : '保存する'}
+                {isLoading || isUploadingIcon ? '保存中...' : '保存する'}
               </Button>
               <Button
                 type="button"
