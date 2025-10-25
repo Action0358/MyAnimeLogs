@@ -25,6 +25,12 @@ primary_region = 'nrt'
 [env]
   ENVIRONMENT = "staging"
 
+# Persistent storage for uploaded files
+[mounts]
+  source = "myanimelogs_staging_uploads"
+  destination = "/app/uploads"
+  initial_size = "1GB"
+
 # Staging specific settings
 [experimental]
   auto_rollback = true
