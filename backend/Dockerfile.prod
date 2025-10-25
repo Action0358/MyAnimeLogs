@@ -44,15 +44,32 @@ COPY --from=builder --chown=appuser:appgroup /app/scripts/migrate.sh /app/migrat
 # バイナリとスクリプトに実行権限を付与
 RUN chmod +x /app/main /app/migrate /app/migrate.sh
 
+# エントリーポイントスクリプトを作成
+RUN echo '#!/bin/sh' > /app/entrypoint.sh && \
+    echo 'set -e' >> /app/entrypoint.sh && \
+    echo '' >> /app/entrypoint.sh && \
+    echo '# ボリュームマウントされたディレクトリの権限を設定' >> /app/entrypoint.sh && \
+    echo 'if [ -d /app/uploads ]; then' >> /app/entrypoint.sh && \
+    echo '  echo "Setting permissions for /app/uploads..."' >> /app/entrypoint.sh && \
+    echo '  chown -R appuser:appgroup /app/uploads || true' >> /app/entrypoint.sh && \
+    echo 'fi' >> /app/entrypoint.sh && \
+    echo '' >> /app/entrypoint.sh && \
+    echo '# appuserとして実行' >> /app/entrypoint.sh && \
+    echo 'exec su-exec appuser "$@"' >> /app/entrypoint.sh && \
+    chmod +x /app/entrypoint.sh
+
+# su-execをインストール（軽量なgosuの代替）
+RUN apk add --no-cache su-exec
+
 # アプリが実行されるポートを公開
 EXPOSE 8080
-
-# 非rootユーザーに切り替え
-USER appuser
 
 # ヘルスチェック用のエンドポイントを確認
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:8080/health || exit 1
 
-# バイナリをエントリポイントとして設定
+# エントリーポイントを設定（rootとして実行）
+ENTRYPOINT ["/app/entrypoint.sh"]
+
+# デフォルトコマンド
 CMD ["/app/main"]
