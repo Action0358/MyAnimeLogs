@@ -25,6 +25,12 @@ primary_region = 'nrt'
 [env]
   ENVIRONMENT = "production"
 
+# Persistent storage for uploaded files
+[mounts]
+  source = "myanimelogs_uploads"
+  destination = "/app/uploads"
+  initial_size = "1GB"
+
 # Production specific settings
 [experimental]
   auto_rollback = true
