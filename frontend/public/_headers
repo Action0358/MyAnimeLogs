@@ -1,10 +1,5 @@
-# Netlify用セキュリティヘッダー設定（全環境対応）
-# ステージング環境と本番環境の両方のAPIドメインを許可
-
 /*
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
-  # 複数環境対応: ステージング、本番、その他のAPIドメインを許可
-  # セキュリティを保ちつつ、柔軟性を確保
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://cdn.myanimelist.net; font-src 'self'; connect-src 'self' https://myanimelogs-staging.fly.dev https://myanimelogs-production.fly.dev https://*.myanimelogs.com https://api.myanimelogs.com; frame-ancestors 'none';
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.anilist.co https://cdn.myanimelist.net https://*.twimg.com https://i.imgur.com https://imgur.com https://avatars.githubusercontent.com https://github.com https://raw.githubusercontent.com https://*.gravatar.com https://*.cloudinary.com https://myanimelogs-staging.fly.dev https://myanimelogs-production.fly.dev; font-src 'self'; connect-src 'self' https://myanimelogs-staging.fly.dev https://myanimelogs-production.fly.dev; frame-ancestors 'none'
