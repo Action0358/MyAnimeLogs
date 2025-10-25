@@ -44,6 +44,9 @@ COPY --from=builder --chown=appuser:appgroup /app/scripts/migrate.sh /app/migrat
 # バイナリとスクリプトに実行権限を付与
 RUN chmod +x /app/main /app/migrate /app/migrate.sh
 
+# アップロードディレクトリを作成し、適切な権限を設定
+RUN mkdir -p /app/uploads/icons && chown -R appuser:appgroup /app/uploads
+
 # アプリが実行されるポートを公開
 EXPOSE 8080
 
