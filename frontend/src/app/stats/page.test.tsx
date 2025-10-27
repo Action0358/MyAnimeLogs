@@ -126,13 +126,14 @@ describe('StatsPage', () => {
       isLoading: false,
       isAuthenticated: true,
     })
-    ;(global.fetch as jest.Mock).mockRejectedValue(new Error('Network error'))
+    // TypeErrorを投げることでネットワークエラーをシミュレート
+    ;(global.fetch as jest.Mock).mockRejectedValue(new TypeError('Failed to fetch'))
 
     render(<StatsPage />)
 
     await waitFor(() => {
-      // ネットワークエラーの場合、Error.messageがそのまま表示される
-      expect(screen.getByText('Network error')).toBeInTheDocument()
+      // APIクライアントがTypeErrorを"統計情報の取得に失敗しました"に変換する
+      expect(screen.getByText('統計情報の取得に失敗しました')).toBeInTheDocument()
     })
   })
 
