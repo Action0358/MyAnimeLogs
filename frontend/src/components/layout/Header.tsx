@@ -1,19 +1,23 @@
 'use client'
 
-import React from 'react'
+import React, { useState } from 'react'
 import Link from 'next/link'
 import Container from './Container'
 import { Button } from '../ui/Button'
 import { useAuth } from '@/contexts/AuthContext'
+import { UserMenu } from './UserMenu'
 
 const Header: React.FC = () => {
-  const { user, isLoading, logout } = useAuth()
+  const { user, isLoading } = useAuth()
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
 
-  const authButtonClassName = "text-xs sm:text-sm px-2 py-1 sm:px-4 sm:py-2 whitespace-nowrap"
+  const authButtonClassName =
+    'text-xs sm:text-sm px-2 py-1 sm:px-4 sm:py-2 whitespace-nowrap'
 
-  const handleLogout = () => {
-    logout()
+  const toggleMenu = () => {
+    setIsMenuOpen(!isMenuOpen)
   }
+
   return (
     <header className="bg-white shadow-sm border-b border-gray-200">
       <Container>
@@ -45,10 +49,36 @@ const Header: React.FC = () => {
                 </span>
               </div>
             ) : user ? (
-              <div className="flex items-center gap-2 sm:gap-3">
-                <Button variant="ghost" size="sm" onClick={handleLogout}>
-                  ログアウト
-                </Button>
+              <div className="relative flex items-center gap-2">
+                {/* ユーザーアイコン（クリックでメニュー表示） */}
+                <button
+                  onClick={toggleMenu}
+                  className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center hover:bg-blue-200 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  aria-label="ユーザーメニュー"
+                >
+                  {user.icon ? (
+                    <img
+                      src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${user.icon}`}
+                      alt={user.name}
+                      className="w-10 h-10 rounded-full object-cover"
+                      onError={(e) => {
+                        // 画像読み込みエラー時にイニシャルを表示
+                        e.currentTarget.style.display = 'none'
+                        const parent = e.currentTarget.parentElement
+                        if (parent) {
+                          parent.innerHTML = `<span class="text-blue-600 font-medium text-base">${user.name.charAt(0).toUpperCase()}</span>`
+                        }
+                      }}
+                    />
+                  ) : (
+                    <span className="text-blue-600 font-medium text-base">
+                      {user.name.charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                </button>
+
+                {/* ドロップダウンメニュー */}
+                <UserMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
               </div>
             ) : (
               <div className="flex items-center gap-1.5 sm:gap-3">
