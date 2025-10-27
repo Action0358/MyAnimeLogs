@@ -135,11 +135,16 @@ paths:
                   example: "山田 太郎"
                 description:
                   type: string
-                  maxLength: 500
+                  maxLength: 10000
                   example: "アニメが大好きです"
+                favorite_anime:
+                  type: string
+                  maxLength: 300
+                  example: "鬼滅の刃、進撃の巨人"
                 sns_link:
                   type: string
                   format: uri
+                  maxLength: 500
                   example: "https://twitter.com/example"
       responses:
         "200":
@@ -181,7 +186,7 @@ paths:
                 icon:
                   type: string
                   format: binary
-                  description: アップロードする画像ファイル（JPEG, PNG, GIF）
+                  description: アップロードする画像ファイル（JPEG, PNG, GIF, WebP）
               required:
                 - icon
       responses:
@@ -194,7 +199,7 @@ paths:
                 properties:
                   message:
                     type: string
-                    example: "プロフィール画像を更新しました"
+                    example: "プロフィール画像を更新しました。"
                   user:
                     $ref: "#/components/schemas/User"
         "400":
@@ -1180,16 +1185,23 @@ components:
         description:
           type: string
           nullable: true
+          maxLength: 10000
           example: "アニメが大好きです"
         icon:
           type: string
           format: uri
           nullable: true
           example: "https://example.com/uploads/icons/user_1_icon.jpg"
+        favorite_anime:
+          type: string
+          nullable: true
+          maxLength: 300
+          example: "鬼滅の刃、進撃の巨人"
         sns_link:
           type: string
           format: uri
           nullable: true
+          maxLength: 500
           example: "https://twitter.com/example"
         created_at:
           type: string
