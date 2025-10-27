@@ -11,6 +11,11 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// Helper function to convert string to *string
+func stringPtr(s string) *string {
+	return &s
+}
+
 // MockUserRepository is a mock implementation of UserRepositoryInterface
 type MockUserRepository struct {
 	mock.Mock
@@ -154,7 +159,7 @@ func TestAuthService_Login_Success(t *testing.T) {
 		Name:        "Test User",
 		Email:       "test@example.com",
 		Password:    string(hashedPassword),
-		Description: "Test description",
+		Description: stringPtr("Test description"),
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}
@@ -211,7 +216,7 @@ func TestAuthService_GetUserByID_Success(t *testing.T) {
 		ID:          1,
 		Name:        "Test User",
 		Email:       "test@example.com",
-		Description: "Test description",
+		Description: stringPtr("Test description"),
 	}
 
 	// Setup mock expectations
@@ -224,7 +229,8 @@ func TestAuthService_GetUserByID_Success(t *testing.T) {
 	assert.Equal(t, 1, result.ID)
 	assert.Equal(t, "Test User", result.Name)
 	assert.Equal(t, "test@example.com", result.Email)
-	assert.Equal(t, "Test description", result.Description)
+	assert.NotNil(t, result.Description)
+	assert.Equal(t, "Test description", *result.Description)
 
 	mockRepo.AssertExpectations(t)
 }
@@ -255,7 +261,7 @@ func TestAuthService_UpdateUser_Success(t *testing.T) {
 		ID:          1,
 		Name:        "Updated Name",
 		Email:       "test@example.com",
-		Description: "Updated description",
+		Description: stringPtr("Updated description"),
 	}
 
 	req := models.UserUpdateRequest{
@@ -272,7 +278,8 @@ func TestAuthService_UpdateUser_Success(t *testing.T) {
 	assert.NotNil(t, result)
 	assert.Equal(t, 1, result.ID)
 	assert.Equal(t, "Updated Name", result.Name)
-	assert.Equal(t, "Updated description", result.Description)
+	assert.NotNil(t, result.Description)
+	assert.Equal(t, "Updated description", *result.Description)
 
 	mockRepo.AssertExpectations(t)
 }
@@ -334,11 +341,6 @@ func TestAuthService_MethodsExist(t *testing.T) {
 	assert.NotNil(t, service.ExportUserData)
 }
 
-// Helper function for tests
-func stringPtr(s string) *string {
-	return &s
-}
-
 /*
 TESTING IMPROVEMENTS IMPLEMENTED:
 
@@ -385,7 +387,7 @@ func TestAuthService_UpdateUserIcon_Success(t *testing.T) {
 		ID:          userID,
 		Name:        "Test User",
 		Email:       "test@example.com",
-		Description: "Test description",
+		Description: stringPtr("Test description"),
 		Icon:        &iconURL,
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
