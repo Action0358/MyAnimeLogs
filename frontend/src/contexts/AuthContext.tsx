@@ -9,6 +9,7 @@ import React, {
 } from 'react'
 import { useRouter } from 'next/navigation'
 import { storage } from '@/lib/utils'
+import { post, ApiClientError } from '@/lib/api/client'
 
 interface User {
   id: number
@@ -33,9 +34,6 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
-
-// APIベースURLを定数として定義
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
 
 // ストレージキーを定数として定義
 const TOKEN_KEY = 'auth_token'
@@ -72,20 +70,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const login = useCallback(
     async (email: string, password: string) => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/login`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ email, password }),
-        })
-
-        if (!response.ok) {
-          const error = await response.json()
-          throw new Error(error.message || 'ログインに失敗しました')
-        }
-
-        const data = await response.json()
+        const data = await post<{ access_token: string; user: User }>(
+          '/api/login',
+          { email, password }
+        )
 
         // OpenAPI仕様に従い、access_tokenを取得
         const accessToken = data.access_token
@@ -99,6 +87,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         router.push('/')
       } catch (error) {
         console.error('Login error:', error)
+        if (error instanceof ApiClientError) {
+          throw new Error(error.message)
+        }
         throw error
       }
     },
@@ -108,20 +99,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const register = useCallback(
     async (name: string, email: string, password: string) => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/register`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ name, email, password }),
-        })
-
-        if (!response.ok) {
-          const error = await response.json()
-          throw new Error(error.message || '登録に失敗しました')
-        }
-
-        const data = await response.json()
+        const data = await post<{ access_token?: string; user: User }>(
+          '/api/register',
+          { name, email, password }
+        )
 
         // 登録後、自動的にログイン状態にする
         if (data.user) {
@@ -140,6 +121,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         }
       } catch (error) {
         console.error('Register error:', error)
+        if (error instanceof ApiClientError) {
+          throw new Error(error.message)
+        }
         throw error
       }
     },

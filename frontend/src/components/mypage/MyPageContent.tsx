@@ -11,6 +11,7 @@ import {
   ERROR_MESSAGES,
   type UserStats,
 } from '@/constants/stats'
+import { get, ApiClientError } from '@/lib/api/client'
 
 interface FavoriteAnime {
   id: number
@@ -32,66 +33,41 @@ export const MyPageContent: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('favorites')
   const [favoriteAnime, setFavoriteAnime] = useState('')
   const [snsLink, setSnsLink] = useState('')
-
-  const API_BASE_URL =
-    process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
+  const [imageError, setImageError] = useState(false)
 
   const fetchData = useCallback(async () => {
     setIsLoading(true)
     setError(null)
 
     try {
-      const [userResponse, statsResponse, favoritesResponse] =
-        await Promise.all([
-          fetch(`${API_BASE_URL}/api/users/me`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          fetch(`${API_BASE_URL}/api/users/me/stats`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          fetch(`${API_BASE_URL}/api/users/me/favorites`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-        ])
+      // 並列でデータを取得
+      const [userData, statsData, favoritesData] = await Promise.all([
+        get('/api/users/me').catch((err) => {
+          if (err instanceof ApiClientError && err.status === 401) {
+            router.push('/login')
+            return null
+          }
+          throw err
+        }),
+        get<UserStats>('/api/users/me/stats').catch((err) => {
+          if (err instanceof ApiClientError && err.status === 404) {
+            return DEFAULT_USER_STATS
+          }
+          throw new Error(ERROR_MESSAGES.STATS_FETCH_FAILED)
+        }),
+        get<FavoriteAnime[]>('/api/users/me/favorites').catch((err) => {
+          if (err instanceof ApiClientError && err.status === 404) {
+            return []
+          }
+          throw new Error(ERROR_MESSAGES.FAVORITES_FETCH_FAILED)
+        }),
+      ])
 
-      if (
-        userResponse.status === 401 ||
-        statsResponse.status === 401 ||
-        favoritesResponse.status === 401
-      ) {
-        router.push('/login')
-        return
-      }
-
-      // ユーザー情報を取得
-      let userData
-      if (userResponse.ok) {
-        userData = await userResponse.json()
+      if (userData) {
         setUser(userData)
       }
-
-      let statsData: UserStats
-      let favoritesData: FavoriteAnime[]
-
-      if (statsResponse.status === 404) {
-        statsData = DEFAULT_USER_STATS
-      } else if (!statsResponse.ok) {
-        throw new Error(ERROR_MESSAGES.STATS_FETCH_FAILED)
-      } else {
-        statsData = await statsResponse.json()
-      }
-
-      if (favoritesResponse.status === 404) {
-        favoritesData = []
-      } else if (!favoritesResponse.ok) {
-        throw new Error(ERROR_MESSAGES.FAVORITES_FETCH_FAILED)
-      } else {
-        const data = await favoritesResponse.json()
-        favoritesData = data.slice(0, 20)
-      }
-
       setStats(statsData)
-      setFavorites(favoritesData)
+      setFavorites(favoritesData.slice(0, 20))
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : ERROR_MESSAGES.DATA_FETCH_FAILED
@@ -100,7 +76,7 @@ export const MyPageContent: React.FC = () => {
     } finally {
       setIsLoading(false)
     }
-  }, [token, API_BASE_URL, router])
+  }, [router])
 
   useEffect(() => {
     if (authUser && token) {
@@ -189,11 +165,12 @@ export const MyPageContent: React.FC = () => {
                 {/* 左側: アイコン */}
                 <div className="flex-shrink-0">
                   <div className="w-32 h-32 bg-gray-100 rounded-full overflow-hidden">
-                    {user?.icon ? (
+                    {user?.icon && !imageError ? (
                       <img
                         src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${user.icon}`}
                         alt={user.name}
                         className="w-full h-full object-cover"
+                        onError={() => setImageError(true)}
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
@@ -207,7 +184,7 @@ export const MyPageContent: React.FC = () => {
                 <div className="flex-1">
                   {/* ユーザー名と統計 */}
                   <div className="mb-6">
-                    <h1 className="text-3xl font-bold text-gray-900 mb-3">
+                    <h1 className="text-3xl font-bold text-blue-900 mb-3">
                       {user?.name}
                     </h1>
 

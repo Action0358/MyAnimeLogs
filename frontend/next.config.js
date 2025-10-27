@@ -134,7 +134,7 @@ const buildConfig = () => {
     // 開発環境でもセキュアなCSPを適用
     config.headers = async () => [
       {
-        source: '/(.*)',
+        source: '/:path*',
         headers: [
           {
             key: 'X-Frame-Options',
@@ -155,9 +155,9 @@ const buildConfig = () => {
               "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
               "style-src 'self' 'unsafe-inline'",
               // 画像ソースを信頼できるドメインに限定（開発環境ではlocalhostも許可）
-              "img-src 'self' data: blob: http://localhost:* https://*.anilist.co https://cdn.myanimelist.net https://*.twimg.com https://i.imgur.com https://imgur.com https://avatars.githubusercontent.com https://github.com https://raw.githubusercontent.com https://*.gravatar.com https://*.cloudinary.com",
+              "img-src 'self' data: blob: http://localhost:8080 http://localhost:3000 https://*.anilist.co https://cdn.myanimelist.net https://*.twimg.com https://i.imgur.com https://imgur.com https://avatars.githubusercontent.com https://github.com https://raw.githubusercontent.com https://*.gravatar.com https://*.cloudinary.com https://myanimelogs-staging.fly.dev https://myanimelogs-production.fly.dev",
               "font-src 'self'",
-              "connect-src 'self' http://localhost:* ws://localhost:*",
+              "connect-src 'self' http://localhost:8080 http://localhost:3000 ws://localhost:3000 ws://localhost:3001",
               "frame-ancestors 'none'",
             ].join('; '),
           },
