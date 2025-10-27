@@ -13,13 +13,11 @@ export interface Toast {
   type: ToastType
 }
 
-let toastCounter = 0
-
 export const useToast = () => {
   const [toasts, setToasts] = useState<Toast[]>([])
 
   const showToast = useCallback((message: string, type: ToastType = 'info') => {
-    const id = `toast-${++toastCounter}`
+    const id = `toast-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
     const newToast: Toast = { id, message, type }
     
     setToasts((prev) => [...prev, newToast])

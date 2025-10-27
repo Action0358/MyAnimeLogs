@@ -63,13 +63,6 @@ export const UserMenu: React.FC<UserMenuProps> = ({ isOpen, onClose }) => {
         >
           <span className="text-base font-semibold">統計</span>
         </Link>
-        <Link
-          href="/mypage"
-          onClick={onClose}
-          className="block px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
-        >
-          <span className="text-base font-semibold">視聴履歴</span>
-        </Link>
       </nav>
 
       {/* ログアウト */}

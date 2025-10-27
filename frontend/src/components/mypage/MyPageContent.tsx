@@ -33,6 +33,7 @@ export const MyPageContent: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('favorites')
   const [favoriteAnime, setFavoriteAnime] = useState('')
   const [snsLink, setSnsLink] = useState('')
+  const [imageError, setImageError] = useState(false)
 
   const fetchData = useCallback(async () => {
     setIsLoading(true)
@@ -164,20 +165,12 @@ export const MyPageContent: React.FC = () => {
                 {/* 左側: アイコン */}
                 <div className="flex-shrink-0">
                   <div className="w-32 h-32 bg-gray-100 rounded-full overflow-hidden">
-                    {user?.icon ? (
+                    {user?.icon && !imageError ? (
                       <img
                         src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${user.icon}`}
                         alt={user.name}
                         className="w-full h-full object-cover"
-                        onError={(e) => {
-                          // 画像読み込みエラー時にデフォルトアイコンを表示
-                          e.currentTarget.style.display = 'none'
-                          const parent = e.currentTarget.parentElement
-                          if (parent) {
-                            parent.innerHTML =
-                              '<div class="w-full h-full flex items-center justify-center"><span class="text-gray-400 text-5xl">👤</span></div>'
-                          }
-                        }}
+                        onError={() => setImageError(true)}
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
