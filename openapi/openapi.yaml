@@ -130,18 +130,91 @@ paths:
               properties:
                 name:
                   type: string
+                  minLength: 1
+                  maxLength: 100
+                  example: "山田 太郎"
                 description:
                   type: string
-                icon:
+                  maxLength: 500
+                  example: "アニメが大好きです"
+                sns_link:
                   type: string
                   format: uri
+                  example: "https://twitter.com/example"
       responses:
         "200":
-          description: OK
+          description: プロフィールを更新しました
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/User"
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "プロフィールを更新しました。"
+                  user:
+                    $ref: "#/components/schemas/User"
+        "400":
+          description: バリデーションエラー
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: 認証が必要です
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /users/me/icon:
+    post:
+      summary: プロフィール画像をアップロード
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                icon:
+                  type: string
+                  format: binary
+                  description: アップロードする画像ファイル（JPEG, PNG, GIF）
+              required:
+                - icon
+      responses:
+        "200":
+          description: プロフィール画像を更新しました
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "プロフィール画像を更新しました"
+                  user:
+                    $ref: "#/components/schemas/User"
+        "400":
+          description: バリデーションエラー
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: 認証が必要です
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: 画像の保存に失敗しました
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /users/me/export:
     get:
       summary: ユーザーデータのエクスポート
@@ -800,6 +873,37 @@ paths:
                       $ref: "#/components/schemas/AnnictWork"
                   total_count:
                     type: integer
+  /annict/test:
+    get:
+      summary: Annict API接続テスト（開発環境のみ）
+      description: Annict APIへの接続をテストします。開発環境でのみ利用可能です。
+      responses:
+        "200":
+          description: 接続成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "success"
+                  message:
+                    type: string
+                    example: "Annict API connection successful"
+        "500":
+          description: 接続失敗
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "error"
+                  error:
+                    type: string
+                    example: "Failed to connect to Annict API"
   /admin/sync/season:
     post:
       summary: シーズンアニメをデータベースに同期
@@ -1065,22 +1169,36 @@ components:
       properties:
         id:
           type: integer
+          example: 1
         name:
           type: string
+          example: "山田 太郎"
         email:
           type: string
           format: email
+          example: "taro@example.com"
         description:
           type: string
+          nullable: true
+          example: "アニメが大好きです"
         icon:
           type: string
           format: uri
+          nullable: true
+          example: "https://example.com/uploads/icons/user_1_icon.jpg"
+        sns_link:
+          type: string
+          format: uri
+          nullable: true
+          example: "https://twitter.com/example"
         created_at:
           type: string
           format: date-time
+          example: "2025-01-01T00:00:00Z"
         updated_at:
           type: string
           format: date-time
+          example: "2025-01-15T12:30:00Z"
     Anime:
       type: object
       properties:
