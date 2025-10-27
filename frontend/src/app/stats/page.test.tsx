@@ -131,6 +131,7 @@ describe('StatsPage', () => {
     render(<StatsPage />)
 
     await waitFor(() => {
+      // ネットワークエラーの場合、Error.messageがそのまま表示される
       expect(screen.getByText('Network error')).toBeInTheDocument()
     })
   })

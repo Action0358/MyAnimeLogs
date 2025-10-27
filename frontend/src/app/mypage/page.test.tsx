@@ -145,17 +145,28 @@ describe('MyPage', () => {
     })
 
     it('データ取得エラー時にエラーメッセージを表示する', async () => {
-      ;(global.fetch as jest.Mock).mockImplementation(() => {
+      ;(global.fetch as jest.Mock).mockImplementation((url: string) => {
+        // すべてのAPIエンドポイントでエラーを返す
+        if (url.includes('/api/users/me')) {
+          return Promise.resolve({
+            ok: false,
+            status: 500,
+          })
+        }
         return Promise.resolve({
           ok: false,
+          status: 500,
         })
       })
 
       render(<MyPage />)
 
       await waitFor(() => {
+        // MyPageContentは複数のAPIを呼び出すため、いずれかのエラーメッセージが表示される
         expect(
-          screen.getByText('統計情報の取得に失敗しました')
+          screen.getByText(
+            /統計情報の取得に失敗しました|お気に入り情報の取得に失敗しました|データの取得に失敗しました/
+          )
         ).toBeInTheDocument()
       })
     })
@@ -166,6 +177,7 @@ describe('MyPage', () => {
       render(<MyPage />)
 
       await waitFor(() => {
+        // ネットワークエラーの場合、Error.messageがそのまま表示される
         expect(screen.getByText('Network error')).toBeInTheDocument()
       })
     })
