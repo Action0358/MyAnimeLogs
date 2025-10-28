@@ -62,10 +62,8 @@ export const ProfileEditContent: React.FC = () => {
       )
       updateUser(data.user)
     } catch (err) {
-      if (err instanceof ApiClientError) {
-        throw new Error(err.message)
-      }
-      throw new Error('画像のアップロードに失敗しました')
+      // エラーの型情報を保持したまま再スロー
+      throw err
     } finally {
       setIsUploadingIcon(false)
     }

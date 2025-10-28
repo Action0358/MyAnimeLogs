@@ -45,8 +45,11 @@ export const apiClient = async <T = any>(
 ): Promise<T> => {
   const token = getAuthToken()
   
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+  const headers: Record<string, string> = {}
+  
+  // FormDataの場合はContent-Typeを設定しない（ブラウザが自動設定）
+  if (!(options.body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json'
   }
   
   // 認証トークンがある場合は追加
@@ -140,42 +143,12 @@ export const del = <T = any>(endpoint: string, options?: RequestInit): Promise<T
 /**
  * ファイルアップロード用POSTリクエスト
  */
-export const uploadFile = async <T = any>(
+export const uploadFile = <T = any>(
   endpoint: string,
   formData: FormData
 ): Promise<T> => {
-  const token = getAuthToken()
-  
-  const headers: Record<string, string> = {}
-  
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`
-  }
-  
-  try {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      method: 'POST',
-      headers,
-      body: formData,
-    })
-    
-    const data = await response.json().catch(() => null)
-    
-    if (!response.ok) {
-      const errorMessage = data?.message || data?.error || `HTTPエラー: ${response.status}`
-      throw new ApiClientError(errorMessage, response.status)
-    }
-    
-    return data as T
-  } catch (error) {
-    if (error instanceof ApiClientError) {
-      throw error
-    }
-    
-    if (error instanceof TypeError) {
-      throw new ApiClientError('ネットワークエラーが発生しました', 0)
-    }
-    
-    throw new ApiClientError('予期しないエラーが発生しました', 500)
-  }
+  return apiClient<T>(endpoint, {
+    method: 'POST',
+    body: formData,
+  })
 }

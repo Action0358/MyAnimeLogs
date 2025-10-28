@@ -66,10 +66,10 @@ export const UserMenu: React.FC<UserMenuProps> = ({ isOpen, onClose }) => {
       </nav>
 
       {/* ログアウト */}
-      <div className="border-t border-gray-200">
+      <div className="border-t border-gray-200 py-1">
         <button
           onClick={handleLogout}
-          className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors mt-2"
+          className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
         >
           <span className="text-base font-semibold">ログアウト</span>
         </button>
