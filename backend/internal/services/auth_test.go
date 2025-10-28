@@ -5,16 +5,12 @@ import (
 	"time"
 
 	"myanimelogs/internal/models"
+	"myanimelogs/internal/testutil"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"golang.org/x/crypto/bcrypt"
 )
-
-// Helper function to convert string to *string
-func stringPtr(s string) *string {
-	return &s
-}
 
 // MockUserRepository is a mock implementation of UserRepositoryInterface
 type MockUserRepository struct {
@@ -159,7 +155,7 @@ func TestAuthService_Login_Success(t *testing.T) {
 		Name:        "Test User",
 		Email:       "test@example.com",
 		Password:    string(hashedPassword),
-		Description: stringPtr("Test description"),
+		Description: testutil.StringPtr("Test description"),
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}
@@ -216,7 +212,7 @@ func TestAuthService_GetUserByID_Success(t *testing.T) {
 		ID:          1,
 		Name:        "Test User",
 		Email:       "test@example.com",
-		Description: stringPtr("Test description"),
+		Description: testutil.StringPtr("Test description"),
 	}
 
 	// Setup mock expectations
@@ -261,12 +257,12 @@ func TestAuthService_UpdateUser_Success(t *testing.T) {
 		ID:          1,
 		Name:        "Updated Name",
 		Email:       "test@example.com",
-		Description: stringPtr("Updated description"),
+		Description: testutil.StringPtr("Updated description"),
 	}
 
 	req := models.UserUpdateRequest{
-		Name:        stringPtr("Updated Name"),
-		Description: stringPtr("Updated description"),
+		Name:        testutil.StringPtr("Updated Name"),
+		Description: testutil.StringPtr("Updated description"),
 	}
 
 	// Setup mock expectations
@@ -387,7 +383,7 @@ func TestAuthService_UpdateUserIcon_Success(t *testing.T) {
 		ID:          userID,
 		Name:        "Test User",
 		Email:       "test@example.com",
-		Description: stringPtr("Test description"),
+		Description: testutil.StringPtr("Test description"),
 		Icon:        &iconURL,
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),

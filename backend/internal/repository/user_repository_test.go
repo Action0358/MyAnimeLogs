@@ -8,16 +8,12 @@ import (
 
 	"myanimelogs/internal/database"
 	"myanimelogs/internal/models"
+	"myanimelogs/internal/testutil"
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-// Helper function to convert string to *string
-func stringPtr(s string) *string {
-	return &s
-}
 
 func TestUserRepository_GetByEmail_Success(t *testing.T) {
 	db, mock, err := sqlmock.New()
@@ -33,7 +29,7 @@ func TestUserRepository_GetByEmail_Success(t *testing.T) {
 		Name:          "Test User",
 		Email:         email,
 		Password:      "hashed_password",
-		Description:   stringPtr(""),
+		Description:   testutil.StringPtr(""),
 		Icon:          nil,
 		FavoriteAnime: nil,
 		SnsLink:       nil,
@@ -120,7 +116,7 @@ func TestUserRepository_GetByID_Success(t *testing.T) {
 		ID:            userID,
 		Name:          "Test User",
 		Email:         "test@example.com",
-		Description:   stringPtr(""),
+		Description:   testutil.StringPtr(""),
 		Icon:          nil,
 		FavoriteAnime: nil,
 		SnsLink:       nil,
@@ -340,8 +336,8 @@ func TestUserRepository_Create_NullHandling(t *testing.T) {
 		Name:        "User With Nulls",
 		Email:       "null@example.com",
 		Password:    "hashed_password",
-		Description: stringPtr(""), // 空文字列
-		Icon:        nil,           // NULL値
+		Description: testutil.StringPtr(""), // 空文字列
+		Icon:        nil,                    // NULL値
 	}
 
 	expectedID := 1
@@ -486,7 +482,7 @@ func TestUserRepository_UpdateIcon_Success(t *testing.T) {
 		ID:            userID,
 		Name:          "Test User",
 		Email:         "test@example.com",
-		Description:   stringPtr("Test description"),
+		Description:   testutil.StringPtr("Test description"),
 		Icon:          &iconURL,
 		FavoriteAnime: nil,
 		SnsLink:       nil,
@@ -524,7 +520,7 @@ func TestUserRepository_UpdateIcon_DeleteIcon(t *testing.T) {
 		ID:            userID,
 		Name:          "Test User",
 		Email:         "test@example.com",
-		Description:   stringPtr("Test description"),
+		Description:   testutil.StringPtr("Test description"),
 		Icon:          nil,
 		FavoriteAnime: nil,
 		SnsLink:       nil,
