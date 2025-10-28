@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { Container } from '@/components/layout'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
+import { put, uploadFile, ApiClientError } from '@/lib/api/client'
 
 // Validation constants
 const MAX_NAME_LENGTH = 100
@@ -18,12 +19,9 @@ const TEXTAREA_CLASS_NAME =
 const HELPER_TEXT_CLASS_NAME = 'text-sm text-gray-500 mt-2 px-2'
 
 export const ProfileEditContent: React.FC = () => {
-  const { user, token, updateUser } = useAuth()
+  const { user, updateUser } = useAuth()
   const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
-
-  const API_BASE_URL =
-    process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
 
   // 初期値を保持（変更検知用）
   const [initialValues] = useState(() => ({
@@ -42,7 +40,9 @@ export const ProfileEditContent: React.FC = () => {
 
   const [iconFile, setIconFile] = useState<File | null>(null)
   const [iconPreview, setIconPreview] = useState<string | null>(
-    user?.icon ? `${API_BASE_URL}${user.icon}` : null
+    user?.icon
+      ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${user.icon}`
+      : null
   )
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -56,21 +56,14 @@ export const ProfileEditContent: React.FC = () => {
       const formData = new FormData()
       formData.append('icon', file)
 
-      const response = await fetch(`${API_BASE_URL}/api/users/me/icon`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || '画像のアップロードに失敗しました')
-      }
-
-      const data = await response.json()
+      const data = await uploadFile<{ user: any }>(
+        '/api/users/me/icon',
+        formData
+      )
       updateUser(data.user)
+    } catch (err) {
+      // エラーの型情報を保持したまま再スロー
+      throw err
     } finally {
       setIsUploadingIcon(false)
     }
@@ -198,21 +191,7 @@ export const ProfileEditContent: React.FC = () => {
         sns_link: snsLink.trim() || null,
       }
 
-      const response = await fetch(`${API_BASE_URL}/api/users/me`, {
-        method: 'PUT',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.message || 'プロフィールの更新に失敗しました')
-      }
-
-      const data = await response.json()
+      const data = await put<{ user: any }>('/api/users/me', requestBody)
       const updatedUser = data.user || data
 
       // コンテキストのユーザー情報を更新
@@ -221,9 +200,15 @@ export const ProfileEditContent: React.FC = () => {
       // マイページに戻る
       router.push('/mypage')
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'プロフィールの更新に失敗しました'
-      )
+      if (err instanceof ApiClientError) {
+        setError(err.message)
+      } else {
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'プロフィールの更新に失敗しました'
+        )
+      }
     } finally {
       setIsLoading(false)
     }

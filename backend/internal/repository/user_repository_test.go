@@ -14,6 +14,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// Helper function to convert string to *string
+func stringPtr(s string) *string {
+	return &s
+}
+
 func TestUserRepository_GetByEmail_Success(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
@@ -28,7 +33,7 @@ func TestUserRepository_GetByEmail_Success(t *testing.T) {
 		Name:          "Test User",
 		Email:         email,
 		Password:      "hashed_password",
-		Description:   "",
+		Description:   stringPtr(""),
 		Icon:          nil,
 		FavoriteAnime: nil,
 		SnsLink:       nil,
@@ -115,7 +120,7 @@ func TestUserRepository_GetByID_Success(t *testing.T) {
 		ID:            userID,
 		Name:          "Test User",
 		Email:         "test@example.com",
-		Description:   "",
+		Description:   stringPtr(""),
 		Icon:          nil,
 		FavoriteAnime: nil,
 		SnsLink:       nil,
@@ -335,8 +340,8 @@ func TestUserRepository_Create_NullHandling(t *testing.T) {
 		Name:        "User With Nulls",
 		Email:       "null@example.com",
 		Password:    "hashed_password",
-		Description: "",  // 空文字列
-		Icon:        nil, // NULL値
+		Description: stringPtr(""), // 空文字列
+		Icon:        nil,           // NULL値
 	}
 
 	expectedID := 1
@@ -382,8 +387,9 @@ func TestUserRepository_GetByEmail_WithNullFields(t *testing.T) {
 	assert.Equal(t, 1, result.ID)
 	assert.Equal(t, "Test User", result.Name)
 	assert.Equal(t, email, result.Email)
-	assert.Equal(t, "", result.Description) // 空文字列
-	assert.Nil(t, result.Icon)              // NULL値
+	assert.NotNil(t, result.Description)
+	assert.Equal(t, "", *result.Description) // 空文字列
+	assert.Nil(t, result.Icon)               // NULL値
 
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
@@ -480,7 +486,7 @@ func TestUserRepository_UpdateIcon_Success(t *testing.T) {
 		ID:            userID,
 		Name:          "Test User",
 		Email:         "test@example.com",
-		Description:   "Test description",
+		Description:   stringPtr("Test description"),
 		Icon:          &iconURL,
 		FavoriteAnime: nil,
 		SnsLink:       nil,
@@ -518,7 +524,7 @@ func TestUserRepository_UpdateIcon_DeleteIcon(t *testing.T) {
 		ID:            userID,
 		Name:          "Test User",
 		Email:         "test@example.com",
-		Description:   "Test description",
+		Description:   stringPtr("Test description"),
 		Icon:          nil,
 		FavoriteAnime: nil,
 		SnsLink:       nil,

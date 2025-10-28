@@ -9,7 +9,7 @@ type User struct {
 	Name          string    `json:"name" db:"name"`
 	Email         string    `json:"email" db:"email"`
 	Password      string    `json:"-" db:"password"` // Never expose password in JSON
-	Description   string    `json:"description" db:"description"`
+	Description   *string   `json:"description" db:"description"`
 	Icon          *string   `json:"icon" db:"icon"`
 	FavoriteAnime *string   `json:"favorite_anime" db:"favorite_anime"`
 	SnsLink       *string   `json:"sns_link" db:"sns_link"`
@@ -39,7 +39,7 @@ type UserResponse struct {
 	ID            int       `json:"id"`
 	Name          string    `json:"name"`
 	Email         string    `json:"email"`
-	Description   string    `json:"description"`
+	Description   *string   `json:"description"`
 	Icon          *string   `json:"icon"`
 	FavoriteAnime *string   `json:"favorite_anime"`
 	SnsLink       *string   `json:"sns_link"`

@@ -12,6 +12,7 @@ import {
   MINUTES_PER_EPISODE,
   type UserStats,
 } from '@/constants/stats'
+import { get, ApiClientError } from '@/lib/api/client'
 
 export const StatsPageContent: React.FC = () => {
   const { token } = useAuth()
@@ -20,39 +21,30 @@ export const StatsPageContent: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const API_BASE_URL =
-    process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
-
   const fetchStats = useCallback(async () => {
     setIsLoading(true)
     setError(null)
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/users/me/stats`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
-
-      // 認証エラーの場合はログインページにリダイレクト
-      if (response.status === 401) {
-        router.push('/login')
-        return
-      }
-
-      // レスポンスを処理してから状態を更新
-      let statsData: UserStats
-
-      if (response.status === 404) {
-        statsData = DEFAULT_USER_STATS
-      } else if (!response.ok) {
-        throw new Error(ERROR_MESSAGES.STATS_FETCH_FAILED)
-      } else {
-        statsData = await response.json()
-      }
+      const statsData = await get<UserStats>('/api/users/me/stats').catch(
+        (err) => {
+          if (err instanceof ApiClientError) {
+            if (err.status === 401) {
+              router.push('/login')
+              return null
+            }
+            if (err.status === 404) {
+              return DEFAULT_USER_STATS
+            }
+          }
+          throw new Error(ERROR_MESSAGES.STATS_FETCH_FAILED)
+        }
+      )
 
       // データが正常に取得できた場合のみ状態を更新
-      setStats(statsData)
+      if (statsData) {
+        setStats(statsData)
+      }
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : ERROR_MESSAGES.STATS_FETCH_FAILED
@@ -60,7 +52,7 @@ export const StatsPageContent: React.FC = () => {
     } finally {
       setIsLoading(false)
     }
-  }, [token, API_BASE_URL, router])
+  }, [router])
 
   useEffect(() => {
     if (token) {
