@@ -145,28 +145,34 @@ describe('MyPage', () => {
     })
 
     it('データ取得エラー時にエラーメッセージを表示する', async () => {
-      ;(global.fetch as jest.Mock).mockImplementation(() => {
+      ;(global.fetch as jest.Mock).mockImplementation((url: string) => {
+        // すべてのAPIエンドポイントでエラーを返す
+        // Promise.allで並列実行されるため、どのエラーが表示されるかは不定
+        // ただし、APIクライアントがレスポンスのmessageをそのまま使用する
         return Promise.resolve({
           ok: false,
+          status: 500,
+          json: async () => ({ message: 'Server error' }),
         })
       })
 
       render(<MyPage />)
 
       await waitFor(() => {
-        expect(
-          screen.getByText('統計情報の取得に失敗しました')
-        ).toBeInTheDocument()
+        // APIクライアントがエラーレスポンスのmessageをそのまま表示する
+        expect(screen.getByText('Server error')).toBeInTheDocument()
       })
     })
 
     it('ネットワークエラー時にエラーメッセージを表示する', async () => {
-      ;(global.fetch as jest.Mock).mockRejectedValue(new Error('Network error'))
+      // TypeErrorを投げることでネットワークエラーをシミュレート
+      ;(global.fetch as jest.Mock).mockRejectedValue(new TypeError('Failed to fetch'))
 
       render(<MyPage />)
 
       await waitFor(() => {
-        expect(screen.getByText('Network error')).toBeInTheDocument()
+        // APIクライアントがTypeErrorを"ネットワークエラーが発生しました"に変換する
+        expect(screen.getByText('ネットワークエラーが発生しました')).toBeInTheDocument()
       })
     })
   })

@@ -1,32 +1,32 @@
-'use client';
+'use client'
 
-import React, { useState } from 'react';
-import Link from 'next/link';
-import { useAuth } from '@/contexts/AuthContext';
-import { Container } from '@/components/layout';
-import { Input } from '@/components/ui/Input';
-import { Button } from '@/components/ui/Button';
+import React, { useState } from 'react'
+import Link from 'next/link'
+import { useAuth } from '@/contexts/AuthContext'
+import { Container } from '@/components/layout'
+import { Input } from '@/components/ui/Input'
+import { Button } from '@/components/ui/Button'
 
 const LoginPage: React.FC = () => {
-  const { login } = useAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const { login } = useAuth()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setIsLoading(true);
+    e.preventDefault()
+    setError('')
+    setIsLoading(true)
 
     try {
-      await login(email, password);
+      await login(email, password)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'ログインに失敗しました');
+      setError(err instanceof Error ? err.message : 'ログインに失敗しました')
     } finally {
-      setIsLoading(false);
+      setIsLoading(false)
     }
-  };
+  }
 
   return (
     <Container className="py-12">
@@ -36,12 +36,8 @@ const LoginPage: React.FC = () => {
           <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <span className="text-blue-600 text-3xl">📺</span>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            ログイン
-          </h1>
-          <p className="text-gray-600">
-            MyAnimeLogsへようこそ
-          </p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">ログイン</h1>
+          <p className="text-gray-600">MyAnimeLogsへようこそ</p>
         </div>
 
         {/* ログインフォーム */}
@@ -110,21 +106,21 @@ const LoginPage: React.FC = () => {
               </div>
               <p className="text-sm text-gray-700 font-medium">視聴管理</p>
             </div>
-            
+
             <div className="text-center p-4 bg-white rounded-lg border border-gray-200">
               <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-2">
                 <span className="text-green-600 text-lg">📊</span>
               </div>
               <p className="text-sm text-gray-700 font-medium">視聴統計</p>
             </div>
-            
+
             <div className="text-center p-4 bg-white rounded-lg border border-gray-200">
               <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center mx-auto mb-2">
                 <span className="text-purple-600 text-lg">⭐</span>
               </div>
               <p className="text-sm text-gray-700 font-medium">評価投稿</p>
             </div>
-            
+
             <div className="text-center p-4 bg-white rounded-lg border border-gray-200">
               <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center mx-auto mb-2">
                 <span className="text-orange-600 text-lg">🔍</span>
@@ -135,7 +131,7 @@ const LoginPage: React.FC = () => {
         </div>
       </div>
     </Container>
-  );
-};
+  )
+}
 
-export default LoginPage;
+export default LoginPage
