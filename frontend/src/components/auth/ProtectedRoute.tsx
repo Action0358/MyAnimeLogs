@@ -29,8 +29,8 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     }
   }, [isAuthenticated, isLoading, router, redirectTo])
 
-  // ローディング中または認証されていない場合はローディング画面を表示
-  if (isLoading || !isAuthenticated || !shouldRender) {
+  // ローディング中またはレンダリング準備ができていない場合はローディング画面を表示
+  if (isLoading || !shouldRender) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">

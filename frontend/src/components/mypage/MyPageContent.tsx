@@ -47,40 +47,22 @@ export const MyPageContent: React.FC = () => {
     try {
       // 並列でデータを取得
       const [userData, statsData, favoritesData] = await Promise.all([
-        get('/api/users/me').catch((err) => {
-          if (err instanceof ApiClientError && err.status === 401) {
-            // 401エラーの場合はProtectedRouteがリダイレクトするため、
-            // エラー状態を設定せずにnullを返す
-            router.replace('/login')
-            return null
-          }
-          throw err
-        }),
+        get('/api/users/me'),
         get<UserStats>('/api/users/me/stats').catch((err) => {
-          if (err instanceof ApiClientError) {
-            // 401エラーの場合はリダイレクト中なので無視
-            if (err.status === 401) {
-              return null
-            }
-            // 404エラーの場合はデフォルト値を返す
-            if (err.status === 404) {
-              return DEFAULT_USER_STATS
-            }
+          if (err instanceof ApiClientError && (err.status === 401 || err.status === 404)) {
+            // 401: グローバルハンドラーが認証状態をクリアするため、デフォルト値を返す
+            // 404: データが存在しない場合はデフォルト値を返す
+            return DEFAULT_USER_STATS
           }
           // その他のエラーはデフォルト値を返してログに記録
           console.warn('Failed to fetch stats:', err)
           return DEFAULT_USER_STATS
         }),
         get<FavoriteAnime[]>('/api/users/me/favorites').catch((err) => {
-          if (err instanceof ApiClientError) {
-            // 401エラーの場合はリダイレクト中なので無視
-            if (err.status === 401) {
-              return []
-            }
-            // 404エラーの場合は空配列を返す
-            if (err.status === 404) {
-              return []
-            }
+          if (err instanceof ApiClientError && (err.status === 401 || err.status === 404)) {
+            // 401: グローバルハンドラーが認証状態をクリアするため、空配列を返す
+            // 404: データが存在しない場合は空配列を返す
+            return []
           }
           // その他のエラーは空配列を返してログに記録
           console.warn('Failed to fetch favorites:', err)
@@ -88,16 +70,18 @@ export const MyPageContent: React.FC = () => {
         }),
       ])
 
-      // 401エラーでリダイレクト中の場合は処理を中断
-      if (userData === null) {
-        return
-      }
-
       setUser(userData)
       setStats(statsData)
       setFavorites(favoritesData.slice(0, 20))
     } catch (err) {
-      // ユーザーデータの取得に失敗した場合のみエラーを表示
+      // ユーザーデータの取得に失敗した場合
+      // 401エラーの場合はグローバルハンドラーが認証状態をクリアし、
+      // ProtectedRouteがリダイレクトを実行する
+      if (err instanceof ApiClientError && err.status === 401) {
+        // 認証エラーの場合はエラー表示せずに処理を終了
+        return
+      }
+      
       const errorMessage =
         err instanceof Error ? err.message : ERROR_MESSAGES.DATA_FETCH_FAILED
       setError(errorMessage)
@@ -105,7 +89,7 @@ export const MyPageContent: React.FC = () => {
     } finally {
       setIsLoading(false)
     }
-  }, [router])
+  }, [])
 
   useEffect(() => {
     // 認証チェックが完了し、認証されている場合のみデータを取得
