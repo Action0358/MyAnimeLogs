@@ -23,7 +23,12 @@ interface FavoriteAnime {
 type TabType = 'favorites' | 'stats' | 'history'
 
 export const MyPageContent: React.FC = () => {
-  const { user: authUser, token } = useAuth()
+  const {
+    user: authUser,
+    token,
+    isLoading: authLoading,
+    isAuthenticated,
+  } = useAuth()
   const router = useRouter()
   const [user, setUser] = useState(authUser)
   const [stats, setStats] = useState<UserStats | null>(null)
@@ -44,45 +49,73 @@ export const MyPageContent: React.FC = () => {
       const [userData, statsData, favoritesData] = await Promise.all([
         get('/api/users/me').catch((err) => {
           if (err instanceof ApiClientError && err.status === 401) {
-            router.push('/login')
+            // 401エラーの場合はProtectedRouteがリダイレクトするため、
+            // エラー状態を設定せずにnullを返す
+            router.replace('/login')
             return null
           }
           throw err
         }),
         get<UserStats>('/api/users/me/stats').catch((err) => {
-          if (err instanceof ApiClientError && err.status === 404) {
-            return DEFAULT_USER_STATS
+          if (err instanceof ApiClientError) {
+            // 401エラーの場合はリダイレクト中なので無視
+            if (err.status === 401) {
+              return null
+            }
+            // 404エラーの場合はデフォルト値を返す
+            if (err.status === 404) {
+              return DEFAULT_USER_STATS
+            }
           }
-          throw new Error(ERROR_MESSAGES.STATS_FETCH_FAILED)
+          // その他のエラーはデフォルト値を返してログに記録
+          console.warn('Failed to fetch stats:', err)
+          return DEFAULT_USER_STATS
         }),
         get<FavoriteAnime[]>('/api/users/me/favorites').catch((err) => {
-          if (err instanceof ApiClientError && err.status === 404) {
-            return []
+          if (err instanceof ApiClientError) {
+            // 401エラーの場合はリダイレクト中なので無視
+            if (err.status === 401) {
+              return []
+            }
+            // 404エラーの場合は空配列を返す
+            if (err.status === 404) {
+              return []
+            }
           }
-          throw new Error(ERROR_MESSAGES.FAVORITES_FETCH_FAILED)
+          // その他のエラーは空配列を返してログに記録
+          console.warn('Failed to fetch favorites:', err)
+          return []
         }),
       ])
 
-      if (userData) {
-        setUser(userData)
+      // 401エラーでリダイレクト中の場合は処理を中断
+      if (userData === null) {
+        return
       }
+
+      setUser(userData)
       setStats(statsData)
       setFavorites(favoritesData.slice(0, 20))
     } catch (err) {
+      // ユーザーデータの取得に失敗した場合のみエラーを表示
       const errorMessage =
         err instanceof Error ? err.message : ERROR_MESSAGES.DATA_FETCH_FAILED
       setError(errorMessage)
-      console.error('Failed to fetch data:', err)
+      console.error('Failed to fetch user data:', err)
     } finally {
       setIsLoading(false)
     }
   }, [router])
 
   useEffect(() => {
-    if (authUser && token) {
+    // 認証チェックが完了し、認証されている場合のみデータを取得
+    if (!authLoading && isAuthenticated && authUser && token) {
       fetchData()
+    } else if (!authLoading && !isAuthenticated) {
+      // 認証されていない場合はローディングを終了
+      setIsLoading(false)
     }
-  }, [authUser, token, fetchData])
+  }, [authUser, token, authLoading, isAuthenticated, fetchData])
 
   // ユーザー情報から好きなアニメとSNSリンクを設定
   useEffect(() => {
