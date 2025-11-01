@@ -23,7 +23,12 @@ interface FavoriteAnime {
 type TabType = 'favorites' | 'stats' | 'history'
 
 export const MyPageContent: React.FC = () => {
-  const { user: authUser, token } = useAuth()
+  const {
+    user: authUser,
+    token,
+    isLoading: authLoading,
+    isAuthenticated,
+  } = useAuth()
   const router = useRouter()
   const [user, setUser] = useState(authUser)
   const [stats, setStats] = useState<UserStats | null>(null)
@@ -42,33 +47,39 @@ export const MyPageContent: React.FC = () => {
     try {
       // 並列でデータを取得
       const [userData, statsData, favoritesData] = await Promise.all([
-        get('/api/users/me').catch((err) => {
-          if (err instanceof ApiClientError && err.status === 401) {
-            router.push('/login')
-            return null
-          }
-          throw err
-        }),
+        get('/api/users/me'),
         get<UserStats>('/api/users/me/stats').catch((err) => {
-          if (err instanceof ApiClientError && err.status === 404) {
+          if (err instanceof ApiClientError && (err.status === 401 || err.status === 404)) {
+            // 401: グローバルハンドラーが認証状態をクリアするため、デフォルト値を返す
+            // 404: データが存在しない場合はデフォルト値を返す
             return DEFAULT_USER_STATS
           }
-          throw new Error(ERROR_MESSAGES.STATS_FETCH_FAILED)
+          // その他のエラーは再スローして上位で処理
+          throw err
         }),
         get<FavoriteAnime[]>('/api/users/me/favorites').catch((err) => {
-          if (err instanceof ApiClientError && err.status === 404) {
+          if (err instanceof ApiClientError && (err.status === 401 || err.status === 404)) {
+            // 401: グローバルハンドラーが認証状態をクリアするため、空配列を返す
+            // 404: データが存在しない場合は空配列を返す
             return []
           }
-          throw new Error(ERROR_MESSAGES.FAVORITES_FETCH_FAILED)
+          // その他のエラーは再スローして上位で処理
+          throw err
         }),
       ])
 
-      if (userData) {
-        setUser(userData)
-      }
+      setUser(userData)
       setStats(statsData)
       setFavorites(favoritesData.slice(0, 20))
     } catch (err) {
+      // 401エラーの場合はグローバルハンドラーが認証状態をクリアし、
+      // ProtectedRouteがリダイレクトを実行する
+      if (err instanceof ApiClientError && err.status === 401) {
+        // 認証エラーの場合はエラー表示せずに処理を終了
+        return
+      }
+      
+      // その他のエラーはユーザーに通知
       const errorMessage =
         err instanceof Error ? err.message : ERROR_MESSAGES.DATA_FETCH_FAILED
       setError(errorMessage)
@@ -76,13 +87,17 @@ export const MyPageContent: React.FC = () => {
     } finally {
       setIsLoading(false)
     }
-  }, [router])
+  }, [])
 
   useEffect(() => {
-    if (authUser && token) {
+    // 認証チェックが完了し、認証されている場合のみデータを取得
+    if (!authLoading && isAuthenticated && authUser && token) {
       fetchData()
+    } else if (!authLoading && !isAuthenticated) {
+      // 認証されていない場合はローディングを終了
+      setIsLoading(false)
     }
-  }, [authUser, token, fetchData])
+  }, [authUser, token, authLoading, isAuthenticated, fetchData])
 
   // ユーザー情報から好きなアニメとSNSリンクを設定
   useEffect(() => {

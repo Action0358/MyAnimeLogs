@@ -9,7 +9,7 @@ import React, {
 } from 'react'
 import { useRouter } from 'next/navigation'
 import { storage } from '@/lib/utils'
-import { post, ApiClientError } from '@/lib/api/client'
+import { post, ApiClientError, setUnauthorizedHandler } from '@/lib/api/client'
 
 interface User {
   id: number
@@ -46,6 +46,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [token, setToken] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
+
+  // 401エラー時のグローバルハンドラーを登録
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      // 認証状態をクリア
+      setUser(null)
+      setToken(null)
+      storage.remove(TOKEN_KEY)
+      storage.remove(USER_KEY)
+    })
+  }, [])
 
   // トークンとユーザー情報の初期化
   useEffect(() => {
