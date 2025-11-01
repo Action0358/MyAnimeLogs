@@ -15,7 +15,7 @@ import {
 import { get, ApiClientError } from '@/lib/api/client'
 
 export const StatsPageContent: React.FC = () => {
-  const { token } = useAuth()
+  const { token, isLoading: authLoading, isAuthenticated } = useAuth()
   const router = useRouter()
   const [stats, setStats] = useState<UserStats | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -28,37 +28,40 @@ export const StatsPageContent: React.FC = () => {
     try {
       const statsData = await get<UserStats>('/api/users/me/stats').catch(
         (err) => {
-          if (err instanceof ApiClientError) {
-            if (err.status === 401) {
-              router.push('/login')
-              return null
-            }
-            if (err.status === 404) {
-              return DEFAULT_USER_STATS
-            }
+          // 404エラーの場合のみデフォルト値を返す
+          if (err instanceof ApiClientError && err.status === 404) {
+            return DEFAULT_USER_STATS
           }
-          throw new Error(ERROR_MESSAGES.STATS_FETCH_FAILED)
+          // その他のエラー（401を含む）は元のエラーをそのまま再スロー
+          throw err
         }
       )
 
-      // データが正常に取得できた場合のみ状態を更新
-      if (statsData) {
-        setStats(statsData)
-      }
+      setStats(statsData)
     } catch (err) {
+      // 401エラーの場合はグローバルハンドラーが認証状態をクリアし、
+      // ProtectedRouteがリダイレクトを実行するため、エラー表示せずに処理を終了
+      if (err instanceof ApiClientError && err.status === 401) {
+        return
+      }
+
       const errorMessage =
         err instanceof Error ? err.message : ERROR_MESSAGES.STATS_FETCH_FAILED
       setError(errorMessage)
     } finally {
       setIsLoading(false)
     }
-  }, [router])
+  }, [])
 
   useEffect(() => {
-    if (token) {
+    // 認証チェックが完了し、認証されている場合のみデータを取得
+    if (!authLoading && isAuthenticated && token) {
       fetchStats()
+    } else if (!authLoading && !isAuthenticated) {
+      // 認証されていない場合はローディングを終了
+      setIsLoading(false)
     }
-  }, [token, fetchStats])
+  }, [token, authLoading, isAuthenticated, fetchStats])
 
   if (isLoading) {
     return (
