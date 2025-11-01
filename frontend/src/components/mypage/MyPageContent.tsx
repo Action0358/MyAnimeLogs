@@ -54,9 +54,8 @@ export const MyPageContent: React.FC = () => {
             // 404: データが存在しない場合はデフォルト値を返す
             return DEFAULT_USER_STATS
           }
-          // その他のエラーはデフォルト値を返してログに記録
-          console.warn('Failed to fetch stats:', err)
-          return DEFAULT_USER_STATS
+          // その他のエラーは再スローして上位で処理
+          throw err
         }),
         get<FavoriteAnime[]>('/api/users/me/favorites').catch((err) => {
           if (err instanceof ApiClientError && (err.status === 401 || err.status === 404)) {
@@ -64,9 +63,8 @@ export const MyPageContent: React.FC = () => {
             // 404: データが存在しない場合は空配列を返す
             return []
           }
-          // その他のエラーは空配列を返してログに記録
-          console.warn('Failed to fetch favorites:', err)
-          return []
+          // その他のエラーは再スローして上位で処理
+          throw err
         }),
       ])
 
@@ -74,7 +72,6 @@ export const MyPageContent: React.FC = () => {
       setStats(statsData)
       setFavorites(favoritesData.slice(0, 20))
     } catch (err) {
-      // ユーザーデータの取得に失敗した場合
       // 401エラーの場合はグローバルハンドラーが認証状態をクリアし、
       // ProtectedRouteがリダイレクトを実行する
       if (err instanceof ApiClientError && err.status === 401) {
@@ -82,10 +79,11 @@ export const MyPageContent: React.FC = () => {
         return
       }
       
+      // その他のエラーはユーザーに通知
       const errorMessage =
         err instanceof Error ? err.message : ERROR_MESSAGES.DATA_FETCH_FAILED
       setError(errorMessage)
-      console.error('Failed to fetch user data:', err)
+      console.error('Failed to fetch data:', err)
     } finally {
       setIsLoading(false)
     }
