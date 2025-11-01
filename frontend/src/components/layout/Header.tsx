@@ -21,17 +21,17 @@ const Header: React.FC = () => {
 
   return (
     <header className="bg-gray-50">
-      <div className="flex items-center justify-between h-22 sm:h-28 px-4 sm:px-6 lg:px-8">
+      <div className="flex items-center justify-between h-20 sm:h-24 px-4 sm:px-6 lg:px-8">
         {/* ロゴ・ブランド */}
         <div className="flex items-center flex-shrink-0">
           <Link href="/" className="flex items-center group">
-            <div className="relative h-18 sm:h-24 w-auto transition-transform duration-300 group-hover:scale-105">
+            <div className="relative h-16 sm:h-20 w-56 sm:w-72 transition-transform duration-300 group-hover:scale-105">
               <Image
                 src="/logo.png"
                 alt="MyAnimeLogs"
                 width={400}
                 height={80}
-                className="h-full w-auto object-contain"
+                className="h-full w-full object-contain object-left"
                 priority
               />
             </div>
