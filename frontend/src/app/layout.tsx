@@ -7,6 +7,10 @@ import { AuthProvider } from '@/contexts/AuthContext'
 export const metadata: Metadata = {
   title: 'MyAnimeLogs',
   description: 'アニメ視聴管理アプリ',
+  icons: {
+    icon: '/favicon.png',
+    apple: '/favicon.png',
+  },
 }
 
 export default function RootLayout({
