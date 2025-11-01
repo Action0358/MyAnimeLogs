@@ -24,6 +24,18 @@ export class ApiClientError extends Error {
 }
 
 /**
+ * 401エラー時のグローバルハンドラー
+ */
+let unauthorizedHandler: (() => void) | null = null
+
+/**
+ * 401エラーハンドラーを登録
+ */
+export const setUnauthorizedHandler = (handler: () => void) => {
+  unauthorizedHandler = handler
+}
+
+/**
  * 認証トークンを取得
  */
 const getAuthToken = (): string | null => {
@@ -78,7 +90,14 @@ export const apiClient = async <T = any>(
     
     if (!response.ok) {
       const errorMessage = data?.message || data?.error || `HTTPエラー: ${response.status}`
-      throw new ApiClientError(errorMessage, response.status)
+      const error = new ApiClientError(errorMessage, response.status)
+      
+      // 401エラーの場合はグローバルハンドラーを呼び出す
+      if (response.status === 401 && unauthorizedHandler) {
+        unauthorizedHandler()
+      }
+      
+      throw error
     }
     
     return data as T

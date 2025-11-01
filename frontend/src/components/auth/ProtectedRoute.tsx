@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 
@@ -15,14 +15,22 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 }) => {
   const { isAuthenticated, isLoading } = useAuth()
   const router = useRouter()
+  const [shouldRender, setShouldRender] = useState(false)
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.push(redirectTo as any)
+    if (!isLoading) {
+      if (!isAuthenticated) {
+        // 認証されていない場合は即座にリダイレクト（履歴を残さない）
+        router.replace(redirectTo as any)
+      } else {
+        // 認証されている場合のみレンダリングを許可
+        setShouldRender(true)
+      }
     }
   }, [isAuthenticated, isLoading, router, redirectTo])
 
-  if (isLoading) {
+  // ローディング中またはレンダリング準備ができていない場合はローディング画面を表示
+  if (isLoading || !shouldRender) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -31,10 +39,6 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
         </div>
       </div>
     )
-  }
-
-  if (!isAuthenticated) {
-    return null
   }
 
   return <>{children}</>

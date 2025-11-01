@@ -9,20 +9,13 @@ const Footer: React.FC = () => {
     <footer className="bg-white border-t border-gray-200 mt-16">
       <Container>
         <div className="py-12">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
             {/* サイト情報 */}
-            <div className="md:col-span-2">
-              <div className="flex items-center space-x-2 mb-4">
-                <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-sm">MA</span>
-                </div>
-                <span className="text-xl font-bold text-gray-900">
-                  MyAnimeLogs
-                </span>
-              </div>
-              <p className="text-gray-600 mb-4">
-                あなたのアニメ視聴体験を記録・管理プラットフォーム
-              </p>
+            <div>
+              <h3 className="text-xl font-bold text-gray-900 mb-4">
+                MyAnimeLogs
+              </h3>
+              <p className="text-gray-600 mb-3">あなたの視聴記録がここに</p>
               <p className="text-sm text-gray-500">
                 アニメデータは{' '}
                 <Link
@@ -37,7 +30,7 @@ const Footer: React.FC = () => {
               </p>
             </div>
 
-            {/* ナビゲーション */}
+            {/* サイトマップ */}
             <div>
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
                 サイトマップ
@@ -70,7 +63,7 @@ const Footer: React.FC = () => {
               </ul>
             </div>
 
-            {/* サポート・法的情報 */}
+            {/* サポート */}
             <div>
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
                 サポート
