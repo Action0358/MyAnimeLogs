@@ -49,21 +49,19 @@ export const MyPageContent: React.FC = () => {
       const [userData, statsData, favoritesData] = await Promise.all([
         get('/api/users/me'),
         get<UserStats>('/api/users/me/stats').catch((err) => {
-          if (err instanceof ApiClientError && (err.status === 401 || err.status === 404)) {
-            // 401: グローバルハンドラーが認証状態をクリアするため、デフォルト値を返す
-            // 404: データが存在しない場合はデフォルト値を返す
+          // 404エラーの場合のみデフォルト値を返す
+          if (err instanceof ApiClientError && err.status === 404) {
             return DEFAULT_USER_STATS
           }
-          // その他のエラーは再スローして上位で処理
+          // その他のエラー（401を含む）は再スローして上位で処理
           throw err
         }),
         get<FavoriteAnime[]>('/api/users/me/favorites').catch((err) => {
-          if (err instanceof ApiClientError && (err.status === 401 || err.status === 404)) {
-            // 401: グローバルハンドラーが認証状態をクリアするため、空配列を返す
-            // 404: データが存在しない場合は空配列を返す
+          // 404エラーの場合のみ空配列を返す
+          if (err instanceof ApiClientError && err.status === 404) {
             return []
           }
-          // その他のエラーは再スローして上位で処理
+          // その他のエラー（401を含む）は再スローして上位で処理
           throw err
         }),
       ])
@@ -73,9 +71,8 @@ export const MyPageContent: React.FC = () => {
       setFavorites(favoritesData.slice(0, 20))
     } catch (err) {
       // 401エラーの場合はグローバルハンドラーが認証状態をクリアし、
-      // ProtectedRouteがリダイレクトを実行する
+      // ProtectedRouteがリダイレクトを実行するため、エラー表示せずに処理を終了
       if (err instanceof ApiClientError && err.status === 401) {
-        // 認証エラーの場合はエラー表示せずに処理を終了
         return
       }
       

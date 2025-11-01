@@ -28,19 +28,19 @@ export const StatsPageContent: React.FC = () => {
     try {
       const statsData = await get<UserStats>('/api/users/me/stats').catch(
         (err) => {
-          if (err instanceof ApiClientError && (err.status === 401 || err.status === 404)) {
-            // 401: グローバルハンドラーが認証状態をクリアするため、デフォルト値を返す
-            // 404: データが存在しない場合はデフォルト値を返す
+          // 404エラーの場合のみデフォルト値を返す
+          if (err instanceof ApiClientError && err.status === 404) {
             return DEFAULT_USER_STATS
           }
-          throw new Error(ERROR_MESSAGES.STATS_FETCH_FAILED)
+          // その他のエラー（401を含む）は元のエラーをそのまま再スロー
+          throw err
         }
       )
 
       setStats(statsData)
     } catch (err) {
       // 401エラーの場合はグローバルハンドラーが認証状態をクリアし、
-      // ProtectedRouteがリダイレクトを実行する
+      // ProtectedRouteがリダイレクトを実行するため、エラー表示せずに処理を終了
       if (err instanceof ApiClientError && err.status === 401) {
         return
       }
