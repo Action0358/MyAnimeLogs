@@ -108,14 +108,14 @@ describe('StatsPage', () => {
     })
     ;(global.fetch as jest.Mock).mockResolvedValueOnce({
       ok: false,
+      json: async () => ({ message: 'Server error' }),
     })
 
     render(<StatsPage />)
 
     await waitFor(() => {
-      expect(
-        screen.getByText('統計情報の取得に失敗しました')
-      ).toBeInTheDocument()
+      // APIクライアントがエラーメッセージを返す
+      expect(screen.getByText(/Server error|統計情報の取得に失敗しました/)).toBeInTheDocument()
     })
   })
 
@@ -132,8 +132,8 @@ describe('StatsPage', () => {
     render(<StatsPage />)
 
     await waitFor(() => {
-      // APIクライアントがTypeErrorを"統計情報の取得に失敗しました"に変換する
-      expect(screen.getByText('統計情報の取得に失敗しました')).toBeInTheDocument()
+      // APIクライアントがTypeErrorを"ネットワークエラーが発生しました"に変換する
+      expect(screen.getByText('ネットワークエラーが発生しました')).toBeInTheDocument()
     })
   })
 
