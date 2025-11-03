@@ -220,7 +220,54 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork) (*models.Anim
 		}
 	}
 
+	// Auto-create episodes if episodes_count > 0 and no_episodes is false
+	if work.EpisodesCount > 0 && !work.NoEpisodes {
+		err = c.createEpisodesForAnime(anime.ID, work.EpisodesCount)
+		if err != nil {
+			// Log warning but don't fail the entire sync
+			fmt.Printf("Warning: Failed to create episodes for anime %s (ID: %d): %v\n", anime.Title, anime.ID, err)
+		}
+	}
+
 	return &anime, nil
+}
+
+// createEpisodesForAnime creates episode records for an anime
+func (c *AnnictClient) createEpisodesForAnime(animeID int, count int) error {
+	// Check existing episodes count
+	var existingCount int
+	err := c.DB.QueryRow(`
+		SELECT COUNT(*) FROM episodes WHERE anime_id = $1
+	`, animeID).Scan(&existingCount)
+
+	if err != nil {
+		return fmt.Errorf("failed to check existing episodes: %w", err)
+	}
+
+	// If we already have all episodes, skip
+	if existingCount >= count {
+		return nil
+	}
+
+	// Create missing episodes
+	missingCount := count - existingCount
+	fmt.Printf("Creating %d missing episodes for anime ID %d (existing: %d, total: %d)\n",
+		missingCount, animeID, existingCount, count)
+
+	for i := 1; i <= count; i++ {
+		_, err := c.DB.Exec(`
+			INSERT INTO episodes (anime_id, title, episode_number, created_at, updated_at)
+			VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+			ON CONFLICT (anime_id, episode_number) DO NOTHING
+		`, animeID, fmt.Sprintf("第%d話", i), i)
+
+		if err != nil {
+			return fmt.Errorf("failed to create episode %d: %w", i, err)
+		}
+	}
+
+	fmt.Printf("Successfully created episodes for anime ID %d\n", animeID)
+	return nil
 }
 
 // SyncWorksToDatabase syncs multiple works to database
@@ -268,4 +315,141 @@ func (c *AnnictClient) SearchAnimesByKeyword(keyword string) (*models.AnnictWork
 	params.Add("per_page", "20")
 	params.Add("fields", annictAPIDefaultFields)
 	return c.makeRequest(params)
+}
+
+// AnnictEpisode represents episode data from Annict API
+type AnnictEpisode struct {
+	ID         int     `json:"id"`
+	Number     float64 `json:"number"`
+	SortNumber int     `json:"sort_number"`
+	Title      string  `json:"title"`
+}
+
+// AnnictEpisodesResponse represents the response from Annict episodes endpoint
+type AnnictEpisodesResponse struct {
+	Episodes   []AnnictEpisode `json:"episodes"`
+	TotalCount int             `json:"total_count"`
+	NextPage   *int            `json:"next_page"`
+	PrevPage   *int            `json:"prev_page"`
+}
+
+// FetchEpisodesByWorkID fetches episode information from Annict API
+func (c *AnnictClient) FetchEpisodesByWorkID(workID int) ([]AnnictEpisode, error) {
+	if c.Token == "" {
+		return nil, fmt.Errorf("annict API token is not set")
+	}
+
+	var allEpisodes []AnnictEpisode
+	page := 1
+
+	for {
+		params := url.Values{}
+		params.Add("filter_work_id", fmt.Sprintf("%d", workID))
+		params.Add("fields", "id,number,title,sort_number")
+		params.Add("per_page", "50")
+		params.Add("page", fmt.Sprintf("%d", page))
+		params.Add("sort_sort_number", "asc")
+
+		fullURL, err := url.Parse("https://api.annict.com/v1/episodes")
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse URL: %w", err)
+		}
+		fullURL.RawQuery = params.Encode()
+
+		req, err := http.NewRequest(http.MethodGet, fullURL.String(), nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create request: %w", err)
+		}
+
+		req.Header.Set("Authorization", "Bearer "+c.Token)
+		req.Header.Set("User-Agent", "MyAnimeLogs/1.0")
+
+		resp, err := c.HTTPClient.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("failed to execute request: %w", err)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(resp.Body)
+			return nil, fmt.Errorf("annict API returned status %d: %s", resp.StatusCode, string(body))
+		}
+
+		var response AnnictEpisodesResponse
+		if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+			return nil, fmt.Errorf("failed to decode response: %w", err)
+		}
+
+		allEpisodes = append(allEpisodes, response.Episodes...)
+
+		if response.NextPage == nil {
+			break
+		}
+
+		page = *response.NextPage
+	}
+
+	fmt.Printf("Fetched %d episodes from Annict for work_id %d\n", len(allEpisodes), workID)
+
+	return allEpisodes, nil
+}
+
+// UpdateEpisodeTitlesFromAnnict updates episode titles from Annict API
+func (c *AnnictClient) UpdateEpisodeTitlesFromAnnict(animeID int, annictID int) error {
+	// Annict APIからエピソード情報を取得
+	annictEpisodes, err := c.FetchEpisodesByWorkID(annictID)
+	if err != nil {
+		return fmt.Errorf("failed to fetch episodes from Annict: %w", err)
+	}
+
+	if len(annictEpisodes) == 0 {
+		return fmt.Errorf("no episodes found for work_id %d", annictID)
+	}
+
+	// データベースのエピソード数を取得
+	var dbEpisodeCount int
+	err = c.DB.QueryRow(`
+		SELECT COUNT(*) FROM episodes WHERE anime_id = $1
+	`, animeID).Scan(&dbEpisodeCount)
+	if err != nil {
+		return fmt.Errorf("failed to count episodes: %w", err)
+	}
+
+	if dbEpisodeCount == 0 {
+		return fmt.Errorf("no episodes found in database for anime_id %d", animeID)
+	}
+
+	// Annict APIのエピソードが多い場合は、最初のN件のみ使用
+	if len(annictEpisodes) > dbEpisodeCount {
+		annictEpisodes = annictEpisodes[:dbEpisodeCount]
+	}
+
+	// データベースのエピソードを順序でマッチング
+	successCount := 0
+	for i, annictEp := range annictEpisodes {
+		dbEpisodeNumber := i + 1 // データベースのエピソード番号は1から始まる
+
+		// エピソードを更新
+		result, err := c.DB.Exec(`
+			UPDATE episodes
+			SET 
+				title = $1,
+				updated_at = CURRENT_TIMESTAMP
+			WHERE anime_id = $2 AND episode_number = $3
+		`, annictEp.Title, animeID, dbEpisodeNumber)
+
+		if err != nil {
+			fmt.Printf("Warning: Failed to update episode %d: %v\n", dbEpisodeNumber, err)
+			continue
+		}
+
+		rowsAffected, _ := result.RowsAffected()
+		if rowsAffected > 0 {
+			successCount++
+		}
+	}
+
+	fmt.Printf("Updated %d episode titles for anime_id %d\n", successCount, animeID)
+
+	return nil
 }

@@ -43,8 +43,8 @@ func Setup(db *database.DB, cfg *config.Config) *gin.Engine {
 
 	// サービス
 	authService := services.NewAuthService(db, cfg.JWTSecret)
-	animeService := services.NewAnimeService(db, logger)
 	annictService := services.NewAnnictClientWithDB(cfg.AnnictAPIKey, db) // Annictサービスを初期化
+	animeService := services.NewAnimeService(db, logger, annictService)
 	uploadService := services.NewUploadService(cfg.UploadDir, cfg.UploadPublicPath, cfg.MaxUploadSize, logger)
 
 	// 強化されたエラーハンドリングを持つハンドラー
@@ -103,6 +103,8 @@ func Setup(db *database.DB, cfg *config.Config) *gin.Engine {
 			admin.POST("/sync/season", annictHandler.SyncWorksBySeason)
 			admin.POST("/sync/popular", annictHandler.SyncPopularWorks)
 			admin.POST("/sync/episode-durations", adminHandler.SyncEpisodeDurations)
+			admin.POST("/create-episodes", adminHandler.CreateEpisodesForAllAnimes)
+			admin.POST("/enrich/episode-titles", adminHandler.EnrichEpisodeTitles)
 
 			// エラー監視
 			admin.GET("/errors/metrics", monitoringHandler.GetErrorMetrics)

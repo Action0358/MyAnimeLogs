@@ -12,7 +12,7 @@ import (
 // TestAnimeService_NewAnimeService tests the constructor
 func TestAnimeService_NewAnimeService(t *testing.T) {
 	logger := common.NewLogger(common.LogLevelDebug, "text")
-	service := NewAnimeService(nil, logger)
+	service := NewAnimeService(nil, logger, nil)
 
 	assert.NotNil(t, service)
 	assert.NotNil(t, service.logger)
@@ -22,7 +22,7 @@ func TestAnimeService_NewAnimeService(t *testing.T) {
 // TestAnimeService_SetSearchDefaults tests default value setting
 func TestAnimeService_SetSearchDefaults(t *testing.T) {
 	logger := common.NewLogger(common.LogLevelDebug, "text")
-	service := NewAnimeService(nil, logger)
+	service := NewAnimeService(nil, logger, nil)
 
 	tests := []struct {
 		name     string
@@ -106,7 +106,7 @@ func TestAnimeService_SetSearchDefaults(t *testing.T) {
 // TestAnimeService_BuildOrderByClause tests ORDER BY clause generation
 func TestAnimeService_BuildOrderByClause(t *testing.T) {
 	logger := common.NewLogger(common.LogLevelDebug, "text")
-	service := NewAnimeService(nil, logger)
+	service := NewAnimeService(nil, logger, nil)
 
 	tests := []struct {
 		name     string
@@ -182,7 +182,7 @@ func TestAnimeService_BuildOrderByClause(t *testing.T) {
 // TestAnimeService_BuildBaseQuery tests base query construction
 func TestAnimeService_BuildBaseQuery(t *testing.T) {
 	logger := common.NewLogger(common.LogLevelDebug, "text")
-	service := NewAnimeService(nil, logger)
+	service := NewAnimeService(nil, logger, nil)
 
 	tests := []struct {
 		name             string
@@ -285,7 +285,7 @@ func TestAnimeService_BuildBaseQuery(t *testing.T) {
 // TestAnimeService_BuildWhereClause tests WHERE clause construction
 func TestAnimeService_BuildWhereClause(t *testing.T) {
 	logger := common.NewLogger(common.LogLevelDebug, "text")
-	service := NewAnimeService(nil, logger)
+	service := NewAnimeService(nil, logger, nil)
 
 	tests := []struct {
 		name          string
@@ -429,7 +429,7 @@ func TestAnimeService_ErrorConstants(t *testing.T) {
 // TestAnimeService_ImplementsInterface verifies that AnimeService implements AnimeServiceInterface
 func TestAnimeService_ImplementsInterface(t *testing.T) {
 	logger := common.NewLogger(common.LogLevelDebug, "text")
-	service := NewAnimeService(nil, logger)
+	service := NewAnimeService(nil, logger, nil)
 
 	// Verify that service implements AnimeServiceInterface (compile-time check)
 	var _ AnimeServiceInterface = service
@@ -441,7 +441,7 @@ func TestAnimeService_ImplementsInterface(t *testing.T) {
 // TestAnimeService_JikanClientIntegration tests Jikan client integration
 func TestAnimeService_JikanClientIntegration(t *testing.T) {
 	logger := common.NewLogger(common.LogLevelDebug, "text")
-	service := NewAnimeService(nil, logger)
+	service := NewAnimeService(nil, logger, nil)
 
 	// Verify that JikanClient is initialized
 	assert.NotNil(t, service.jikanClient)
