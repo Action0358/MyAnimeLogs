@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -298,6 +299,100 @@ func TestAdminHandler_SyncEpisodeDurations(t *testing.T) {
 		handler.SyncEpisodeDurations(c)
 
 		assert.Equal(t, http.StatusNotFound, w.Code)
+
+		mockService.AssertExpectations(t)
+	})
+}
+
+func TestAdminHandler_CreateEpisodesForAllAnimes(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	logger := common.NewLogger(common.LogLevelDebug, "text")
+	errorMonitor := common.NewErrorMonitor(logger, 10, 60)
+
+	t.Run("Success - Create Episodes", func(t *testing.T) {
+		// Setup mock
+		mockService := new(MockAnimeService)
+		mockService.On("CreateEpisodesForAllAnimes").
+			Return(95, 0, nil)
+
+		handler := NewAdminHandler(mockService, logger, errorMonitor)
+
+		// Create request
+		req := httptest.NewRequest(http.MethodPost, "/api/admin/create-episodes", nil)
+		req.Header.Set("Content-Type", "application/json")
+
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = req
+
+		// Execute handler
+		handler.CreateEpisodesForAllAnimes(c)
+
+		// Assert
+		assert.Equal(t, http.StatusOK, w.Code)
+
+		var response CreateEpisodesResponse
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		assert.NoError(t, err)
+		assert.Equal(t, 95, response.SuccessCount)
+		assert.Equal(t, 0, response.FailureCount)
+		assert.Contains(t, response.Message, "95 succeeded, 0 failed")
+
+		mockService.AssertExpectations(t)
+	})
+
+	t.Run("Success - With Some Failures", func(t *testing.T) {
+		// Setup mock
+		mockService := new(MockAnimeService)
+		mockService.On("CreateEpisodesForAllAnimes").
+			Return(90, 5, nil)
+
+		handler := NewAdminHandler(mockService, logger, errorMonitor)
+
+		// Create request
+		req := httptest.NewRequest(http.MethodPost, "/api/admin/create-episodes", nil)
+		req.Header.Set("Content-Type", "application/json")
+
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = req
+
+		// Execute handler
+		handler.CreateEpisodesForAllAnimes(c)
+
+		// Assert
+		assert.Equal(t, http.StatusOK, w.Code)
+
+		var response CreateEpisodesResponse
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		assert.NoError(t, err)
+		assert.Equal(t, 90, response.SuccessCount)
+		assert.Equal(t, 5, response.FailureCount)
+
+		mockService.AssertExpectations(t)
+	})
+
+	t.Run("Error - Service Error", func(t *testing.T) {
+		// Setup mock
+		mockService := new(MockAnimeService)
+		mockService.On("CreateEpisodesForAllAnimes").
+			Return(0, 0, fmt.Errorf("database connection failed"))
+
+		handler := NewAdminHandler(mockService, logger, errorMonitor)
+
+		// Create request
+		req := httptest.NewRequest(http.MethodPost, "/api/admin/create-episodes", nil)
+		req.Header.Set("Content-Type", "application/json")
+
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = req
+
+		// Execute handler
+		handler.CreateEpisodesForAllAnimes(c)
+
+		// Assert
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
 
 		mockService.AssertExpectations(t)
 	})

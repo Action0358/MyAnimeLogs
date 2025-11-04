@@ -43,7 +43,7 @@ func Setup(db *database.DB, cfg *config.Config) *gin.Engine {
 
 	// サービス
 	authService := services.NewAuthService(db, cfg.JWTSecret)
-	annictService := services.NewAnnictClientWithDB(cfg.AnnictAPIKey, db) // Annictサービスを初期化
+	annictService := services.NewAnnictClientWithDB(cfg.AnnictAPIKey, db, logger) // Annictサービスを初期化
 	animeService := services.NewAnimeService(db, logger, annictService)
 	uploadService := services.NewUploadService(cfg.UploadDir, cfg.UploadPublicPath, cfg.MaxUploadSize, logger)
 

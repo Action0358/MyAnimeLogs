@@ -28,6 +28,12 @@ type AnimeService struct {
 	annictClient  *AnnictClient
 }
 
+// CreateEpisodesForAnime creates episode records for a specific anime
+// This is the centralized method for episode creation to avoid code duplication
+func (s *AnimeService) CreateEpisodesForAnime(animeID int, count int) error {
+	return s.createEpisodesForAnime(animeID, count)
+}
+
 func NewAnimeService(db *database.DB, logger *common.Logger, annictClient *AnnictClient) *AnimeService {
 	return &AnimeService{
 		db:            db,
@@ -1532,8 +1538,8 @@ func (s *AnimeService) EnrichEpisodesWithTitles(animeID *int) (int, int, []strin
 			successCount++
 		}
 
-		// レート制限対策（念のため）
-		time.Sleep(500 * time.Millisecond)
+		// Apply rate limiting through AnnictClient
+		s.annictClient.applyRateLimit()
 	}
 
 	return successCount, failureCount, errors, nil

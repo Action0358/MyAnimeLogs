@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"myanimelogs/internal/common"
 	"myanimelogs/internal/database"
 	"myanimelogs/internal/models"
 	"net/http"
@@ -21,9 +22,11 @@ const (
 )
 
 type AnnictClient struct {
-	Token      string
-	HTTPClient *http.Client
-	DB         *database.DB
+	Token          string
+	HTTPClient     *http.Client
+	DB             *database.DB
+	logger         *common.Logger
+	rateLimitDelay time.Duration
 }
 
 // AnnictService defines the interface for Annict API interactions.
@@ -39,16 +42,26 @@ func NewAnnictClient(token string) *AnnictClient {
 		HTTPClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
+		rateLimitDelay: 500 * time.Millisecond,
 	}
 }
 
-func NewAnnictClientWithDB(token string, db *database.DB) *AnnictClient {
+func NewAnnictClientWithDB(token string, db *database.DB, logger *common.Logger) *AnnictClient {
 	return &AnnictClient{
 		Token: token,
 		HTTPClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
-		DB: db,
+		DB:             db,
+		logger:         logger,
+		rateLimitDelay: 500 * time.Millisecond,
+	}
+}
+
+// applyRateLimit applies rate limiting delay
+func (c *AnnictClient) applyRateLimit() {
+	if c.rateLimitDelay > 0 {
+		time.Sleep(c.rateLimitDelay)
 	}
 }
 
@@ -220,54 +233,10 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork) (*models.Anim
 		}
 	}
 
-	// Auto-create episodes if episodes_count > 0 and no_episodes is false
-	if work.EpisodesCount > 0 && !work.NoEpisodes {
-		err = c.createEpisodesForAnime(anime.ID, work.EpisodesCount)
-		if err != nil {
-			// Log warning but don't fail the entire sync
-			fmt.Printf("Warning: Failed to create episodes for anime %s (ID: %d): %v\n", anime.Title, anime.ID, err)
-		}
-	}
+	// Note: Episode creation is now handled by AnimeService.createEpisodesForAnime
+	// This avoids code duplication and centralizes episode management
 
 	return &anime, nil
-}
-
-// createEpisodesForAnime creates episode records for an anime
-func (c *AnnictClient) createEpisodesForAnime(animeID int, count int) error {
-	// Check existing episodes count
-	var existingCount int
-	err := c.DB.QueryRow(`
-		SELECT COUNT(*) FROM episodes WHERE anime_id = $1
-	`, animeID).Scan(&existingCount)
-
-	if err != nil {
-		return fmt.Errorf("failed to check existing episodes: %w", err)
-	}
-
-	// If we already have all episodes, skip
-	if existingCount >= count {
-		return nil
-	}
-
-	// Create missing episodes
-	missingCount := count - existingCount
-	fmt.Printf("Creating %d missing episodes for anime ID %d (existing: %d, total: %d)\n",
-		missingCount, animeID, existingCount, count)
-
-	for i := 1; i <= count; i++ {
-		_, err := c.DB.Exec(`
-			INSERT INTO episodes (anime_id, title, episode_number, created_at, updated_at)
-			VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-			ON CONFLICT (anime_id, episode_number) DO NOTHING
-		`, animeID, fmt.Sprintf("第%d話", i), i)
-
-		if err != nil {
-			return fmt.Errorf("failed to create episode %d: %w", i, err)
-		}
-	}
-
-	fmt.Printf("Successfully created episodes for anime ID %d\n", animeID)
-	return nil
 }
 
 // SyncWorksToDatabase syncs multiple works to database
@@ -389,7 +358,11 @@ func (c *AnnictClient) FetchEpisodesByWorkID(workID int) ([]AnnictEpisode, error
 		page = *response.NextPage
 	}
 
-	fmt.Printf("Fetched %d episodes from Annict for work_id %d\n", len(allEpisodes), workID)
+	if c.logger != nil {
+		c.logger.Info("Fetched episodes from Annict",
+			"work_id", workID,
+			"episode_count", len(allEpisodes))
+	}
 
 	return allEpisodes, nil
 }
@@ -439,7 +412,12 @@ func (c *AnnictClient) UpdateEpisodeTitlesFromAnnict(animeID int, annictID int) 
 		`, annictEp.Title, animeID, dbEpisodeNumber)
 
 		if err != nil {
-			fmt.Printf("Warning: Failed to update episode %d: %v\n", dbEpisodeNumber, err)
+			if c.logger != nil {
+				c.logger.Warn("Failed to update episode",
+					"anime_id", animeID,
+					"episode_number", dbEpisodeNumber,
+					"error", err)
+			}
 			continue
 		}
 
@@ -449,7 +427,12 @@ func (c *AnnictClient) UpdateEpisodeTitlesFromAnnict(animeID int, annictID int) 
 		}
 	}
 
-	fmt.Printf("Updated %d episode titles for anime_id %d\n", successCount, animeID)
+	if c.logger != nil {
+		c.logger.Info("Updated episode titles",
+			"anime_id", animeID,
+			"success_count", successCount,
+			"total_episodes", len(annictEpisodes))
+	}
 
 	return nil
 }
