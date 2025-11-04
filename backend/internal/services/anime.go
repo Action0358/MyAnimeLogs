@@ -25,14 +25,22 @@ type AnimeService struct {
 	logger        *common.Logger
 	anilistClient *AniListClient
 	jikanClient   *JikanClient
+	annictClient  *AnnictClient
 }
 
-func NewAnimeService(db *database.DB, logger *common.Logger) *AnimeService {
+// CreateEpisodesForAnime creates episode records for a specific anime
+// This is the centralized method for episode creation to avoid code duplication
+func (s *AnimeService) CreateEpisodesForAnime(animeID int, count int) error {
+	return s.createEpisodesForAnime(animeID, count)
+}
+
+func NewAnimeService(db *database.DB, logger *common.Logger, annictClient *AnnictClient) *AnimeService {
 	return &AnimeService{
 		db:            db,
 		logger:        logger,
 		anilistClient: NewAniListClient(),
 		jikanClient:   NewJikanClient(logger),
+		annictClient:  annictClient,
 	}
 }
 
@@ -1373,4 +1381,166 @@ func (s *AnimeService) SyncEpisodeDurations(animeID *int) (int, int, int, int, [
 		"skipped_count", skippedCount)
 
 	return totalAnimes, successCount, failureCount, skippedCount, errors, nil
+}
+
+// CreateEpisodesForAllAnimes creates episodes for all animes that don't have episodes yet
+func (s *AnimeService) CreateEpisodesForAllAnimes() (int, int, error) {
+	// Get all animes that have episodes_count > 0 but no episodes
+	query := `
+		SELECT a.id, a.title, a.episodes_count
+		FROM animes a
+		WHERE a.episodes_count > 0
+		AND NOT EXISTS (
+			SELECT 1 FROM episodes e WHERE e.anime_id = a.id
+		)
+		ORDER BY a.id
+	`
+
+	rows, err := s.db.Query(query)
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to query animes: %w", err)
+	}
+	defer rows.Close()
+
+	type animeInfo struct {
+		id            int
+		title         string
+		episodesCount int
+	}
+
+	var animes []animeInfo
+	for rows.Next() {
+		var anime animeInfo
+		if err := rows.Scan(&anime.id, &anime.title, &anime.episodesCount); err != nil {
+			return 0, 0, fmt.Errorf("failed to scan anime: %w", err)
+		}
+		animes = append(animes, anime)
+	}
+
+	if err := rows.Err(); err != nil {
+		return 0, 0, fmt.Errorf("error iterating animes: %w", err)
+	}
+
+	s.logger.Info("Found animes without episodes", "count", len(animes))
+
+	successCount := 0
+	failureCount := 0
+
+	for _, anime := range animes {
+		s.logger.Info("Creating episodes for anime",
+			"anime_id", anime.id,
+			"title", anime.title,
+			"episodes_count", anime.episodesCount)
+
+		err := s.createEpisodesForAnime(anime.id, anime.episodesCount)
+		if err != nil {
+			failureCount++
+			s.logger.Error("Failed to create episodes",
+				"anime_id", anime.id,
+				"error", err)
+		} else {
+			successCount++
+		}
+	}
+
+	s.logger.Info("Episode creation completed",
+		"success_count", successCount,
+		"failure_count", failureCount)
+
+	return successCount, failureCount, nil
+}
+
+// createEpisodesForAnime creates episode records for a specific anime
+func (s *AnimeService) createEpisodesForAnime(animeID int, count int) error {
+	// Check existing episodes count
+	var existingCount int
+	err := s.db.QueryRow(`
+		SELECT COUNT(*) FROM episodes WHERE anime_id = $1
+	`, animeID).Scan(&existingCount)
+
+	if err != nil {
+		return fmt.Errorf("failed to check existing episodes: %w", err)
+	}
+
+	// If we already have all episodes, skip
+	if existingCount >= count {
+		return nil
+	}
+
+	// Create missing episodes
+	for i := 1; i <= count; i++ {
+		_, err := s.db.Exec(`
+			INSERT INTO episodes (anime_id, title, episode_number, created_at, updated_at)
+			VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+			ON CONFLICT (anime_id, episode_number) DO NOTHING
+		`, animeID, fmt.Sprintf("第%d話", i), i)
+
+		if err != nil {
+			return fmt.Errorf("failed to create episode %d: %w", i, err)
+		}
+	}
+
+	return nil
+}
+
+// EnrichEpisodesWithTitles enriches episodes with titles from Annict API
+func (s *AnimeService) EnrichEpisodesWithTitles(animeID *int) (int, int, []string, error) {
+	// アニメ一覧を取得
+	var animes []struct {
+		id       int
+		annictID int
+	}
+
+	query := `
+		SELECT id, annict_id
+		FROM animes
+		WHERE annict_id IS NOT NULL
+	`
+	args := []interface{}{}
+
+	if animeID != nil {
+		query += " AND id = $1"
+		args = append(args, *animeID)
+	}
+
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return 0, 0, nil, fmt.Errorf("failed to query animes: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var anime struct {
+			id       int
+			annictID int
+		}
+		if err := rows.Scan(&anime.id, &anime.annictID); err != nil {
+			return 0, 0, nil, fmt.Errorf("failed to scan anime: %w", err)
+		}
+		animes = append(animes, anime)
+	}
+
+	// エピソードタイトルを更新
+	successCount := 0
+	failureCount := 0
+	errors := []string{}
+
+	for _, anime := range animes {
+		err := s.annictClient.UpdateEpisodeTitlesFromAnnict(anime.id, anime.annictID)
+		if err != nil {
+			failureCount++
+			errorMsg := fmt.Sprintf("Anime ID %d: %s", anime.id, err.Error())
+			errors = append(errors, errorMsg)
+			s.logger.Warn("Failed to update episode titles",
+				"anime_id", anime.id,
+				"error", err)
+		} else {
+			successCount++
+		}
+
+		// Apply rate limiting through AnnictClient
+		s.annictClient.applyRateLimit()
+	}
+
+	return successCount, failureCount, errors, nil
 }
