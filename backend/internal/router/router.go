@@ -14,14 +14,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func Setup(db *database.DB, cfg *config.Config) *gin.Engine {
+func Setup(db *database.DB, cfg *config.Config, syncScheduler handlers.SyncScheduler, logger *common.Logger, annictClient *services.AnnictClient) *gin.Engine {
 	// Ginモードを設定
 	if cfg.Environment == "production" {
 		gin.SetMode(gin.ReleaseMode)
 	}
-
-	// 構造化ロガーを初期化
-	logger := common.NewLogger(common.LogLevel(cfg.LogLevel), cfg.LogFormat)
 
 	// エラーモニターを初期化
 	errorMonitor := common.NewErrorMonitor(
@@ -41,17 +38,16 @@ func Setup(db *database.DB, cfg *config.Config) *gin.Engine {
 	rateLimiter := middleware.NewRateLimiter(cfg.RateLimit, time.Second)
 	r.Use(middleware.RateLimitMiddleware(rateLimiter))
 
-	// サービス
+	// サービス（共有されたannictClientを使用）
 	authService := services.NewAuthService(db, cfg.JWTSecret)
-	annictService := services.NewAnnictClientWithDB(cfg.AnnictAPIKey, db, logger) // Annictサービスを初期化
-	animeService := services.NewAnimeService(db, logger, annictService)
+	animeService := services.NewAnimeService(db, logger, annictClient)
 	uploadService := services.NewUploadService(cfg.UploadDir, cfg.UploadPublicPath, cfg.MaxUploadSize, logger)
 
-	// 強化されたエラーハンドリングを持つハンドラー
+	// 強化されたエラーハンドリングを持つハンドラー（共有されたannictClientを使用）
 	authHandler := handlers.NewAuthHandlerWithUpload(authService, uploadService, logger, errorMonitor)
 	animeHandler := handlers.NewAnimeHandler(animeService, logger, errorMonitor)
-	annictHandler := handlers.NewAnnictHandler(annictService, logger, errorMonitor)
-	adminHandler := handlers.NewAdminHandler(animeService, logger, errorMonitor)
+	annictHandler := handlers.NewAnnictHandler(annictClient, logger, errorMonitor)
+	adminHandler := handlers.NewAdminHandler(animeService, logger, errorMonitor, syncScheduler)
 	monitoringHandler := handlers.NewMonitoringHandler(logger, errorMonitor)
 
 	// ヘルスチェックと監視エンドポイント
@@ -105,6 +101,7 @@ func Setup(db *database.DB, cfg *config.Config) *gin.Engine {
 			admin.POST("/sync/episode-durations", adminHandler.SyncEpisodeDurations)
 			admin.POST("/create-episodes", adminHandler.CreateEpisodesForAllAnimes)
 			admin.POST("/enrich/episode-titles", adminHandler.EnrichEpisodeTitles)
+			admin.GET("/sync/status", adminHandler.GetSyncStatus)
 
 			// エラー監視
 			admin.GET("/errors/metrics", monitoringHandler.GetErrorMetrics)

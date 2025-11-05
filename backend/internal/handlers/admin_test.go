@@ -161,7 +161,7 @@ func TestAdminHandler_SyncEpisodeDurations(t *testing.T) {
 		mockService.On("SyncEpisodeDurations", (*int)(nil)).
 			Return(100, 90, 5, 5, []string{}, nil)
 
-		handler := NewAdminHandler(mockService, logger, errorMonitor)
+		handler := NewAdminHandler(mockService, logger, errorMonitor, nil)
 
 		// Create request
 		reqBody := SyncEpisodeDurationsRequest{}
@@ -197,7 +197,7 @@ func TestAdminHandler_SyncEpisodeDurations(t *testing.T) {
 		mockService.On("SyncEpisodeDurations", &animeID).
 			Return(1, 1, 0, 0, []string{}, nil)
 
-		handler := NewAdminHandler(mockService, logger, errorMonitor)
+		handler := NewAdminHandler(mockService, logger, errorMonitor, nil)
 
 		// Create request
 		reqBody := SyncEpisodeDurationsRequest{AnimeID: &animeID}
@@ -233,7 +233,7 @@ func TestAdminHandler_SyncEpisodeDurations(t *testing.T) {
 		mockService.On("SyncEpisodeDurations", &animeID).
 			Return(1, 0, 0, 1, []string{}, nil)
 
-		handler := NewAdminHandler(mockService, logger, errorMonitor)
+		handler := NewAdminHandler(mockService, logger, errorMonitor, nil)
 
 		// Create request
 		reqBody := SyncEpisodeDurationsRequest{AnimeID: &animeID}
@@ -264,7 +264,7 @@ func TestAdminHandler_SyncEpisodeDurations(t *testing.T) {
 
 	t.Run("Error - Invalid Request Body", func(t *testing.T) {
 		mockService := new(MockAnimeService)
-		handler := NewAdminHandler(mockService, logger, errorMonitor)
+		handler := NewAdminHandler(mockService, logger, errorMonitor, nil)
 
 		// Invalid JSON
 		req := httptest.NewRequest(http.MethodPost, "/api/admin/sync/episode-durations", bytes.NewBufferString("invalid json"))
@@ -285,7 +285,7 @@ func TestAdminHandler_SyncEpisodeDurations(t *testing.T) {
 		mockService.On("SyncEpisodeDurations", &animeID).
 			Return(0, 0, 0, 0, nil, services.ErrAnimeNotFound)
 
-		handler := NewAdminHandler(mockService, logger, errorMonitor)
+		handler := NewAdminHandler(mockService, logger, errorMonitor, nil)
 
 		reqBody := SyncEpisodeDurationsRequest{AnimeID: &animeID}
 		body, _ := json.Marshal(reqBody)
@@ -315,7 +315,7 @@ func TestAdminHandler_CreateEpisodesForAllAnimes(t *testing.T) {
 		mockService.On("CreateEpisodesForAllAnimes").
 			Return(95, 0, nil)
 
-		handler := NewAdminHandler(mockService, logger, errorMonitor)
+		handler := NewAdminHandler(mockService, logger, errorMonitor, nil)
 
 		// Create request
 		req := httptest.NewRequest(http.MethodPost, "/api/admin/create-episodes", nil)
@@ -347,7 +347,7 @@ func TestAdminHandler_CreateEpisodesForAllAnimes(t *testing.T) {
 		mockService.On("CreateEpisodesForAllAnimes").
 			Return(90, 5, nil)
 
-		handler := NewAdminHandler(mockService, logger, errorMonitor)
+		handler := NewAdminHandler(mockService, logger, errorMonitor, nil)
 
 		// Create request
 		req := httptest.NewRequest(http.MethodPost, "/api/admin/create-episodes", nil)
@@ -378,7 +378,7 @@ func TestAdminHandler_CreateEpisodesForAllAnimes(t *testing.T) {
 		mockService.On("CreateEpisodesForAllAnimes").
 			Return(0, 0, fmt.Errorf("database connection failed"))
 
-		handler := NewAdminHandler(mockService, logger, errorMonitor)
+		handler := NewAdminHandler(mockService, logger, errorMonitor, nil)
 
 		// Create request
 		req := httptest.NewRequest(http.MethodPost, "/api/admin/create-episodes", nil)
@@ -409,7 +409,7 @@ func TestAdminHandler_EnrichEpisodeTitles(t *testing.T) {
 		mockService.On("EnrichEpisodesWithTitles", (*int)(nil)).
 			Return(10, 0, []string{}, nil)
 
-		handler := NewAdminHandler(mockService, logger, errorMonitor)
+		handler := NewAdminHandler(mockService, logger, errorMonitor, nil)
 
 		// Create request
 		reqBody := EnrichEpisodeTitlesRequest{}
@@ -445,7 +445,7 @@ func TestAdminHandler_EnrichEpisodeTitles(t *testing.T) {
 		mockService.On("EnrichEpisodesWithTitles", &animeID).
 			Return(1, 0, []string{}, nil)
 
-		handler := NewAdminHandler(mockService, logger, errorMonitor)
+		handler := NewAdminHandler(mockService, logger, errorMonitor, nil)
 
 		// Create request
 		reqBody := EnrichEpisodeTitlesRequest{AnimeID: &animeID}
@@ -479,7 +479,7 @@ func TestAdminHandler_EnrichEpisodeTitles(t *testing.T) {
 		mockService.On("EnrichEpisodesWithTitles", (*int)(nil)).
 			Return(9, 1, errors, nil)
 
-		handler := NewAdminHandler(mockService, logger, errorMonitor)
+		handler := NewAdminHandler(mockService, logger, errorMonitor, nil)
 
 		// Create request
 		reqBody := EnrichEpisodeTitlesRequest{}
@@ -510,7 +510,7 @@ func TestAdminHandler_EnrichEpisodeTitles(t *testing.T) {
 
 	t.Run("Error - Invalid Request Body", func(t *testing.T) {
 		mockService := new(MockAnimeService)
-		handler := NewAdminHandler(mockService, logger, errorMonitor)
+		handler := NewAdminHandler(mockService, logger, errorMonitor, nil)
 
 		// Invalid JSON
 		req := httptest.NewRequest(http.MethodPost, "/api/admin/enrich/episode-titles", bytes.NewBufferString("invalid json"))
@@ -531,7 +531,7 @@ func TestAdminHandler_NewAdminHandler(t *testing.T) {
 	errorMonitor := common.NewErrorMonitor(logger, 10, 60)
 	mockService := new(MockAnimeService)
 
-	handler := NewAdminHandler(mockService, logger, errorMonitor)
+	handler := NewAdminHandler(mockService, logger, errorMonitor, nil)
 
 	require.NotNil(t, handler)
 	assert.NotNil(t, handler.BaseHandler)

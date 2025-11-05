@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"myanimelogs/internal/common"
+	"myanimelogs/internal/models"
 	"myanimelogs/internal/services"
 )
 
@@ -18,17 +19,24 @@ type AdminAnimeService interface {
 	EnrichEpisodesWithTitles(animeID *int) (int, int, []string, error)
 }
 
+// SyncScheduler defines the interface for sync scheduler
+type SyncScheduler interface {
+	GetStatus() models.SyncStatus
+}
+
 // AdminHandler handles admin-related requests
 type AdminHandler struct {
 	*BaseHandler
-	animeService AdminAnimeService
+	animeService  AdminAnimeService
+	syncScheduler SyncScheduler
 }
 
 // NewAdminHandler creates a new admin handler
-func NewAdminHandler(animeService AdminAnimeService, logger *common.Logger, errorMonitor *common.ErrorMonitor) *AdminHandler {
+func NewAdminHandler(animeService AdminAnimeService, logger *common.Logger, errorMonitor *common.ErrorMonitor, syncScheduler SyncScheduler) *AdminHandler {
 	return &AdminHandler{
-		BaseHandler:  NewBaseHandlerWithLogger(logger, errorMonitor),
-		animeService: animeService,
+		BaseHandler:   NewBaseHandlerWithLogger(logger, errorMonitor),
+		animeService:  animeService,
+		syncScheduler: syncScheduler,
 	}
 }
 
@@ -168,4 +176,16 @@ func (h *AdminHandler) EnrichEpisodeTitles(c *gin.Context) {
 		"failure_count", failureCount)
 
 	c.JSON(http.StatusOK, response)
+}
+
+// GetSyncStatus returns the current sync status
+// GET /api/admin/sync/status
+func (h *AdminHandler) GetSyncStatus(c *gin.Context) {
+	if h.syncScheduler == nil {
+		h.response.NotFoundError(c, "Sync scheduler is not available")
+		return
+	}
+
+	status := h.syncScheduler.GetStatus()
+	c.JSON(http.StatusOK, status)
 }

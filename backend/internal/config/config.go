@@ -31,6 +31,10 @@ type Config struct {
 	UploadDir        string
 	UploadPublicPath string // Public URL path for uploaded files (e.g., "/uploads")
 	MaxUploadSize    int64  // in bytes
+	// Scheduler configuration
+	AnimeSyncEnabled   bool
+	SchedulerRunHour   int
+	SchedulerRunMinute int
 }
 
 // New creates a new Config struct from environment variables
@@ -75,6 +79,11 @@ func New() *Config {
 	uploadPublicPath := getEnv("UPLOAD_PUBLIC_PATH", "/uploads")
 	maxUploadSize := int64(getEnvAsInt("MAX_UPLOAD_SIZE", 5*1024*1024)) // 5MB default
 
+	// Scheduler configuration
+	animeSyncEnabled := getEnv("ANIME_SYNC_ENABLED", "false") == "true"
+	schedulerRunHour := getEnvAsInt("SCHEDULER_RUN_HOUR", 3)     // Default: 3 AM
+	schedulerRunMinute := getEnvAsInt("SCHEDULER_RUN_MINUTE", 0) // Default: 0 minutes
+
 	return &Config{
 		DatabaseURL:         databaseURL,
 		Port:                port,
@@ -95,6 +104,9 @@ func New() *Config {
 		UploadDir:           uploadDir,
 		UploadPublicPath:    uploadPublicPath,
 		MaxUploadSize:       maxUploadSize,
+		AnimeSyncEnabled:    animeSyncEnabled,
+		SchedulerRunHour:    schedulerRunHour,
+		SchedulerRunMinute:  schedulerRunMinute,
 	}
 }
 
