@@ -3,22 +3,9 @@ package scheduler
 import (
 	"sync"
 	"time"
-)
 
-// SyncStatus represents the current status of anime synchronization
-type SyncStatus struct {
-	LastSyncTime     time.Time `json:"last_sync_time"`
-	NextSyncTime     time.Time `json:"next_sync_time"`
-	LastSyncDuration string    `json:"last_sync_duration"`
-	LastSyncSuccess  bool      `json:"last_sync_success"`
-	LastSyncCount    int       `json:"last_sync_count"`
-	LastSyncErrors   []string  `json:"last_sync_errors,omitempty"`
-	TotalSyncsToday  int       `json:"total_syncs_today"`
-	IsRunning        bool      `json:"is_running"`
-	Enabled          bool      `json:"enabled"`
-	CurrentSeason    string    `json:"current_season"`
-	PreviousSeason   string    `json:"previous_season"`
-}
+	"myanimelogs/internal/models"
+)
 
 // SyncStatusTracker tracks the status of anime synchronization
 type SyncStatusTracker struct {
@@ -51,9 +38,12 @@ func (t *SyncStatusTracker) StartSync(nextSyncTime time.Time) {
 	t.isRunning = true
 	t.nextSyncTime = nextSyncTime
 
-	// Reset daily counter if it's a new day
+	// Reset daily counter if it's a new day (using Truncate for robust date comparison)
 	now := time.Now()
-	if now.Day() != t.lastResetDate.Day() || now.Month() != t.lastResetDate.Month() {
+	nowDate := now.Truncate(24 * time.Hour)
+	lastResetDate := t.lastResetDate.Truncate(24 * time.Hour)
+
+	if !nowDate.Equal(lastResetDate) {
 		t.totalSyncsToday = 0
 		t.lastResetDate = now
 	}
@@ -74,11 +64,11 @@ func (t *SyncStatusTracker) EndSync(success bool, count int, duration time.Durat
 }
 
 // GetStatus returns the current sync status
-func (t *SyncStatusTracker) GetStatus() SyncStatus {
+func (t *SyncStatusTracker) GetStatus(now time.Time) models.SyncStatus {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 
-	return SyncStatus{
+	return models.SyncStatus{
 		LastSyncTime:     t.lastSyncTime,
 		NextSyncTime:     t.nextSyncTime,
 		LastSyncDuration: t.lastSyncDuration.String(),
@@ -88,8 +78,8 @@ func (t *SyncStatusTracker) GetStatus() SyncStatus {
 		TotalSyncsToday:  t.totalSyncsToday,
 		IsRunning:        t.isRunning,
 		Enabled:          t.enabled,
-		CurrentSeason:    getCurrentSeason(),
-		PreviousSeason:   getPreviousSeason(),
+		CurrentSeason:    getSeasonForTime(now),
+		PreviousSeason:   getPreviousSeasonForTime(now),
 	}
 }
 

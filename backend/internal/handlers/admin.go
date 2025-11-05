@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"myanimelogs/internal/common"
+	"myanimelogs/internal/models"
 	"myanimelogs/internal/services"
 )
 
@@ -20,7 +21,7 @@ type AdminAnimeService interface {
 
 // SyncScheduler defines the interface for sync scheduler
 type SyncScheduler interface {
-	GetStatusInterface() interface{}
+	GetStatus() models.SyncStatus
 }
 
 // AdminHandler handles admin-related requests
@@ -185,6 +186,6 @@ func (h *AdminHandler) GetSyncStatus(c *gin.Context) {
 		return
 	}
 
-	status := h.syncScheduler.GetStatusInterface()
+	status := h.syncScheduler.GetStatus()
 	c.JSON(http.StatusOK, status)
 }

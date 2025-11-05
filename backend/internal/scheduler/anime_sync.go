@@ -2,9 +2,11 @@ package scheduler
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"myanimelogs/internal/common"
+	"myanimelogs/internal/models"
 	"myanimelogs/internal/services"
 )
 
@@ -12,6 +14,7 @@ import (
 type AnimeSyncScheduler struct {
 	annictClient  *services.AnnictClient
 	logger        *common.Logger
+	mu            sync.Mutex // Protects ticker field
 	ticker        *time.Ticker
 	stopChan      chan struct{}
 	enabled       bool
@@ -30,13 +33,13 @@ func NewAnimeSyncScheduler(annictClient *services.AnnictClient, logger *common.L
 }
 
 // GetStatus returns the current sync status
-func (s *AnimeSyncScheduler) GetStatus() SyncStatus {
-	return s.statusTracker.GetStatus()
+func (s *AnimeSyncScheduler) GetStatus() models.SyncStatus {
+	return s.statusTracker.GetStatus(time.Now())
 }
 
 // GetStatusInterface returns the status as interface{} for handler compatibility
 func (s *AnimeSyncScheduler) GetStatusInterface() interface{} {
-	return s.statusTracker.GetStatus()
+	return s.statusTracker.GetStatus(time.Now())
 }
 
 // Start starts the scheduler
@@ -69,12 +72,17 @@ func (s *AnimeSyncScheduler) Start() {
 		// First execution
 		s.syncCurrentSeasonAnimes()
 
-		// Set up ticker for daily execution
-		s.ticker = time.NewTicker(24 * time.Hour)
+		// Set up ticker for daily execution (use local variable)
+		ticker := time.NewTicker(24 * time.Hour)
+
+		// Store ticker with mutex protection
+		s.mu.Lock()
+		s.ticker = ticker
+		s.mu.Unlock()
 
 		for {
 			select {
-			case <-s.ticker.C:
+			case <-ticker.C:
 				s.syncCurrentSeasonAnimes()
 			case <-s.stopChan:
 				s.logger.Info("Anime sync scheduler stopped")
@@ -86,9 +94,13 @@ func (s *AnimeSyncScheduler) Start() {
 
 // Stop stops the scheduler
 func (s *AnimeSyncScheduler) Stop() {
+	// Access ticker with mutex protection
+	s.mu.Lock()
 	if s.ticker != nil {
 		s.ticker.Stop()
 	}
+	s.mu.Unlock()
+
 	close(s.stopChan)
 	if s.logger != nil {
 		s.logger.Info("Stopping anime sync scheduler")
@@ -104,12 +116,15 @@ func (s *AnimeSyncScheduler) syncCurrentSeasonAnimes() {
 	nextSyncTime := time.Now().Add(24 * time.Hour)
 	s.statusTracker.StartSync(nextSyncTime)
 
+	// Get current time once for consistent season calculation
+	now := time.Now()
+	currentSeason := getSeasonForTime(now)
+	previousSeason := getPreviousSeasonForTime(now)
+
 	// Sync current season
-	currentSeason := getCurrentSeason()
 	currentCount, currentErr := s.syncSeason(currentSeason)
 
 	// Sync previous season (for ongoing shows)
-	previousSeason := getPreviousSeason()
 	previousCount, previousErr := s.syncSeason(previousSeason)
 
 	duration := time.Since(startTime)
@@ -168,11 +183,11 @@ func (s *AnimeSyncScheduler) syncSeason(season string) (int, error) {
 	return len(animes), nil
 }
 
-// getCurrentSeason returns the current season string (e.g., "2025-autumn")
-func getCurrentSeason() string {
-	now := time.Now()
-	year := now.Year()
-	month := now.Month()
+// getSeasonForTime returns the season string for a given time (e.g., "2025-autumn")
+// This is a pure function that takes time as input for easier testing
+func getSeasonForTime(t time.Time) string {
+	year := t.Year()
+	month := t.Month()
 
 	var season string
 	switch {
@@ -189,11 +204,11 @@ func getCurrentSeason() string {
 	return fmt.Sprintf("%d-%s", year, season)
 }
 
-// getPreviousSeason returns the previous season string
-func getPreviousSeason() string {
-	now := time.Now()
-	year := now.Year()
-	month := now.Month()
+// getPreviousSeasonForTime returns the previous season string for a given time
+// This is a pure function that takes time as input for easier testing
+func getPreviousSeasonForTime(t time.Time) string {
+	year := t.Year()
+	month := t.Month()
 
 	var season string
 	switch {
@@ -209,4 +224,14 @@ func getPreviousSeason() string {
 	}
 
 	return fmt.Sprintf("%d-%s", year, season)
+}
+
+// Deprecated: Use getSeasonForTime(time.Now()) instead
+func getCurrentSeason() string {
+	return getSeasonForTime(time.Now())
+}
+
+// Deprecated: Use getPreviousSeasonForTime(time.Now()) instead
+func getPreviousSeason() string {
+	return getPreviousSeasonForTime(time.Now())
 }
