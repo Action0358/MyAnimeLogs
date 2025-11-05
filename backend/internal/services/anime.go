@@ -1542,8 +1542,8 @@ func (s *AnimeService) EnrichEpisodesWithTitles(animeID *int) (int, int, []strin
 			successCount++
 		}
 
-		// Apply rate limiting through AnnictClient
-		s.annictClient.applyRateLimit()
+		// Note: Rate limiting is now handled internally by AnnictClient
+		// No need to call applyRateLimit() here
 	}
 
 	return successCount, failureCount, errors, nil

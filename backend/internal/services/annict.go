@@ -72,6 +72,9 @@ func (c *AnnictClient) makeRequest(params url.Values) (*models.AnnictWorkRespons
 		return nil, fmt.Errorf("annict API token is not set")
 	}
 
+	// Apply rate limiting before making the request
+	c.applyRateLimit()
+
 	fullURL, err := url.Parse(annictAPIEndpoint)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse base url: %w", err)
@@ -312,6 +315,9 @@ func (c *AnnictClient) FetchEpisodesByWorkID(workID int) ([]AnnictEpisode, error
 	page := 1
 
 	for {
+		// Apply rate limiting before each API request
+		c.applyRateLimit()
+
 		params := url.Values{}
 		params.Add("filter_work_id", fmt.Sprintf("%d", workID))
 		params.Add("fields", "id,number,title,sort_number")
@@ -394,9 +400,25 @@ func (c *AnnictClient) UpdateEpisodeTitlesFromAnnict(animeID int, annictID int) 
 	for rows.Next() {
 		var episodeNumber int
 		if err := rows.Scan(&episodeNumber); err != nil {
-			continue
+			// Database scan errors indicate serious problems and should not be ignored
+			if c.logger != nil {
+				c.logger.Error("Failed to scan episode number",
+					"anime_id", animeID,
+					"error", err)
+			}
+			return fmt.Errorf("failed to scan episode number: %w", err)
 		}
 		dbEpisodeNumbers = append(dbEpisodeNumbers, episodeNumber)
+	}
+
+	// Check for errors that occurred during iteration
+	if err := rows.Err(); err != nil {
+		if c.logger != nil {
+			c.logger.Error("Error during rows iteration",
+				"anime_id", animeID,
+				"error", err)
+		}
+		return fmt.Errorf("error during rows iteration: %w", err)
 	}
 
 	if len(dbEpisodeNumbers) == 0 {
