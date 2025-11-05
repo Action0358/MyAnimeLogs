@@ -23,6 +23,11 @@ type AnimeSyncScheduler struct {
 
 // NewAnimeSyncScheduler creates a new anime sync scheduler
 func NewAnimeSyncScheduler(annictClient *services.AnnictClient, logger *common.Logger, enabled bool) *AnimeSyncScheduler {
+	// Ensure logger is never nil - use a no-op logger if not provided
+	if logger == nil {
+		logger = common.NewLogger(common.LogLevelError, "text")
+	}
+
 	return &AnimeSyncScheduler{
 		annictClient:  annictClient,
 		logger:        logger,
@@ -102,9 +107,7 @@ func (s *AnimeSyncScheduler) Stop() {
 	s.mu.Unlock()
 
 	close(s.stopChan)
-	if s.logger != nil {
-		s.logger.Info("Stopping anime sync scheduler")
-	}
+	s.logger.Info("Stopping anime sync scheduler")
 }
 
 // syncCurrentSeasonAnimes syncs animes for the current and previous season

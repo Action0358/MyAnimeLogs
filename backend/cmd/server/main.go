@@ -103,19 +103,21 @@ func main() {
 	}
 	log.Printf("Database migrations completed")
 
-	// Initialize logger for scheduler
+	// Initialize logger (shared across all components)
 	logger := common.NewLogger(common.LogLevel(cfg.LogLevel), cfg.LogFormat)
+	log.Printf("Logger initialized with level: %s", cfg.LogLevel)
 
-	// Initialize Annict client for scheduler
+	// Initialize Annict client (shared across all components)
 	annictClient := services.NewAnnictClientWithDB(cfg.AnnictAPIKey, db, logger)
+	log.Printf("Annict client initialized")
 
 	// Initialize and start anime sync scheduler
 	animeSyncScheduler := scheduler.NewAnimeSyncScheduler(annictClient, logger, cfg.AnimeSyncEnabled)
 	animeSyncScheduler.Start()
 
-	// Setup router
+	// Setup router (pass shared dependencies)
 	log.Printf("Setting up routes...")
-	r := router.Setup(db, cfg, animeSyncScheduler)
+	r := router.Setup(db, cfg, animeSyncScheduler, logger, annictClient)
 	log.Printf("Routes configured")
 
 	// Start server

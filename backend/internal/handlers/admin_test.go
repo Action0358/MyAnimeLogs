@@ -526,6 +526,78 @@ func TestAdminHandler_EnrichEpisodeTitles(t *testing.T) {
 	})
 }
 
+func TestAdminHandler_GetSyncStatus(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	logger := common.NewLogger(common.LogLevelDebug, "text")
+	errorMonitor := common.NewErrorMonitor(logger, 10, 60)
+
+	t.Run("Success - Get Sync Status", func(t *testing.T) {
+		// Setup mock scheduler
+		mockScheduler := new(MockSyncScheduler)
+		mockStatus := models.SyncStatus{
+			LastSyncSuccess: true,
+			LastSyncCount:   95,
+			TotalSyncsToday: 1,
+			IsRunning:       false,
+			Enabled:         true,
+			CurrentSeason:   "2025-autumn",
+			PreviousSeason:  "2025-summer",
+		}
+		mockScheduler.On("GetStatus").Return(mockStatus)
+
+		mockService := new(MockAnimeService)
+		handler := NewAdminHandler(mockService, logger, errorMonitor, mockScheduler)
+
+		// Create request
+		req := httptest.NewRequest(http.MethodGet, "/api/admin/sync/status", nil)
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = req
+
+		// Execute handler
+		handler.GetSyncStatus(c)
+
+		// Assert
+		assert.Equal(t, http.StatusOK, w.Code)
+
+		var response models.SyncStatus
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		assert.NoError(t, err)
+		assert.True(t, response.LastSyncSuccess)
+		assert.Equal(t, 95, response.LastSyncCount)
+		assert.Equal(t, "2025-autumn", response.CurrentSeason)
+
+		mockScheduler.AssertExpectations(t)
+	})
+
+	t.Run("Error - Scheduler Not Available", func(t *testing.T) {
+		mockService := new(MockAnimeService)
+		handler := NewAdminHandler(mockService, logger, errorMonitor, nil)
+
+		// Create request
+		req := httptest.NewRequest(http.MethodGet, "/api/admin/sync/status", nil)
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = req
+
+		// Execute handler
+		handler.GetSyncStatus(c)
+
+		// Assert
+		assert.Equal(t, http.StatusServiceUnavailable, w.Code)
+	})
+}
+
+// MockSyncScheduler is a mock implementation of SyncScheduler
+type MockSyncScheduler struct {
+	mock.Mock
+}
+
+func (m *MockSyncScheduler) GetStatus() models.SyncStatus {
+	args := m.Called()
+	return args.Get(0).(models.SyncStatus)
+}
+
 func TestAdminHandler_NewAdminHandler(t *testing.T) {
 	logger := common.NewLogger(common.LogLevelDebug, "text")
 	errorMonitor := common.NewErrorMonitor(logger, 10, 60)
