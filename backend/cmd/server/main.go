@@ -3,13 +3,19 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 
+	"myanimelogs/internal/common"
 	"myanimelogs/internal/config"
 	"myanimelogs/internal/database"
 	"myanimelogs/internal/migration"
 	"myanimelogs/internal/router"
+	"myanimelogs/internal/scheduler"
+	"myanimelogs/internal/services"
 
 	"github.com/joho/godotenv"
 )
@@ -97,9 +103,19 @@ func main() {
 	}
 	log.Printf("Database migrations completed")
 
+	// Initialize logger for scheduler
+	logger := common.NewLogger(common.LogLevel(cfg.LogLevel), cfg.LogFormat)
+
+	// Initialize Annict client for scheduler
+	annictClient := services.NewAnnictClientWithDB(cfg.AnnictAPIKey, db, logger)
+
+	// Initialize and start anime sync scheduler
+	animeSyncScheduler := scheduler.NewAnimeSyncScheduler(annictClient, logger, cfg.AnimeSyncEnabled)
+	animeSyncScheduler.Start()
+
 	// Setup router
 	log.Printf("Setting up routes...")
-	r := router.Setup(db, cfg)
+	r := router.Setup(db, cfg, animeSyncScheduler)
 	log.Printf("Routes configured")
 
 	// Start server
@@ -111,7 +127,23 @@ func main() {
 	log.Printf("Server starting on port %s", port)
 	log.Printf("Health check available at /health on port %s", port)
 
-	if err := r.Run("0.0.0.0:" + port); err != nil {
-		log.Fatalf("Failed to start server: %v", err)
-	}
+	// Setup graceful shutdown
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	// Start server in a goroutine
+	go func() {
+		if err := r.Run("0.0.0.0:" + port); err != nil {
+			log.Fatalf("Failed to start server: %v", err)
+		}
+	}()
+
+	// Wait for interrupt signal
+	<-ctx.Done()
+	log.Printf("Shutting down gracefully...")
+
+	// Stop scheduler
+	animeSyncScheduler.Stop()
+
+	log.Printf("Server stopped")
 }
