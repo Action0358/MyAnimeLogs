@@ -28,12 +28,6 @@ type AnimeService struct {
 	annictClient  *AnnictClient
 }
 
-// CreateEpisodesForAnime creates episode records for a specific anime
-// This is the centralized method for episode creation to avoid code duplication
-func (s *AnimeService) CreateEpisodesForAnime(animeID int, count int) error {
-	return s.createEpisodesForAnime(animeID, count)
-}
-
 func NewAnimeService(db *database.DB, logger *common.Logger, annictClient *AnnictClient) *AnimeService {
 	return &AnimeService{
 		db:            db,
@@ -1450,7 +1444,7 @@ func (s *AnimeService) CreateEpisodesForAllAnimes() (int, int, error) {
 	return successCount, failureCount, nil
 }
 
-// createEpisodesForAnime creates episode records for a specific anime
+// createEpisodesForAnime creates episode records for a specific anime using bulk insert
 func (s *AnimeService) createEpisodesForAnime(animeID int, count int) error {
 	// Check existing episodes count
 	var existingCount int
@@ -1467,18 +1461,28 @@ func (s *AnimeService) createEpisodesForAnime(animeID int, count int) error {
 		return nil
 	}
 
-	// Create missing episodes
-	for i := 1; i <= count; i++ {
-		_, err := s.db.Exec(`
-			INSERT INTO episodes (anime_id, title, episode_number, created_at, updated_at)
-			VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-			ON CONFLICT (anime_id, episode_number) DO NOTHING
-		`, animeID, fmt.Sprintf("第%d話", i), i)
+	// Use generate_series for bulk insert - much more efficient than N individual inserts
+	// This creates all episodes in a single database call
+	_, err = s.db.Exec(`
+		INSERT INTO episodes (anime_id, title, episode_number, created_at, updated_at)
+		SELECT 
+			$1,
+			'第' || n || '話',
+			n,
+			CURRENT_TIMESTAMP,
+			CURRENT_TIMESTAMP
+		FROM generate_series(1, $2) AS n
+		ON CONFLICT (anime_id, episode_number) DO NOTHING
+	`, animeID, count)
 
-		if err != nil {
-			return fmt.Errorf("failed to create episode %d: %w", i, err)
-		}
+	if err != nil {
+		return fmt.Errorf("failed to create episodes: %w", err)
 	}
+
+	s.logger.Info("Created episodes for anime",
+		"anime_id", animeID,
+		"episode_count", count,
+		"existing_count", existingCount)
 
 	return nil
 }

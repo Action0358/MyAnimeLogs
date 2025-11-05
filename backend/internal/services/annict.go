@@ -379,28 +379,51 @@ func (c *AnnictClient) UpdateEpisodeTitlesFromAnnict(animeID int, annictID int) 
 		return fmt.Errorf("no episodes found for work_id %d", annictID)
 	}
 
-	// データベースのエピソード数を取得
-	var dbEpisodeCount int
-	err = c.DB.QueryRow(`
-		SELECT COUNT(*) FROM episodes WHERE anime_id = $1
-	`, animeID).Scan(&dbEpisodeCount)
+	// データベースの既存エピソード番号を取得
+	rows, err := c.DB.Query(`
+		SELECT episode_number FROM episodes 
+		WHERE anime_id = $1 
+		ORDER BY episode_number
+	`, animeID)
 	if err != nil {
-		return fmt.Errorf("failed to count episodes: %w", err)
+		return fmt.Errorf("failed to query episodes: %w", err)
+	}
+	defer rows.Close()
+
+	var dbEpisodeNumbers []int
+	for rows.Next() {
+		var episodeNumber int
+		if err := rows.Scan(&episodeNumber); err != nil {
+			continue
+		}
+		dbEpisodeNumbers = append(dbEpisodeNumbers, episodeNumber)
 	}
 
-	if dbEpisodeCount == 0 {
+	if len(dbEpisodeNumbers) == 0 {
 		return fmt.Errorf("no episodes found in database for anime_id %d", animeID)
 	}
 
-	// Annict APIのエピソードが多い場合は、最初のN件のみ使用
-	if len(annictEpisodes) > dbEpisodeCount {
-		annictEpisodes = annictEpisodes[:dbEpisodeCount]
-	}
-
-	// データベースのエピソードを順序でマッチング
+	// データベースのエピソード番号とAnnict APIのエピソードを順序でマッチング
+	// Annict APIのエピソードは既にsort_numberでソートされているため、
+	// 通算エピソード番号（38, 39, 40...）でも正しく対応できる
 	successCount := 0
-	for i, annictEp := range annictEpisodes {
-		dbEpisodeNumber := i + 1 // データベースのエピソード番号は1から始まる
+	for i, dbEpisodeNumber := range dbEpisodeNumbers {
+		if i >= len(annictEpisodes) {
+			break // Annict APIのエピソードが足りない場合は終了
+		}
+
+		annictEp := annictEpisodes[i]
+
+		// Validate that Number is a positive value
+		if annictEp.Number <= 0 {
+			if c.logger != nil {
+				c.logger.Warn("Invalid episode number from Annict",
+					"anime_id", animeID,
+					"annict_number", annictEp.Number,
+					"title", annictEp.Title)
+			}
+			continue
+		}
 
 		// エピソードを更新
 		result, err := c.DB.Exec(`
@@ -415,7 +438,8 @@ func (c *AnnictClient) UpdateEpisodeTitlesFromAnnict(animeID int, annictID int) 
 			if c.logger != nil {
 				c.logger.Warn("Failed to update episode",
 					"anime_id", animeID,
-					"episode_number", dbEpisodeNumber,
+					"db_episode_number", dbEpisodeNumber,
+					"annict_number", annictEp.Number,
 					"error", err)
 			}
 			continue
@@ -424,6 +448,13 @@ func (c *AnnictClient) UpdateEpisodeTitlesFromAnnict(animeID int, annictID int) 
 		rowsAffected, _ := result.RowsAffected()
 		if rowsAffected > 0 {
 			successCount++
+			if c.logger != nil {
+				c.logger.Debug("Updated episode title",
+					"anime_id", animeID,
+					"db_episode_number", dbEpisodeNumber,
+					"annict_number", annictEp.Number,
+					"title", annictEp.Title)
+			}
 		}
 	}
 
