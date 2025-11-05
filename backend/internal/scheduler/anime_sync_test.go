@@ -73,20 +73,22 @@ func TestGetPreviousSeasonForTime(t *testing.T) {
 func TestNewAnimeSyncScheduler(t *testing.T) {
 	logger := newTestLogger()
 	client := newTestAnnictClient()
-	scheduler := NewAnimeSyncScheduler(client, logger, true)
+	scheduler := NewAnimeSyncScheduler(client, logger, true, 3, 0)
 
 	assert.NotNil(t, scheduler)
 	assert.True(t, scheduler.enabled)
 	assert.NotNil(t, scheduler.stopChan)
 	assert.NotNil(t, scheduler.logger)
-	assert.NotNil(t, scheduler.statusTracker)
 	assert.NotNil(t, scheduler.annictClient)
+	assert.NotNil(t, scheduler.statusTracker)
+	assert.Equal(t, 3, scheduler.runHour)
+	assert.Equal(t, 0, scheduler.runMinute)
 }
 
 func TestSchedulerDisabled(t *testing.T) {
 	logger := newTestLogger()
 	client := newTestAnnictClient()
-	scheduler := NewAnimeSyncScheduler(client, logger, false)
+	scheduler := NewAnimeSyncScheduler(client, logger, false, 3, 0)
 
 	assert.NotNil(t, scheduler)
 	assert.False(t, scheduler.enabled)
@@ -102,7 +104,7 @@ func TestSchedulerDisabled(t *testing.T) {
 func TestGetStatus(t *testing.T) {
 	logger := newTestLogger()
 	client := newTestAnnictClient()
-	scheduler := NewAnimeSyncScheduler(client, logger, true)
+	scheduler := NewAnimeSyncScheduler(client, logger, true, 3, 0)
 
 	now := time.Date(2025, 11, 5, 12, 0, 0, 0, time.UTC)
 	status := scheduler.GetStatus()
@@ -203,4 +205,25 @@ func TestSyncStatusTracker_StatusFields(t *testing.T) {
 	assert.Equal(t, 42, count, "Should record count")
 	assert.Equal(t, 5*time.Second, duration, "Should record duration")
 	assert.Equal(t, errors, syncErrors, "Should record errors")
+}
+
+func TestSchedulerWithNilLogger(t *testing.T) {
+	client := newTestAnnictClient()
+	scheduler := NewAnimeSyncScheduler(client, nil, true, 3, 0)
+
+	// Should not panic - logger is initialized in constructor
+	assert.NotNil(t, scheduler.logger)
+
+	// Start and Stop should not panic
+	scheduler.Start()
+	scheduler.Stop()
+}
+
+func TestSchedulerCustomRunTime(t *testing.T) {
+	logger := newTestLogger()
+	client := newTestAnnictClient()
+	scheduler := NewAnimeSyncScheduler(client, logger, true, 14, 30)
+
+	assert.Equal(t, 14, scheduler.runHour)
+	assert.Equal(t, 30, scheduler.runMinute)
 }

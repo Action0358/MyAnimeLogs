@@ -18,12 +18,14 @@ type AnimeSyncScheduler struct {
 	ticker        *time.Ticker
 	stopChan      chan struct{}
 	enabled       bool
+	runHour       int
+	runMinute     int
 	statusTracker *SyncStatusTracker
 }
 
 // NewAnimeSyncScheduler creates a new anime sync scheduler
-func NewAnimeSyncScheduler(annictClient *services.AnnictClient, logger *common.Logger, enabled bool) *AnimeSyncScheduler {
-	// Ensure logger is never nil - use a no-op logger if not provided
+func NewAnimeSyncScheduler(annictClient *services.AnnictClient, logger *common.Logger, enabled bool, runHour, runMinute int) *AnimeSyncScheduler {
+	// Ensure logger is never nil - use a default logger if not provided
 	if logger == nil {
 		logger = common.NewLogger(common.LogLevelError, "text")
 	}
@@ -33,6 +35,8 @@ func NewAnimeSyncScheduler(annictClient *services.AnnictClient, logger *common.L
 		logger:        logger,
 		stopChan:      make(chan struct{}),
 		enabled:       enabled,
+		runHour:       runHour,
+		runMinute:     runMinute,
 		statusTracker: NewSyncStatusTracker(enabled),
 	}
 }
@@ -50,32 +54,50 @@ func (s *AnimeSyncScheduler) GetStatusInterface() interface{} {
 // Start starts the scheduler
 func (s *AnimeSyncScheduler) Start() {
 	if !s.enabled {
-		s.logger.Info("Anime sync scheduler is disabled")
+		if s.logger != nil {
+			s.logger.Info("Anime sync scheduler is disabled")
+		}
 		return
 	}
 
-	s.logger.Info("Starting anime sync scheduler")
+	if s.logger != nil {
+		s.logger.Info("Starting anime sync scheduler")
+	}
 
-	// Calculate time until next 3:00 AM
+	// Calculate time until next scheduled run time
 	now := time.Now()
-	next := time.Date(now.Year(), now.Month(), now.Day(), 3, 0, 0, 0, time.Local)
+	next := time.Date(now.Year(), now.Month(), now.Day(), s.runHour, s.runMinute, 0, 0, time.Local)
 	if now.After(next) {
 		next = next.Add(24 * time.Hour)
 	}
 
-	s.logger.Info("Next anime sync scheduled",
-		"next_run", next.Format("2006-01-02 15:04:05"),
-		"duration_until", time.Until(next).String())
+	if s.logger != nil {
+		s.logger.Info("Next anime sync scheduled",
+			"next_run", next.Format("2006-01-02 15:04:05"),
+			"duration_until", time.Until(next).String(),
+			"run_hour", s.runHour,
+			"run_minute", s.runMinute)
+	}
 
 	// Set initial next sync time
 	s.statusTracker.SetNextSyncTime(next)
 
 	// Wait until first execution
 	go func() {
-		time.Sleep(time.Until(next))
+		// Use interruptible sleep to avoid resource leak
+		timer := time.NewTimer(time.Until(next))
+		defer timer.Stop()
 
-		// First execution
-		s.syncCurrentSeasonAnimes()
+		select {
+		case <-timer.C:
+			// First execution
+			s.syncCurrentSeasonAnimes()
+		case <-s.stopChan:
+			if s.logger != nil {
+				s.logger.Info("Anime sync scheduler stopped before first execution")
+			}
+			return
+		}
 
 		// Set up ticker for daily execution (use local variable)
 		ticker := time.NewTicker(24 * time.Hour)
@@ -90,7 +112,9 @@ func (s *AnimeSyncScheduler) Start() {
 			case <-ticker.C:
 				s.syncCurrentSeasonAnimes()
 			case <-s.stopChan:
-				s.logger.Info("Anime sync scheduler stopped")
+				if s.logger != nil {
+					s.logger.Info("Anime sync scheduler stopped")
+				}
 				return
 			}
 		}
@@ -227,14 +251,4 @@ func getPreviousSeasonForTime(t time.Time) string {
 	}
 
 	return fmt.Sprintf("%d-%s", year, season)
-}
-
-// Deprecated: Use getSeasonForTime(time.Now()) instead
-func getCurrentSeason() string {
-	return getSeasonForTime(time.Now())
-}
-
-// Deprecated: Use getPreviousSeasonForTime(time.Now()) instead
-func getPreviousSeason() string {
-	return getPreviousSeasonForTime(time.Now())
 }
