@@ -1197,6 +1197,74 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /admin/sync/status:
+    get:
+      summary: 同期ステータスを取得
+      description: アニメ同期スケジューラーの現在のステータスを取得します
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: 同期ステータス
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  last_sync_time:
+                    type: string
+                    format: date-time
+                    description: 最後の同期時刻
+                  next_sync_time:
+                    type: string
+                    format: date-time
+                    description: 次回の同期時刻
+                  last_sync_duration:
+                    type: string
+                    description: 最後の同期にかかった時間
+                    example: "2m30s"
+                  last_sync_success:
+                    type: boolean
+                    description: 最後の同期が成功したか
+                  last_sync_count:
+                    type: integer
+                    description: 最後の同期で処理したアニメ数
+                    example: 95
+                  last_sync_errors:
+                    type: array
+                    items:
+                      type: string
+                    description: 最後の同期で発生したエラー
+                  total_syncs_today:
+                    type: integer
+                    description: 今日の同期実行回数
+                    example: 1
+                  is_running:
+                    type: boolean
+                    description: 現在同期中かどうか
+                  enabled:
+                    type: boolean
+                    description: スケジューラーが有効かどうか
+                  current_season:
+                    type: string
+                    description: 現在のシーズン
+                    example: "2025-autumn"
+                  previous_season:
+                    type: string
+                    description: 前シーズン
+                    example: "2025-summer"
+        "401":
+          description: 認証エラー
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: スケジューラーが利用できない
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /health:
     get:
       summary: ヘルスチェック

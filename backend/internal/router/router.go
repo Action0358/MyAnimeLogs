@@ -14,7 +14,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func Setup(db *database.DB, cfg *config.Config) *gin.Engine {
+func Setup(db *database.DB, cfg *config.Config, syncScheduler handlers.SyncScheduler) *gin.Engine {
 	// Ginモードを設定
 	if cfg.Environment == "production" {
 		gin.SetMode(gin.ReleaseMode)
@@ -51,7 +51,7 @@ func Setup(db *database.DB, cfg *config.Config) *gin.Engine {
 	authHandler := handlers.NewAuthHandlerWithUpload(authService, uploadService, logger, errorMonitor)
 	animeHandler := handlers.NewAnimeHandler(animeService, logger, errorMonitor)
 	annictHandler := handlers.NewAnnictHandler(annictService, logger, errorMonitor)
-	adminHandler := handlers.NewAdminHandler(animeService, logger, errorMonitor)
+	adminHandler := handlers.NewAdminHandler(animeService, logger, errorMonitor, syncScheduler)
 	monitoringHandler := handlers.NewMonitoringHandler(logger, errorMonitor)
 
 	// ヘルスチェックと監視エンドポイント
@@ -105,6 +105,7 @@ func Setup(db *database.DB, cfg *config.Config) *gin.Engine {
 			admin.POST("/sync/episode-durations", adminHandler.SyncEpisodeDurations)
 			admin.POST("/create-episodes", adminHandler.CreateEpisodesForAllAnimes)
 			admin.POST("/enrich/episode-titles", adminHandler.EnrichEpisodeTitles)
+			admin.GET("/sync/status", adminHandler.GetSyncStatus)
 
 			// エラー監視
 			admin.GET("/errors/metrics", monitoringHandler.GetErrorMetrics)
