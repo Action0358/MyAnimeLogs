@@ -716,6 +716,31 @@ Authorization: Bearer {{login.response.body.access_token}}
 GET {{baseUrl}}/api/users/me/stats
 Authorization: Bearer {{login.response.body.access_token}}
 
+### ===== Annict API エピソードタイトル取得機能テスト =====
+
+### 108. 管理者API - 全アニメのエピソードタイトルを取得
+# Annict IDが設定されている全アニメのエピソードタイトルをAnnict APIから取得
+POST {{baseUrl}}/api/admin/enrich/episode-titles
+Content-Type: {{contentType}}
+Authorization: Bearer {{login.response.body.access_token}}
+
+{}
+
+### 109. 管理者API - 特定アニメのエピソードタイトルを取得
+# 特定のアニメのみエピソードタイトルを取得
+POST {{baseUrl}}/api/admin/enrich/episode-titles
+Content-Type: {{contentType}}
+Authorization: Bearer {{login.response.body.access_token}}
+
+{
+  "anime_id": 1
+}
+
+### 110. エピソードタイトル確認（更新後）
+# タイトルが実際のエピソードタイトルに更新されているか確認
+GET {{baseUrl}}/api/animes/1/episodes
+Authorization: Bearer {{login.response.body.access_token}}
+
 ### ===== 注意事項 =====
 # 
 # Jikan API連携のテストについて:
@@ -739,3 +764,14 @@ Authorization: Bearer {{login.response.body.access_token}}
 #      FROM episodes e
 #      WHERE e.anime_id = 1
 #      ORDER BY e.episode_number;
+#
+# Annict API エピソードタイトル取得のテストについて:
+#
+# 1. エピソードタイトル取得（108-109）
+#    - 管理者権限が必要です
+#    - Annict IDが設定されているアニメのみ取得されます
+#    - レート制限対策として0.5秒の待機時間が設定されています
+#
+# 2. データの確認（110）
+#    - タイトルが「第1話」から実際のエピソードタイトルに更新されます
+#    - 例: "白い嫉妬／イーデン校バスジャック事件"

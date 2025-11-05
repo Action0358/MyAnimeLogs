@@ -1097,6 +1097,106 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /admin/create-episodes:
+    post:
+      summary: エピソードを一括作成
+      description: エピソードが存在しないアニメに対して、episodes_countに基づいてエピソードレコードを自動作成します
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: エピソード作成完了
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success_count:
+                    type: integer
+                    description: 成功したアニメ数
+                    example: 95
+                  failure_count:
+                    type: integer
+                    description: 失敗したアニメ数
+                    example: 0
+                  message:
+                    type: string
+                    description: 処理結果メッセージ
+                    example: "Episodes creation completed: 95 succeeded, 0 failed"
+        "401":
+          description: 認証エラー
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: サーバーエラー
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /admin/enrich/episode-titles:
+    post:
+      summary: エピソードタイトルをAnnict APIから取得
+      description: Annict APIから実際のエピソードタイトルを取得してデータベースを更新します。anime_idを指定しない場合は全アニメを処理します。
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                anime_id:
+                  type: integer
+                  description: 更新対象のアニメID（省略時は全アニメ）
+                  example: 1
+      responses:
+        "200":
+          description: エピソードタイトル取得完了
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success_count:
+                    type: integer
+                    description: 成功したアニメ数
+                    example: 92
+                  failure_count:
+                    type: integer
+                    description: 失敗したアニメ数
+                    example: 8
+                  errors:
+                    type: array
+                    description: エラーメッセージのリスト
+                    items:
+                      type: string
+                    example:
+                      - "Anime ID 29: failed to fetch episodes from Annict: annict API returned status 429"
+                  message:
+                    type: string
+                    description: 処理結果メッセージ
+                    example: "Episode titles enrichment completed: 92 succeeded, 8 failed"
+        "400":
+          description: バリデーションエラー
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: 認証エラー
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: サーバーエラー
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /health:
     get:
       summary: ヘルスチェック
