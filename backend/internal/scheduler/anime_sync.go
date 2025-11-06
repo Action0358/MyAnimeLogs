@@ -32,7 +32,8 @@ type AnimeSyncScheduler struct {
 }
 
 // NewAnimeSyncScheduler creates a new anime sync scheduler
-func NewAnimeSyncScheduler(annictClient *services.AnnictClient, animeService AnimeService, logger *common.Logger, enabled bool, runHour, runMinute int) *AnimeSyncScheduler {
+// Returns an error if animeService is nil
+func NewAnimeSyncScheduler(annictClient *services.AnnictClient, animeService AnimeService, logger *common.Logger, enabled bool, runHour, runMinute int) (*AnimeSyncScheduler, error) {
 	// Ensure logger is never nil - use a default logger if not provided
 	if logger == nil {
 		logger = common.NewLogger(common.LogLevelError, "text")
@@ -40,7 +41,7 @@ func NewAnimeSyncScheduler(annictClient *services.AnnictClient, animeService Ani
 
 	// AnimeService is a required dependency
 	if animeService == nil {
-		panic("animeService cannot be nil")
+		return nil, fmt.Errorf("animeService cannot be nil")
 	}
 
 	return &AnimeSyncScheduler{
@@ -53,7 +54,7 @@ func NewAnimeSyncScheduler(annictClient *services.AnnictClient, animeService Ani
 		runMinute:     runMinute,
 		statusTracker: NewSyncStatusTracker(enabled),
 		initialSynced: false,
-	}
+	}, nil
 }
 
 // GetStatus returns the current sync status
