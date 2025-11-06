@@ -38,12 +38,12 @@ func (t *SyncStatusTracker) StartSync(nextSyncTime time.Time) {
 	t.isRunning = true
 	t.nextSyncTime = nextSyncTime
 
-	// Reset daily counter if it's a new day (using Truncate for robust date comparison)
+	// Reset daily counter if it's a new day (compare year, month, day components)
 	now := time.Now()
-	nowDate := now.Truncate(24 * time.Hour)
-	lastResetDate := t.lastResetDate.Truncate(24 * time.Hour)
+	nowYear, nowMonth, nowDay := now.Date()
+	lastYear, lastMonth, lastDay := t.lastResetDate.Date()
 
-	if !nowDate.Equal(lastResetDate) {
+	if nowYear != lastYear || nowMonth != lastMonth || nowDay != lastDay {
 		t.totalSyncsToday = 0
 		t.lastResetDate = now
 	}

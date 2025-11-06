@@ -10,9 +10,16 @@ import (
 	"myanimelogs/internal/services"
 )
 
+// AnimeService defines the interface for anime-related operations needed by the scheduler
+type AnimeService interface {
+	CreateEpisodesForAllAnimes() (int, int, error)
+	EnrichEpisodesWithTitles(animeID *int) (int, int, []string, error)
+}
+
 // AnimeSyncScheduler handles scheduled anime synchronization
 type AnimeSyncScheduler struct {
 	annictClient  *services.AnnictClient
+	animeService  AnimeService
 	logger        *common.Logger
 	mu            sync.Mutex // Protects ticker field
 	ticker        *time.Ticker
@@ -21,24 +28,33 @@ type AnimeSyncScheduler struct {
 	runHour       int
 	runMinute     int
 	statusTracker *SyncStatusTracker
+	initialSynced bool // Tracks if initial full sync has been performed
 }
 
 // NewAnimeSyncScheduler creates a new anime sync scheduler
-func NewAnimeSyncScheduler(annictClient *services.AnnictClient, logger *common.Logger, enabled bool, runHour, runMinute int) *AnimeSyncScheduler {
+// Returns an error if animeService is nil
+func NewAnimeSyncScheduler(annictClient *services.AnnictClient, animeService AnimeService, logger *common.Logger, enabled bool, runHour, runMinute int) (*AnimeSyncScheduler, error) {
 	// Ensure logger is never nil - use a default logger if not provided
 	if logger == nil {
 		logger = common.NewLogger(common.LogLevelError, "text")
 	}
 
+	// AnimeService is a required dependency
+	if animeService == nil {
+		return nil, fmt.Errorf("animeService cannot be nil")
+	}
+
 	return &AnimeSyncScheduler{
 		annictClient:  annictClient,
+		animeService:  animeService,
 		logger:        logger,
 		stopChan:      make(chan struct{}),
 		enabled:       enabled,
 		runHour:       runHour,
 		runMinute:     runMinute,
 		statusTracker: NewSyncStatusTracker(enabled),
-	}
+		initialSynced: false,
+	}, nil
 }
 
 // GetStatus returns the current sync status
@@ -84,13 +100,20 @@ func (s *AnimeSyncScheduler) Start() {
 
 	// Wait until first execution
 	go func() {
+		// Perform initial full sync immediately on first startup
+		if !s.initialSynced {
+			s.logger.Info("Performing initial full sync of all seasons")
+			s.syncAllSeasons(next)
+			s.initialSynced = true
+		}
+
 		// Use interruptible sleep to avoid resource leak
 		timer := time.NewTimer(time.Until(next))
 		defer timer.Stop()
 
 		select {
 		case <-timer.C:
-			// First execution
+			// First scheduled execution (incremental sync)
 			s.syncCurrentSeasonAnimes()
 		case <-s.stopChan:
 			if s.logger != nil {
@@ -131,8 +154,59 @@ func (s *AnimeSyncScheduler) Stop() {
 	s.mu.Unlock()
 
 	close(s.stopChan)
-	if s.logger != nil {
-		s.logger.Info("Stopping anime sync scheduler")
+	s.logger.Info("Stopping anime sync scheduler")
+}
+
+// syncAllSeasons syncs all seasons from 2014-spring to current season
+// nextSyncTime is the time of the next scheduled sync (not 24 hours from now)
+func (s *AnimeSyncScheduler) syncAllSeasons(nextSyncTime time.Time) {
+	s.logger.Info("Starting initial full sync of all seasons")
+	startTime := time.Now()
+
+	// Use the provided next sync time (the first scheduled sync)
+	s.statusTracker.StartSync(nextSyncTime)
+
+	now := time.Now()
+	currentYear := now.Year()
+	currentSeason := getSeasonForTime(now)
+
+	// Generate all seasons from 2014-spring to current
+	seasons := generateAllSeasons(2014, currentYear, currentSeason)
+
+	totalAnimeCount := 0
+	var errors []string
+
+	// Sync all seasons
+	for _, season := range seasons {
+		count, err := s.syncSeason(season)
+		totalAnimeCount += count
+		if err != nil {
+			errors = append(errors, fmt.Sprintf("Season %s: %s", season, err.Error()))
+		}
+	}
+
+	// Sync episode data (creation and title enrichment)
+	errors = append(errors, s.syncEpisodeData()...)
+
+	duration := time.Since(startTime)
+	success := len(errors) == 0
+
+	// Update status tracker
+	s.statusTracker.EndSync(success, totalAnimeCount, duration, errors)
+
+	// Log results
+	if !success {
+		s.logger.Error("Initial full sync completed with errors",
+			"duration", duration.String(),
+			"total_seasons", len(seasons),
+			"total_animes", totalAnimeCount,
+			"error_count", len(errors),
+			"errors", errors)
+	} else {
+		s.logger.Info("Initial full sync completed successfully",
+			"duration", duration.String(),
+			"total_seasons", len(seasons),
+			"total_animes", totalAnimeCount)
 	}
 }
 
@@ -150,18 +224,13 @@ func (s *AnimeSyncScheduler) syncCurrentSeasonAnimes() {
 	currentSeason := getSeasonForTime(now)
 	previousSeason := getPreviousSeasonForTime(now)
 
-	// Sync current season
+	// Step 1: Sync anime works for current and previous seasons
 	currentCount, currentErr := s.syncSeason(currentSeason)
-
-	// Sync previous season (for ongoing shows)
 	previousCount, previousErr := s.syncSeason(previousSeason)
 
-	duration := time.Since(startTime)
-	totalCount := currentCount + previousCount
-	success := currentErr == nil && previousErr == nil
-
-	// Collect errors
+	totalAnimeCount := currentCount + previousCount
 	var errors []string
+
 	if currentErr != nil {
 		errors = append(errors, fmt.Sprintf("Current season (%s): %s", currentSeason, currentErr.Error()))
 	}
@@ -169,8 +238,14 @@ func (s *AnimeSyncScheduler) syncCurrentSeasonAnimes() {
 		errors = append(errors, fmt.Sprintf("Previous season (%s): %s", previousSeason, previousErr.Error()))
 	}
 
+	// Sync episode data (creation and title enrichment)
+	errors = append(errors, s.syncEpisodeData()...)
+
+	duration := time.Since(startTime)
+	success := len(errors) == 0
+
 	// Update status tracker
-	s.statusTracker.EndSync(success, totalCount, duration, errors)
+	s.statusTracker.EndSync(success, totalAnimeCount, duration, errors)
 
 	// Log results
 	if !success {
@@ -189,8 +264,45 @@ func (s *AnimeSyncScheduler) syncCurrentSeasonAnimes() {
 			"current_count", currentCount,
 			"previous_season", previousSeason,
 			"previous_count", previousCount,
-			"total_count", totalCount)
+			"total_count", totalAnimeCount)
 	}
+}
+
+// syncEpisodeData creates episodes and enriches them with titles from Annict API
+// Returns a slice of error messages if any errors occur
+func (s *AnimeSyncScheduler) syncEpisodeData() []string {
+	var errors []string
+
+	// Step 1: Create episodes for animes that don't have episodes yet
+	s.logger.Info("Creating episodes for animes without episodes")
+	episodeSuccessCount, episodeFailureCount, episodeErr := s.animeService.CreateEpisodesForAllAnimes()
+
+	if episodeErr != nil {
+		errors = append(errors, fmt.Sprintf("Episode creation: %s", episodeErr.Error()))
+	} else {
+		s.logger.Info("Episode creation completed",
+			"success_count", episodeSuccessCount,
+			"failure_count", episodeFailureCount)
+	}
+
+	// Step 2: Enrich episode titles from Annict API
+	s.logger.Info("Enriching episode titles from Annict API")
+	titleSuccessCount, titleFailureCount, titleErrors, titleErr := s.animeService.EnrichEpisodesWithTitles(nil)
+
+	if titleErr != nil {
+		errors = append(errors, fmt.Sprintf("Episode title enrichment: %s", titleErr.Error()))
+	} else {
+		s.logger.Info("Episode title enrichment completed",
+			"success_count", titleSuccessCount,
+			"failure_count", titleFailureCount)
+
+		// Add individual title errors to the error list
+		if len(titleErrors) > 0 {
+			errors = append(errors, titleErrors...)
+		}
+	}
+
+	return errors
 }
 
 // syncSeason syncs animes for a specific season
@@ -253,4 +365,30 @@ func getPreviousSeasonForTime(t time.Time) string {
 	}
 
 	return fmt.Sprintf("%d-%s", year, season)
+}
+
+// generateAllSeasons generates all season strings from startYear-spring to endSeason
+// For startYear=2014, it starts from 2014-spring (skipping 2014-winter)
+func generateAllSeasons(startYear, endYear int, endSeason string) []string {
+	seasons := []string{"winter", "spring", "summer", "autumn"}
+	var result []string
+
+	for year := startYear; year <= endYear; year++ {
+		for _, season := range seasons {
+			// Skip winter of the start year (e.g., 2014-winter)
+			if year == startYear && season == "winter" {
+				continue
+			}
+
+			seasonStr := fmt.Sprintf("%d-%s", year, season)
+			result = append(result, seasonStr)
+
+			// Stop if we've reached the end season
+			if seasonStr == endSeason {
+				return result
+			}
+		}
+	}
+
+	return result
 }

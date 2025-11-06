@@ -182,7 +182,9 @@ func (h *AdminHandler) EnrichEpisodeTitles(c *gin.Context) {
 // GET /api/admin/sync/status
 func (h *AdminHandler) GetSyncStatus(c *gin.Context) {
 	if h.syncScheduler == nil {
-		h.response.NotFoundError(c, "Sync scheduler is not available")
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"error": "Sync scheduler is not available",
+		})
 		return
 	}
 

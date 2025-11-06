@@ -25,6 +25,21 @@ func newTestAnnictClient() *services.AnnictClient {
 	return services.NewAnnictClient("")
 }
 
+// mockAnimeService is a mock implementation of AnimeService for testing
+type mockAnimeService struct{}
+
+func (m *mockAnimeService) CreateEpisodesForAllAnimes() (int, int, error) {
+	return 0, 0, nil
+}
+
+func (m *mockAnimeService) EnrichEpisodesWithTitles(animeID *int) (int, int, []string, error) {
+	return 0, 0, nil, nil
+}
+
+func newTestAnimeService() AnimeService {
+	return &mockAnimeService{}
+}
+
 func TestGetSeasonForTime(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -73,13 +88,16 @@ func TestGetPreviousSeasonForTime(t *testing.T) {
 func TestNewAnimeSyncScheduler(t *testing.T) {
 	logger := newTestLogger()
 	client := newTestAnnictClient()
-	scheduler := NewAnimeSyncScheduler(client, logger, true, 3, 0)
+	animeService := newTestAnimeService()
+	scheduler, err := NewAnimeSyncScheduler(client, animeService, logger, true, 3, 0)
 
+	assert.NoError(t, err)
 	assert.NotNil(t, scheduler)
 	assert.True(t, scheduler.enabled)
 	assert.NotNil(t, scheduler.stopChan)
 	assert.NotNil(t, scheduler.logger)
 	assert.NotNil(t, scheduler.annictClient)
+	assert.NotNil(t, scheduler.animeService)
 	assert.NotNil(t, scheduler.statusTracker)
 	assert.Equal(t, 3, scheduler.runHour)
 	assert.Equal(t, 0, scheduler.runMinute)
@@ -88,8 +106,10 @@ func TestNewAnimeSyncScheduler(t *testing.T) {
 func TestSchedulerDisabled(t *testing.T) {
 	logger := newTestLogger()
 	client := newTestAnnictClient()
-	scheduler := NewAnimeSyncScheduler(client, logger, false, 3, 0)
+	animeService := newTestAnimeService()
+	scheduler, err := NewAnimeSyncScheduler(client, animeService, logger, false, 3, 0)
 
+	assert.NoError(t, err)
 	assert.NotNil(t, scheduler)
 	assert.False(t, scheduler.enabled)
 	assert.NotNil(t, scheduler.annictClient)
@@ -104,8 +124,10 @@ func TestSchedulerDisabled(t *testing.T) {
 func TestGetStatus(t *testing.T) {
 	logger := newTestLogger()
 	client := newTestAnnictClient()
-	scheduler := NewAnimeSyncScheduler(client, logger, true, 3, 0)
+	animeService := newTestAnimeService()
+	scheduler, err := NewAnimeSyncScheduler(client, animeService, logger, true, 3, 0)
 
+	assert.NoError(t, err)
 	now := time.Date(2025, 11, 5, 12, 0, 0, 0, time.UTC)
 	status := scheduler.GetStatus()
 
@@ -209,8 +231,10 @@ func TestSyncStatusTracker_StatusFields(t *testing.T) {
 
 func TestSchedulerWithNilLogger(t *testing.T) {
 	client := newTestAnnictClient()
-	scheduler := NewAnimeSyncScheduler(client, nil, true, 3, 0)
+	animeService := newTestAnimeService()
+	scheduler, err := NewAnimeSyncScheduler(client, animeService, nil, true, 3, 0)
 
+	assert.NoError(t, err)
 	// Should not panic - logger is initialized in constructor
 	assert.NotNil(t, scheduler.logger)
 
@@ -222,8 +246,20 @@ func TestSchedulerWithNilLogger(t *testing.T) {
 func TestSchedulerCustomRunTime(t *testing.T) {
 	logger := newTestLogger()
 	client := newTestAnnictClient()
-	scheduler := NewAnimeSyncScheduler(client, logger, true, 14, 30)
+	animeService := newTestAnimeService()
+	scheduler, err := NewAnimeSyncScheduler(client, animeService, logger, true, 14, 30)
 
+	assert.NoError(t, err)
 	assert.Equal(t, 14, scheduler.runHour)
 	assert.Equal(t, 30, scheduler.runMinute)
+}
+
+func TestNewAnimeSyncSchedulerWithNilAnimeService(t *testing.T) {
+	logger := newTestLogger()
+	client := newTestAnnictClient()
+	scheduler, err := NewAnimeSyncScheduler(client, nil, logger, true, 3, 0)
+
+	assert.Error(t, err)
+	assert.Nil(t, scheduler)
+	assert.Contains(t, err.Error(), "animeService cannot be nil")
 }
