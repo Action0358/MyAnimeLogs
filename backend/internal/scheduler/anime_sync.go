@@ -103,7 +103,7 @@ func (s *AnimeSyncScheduler) Start() {
 		// Perform initial full sync immediately on first startup
 		if !s.initialSynced {
 			s.logger.Info("Performing initial full sync of all seasons")
-			s.syncAllSeasons()
+			s.syncAllSeasons(next)
 			s.initialSynced = true
 		}
 
@@ -158,12 +158,12 @@ func (s *AnimeSyncScheduler) Stop() {
 }
 
 // syncAllSeasons syncs all seasons from 2014-spring to current season
-func (s *AnimeSyncScheduler) syncAllSeasons() {
+// nextSyncTime is the time of the next scheduled sync (not 24 hours from now)
+func (s *AnimeSyncScheduler) syncAllSeasons(nextSyncTime time.Time) {
 	s.logger.Info("Starting initial full sync of all seasons")
 	startTime := time.Now()
 
-	// Calculate next sync time (24 hours from now)
-	nextSyncTime := time.Now().Add(24 * time.Hour)
+	// Use the provided next sync time (the first scheduled sync)
 	s.statusTracker.StartSync(nextSyncTime)
 
 	now := time.Now()
@@ -200,7 +200,8 @@ func (s *AnimeSyncScheduler) syncAllSeasons() {
 			"duration", duration.String(),
 			"total_seasons", len(seasons),
 			"total_animes", totalAnimeCount,
-			"error_count", len(errors))
+			"error_count", len(errors),
+			"errors", errors)
 	} else {
 		s.logger.Info("Initial full sync completed successfully",
 			"duration", duration.String(),
