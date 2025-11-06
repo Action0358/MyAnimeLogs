@@ -113,14 +113,22 @@ func main() {
 	annictClient := services.NewAnnictClientWithDB(cfg.AnnictAPIKey, db, logger)
 	log.Printf("Annict client initialized")
 
+	// Initialize anime service (required for scheduler)
+	animeService := services.NewAnimeService(db, logger, annictClient)
+	log.Printf("Anime service initialized")
+
 	// Initialize and start anime sync scheduler
-	animeSyncScheduler := scheduler.NewAnimeSyncScheduler(
+	animeSyncScheduler, err := scheduler.NewAnimeSyncScheduler(
 		annictClient,
+		animeService,
 		logger,
 		cfg.AnimeSyncEnabled,
 		cfg.SchedulerRunHour,
 		cfg.SchedulerRunMinute,
 	)
+	if err != nil {
+		log.Fatalf("Failed to create anime sync scheduler: %v", err)
+	}
 	animeSyncScheduler.Start()
 
 	// Setup router (pass shared dependencies)
