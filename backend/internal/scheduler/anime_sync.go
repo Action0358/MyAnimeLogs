@@ -10,6 +10,9 @@ import (
 	"myanimelogs/internal/services"
 )
 
+// seasonOrder defines the order of seasons in a year
+var seasonOrder = []string{"winter", "spring", "summer", "autumn"}
+
 // AnimeService defines the interface for anime-related operations needed by the scheduler
 type AnimeService interface {
 	CreateEpisodesForAllAnimes() (int, int, error)
@@ -166,9 +169,9 @@ func (s *AnimeSyncScheduler) syncAllSeasons(nextSyncTime time.Time) {
 	// Use the provided next sync time (the first scheduled sync)
 	s.statusTracker.StartSync(nextSyncTime)
 
-	now := time.Now()
-	currentYear := now.Year()
-	currentSeason := getSeasonForTime(now)
+	// Use startTime for all time-based calculations to ensure consistency
+	currentYear := startTime.Year()
+	currentSeason := getSeasonForTime(startTime)
 
 	// Generate all seasons from 2014-spring to current
 	seasons := generateAllSeasons(2014, currentYear, currentSeason)
@@ -215,14 +218,13 @@ func (s *AnimeSyncScheduler) syncCurrentSeasonAnimes() {
 	s.logger.Info("Starting scheduled anime sync")
 	startTime := time.Now()
 
-	// Calculate next sync time (24 hours from now)
-	nextSyncTime := time.Now().Add(24 * time.Hour)
+	// Calculate next sync time (24 hours from start time)
+	nextSyncTime := startTime.Add(24 * time.Hour)
 	s.statusTracker.StartSync(nextSyncTime)
 
-	// Get current time once for consistent season calculation
-	now := time.Now()
-	currentSeason := getSeasonForTime(now)
-	previousSeason := getPreviousSeasonForTime(now)
+	// Use startTime for all time-based calculations to ensure consistency
+	currentSeason := getSeasonForTime(startTime)
+	previousSeason := getPreviousSeasonForTime(startTime)
 
 	// Step 1: Sync anime works for current and previous seasons
 	currentCount, currentErr := s.syncSeason(currentSeason)
@@ -370,11 +372,10 @@ func getPreviousSeasonForTime(t time.Time) string {
 // generateAllSeasons generates all season strings from startYear-spring to endSeason
 // For startYear=2014, it starts from 2014-spring (skipping 2014-winter)
 func generateAllSeasons(startYear, endYear int, endSeason string) []string {
-	seasons := []string{"winter", "spring", "summer", "autumn"}
 	var result []string
 
 	for year := startYear; year <= endYear; year++ {
-		for _, season := range seasons {
+		for _, season := range seasonOrder {
 			// Skip winter of the start year (e.g., 2014-winter)
 			if year == startYear && season == "winter" {
 				continue
