@@ -38,6 +38,11 @@ func NewAnimeSyncScheduler(annictClient *services.AnnictClient, animeService Ani
 		logger = common.NewLogger(common.LogLevelError, "text")
 	}
 
+	// AnimeService is a required dependency
+	if animeService == nil {
+		panic("animeService cannot be nil")
+	}
+
 	return &AnimeSyncScheduler{
 		annictClient:  annictClient,
 		animeService:  animeService,
@@ -181,38 +186,8 @@ func (s *AnimeSyncScheduler) syncAllSeasons() {
 		}
 	}
 
-	// Step 2: Create episodes for animes that don't have episodes yet
-	if s.animeService != nil {
-		s.logger.Info("Creating episodes for animes without episodes")
-		episodeSuccessCount, episodeFailureCount, episodeErr := s.animeService.CreateEpisodesForAllAnimes()
-
-		if episodeErr != nil {
-			errors = append(errors, fmt.Sprintf("Episode creation: %s", episodeErr.Error()))
-		} else {
-			s.logger.Info("Episode creation completed",
-				"success_count", episodeSuccessCount,
-				"failure_count", episodeFailureCount)
-		}
-	}
-
-	// Step 3: Enrich episode titles from Annict API
-	if s.animeService != nil {
-		s.logger.Info("Enriching episode titles from Annict API")
-		titleSuccessCount, titleFailureCount, titleErrors, titleErr := s.animeService.EnrichEpisodesWithTitles(nil)
-
-		if titleErr != nil {
-			errors = append(errors, fmt.Sprintf("Episode title enrichment: %s", titleErr.Error()))
-		} else {
-			s.logger.Info("Episode title enrichment completed",
-				"success_count", titleSuccessCount,
-				"failure_count", titleFailureCount)
-
-			// Add individual title errors to the error list
-			if len(titleErrors) > 0 {
-				errors = append(errors, titleErrors...)
-			}
-		}
-	}
+	// Sync episode data (creation and title enrichment)
+	errors = append(errors, s.syncEpisodeData()...)
 
 	duration := time.Since(startTime)
 	success := len(errors) == 0
@@ -263,38 +238,8 @@ func (s *AnimeSyncScheduler) syncCurrentSeasonAnimes() {
 		errors = append(errors, fmt.Sprintf("Previous season (%s): %s", previousSeason, previousErr.Error()))
 	}
 
-	// Step 2: Create episodes for animes that don't have episodes yet
-	if s.animeService != nil {
-		s.logger.Info("Creating episodes for animes without episodes")
-		episodeSuccessCount, episodeFailureCount, episodeErr := s.animeService.CreateEpisodesForAllAnimes()
-
-		if episodeErr != nil {
-			errors = append(errors, fmt.Sprintf("Episode creation: %s", episodeErr.Error()))
-		} else {
-			s.logger.Info("Episode creation completed",
-				"success_count", episodeSuccessCount,
-				"failure_count", episodeFailureCount)
-		}
-	}
-
-	// Step 3: Enrich episode titles from Annict API
-	if s.animeService != nil {
-		s.logger.Info("Enriching episode titles from Annict API")
-		titleSuccessCount, titleFailureCount, titleErrors, titleErr := s.animeService.EnrichEpisodesWithTitles(nil)
-
-		if titleErr != nil {
-			errors = append(errors, fmt.Sprintf("Episode title enrichment: %s", titleErr.Error()))
-		} else {
-			s.logger.Info("Episode title enrichment completed",
-				"success_count", titleSuccessCount,
-				"failure_count", titleFailureCount)
-
-			// Add individual title errors to the error list
-			if len(titleErrors) > 0 {
-				errors = append(errors, titleErrors...)
-			}
-		}
-	}
+	// Sync episode data (creation and title enrichment)
+	errors = append(errors, s.syncEpisodeData()...)
 
 	duration := time.Since(startTime)
 	success := len(errors) == 0
@@ -321,6 +266,43 @@ func (s *AnimeSyncScheduler) syncCurrentSeasonAnimes() {
 			"previous_count", previousCount,
 			"total_count", totalAnimeCount)
 	}
+}
+
+// syncEpisodeData creates episodes and enriches them with titles from Annict API
+// Returns a slice of error messages if any errors occur
+func (s *AnimeSyncScheduler) syncEpisodeData() []string {
+	var errors []string
+
+	// Step 1: Create episodes for animes that don't have episodes yet
+	s.logger.Info("Creating episodes for animes without episodes")
+	episodeSuccessCount, episodeFailureCount, episodeErr := s.animeService.CreateEpisodesForAllAnimes()
+
+	if episodeErr != nil {
+		errors = append(errors, fmt.Sprintf("Episode creation: %s", episodeErr.Error()))
+	} else {
+		s.logger.Info("Episode creation completed",
+			"success_count", episodeSuccessCount,
+			"failure_count", episodeFailureCount)
+	}
+
+	// Step 2: Enrich episode titles from Annict API
+	s.logger.Info("Enriching episode titles from Annict API")
+	titleSuccessCount, titleFailureCount, titleErrors, titleErr := s.animeService.EnrichEpisodesWithTitles(nil)
+
+	if titleErr != nil {
+		errors = append(errors, fmt.Sprintf("Episode title enrichment: %s", titleErr.Error()))
+	} else {
+		s.logger.Info("Episode title enrichment completed",
+			"success_count", titleSuccessCount,
+			"failure_count", titleFailureCount)
+
+		// Add individual title errors to the error list
+		if len(titleErrors) > 0 {
+			errors = append(errors, titleErrors...)
+		}
+	}
+
+	return errors
 }
 
 // syncSeason syncs animes for a specific season
@@ -385,13 +367,19 @@ func getPreviousSeasonForTime(t time.Time) string {
 	return fmt.Sprintf("%d-%s", year, season)
 }
 
-// generateAllSeasons generates all season strings from startYear to current season
+// generateAllSeasons generates all season strings from startYear-spring to endSeason
+// For startYear=2014, it starts from 2014-spring (skipping 2014-winter)
 func generateAllSeasons(startYear, endYear int, endSeason string) []string {
 	seasons := []string{"winter", "spring", "summer", "autumn"}
 	var result []string
 
 	for year := startYear; year <= endYear; year++ {
 		for _, season := range seasons {
+			// Skip winter of the start year (e.g., 2014-winter)
+			if year == startYear && season == "winter" {
+				continue
+			}
+
 			seasonStr := fmt.Sprintf("%d-%s", year, season)
 			result = append(result, seasonStr)
 
