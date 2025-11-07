@@ -34,8 +34,17 @@ type JikanAnimeResponse struct {
 
 // JikanAnimeData represents anime details from Jikan API
 type JikanAnimeData struct {
-	MalID    int    `json:"mal_id"`
-	Title    string `json:"title"`
-	Duration string `json:"duration"` // e.g., "24 min per ep"
-	Episodes int    `json:"episodes"`
+	MalID    int          `json:"mal_id"`
+	Title    string       `json:"title"`
+	Duration string       `json:"duration"` // e.g., "24 min per ep"
+	Episodes int          `json:"episodes"`
+	Genres   []JikanGenre `json:"genres"`
+}
+
+// JikanGenre represents a genre from Jikan API
+type JikanGenre struct {
+	MalID int    `json:"mal_id"`
+	Type  string `json:"type"`
+	Name  string `json:"name"`
+	URL   string `json:"url"`
 }

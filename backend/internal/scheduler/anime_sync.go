@@ -17,6 +17,7 @@ var seasonOrder = []string{"winter", "spring", "summer", "autumn"}
 type AnimeService interface {
 	CreateEpisodesForAllAnimes() (int, int, error)
 	EnrichEpisodesWithTitles(animeID *int) (int, int, []string, error)
+	SyncGenresForAllAnimes() (int, int, []string, error)
 }
 
 // AnimeSyncScheduler handles scheduled anime synchronization
@@ -301,6 +302,23 @@ func (s *AnimeSyncScheduler) syncEpisodeData() []string {
 		// Add individual title errors to the error list
 		if len(titleErrors) > 0 {
 			errors = append(errors, titleErrors...)
+		}
+	}
+
+	// Step 3: Sync genre information from Jikan API
+	s.logger.Info("Syncing genre information from Jikan API")
+	genreSuccessCount, genreFailureCount, genreErrors, genreErr := s.animeService.SyncGenresForAllAnimes()
+
+	if genreErr != nil {
+		errors = append(errors, fmt.Sprintf("Genre sync: %s", genreErr.Error()))
+	} else {
+		s.logger.Info("Genre sync completed",
+			"success_count", genreSuccessCount,
+			"failure_count", genreFailureCount)
+
+		// Add individual genre errors to the error list
+		if len(genreErrors) > 0 {
+			errors = append(errors, genreErrors...)
 		}
 	}
 

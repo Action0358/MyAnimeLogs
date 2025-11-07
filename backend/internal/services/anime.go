@@ -1548,3 +1548,122 @@ func (s *AnimeService) EnrichEpisodesWithTitles(animeID *int) (int, int, []strin
 
 	return successCount, failureCount, errors, nil
 }
+
+// SyncGenresForAllAnimes syncs genre information for all animes that have MAL ID
+// Returns: success count, failure count, error messages, error
+func (s *AnimeService) SyncGenresForAllAnimes() (int, int, []string, error) {
+	s.logger.Info("Starting genre sync for all animes")
+
+	// Get all animes with MAL ID
+	query := `
+		SELECT id, mal_anime_id
+		FROM animes
+		WHERE mal_anime_id IS NOT NULL AND mal_anime_id != ''
+		ORDER BY id
+	`
+
+	rows, err := s.db.Query(query)
+	if err != nil {
+		return 0, 0, nil, fmt.Errorf("failed to query animes: %w", err)
+	}
+	defer rows.Close()
+
+	type animeInfo struct {
+		ID         int
+		MalAnimeID string
+	}
+
+	var animes []animeInfo
+	for rows.Next() {
+		var anime animeInfo
+		if err := rows.Scan(&anime.ID, &anime.MalAnimeID); err != nil {
+			s.logger.Error("Failed to scan anime row", "error", err)
+			continue
+		}
+		animes = append(animes, anime)
+	}
+
+	if err := rows.Err(); err != nil {
+		return 0, 0, nil, fmt.Errorf("error iterating anime rows: %w", err)
+	}
+
+	s.logger.Info("Found animes with MAL ID", "count", len(animes))
+
+	successCount := 0
+	failureCount := 0
+	var errorMessages []string
+
+	// Sync genres for each anime
+	for _, anime := range animes {
+		err := s.syncGenresForAnime(anime.ID, anime.MalAnimeID)
+		if err != nil {
+			failureCount++
+			errorMsg := fmt.Sprintf("Anime ID %d (MAL ID %s): %s", anime.ID, anime.MalAnimeID, err.Error())
+			errorMessages = append(errorMessages, errorMsg)
+			s.logger.Warn("Failed to sync genres for anime",
+				"anime_id", anime.ID,
+				"mal_anime_id", anime.MalAnimeID,
+				"error", err)
+		} else {
+			successCount++
+		}
+	}
+
+	s.logger.Info("Genre sync completed",
+		"success_count", successCount,
+		"failure_count", failureCount)
+
+	return successCount, failureCount, errorMessages, nil
+}
+
+// syncGenresForAnime syncs genre information for a single anime
+func (s *AnimeService) syncGenresForAnime(animeID int, malAnimeID string) error {
+	// Fetch anime details from Jikan API (including genres)
+	genres, err := s.jikanClient.GetAnimeGenres(malAnimeID)
+	if err != nil {
+		if errors.Is(err, ErrJikanNotFound) {
+			return fmt.Errorf("anime not found in MAL")
+		}
+		return fmt.Errorf("failed to fetch genres from Jikan: %w", err)
+	}
+
+	// Check if genres exist
+	if len(genres) == 0 {
+		s.logger.Debug("No genres found for anime", "anime_id", animeID, "mal_anime_id", malAnimeID)
+		return nil
+	}
+
+	// Delete existing genres for this anime
+	deleteQuery := `DELETE FROM anime_genres WHERE anime_id = $1`
+	_, err = s.db.Exec(deleteQuery, animeID)
+	if err != nil {
+		return fmt.Errorf("failed to delete existing genres: %w", err)
+	}
+
+	// Insert new genres
+	insertQuery := `
+		INSERT INTO anime_genres (anime_id, genre)
+		VALUES ($1, $2)
+		ON CONFLICT (anime_id, genre) DO NOTHING
+	`
+
+	insertedCount := 0
+	for _, genre := range genres {
+		_, err := s.db.Exec(insertQuery, animeID, genre.Name)
+		if err != nil {
+			s.logger.Warn("Failed to insert genre",
+				"anime_id", animeID,
+				"genre", genre.Name,
+				"error", err)
+			continue
+		}
+		insertedCount++
+	}
+
+	s.logger.Debug("Synced genres for anime",
+		"anime_id", animeID,
+		"mal_anime_id", malAnimeID,
+		"genre_count", insertedCount)
+
+	return nil
+}
