@@ -123,6 +123,27 @@ func (c *JikanClient) GetAnimeDuration(malAnimeID string) (int, error) {
 	return duration, nil
 }
 
+// GetAnimeGenres fetches genre information for a given MAL anime ID
+func (c *JikanClient) GetAnimeGenres(malAnimeID string) ([]models.JikanGenre, error) {
+	if malAnimeID == "" {
+		return nil, fmt.Errorf("mal_anime_id is required")
+	}
+
+	url := fmt.Sprintf("%s/anime/%s", c.baseURL, malAnimeID)
+
+	var response models.JikanAnimeResponse
+	err := c.makeRequestWithRetry(url, &response)
+	if err != nil {
+		return nil, err
+	}
+
+	c.logger.Debug("Fetched genres from Jikan API",
+		"mal_anime_id", malAnimeID,
+		"genre_count", len(response.Data.Genres))
+
+	return response.Data.Genres, nil
+}
+
 // getEpisodesPage fetches a single page of episodes
 func (c *JikanClient) getEpisodesPage(malAnimeID string, page int) ([]models.JikanEpisode, models.JikanPagination, error) {
 	url := fmt.Sprintf("%s/anime/%s/episodes?page=%d", c.baseURL, malAnimeID, page)

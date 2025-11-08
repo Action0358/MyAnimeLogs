@@ -1548,3 +1548,156 @@ func (s *AnimeService) EnrichEpisodesWithTitles(animeID *int) (int, int, []strin
 
 	return successCount, failureCount, errors, nil
 }
+
+// SyncGenresForAllAnimes syncs genre information for all animes that have MAL ID
+// Only syncs animes that haven't been synced in the last 30 days to reduce API calls
+// Returns: success count, failure count, error messages, error
+func (s *AnimeService) SyncGenresForAllAnimes() (int, int, []string, error) {
+	return s.syncGenresForAnimesWithFilter(30)
+}
+
+// syncGenresForAnimesWithFilter syncs genres for animes that haven't been synced in the specified number of days
+// If daysThreshold is 0, syncs all animes regardless of last sync time
+func (s *AnimeService) syncGenresForAnimesWithFilter(daysThreshold int) (int, int, []string, error) {
+	s.logger.Info("Starting genre sync for animes", "days_threshold", daysThreshold)
+
+	// Build query to get animes with MAL ID that need genre sync
+	query := `
+		SELECT id, mal_anime_id
+		FROM animes
+		WHERE mal_anime_id IS NOT NULL AND mal_anime_id != ''
+	`
+
+	// Add filter for animes that haven't been synced recently
+	if daysThreshold > 0 {
+		query += fmt.Sprintf(`
+		AND (genres_synced_at IS NULL OR genres_synced_at < CURRENT_TIMESTAMP - INTERVAL '%d days')
+		`, daysThreshold)
+	}
+
+	query += " ORDER BY id"
+
+	rows, err := s.db.Query(query)
+	if err != nil {
+		return 0, 0, nil, fmt.Errorf("failed to query animes: %w", err)
+	}
+	defer rows.Close()
+
+	successCount := 0
+	failureCount := 0
+	var errorMessages []string
+
+	// Stream processing: process each anime one by one without loading all into memory
+	for rows.Next() {
+		var animeID int
+		var malAnimeID string
+
+		if err := rows.Scan(&animeID, &malAnimeID); err != nil {
+			s.logger.Error("Failed to scan anime row", "error", err)
+			failureCount++
+			errorMessages = append(errorMessages, fmt.Sprintf("Anime scan error: %s", err.Error()))
+			continue
+		}
+
+		// Sync genres for this anime
+		err := s.syncGenresForAnime(animeID, malAnimeID)
+		if err != nil {
+			failureCount++
+			errorMsg := fmt.Sprintf("Anime ID %d (MAL ID %s): %s", animeID, malAnimeID, err.Error())
+			errorMessages = append(errorMessages, errorMsg)
+			s.logger.Warn("Failed to sync genres for anime",
+				"anime_id", animeID,
+				"mal_anime_id", malAnimeID,
+				"error", err)
+		} else {
+			successCount++
+		}
+	}
+
+	if err := rows.Err(); err != nil {
+		return 0, 0, nil, fmt.Errorf("error iterating anime rows: %w", err)
+	}
+
+	s.logger.Info("Genre sync completed",
+		"success_count", successCount,
+		"failure_count", failureCount,
+		"days_threshold", daysThreshold)
+
+	return successCount, failureCount, errorMessages, nil
+}
+
+// syncGenresForAnime syncs genre information for a single anime using transaction
+func (s *AnimeService) syncGenresForAnime(animeID int, malAnimeID string) error {
+	// Fetch anime details from Jikan API (including genres)
+	genres, err := s.jikanClient.GetAnimeGenres(malAnimeID)
+	if err != nil {
+		if errors.Is(err, ErrJikanNotFound) {
+			return fmt.Errorf("anime not found in MAL: %w", err)
+		}
+		return fmt.Errorf("failed to fetch genres from Jikan: %w", err)
+	}
+
+	// Begin transaction to ensure atomicity
+	tx, err := s.db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback() // Rollback if not committed
+
+	// Always delete existing genres to ensure data consistency
+	// Even if the new list is empty, we want to clear stale data
+	deleteQuery := `DELETE FROM anime_genres WHERE anime_id = $1`
+	_, err = tx.Exec(deleteQuery, animeID)
+	if err != nil {
+		return fmt.Errorf("failed to delete existing genres: %w", err)
+	}
+
+	insertedCount := 0
+
+	// Insert new genres if any exist
+	if len(genres) > 0 {
+		// Prepare insert statement for better performance
+		insertQuery := `
+			INSERT INTO anime_genres (anime_id, genre)
+			VALUES ($1, $2)
+			ON CONFLICT (anime_id, genre) DO NOTHING
+		`
+		stmt, err := tx.Prepare(insertQuery)
+		if err != nil {
+			return fmt.Errorf("failed to prepare insert statement: %w", err)
+		}
+		defer stmt.Close()
+
+		// Insert new genres using prepared statement
+		for _, genre := range genres {
+			_, err := stmt.Exec(animeID, genre.Name)
+			if err != nil {
+				s.logger.Warn("Failed to insert genre",
+					"anime_id", animeID,
+					"genre", genre.Name,
+					"error", err)
+				continue
+			}
+			insertedCount++
+		}
+	}
+
+	// Update genres_synced_at timestamp
+	updateQuery := `UPDATE animes SET genres_synced_at = CURRENT_TIMESTAMP WHERE id = $1`
+	_, err = tx.Exec(updateQuery, animeID)
+	if err != nil {
+		return fmt.Errorf("failed to update genres_synced_at: %w", err)
+	}
+
+	// Commit transaction
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	s.logger.Debug("Synced genres for anime",
+		"anime_id", animeID,
+		"mal_anime_id", malAnimeID,
+		"genre_count", insertedCount)
+
+	return nil
+}
