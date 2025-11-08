@@ -36,6 +36,10 @@ func (m *mockAnimeService) EnrichEpisodesWithTitles(animeID *int) (int, int, []s
 	return 0, 0, nil, nil
 }
 
+func (m *mockAnimeService) SyncGenresForAllAnimes() (int, int, []string, error) {
+	return 0, 0, nil, nil
+}
+
 func newTestAnimeService() AnimeService {
 	return &mockAnimeService{}
 }
