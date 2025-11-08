@@ -105,7 +105,8 @@ func (m *Migrator) getMigrationFiles() ([]string, error) {
 }
 
 // executeMigration executes a single migration file
-func (m *Migrator) executeMigration(filename string) (bool, error) {
+// Uses named return values to prevent error variable shadowing and ensure proper transaction rollback
+func (m *Migrator) executeMigration(filename string) (executed bool, err error) {
 	// Start transaction
 	tx, err := m.db.Begin()
 	if err != nil {
@@ -113,6 +114,7 @@ func (m *Migrator) executeMigration(filename string) (bool, error) {
 	}
 
 	// Ensure transaction is rolled back on error
+	// The named return value 'err' ensures this defer can correctly inspect the final error state
 	defer func() {
 		if err != nil {
 			if rollbackErr := tx.Rollback(); rollbackErr != nil {
@@ -131,7 +133,8 @@ func (m *Migrator) executeMigration(filename string) (bool, error) {
 	if count > 0 {
 		log.Printf("Migration %s already executed, skipping...", filename)
 		// Commit the transaction (even though no changes were made)
-		if err = tx.Commit(); err != nil {
+		err = tx.Commit()
+		if err != nil {
 			return false, fmt.Errorf("failed to commit transaction: %w", err)
 		}
 		return false, nil
@@ -139,14 +142,16 @@ func (m *Migrator) executeMigration(filename string) (bool, error) {
 
 	// Read migration file
 	filePath := filepath.Join(m.migrationsPath, filename)
-	content, err := os.ReadFile(filePath)
+	var content []byte
+	content, err = os.ReadFile(filePath)
 	if err != nil {
 		return false, fmt.Errorf("failed to read migration file %s: %w", filename, err)
 	}
 
 	// Validate migration content
 	if len(strings.TrimSpace(string(content))) == 0 {
-		return false, fmt.Errorf("migration file %s is empty", filename)
+		err = fmt.Errorf("migration file %s is empty", filename)
+		return false, err
 	}
 
 	// Execute migration SQL
@@ -163,7 +168,8 @@ func (m *Migrator) executeMigration(filename string) (bool, error) {
 	}
 
 	// Commit transaction
-	if err = tx.Commit(); err != nil {
+	err = tx.Commit()
+	if err != nil {
 		return false, fmt.Errorf("failed to commit transaction for %s: %w", filename, err)
 	}
 
