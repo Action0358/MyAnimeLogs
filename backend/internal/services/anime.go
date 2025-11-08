@@ -1568,45 +1568,39 @@ func (s *AnimeService) SyncGenresForAllAnimes() (int, int, []string, error) {
 	}
 	defer rows.Close()
 
-	type animeInfo struct {
-		ID         int
-		MalAnimeID string
-	}
-
-	var animes []animeInfo
-	for rows.Next() {
-		var anime animeInfo
-		if err := rows.Scan(&anime.ID, &anime.MalAnimeID); err != nil {
-			s.logger.Error("Failed to scan anime row", "error", err)
-			continue
-		}
-		animes = append(animes, anime)
-	}
-
-	if err := rows.Err(); err != nil {
-		return 0, 0, nil, fmt.Errorf("error iterating anime rows: %w", err)
-	}
-
-	s.logger.Info("Found animes with MAL ID", "count", len(animes))
-
 	successCount := 0
 	failureCount := 0
 	var errorMessages []string
 
-	// Sync genres for each anime
-	for _, anime := range animes {
-		err := s.syncGenresForAnime(anime.ID, anime.MalAnimeID)
+	// Stream processing: process each anime one by one without loading all into memory
+	for rows.Next() {
+		var animeID int
+		var malAnimeID string
+
+		if err := rows.Scan(&animeID, &malAnimeID); err != nil {
+			s.logger.Error("Failed to scan anime row", "error", err)
+			failureCount++
+			errorMessages = append(errorMessages, fmt.Sprintf("Anime scan error: %s", err.Error()))
+			continue
+		}
+
+		// Sync genres for this anime
+		err := s.syncGenresForAnime(animeID, malAnimeID)
 		if err != nil {
 			failureCount++
-			errorMsg := fmt.Sprintf("Anime ID %d (MAL ID %s): %s", anime.ID, anime.MalAnimeID, err.Error())
+			errorMsg := fmt.Sprintf("Anime ID %d (MAL ID %s): %s", animeID, malAnimeID, err.Error())
 			errorMessages = append(errorMessages, errorMsg)
 			s.logger.Warn("Failed to sync genres for anime",
-				"anime_id", anime.ID,
-				"mal_anime_id", anime.MalAnimeID,
+				"anime_id", animeID,
+				"mal_anime_id", malAnimeID,
 				"error", err)
 		} else {
 			successCount++
 		}
+	}
+
+	if err := rows.Err(); err != nil {
+		return 0, 0, nil, fmt.Errorf("error iterating anime rows: %w", err)
 	}
 
 	s.logger.Info("Genre sync completed",
@@ -1616,7 +1610,7 @@ func (s *AnimeService) SyncGenresForAllAnimes() (int, int, []string, error) {
 	return successCount, failureCount, errorMessages, nil
 }
 
-// syncGenresForAnime syncs genre information for a single anime
+// syncGenresForAnime syncs genre information for a single anime using transaction
 func (s *AnimeService) syncGenresForAnime(animeID int, malAnimeID string) error {
 	// Fetch anime details from Jikan API (including genres)
 	genres, err := s.jikanClient.GetAnimeGenres(malAnimeID)
@@ -1633,23 +1627,36 @@ func (s *AnimeService) syncGenresForAnime(animeID int, malAnimeID string) error 
 		return nil
 	}
 
+	// Begin transaction to ensure atomicity
+	tx, err := s.db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback() // Rollback if not committed
+
 	// Delete existing genres for this anime
 	deleteQuery := `DELETE FROM anime_genres WHERE anime_id = $1`
-	_, err = s.db.Exec(deleteQuery, animeID)
+	_, err = tx.Exec(deleteQuery, animeID)
 	if err != nil {
 		return fmt.Errorf("failed to delete existing genres: %w", err)
 	}
 
-	// Insert new genres
+	// Prepare insert statement for better performance
 	insertQuery := `
 		INSERT INTO anime_genres (anime_id, genre)
 		VALUES ($1, $2)
 		ON CONFLICT (anime_id, genre) DO NOTHING
 	`
+	stmt, err := tx.Prepare(insertQuery)
+	if err != nil {
+		return fmt.Errorf("failed to prepare insert statement: %w", err)
+	}
+	defer stmt.Close()
 
+	// Insert new genres using prepared statement
 	insertedCount := 0
 	for _, genre := range genres {
-		_, err := s.db.Exec(insertQuery, animeID, genre.Name)
+		_, err := stmt.Exec(animeID, genre.Name)
 		if err != nil {
 			s.logger.Warn("Failed to insert genre",
 				"anime_id", animeID,
@@ -1658,6 +1665,11 @@ func (s *AnimeService) syncGenresForAnime(animeID int, malAnimeID string) error 
 			continue
 		}
 		insertedCount++
+	}
+
+	// Commit transaction
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	s.logger.Debug("Synced genres for anime",
