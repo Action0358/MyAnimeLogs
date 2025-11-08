@@ -99,6 +99,11 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='animes' AND column_name='reviews_count') THEN
         ALTER TABLE animes ADD COLUMN reviews_count INTEGER DEFAULT 0;
     END IF;
+    
+    -- Add genres_synced_at column
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='animes' AND column_name='genres_synced_at') THEN
+        ALTER TABLE animes ADD COLUMN genres_synced_at TIMESTAMP;
+    END IF;
 END $$;
 
 -- Add unique constraint to annict_id if it doesn't exist
@@ -145,6 +150,12 @@ BEGIN
     -- Create index for MAL anime ID (used for Jikan API lookups)
     IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='animes' AND column_name='mal_anime_id') THEN
         CREATE INDEX IF NOT EXISTS idx_animes_mal_anime_id ON animes(mal_anime_id) WHERE mal_anime_id IS NOT NULL;
+    END IF;
+    
+    -- Create index for genres_synced_at (used for efficient genre sync queries)
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='animes' AND column_name='genres_synced_at') THEN
+        CREATE INDEX IF NOT EXISTS idx_animes_genres_synced_at ON animes(genres_synced_at) 
+            WHERE mal_anime_id IS NOT NULL AND mal_anime_id != '';
     END IF;
 END $$;
 
