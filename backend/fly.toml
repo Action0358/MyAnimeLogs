@@ -9,12 +9,19 @@ primary_region = 'nrt'
 [build]
   dockerfile = 'Dockerfile.prod'
 
+[deploy]
+  # Note: release_command runs as root due to Fly.io constraints with ENTRYPOINT.
+  # The migrate binary and migrations directory are owned by appuser:appgroup,
+  # and database access is controlled by DATABASE_URL credentials, not OS user.
+  # This is a safe configuration for database migrations.
+  release_command = '/app/migrate'
+
 [http_service]
   internal_port = 8080
   force_https = true
-  auto_stop_machines = 'suspend'
+  auto_stop_machines = 'off'
   auto_start_machines = true
-  min_machines_running = 0
+  min_machines_running = 1
   processes = ['app']
 
 [[vm]]
