@@ -1616,7 +1616,7 @@ func (s *AnimeService) syncGenresForAnime(animeID int, malAnimeID string) error 
 	genres, err := s.jikanClient.GetAnimeGenres(malAnimeID)
 	if err != nil {
 		if errors.Is(err, ErrJikanNotFound) {
-			return fmt.Errorf("anime not found in MAL")
+			return fmt.Errorf("anime not found in MAL: %w", err)
 		}
 		return fmt.Errorf("failed to fetch genres from Jikan: %w", err)
 	}
