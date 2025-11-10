@@ -18,6 +18,7 @@ type AnimeService interface {
 	CreateEpisodesForAllAnimes() (int, int, error)
 	EnrichEpisodesWithTitles(animeID *int) (int, int, []string, error)
 	SyncGenresForAllAnimes() (int, int, []string, error)
+	SyncEpisodeDetailsForAllAnimes() (int, int, []string, error)
 }
 
 // AnimeSyncScheduler handles scheduled anime synchronization
@@ -319,6 +320,23 @@ func (s *AnimeSyncScheduler) syncEpisodeData() []string {
 		// Add individual genre errors to the error list
 		if len(genreErrors) > 0 {
 			errors = append(errors, genreErrors...)
+		}
+	}
+
+	// Step 4: Sync episode details (air_date and duration) from Jikan API
+	s.logger.Info("Syncing episode details (air_date and duration) from Jikan API")
+	detailsSuccessCount, detailsFailureCount, detailsErrors, detailsErr := s.animeService.SyncEpisodeDetailsForAllAnimes()
+
+	if detailsErr != nil {
+		errors = append(errors, fmt.Sprintf("Episode details sync: %s", detailsErr.Error()))
+	} else {
+		s.logger.Info("Episode details sync completed",
+			"success_count", detailsSuccessCount,
+			"failure_count", detailsFailureCount)
+
+		// Add individual details errors to the error list
+		if len(detailsErrors) > 0 {
+			errors = append(errors, detailsErrors...)
 		}
 	}
 

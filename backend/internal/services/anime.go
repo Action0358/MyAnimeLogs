@@ -1701,3 +1701,185 @@ func (s *AnimeService) syncGenresForAnime(animeID int, malAnimeID string) error 
 
 	return nil
 }
+
+// SyncEpisodeDetailsForAllAnimes syncs episode details (air_date and duration) for all animes
+// Returns: success count, failure count, error messages, error
+func (s *AnimeService) SyncEpisodeDetailsForAllAnimes() (int, int, []string, error) {
+	s.logger.Info("Starting episode details sync for all animes")
+
+	// Get all animes with MAL ID (for duration sync)
+	query := `
+		SELECT DISTINCT a.id, a.mal_anime_id
+		FROM animes a
+		INNER JOIN episodes e ON a.id = e.anime_id
+		WHERE a.mal_anime_id IS NOT NULL AND a.mal_anime_id != ''
+		ORDER BY a.id
+	`
+
+	rows, err := s.db.Query(query)
+	if err != nil {
+		return 0, 0, nil, fmt.Errorf("failed to query animes: %w", err)
+	}
+	defer rows.Close()
+
+	type animeInfo struct {
+		ID         int
+		MalAnimeID string
+	}
+
+	var animes []animeInfo
+	for rows.Next() {
+		var anime animeInfo
+		if err := rows.Scan(&anime.ID, &anime.MalAnimeID); err != nil {
+			s.logger.Error("Failed to scan anime row", "error", err)
+			continue
+		}
+		animes = append(animes, anime)
+	}
+
+	if err := rows.Err(); err != nil {
+		return 0, 0, nil, fmt.Errorf("error iterating anime rows: %w", err)
+	}
+
+	s.logger.Info("Found animes with MAL ID", "count", len(animes))
+
+	successCount := 0
+	failureCount := 0
+	var errorMessages []string
+	logInterval := 100 // Log progress every 100 animes
+
+	// Sync episode details for each anime
+	for i, anime := range animes {
+		err := s.syncEpisodeDetailsForAnime(anime.ID, anime.MalAnimeID)
+		if err != nil {
+			failureCount++
+			errorMsg := fmt.Sprintf("Anime ID %d (MAL ID %s): %s", anime.ID, anime.MalAnimeID, err.Error())
+			errorMessages = append(errorMessages, errorMsg)
+			s.logger.Warn("Failed to sync episode details for anime",
+				"anime_id", anime.ID,
+				"mal_anime_id", anime.MalAnimeID,
+				"error", err)
+		} else {
+			successCount++
+		}
+
+		// Log progress periodically
+		if (i+1)%logInterval == 0 {
+			s.logger.Info("Episode details sync progress",
+				"processed", i+1,
+				"total", len(animes),
+				"success", successCount,
+				"failure", failureCount,
+				"progress", fmt.Sprintf("%.1f%%", float64(i+1)/float64(len(animes))*100))
+		}
+	}
+
+	s.logger.Info("Episode details sync completed",
+		"success_count", successCount,
+		"failure_count", failureCount)
+
+	return successCount, failureCount, errorMessages, nil
+}
+
+// syncEpisodeDetailsForAnime syncs episode details (air_date and duration) for a single anime
+// Uses a single transaction to ensure atomicity and batch updates for better performance
+func (s *AnimeService) syncEpisodeDetailsForAnime(animeID int, malAnimeID string) error {
+	// Fetch episodes from Jikan API
+	episodes, err := s.jikanClient.GetAnimeEpisodes(malAnimeID)
+	if err != nil {
+		if errors.Is(err, ErrJikanNotFound) {
+			s.logger.Debug("Anime not found in Jikan", "anime_id", animeID, "mal_anime_id", malAnimeID)
+			return nil // Not an error, just no data available
+		}
+		return fmt.Errorf("failed to fetch episodes from Jikan: %w", err)
+	}
+
+	if len(episodes) == 0 {
+		return nil // No episodes to sync
+	}
+
+	// Begin transaction for atomic updates
+	tx, err := s.db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback() // Rollback if not committed
+
+	// Prepare update statement for better performance
+	updateQuery := `
+		UPDATE episodes
+		SET duration_minutes = COALESCE($1, duration_minutes),
+		    air_date = COALESCE($2, air_date),
+		    updated_at = CURRENT_TIMESTAMP
+		WHERE anime_id = $3 AND episode_number = $4
+	`
+	stmt, err := tx.Prepare(updateQuery)
+	if err != nil {
+		return fmt.Errorf("failed to prepare update statement: %w", err)
+	}
+	defer stmt.Close()
+
+	updatedCount := 0
+	for _, jikanEp := range episodes {
+		// Extract episode number from URL
+		episodeNumber, err := s.jikanClient.ExtractEpisodeNumber(jikanEp.URL)
+		if err != nil {
+			s.logger.Warn("Failed to extract episode number",
+				"anime_id", animeID,
+				"url", jikanEp.URL,
+				"error", err)
+			continue
+		}
+
+		// Prepare duration (nullable)
+		var duration *int
+		if jikanEp.Duration > 0 {
+			duration = &jikanEp.Duration
+		}
+
+		// Parse air_date to time.Time (nullable)
+		var airDate *time.Time
+		if jikanEp.Aired != nil && *jikanEp.Aired != "" {
+			// Try ISO 8601 format first (e.g., "2025-07-06T00:00:00+00:00")
+			parsedDate, err := time.Parse(time.RFC3339, *jikanEp.Aired)
+			if err != nil {
+				// Try simple date format (e.g., "2025-07-06")
+				parsedDate, err = time.Parse("2006-01-02", *jikanEp.Aired)
+			}
+			if err == nil {
+				airDate = &parsedDate
+			} else {
+				s.logger.Debug("Failed to parse air_date",
+					"anime_id", animeID,
+					"episode_number", episodeNumber,
+					"aired", *jikanEp.Aired,
+					"error", err)
+			}
+		}
+
+		// Execute update with prepared statement
+		_, err = stmt.Exec(duration, airDate, animeID, episodeNumber)
+		if err != nil {
+			s.logger.Warn("Failed to update episode details",
+				"anime_id", animeID,
+				"episode_number", episodeNumber,
+				"error", err)
+			continue
+		}
+
+		updatedCount++
+	}
+
+	// Commit transaction
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	s.logger.Debug("Synced episode details for anime",
+		"anime_id", animeID,
+		"mal_anime_id", malAnimeID,
+		"updated_count", updatedCount,
+		"total_episodes", len(episodes))
+
+	return nil
+}
