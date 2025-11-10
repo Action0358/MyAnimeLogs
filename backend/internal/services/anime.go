@@ -1553,13 +1553,16 @@ func (s *AnimeService) EnrichEpisodesWithTitles(animeID *int) (int, int, []strin
 // Only syncs animes that haven't been synced in the last 30 days to reduce API calls
 // Returns: success count, failure count, error messages, error
 func (s *AnimeService) SyncGenresForAllAnimes() (int, int, []string, error) {
-	return s.syncGenresForAnimesWithFilter(30)
+	return s.syncGenresForAnimesWithFilter(30, 0) // 30 days filter, no limit
 }
 
 // syncGenresForAnimesWithFilter syncs genres for animes that haven't been synced in the specified number of days
 // If daysThreshold is 0, syncs all animes regardless of last sync time
-func (s *AnimeService) syncGenresForAnimesWithFilter(daysThreshold int) (int, int, []string, error) {
-	s.logger.Info("Starting genre sync for animes", "days_threshold", daysThreshold)
+// If limit > 0, only syncs up to that many animes (for batch processing)
+func (s *AnimeService) syncGenresForAnimesWithFilter(daysThreshold int, limit int) (int, int, []string, error) {
+	s.logger.Info("Starting genre sync for animes",
+		"days_threshold", daysThreshold,
+		"limit", limit)
 
 	// Build query to get animes with MAL ID that need genre sync
 	query := `
@@ -1577,6 +1580,11 @@ func (s *AnimeService) syncGenresForAnimesWithFilter(daysThreshold int) (int, in
 
 	query += " ORDER BY id"
 
+	// Add limit if specified
+	if limit > 0 {
+		query += fmt.Sprintf(" LIMIT %d", limit)
+	}
+
 	rows, err := s.db.Query(query)
 	if err != nil {
 		return 0, 0, nil, fmt.Errorf("failed to query animes: %w", err)
@@ -1586,6 +1594,10 @@ func (s *AnimeService) syncGenresForAnimesWithFilter(daysThreshold int) (int, in
 	successCount := 0
 	failureCount := 0
 	var errorMessages []string
+	processedCount := 0
+	logInterval := 100 // Log progress every 100 animes
+	consecutiveErrors := 0
+	maxConsecutiveErrors := 10 // Stop if 10 consecutive errors occur
 
 	// Stream processing: process each anime one by one without loading all into memory
 	for rows.Next() {
@@ -1595,7 +1607,16 @@ func (s *AnimeService) syncGenresForAnimesWithFilter(daysThreshold int) (int, in
 		if err := rows.Scan(&animeID, &malAnimeID); err != nil {
 			s.logger.Error("Failed to scan anime row", "error", err)
 			failureCount++
+			consecutiveErrors++
 			errorMessages = append(errorMessages, fmt.Sprintf("Anime scan error: %s", err.Error()))
+
+			// Check for too many consecutive errors
+			if consecutiveErrors >= maxConsecutiveErrors {
+				s.logger.Error("Too many consecutive errors, stopping genre sync",
+					"consecutive_errors", consecutiveErrors,
+					"processed", processedCount)
+				break
+			}
 			continue
 		}
 
@@ -1603,14 +1624,36 @@ func (s *AnimeService) syncGenresForAnimesWithFilter(daysThreshold int) (int, in
 		err := s.syncGenresForAnime(animeID, malAnimeID)
 		if err != nil {
 			failureCount++
+			consecutiveErrors++
 			errorMsg := fmt.Sprintf("Anime ID %d (MAL ID %s): %s", animeID, malAnimeID, err.Error())
 			errorMessages = append(errorMessages, errorMsg)
 			s.logger.Warn("Failed to sync genres for anime",
 				"anime_id", animeID,
 				"mal_anime_id", malAnimeID,
-				"error", err)
+				"error", err,
+				"consecutive_errors", consecutiveErrors)
+
+			// Check for too many consecutive errors
+			if consecutiveErrors >= maxConsecutiveErrors {
+				s.logger.Error("Too many consecutive errors, stopping genre sync",
+					"consecutive_errors", consecutiveErrors,
+					"processed", processedCount)
+				break
+			}
 		} else {
 			successCount++
+			consecutiveErrors = 0 // Reset on success
+		}
+
+		processedCount++
+
+		// Log progress periodically
+		if processedCount%logInterval == 0 {
+			s.logger.Info("Genre sync progress",
+				"processed", processedCount,
+				"success", successCount,
+				"failure", failureCount,
+				"error_rate", fmt.Sprintf("%.2f%%", float64(failureCount)/float64(processedCount)*100))
 		}
 	}
 
@@ -1621,7 +1664,9 @@ func (s *AnimeService) syncGenresForAnimesWithFilter(daysThreshold int) (int, in
 	s.logger.Info("Genre sync completed",
 		"success_count", successCount,
 		"failure_count", failureCount,
-		"days_threshold", daysThreshold)
+		"total_processed", processedCount,
+		"days_threshold", daysThreshold,
+		"limit", limit)
 
 	return successCount, failureCount, errorMessages, nil
 }
@@ -1776,7 +1821,8 @@ func (s *AnimeService) SyncEpisodeDetailsForAllAnimes() (int, int, []string, err
 
 	s.logger.Info("Episode details sync completed",
 		"success_count", successCount,
-		"failure_count", failureCount)
+		"failure_count", failureCount,
+		"total_animes", len(animes))
 
 	return successCount, failureCount, errorMessages, nil
 }
