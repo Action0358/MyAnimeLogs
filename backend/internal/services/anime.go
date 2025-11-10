@@ -1701,3 +1701,135 @@ func (s *AnimeService) syncGenresForAnime(animeID int, malAnimeID string) error 
 
 	return nil
 }
+
+// SyncEpisodeDetailsForAllAnimes syncs episode details (air_date and duration) for all animes
+// Returns: success count, failure count, error messages, error
+func (s *AnimeService) SyncEpisodeDetailsForAllAnimes() (int, int, []string, error) {
+	s.logger.Info("Starting episode details sync for all animes")
+
+	// Get all animes with MAL ID (for duration sync)
+	query := `
+		SELECT DISTINCT a.id, a.mal_anime_id, a.annict_id
+		FROM animes a
+		INNER JOIN episodes e ON a.id = e.anime_id
+		WHERE a.mal_anime_id IS NOT NULL AND a.mal_anime_id != ''
+		ORDER BY a.id
+	`
+
+	rows, err := s.db.Query(query)
+	if err != nil {
+		return 0, 0, nil, fmt.Errorf("failed to query animes: %w", err)
+	}
+	defer rows.Close()
+
+	type animeInfo struct {
+		ID         int
+		MalAnimeID string
+		AnnictID   int
+	}
+
+	var animes []animeInfo
+	for rows.Next() {
+		var anime animeInfo
+		if err := rows.Scan(&anime.ID, &anime.MalAnimeID, &anime.AnnictID); err != nil {
+			s.logger.Error("Failed to scan anime row", "error", err)
+			continue
+		}
+		animes = append(animes, anime)
+	}
+
+	if err := rows.Err(); err != nil {
+		return 0, 0, nil, fmt.Errorf("error iterating anime rows: %w", err)
+	}
+
+	s.logger.Info("Found animes with MAL ID", "count", len(animes))
+
+	successCount := 0
+	failureCount := 0
+	var errorMessages []string
+
+	// Sync episode details for each anime
+	for _, anime := range animes {
+		err := s.syncEpisodeDetailsForAnime(anime.ID, anime.MalAnimeID, anime.AnnictID)
+		if err != nil {
+			failureCount++
+			errorMsg := fmt.Sprintf("Anime ID %d (MAL ID %s): %s", anime.ID, anime.MalAnimeID, err.Error())
+			errorMessages = append(errorMessages, errorMsg)
+			s.logger.Warn("Failed to sync episode details for anime",
+				"anime_id", anime.ID,
+				"mal_anime_id", anime.MalAnimeID,
+				"error", err)
+		} else {
+			successCount++
+		}
+	}
+
+	s.logger.Info("Episode details sync completed",
+		"success_count", successCount,
+		"failure_count", failureCount)
+
+	return successCount, failureCount, errorMessages, nil
+}
+
+// syncEpisodeDetailsForAnime syncs episode details (air_date and duration) for a single anime
+func (s *AnimeService) syncEpisodeDetailsForAnime(animeID int, malAnimeID string, annictID int) error {
+	// Step 1: Sync duration from Jikan API
+	episodes, err := s.jikanClient.GetAnimeEpisodes(malAnimeID)
+	if err != nil {
+		if errors.Is(err, ErrJikanNotFound) {
+			s.logger.Debug("Anime not found in Jikan", "anime_id", animeID, "mal_anime_id", malAnimeID)
+		} else {
+			return fmt.Errorf("failed to fetch episodes from Jikan: %w", err)
+		}
+	} else {
+		// Update duration and air_date for episodes
+		for _, jikanEp := range episodes {
+			// Extract episode number from URL
+			episodeNumber, err := s.jikanClient.ExtractEpisodeNumber(jikanEp.URL)
+			if err != nil {
+				s.logger.Warn("Failed to extract episode number",
+					"anime_id", animeID,
+					"url", jikanEp.URL,
+					"error", err)
+				continue
+			}
+
+			if jikanEp.Duration > 0 {
+				updateQuery := `
+					UPDATE episodes
+					SET duration_minutes = $1
+					WHERE anime_id = $2 AND episode_number = $3
+				`
+				_, err := s.db.Exec(updateQuery, jikanEp.Duration, animeID, episodeNumber)
+				if err != nil {
+					s.logger.Warn("Failed to update episode duration",
+						"anime_id", animeID,
+						"episode_number", episodeNumber,
+						"error", err)
+				}
+			}
+
+			// Update air_date if available
+			if jikanEp.Aired != nil && *jikanEp.Aired != "" {
+				updateQuery := `
+					UPDATE episodes
+					SET air_date = $1
+					WHERE anime_id = $2 AND episode_number = $3
+				`
+				_, err := s.db.Exec(updateQuery, *jikanEp.Aired, animeID, episodeNumber)
+				if err != nil {
+					s.logger.Warn("Failed to update episode air_date",
+						"anime_id", animeID,
+						"episode_number", episodeNumber,
+						"error", err)
+				}
+			}
+		}
+	}
+
+	s.logger.Debug("Synced episode details for anime",
+		"anime_id", animeID,
+		"mal_anime_id", malAnimeID)
+
+	return nil
+}
