@@ -13,6 +13,24 @@ import (
 // seasonOrder defines the order of seasons in a year
 var seasonOrder = []string{"winter", "spring", "summer", "autumn"}
 
+// appendErrorsWithLimit appends errors to the error list with a maximum limit
+// to prevent log spam. Returns the updated error list.
+func appendErrorsWithLimit(errors []string, newErrors []string, maxErrors int, errorType string) []string {
+	if len(newErrors) == 0 {
+		return errors
+	}
+
+	if len(newErrors) <= maxErrors {
+		return append(errors, newErrors...)
+	}
+
+	// Add first maxErrors items
+	errors = append(errors, newErrors[:maxErrors]...)
+	// Add summary message
+	errors = append(errors, fmt.Sprintf("... and %d more %s errors", len(newErrors)-maxErrors, errorType))
+	return errors
+}
+
 // AnimeService defines the interface for anime-related operations needed by the scheduler
 type AnimeService interface {
 	CreateEpisodesForAllAnimes() (int, int, error)
@@ -304,17 +322,8 @@ func (s *AnimeSyncScheduler) syncEpisodeData(isInitialSync bool) []string {
 			"success_count", titleSuccessCount,
 			"failure_count", titleFailureCount)
 
-		// Add individual title errors to the error list (limit to first 10 to avoid log spam)
-		if len(titleErrors) > 0 {
-			maxErrors := 10
-			if len(titleErrors) < maxErrors {
-				maxErrors = len(titleErrors)
-			}
-			errors = append(errors, titleErrors[:maxErrors]...)
-			if len(titleErrors) > maxErrors {
-				errors = append(errors, fmt.Sprintf("... and %d more title errors", len(titleErrors)-maxErrors))
-			}
-		}
+		// Add individual title errors to the error list (limit to avoid log spam)
+		errors = appendErrorsWithLimit(errors, titleErrors, 10, "title")
 	}
 
 	// Skip heavy operations during initial sync to reduce startup time
@@ -334,17 +343,8 @@ func (s *AnimeSyncScheduler) syncEpisodeData(isInitialSync bool) []string {
 			"success_count", genreSuccessCount,
 			"failure_count", genreFailureCount)
 
-		// Add individual genre errors to the error list (limit to first 10)
-		if len(genreErrors) > 0 {
-			maxErrors := 10
-			if len(genreErrors) < maxErrors {
-				maxErrors = len(genreErrors)
-			}
-			errors = append(errors, genreErrors[:maxErrors]...)
-			if len(genreErrors) > maxErrors {
-				errors = append(errors, fmt.Sprintf("... and %d more genre errors", len(genreErrors)-maxErrors))
-			}
-		}
+		// Add individual genre errors to the error list (limit to avoid log spam)
+		errors = appendErrorsWithLimit(errors, genreErrors, 10, "genre")
 	}
 
 	// Step 4: Sync episode details (air_date and duration) from Jikan API
@@ -358,17 +358,8 @@ func (s *AnimeSyncScheduler) syncEpisodeData(isInitialSync bool) []string {
 			"success_count", detailsSuccessCount,
 			"failure_count", detailsFailureCount)
 
-		// Add individual details errors to the error list (limit to first 10)
-		if len(detailsErrors) > 0 {
-			maxErrors := 10
-			if len(detailsErrors) < maxErrors {
-				maxErrors = len(detailsErrors)
-			}
-			errors = append(errors, detailsErrors[:maxErrors]...)
-			if len(detailsErrors) > maxErrors {
-				errors = append(errors, fmt.Sprintf("... and %d more episode details errors", len(detailsErrors)-maxErrors))
-			}
-		}
+		// Add individual details errors to the error list (limit to avoid log spam)
+		errors = appendErrorsWithLimit(errors, detailsErrors, 10, "episode details")
 	}
 
 	return errors
