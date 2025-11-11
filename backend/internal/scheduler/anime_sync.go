@@ -34,42 +34,61 @@ func appendErrorsWithLimit(errors []string, newErrors []string, maxErrors int, e
 	return errors
 }
 
+// syncOperation represents a synchronization operation that returns success count, failure count, errors, and error
+type syncOperation func() (int, int, []string, error)
+
+// executeSyncOperation executes a sync operation with consistent logging and error handling
+// Returns updated error list
+func (s *AnimeSyncScheduler) executeSyncOperation(errors []string, operation syncOperation, operationName string) []string {
+	s.logger.Info(fmt.Sprintf("Syncing %s", operationName))
+	successCount, failureCount, opErrors, err := operation()
+
+	if err != nil {
+		errors = append(errors, fmt.Sprintf("%s sync: %s", operationName, err.Error()))
+	} else {
+		s.logger.Info(fmt.Sprintf("%s sync completed", operationName),
+			"success_count", successCount,
+			"failure_count", failureCount)
+
+		// Add individual errors to the error list (limit to avoid log spam)
+		errors = appendErrorsWithLimit(errors, opErrors, 10, operationName)
+	}
+
+	return errors
+}
+
 // syncGenresAndEpisodeDetails performs genre and episode details synchronization
 // Returns error messages if any errors occur
 func (s *AnimeSyncScheduler) syncGenresAndEpisodeDetails() []string {
 	var errors []string
 
 	// Sync genre information from Jikan API
-	s.logger.Info("Syncing genre information from Jikan API")
-	genreSuccessCount, genreFailureCount, genreErrors, genreErr := s.animeService.SyncGenresForAllAnimes()
-
-	if genreErr != nil {
-		errors = append(errors, fmt.Sprintf("Genre sync: %s", genreErr.Error()))
-	} else {
-		s.logger.Info("Genre sync completed",
-			"success_count", genreSuccessCount,
-			"failure_count", genreFailureCount)
-
-		// Add individual genre errors to the error list (limit to avoid log spam)
-		errors = appendErrorsWithLimit(errors, genreErrors, 10, "genre")
-	}
+	errors = s.executeSyncOperation(errors, s.animeService.SyncGenresForAllAnimes, "genre information from Jikan API")
 
 	// Sync episode details (air_date and duration) from Jikan API
-	s.logger.Info("Syncing episode details (air_date and duration) from Jikan API")
-	detailsSuccessCount, detailsFailureCount, detailsErrors, detailsErr := s.animeService.SyncEpisodeDetailsForAllAnimes()
-
-	if detailsErr != nil {
-		errors = append(errors, fmt.Sprintf("Episode details sync: %s", detailsErr.Error()))
-	} else {
-		s.logger.Info("Episode details sync completed",
-			"success_count", detailsSuccessCount,
-			"failure_count", detailsFailureCount)
-
-		// Add individual details errors to the error list (limit to avoid log spam)
-		errors = appendErrorsWithLimit(errors, detailsErrors, 10, "episode details")
-	}
+	errors = s.executeSyncOperation(errors, s.animeService.SyncEpisodeDetailsForAllAnimes, "episode details (air_date and duration) from Jikan API")
 
 	return errors
+}
+
+// tryAcquireSyncLock attempts to acquire the sync lock
+// Returns true if lock was acquired, false if sync is already in progress
+func (s *AnimeSyncScheduler) tryAcquireSyncLock() bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.syncInProgress {
+		return false
+	}
+	s.syncInProgress = true
+	return true
+}
+
+// releaseSyncLock releases the sync lock
+func (s *AnimeSyncScheduler) releaseSyncLock() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.syncInProgress = false
 }
 
 // runBackgroundSync runs heavy sync operations in background after initial sync
@@ -86,22 +105,12 @@ func (s *AnimeSyncScheduler) runBackgroundSync() {
 		return
 	}
 
-	// Check if sync is already in progress
-	s.mu.Lock()
-	if s.syncInProgress {
+	// Try to acquire sync lock
+	if !s.tryAcquireSyncLock() {
 		s.logger.Warn("Background sync skipped: another sync is already in progress")
-		s.mu.Unlock()
 		return
 	}
-	s.syncInProgress = true
-	s.mu.Unlock()
-
-	// Ensure syncInProgress is reset when done
-	defer func() {
-		s.mu.Lock()
-		s.syncInProgress = false
-		s.mu.Unlock()
-	}()
+	defer s.releaseSyncLock()
 
 	startTime := time.Now()
 	errors := s.syncGenresAndEpisodeDetails()
@@ -424,22 +433,12 @@ func (s *AnimeSyncScheduler) syncEpisodeData(isInitialSync bool) []string {
 		return errors
 	}
 
-	// Check if sync is already in progress (mutual exclusion)
-	s.mu.Lock()
-	if s.syncInProgress {
+	// Try to acquire sync lock
+	if !s.tryAcquireSyncLock() {
 		s.logger.Warn("Skipping genre and episode details sync: another sync is already in progress")
-		s.mu.Unlock()
 		return errors
 	}
-	s.syncInProgress = true
-	s.mu.Unlock()
-
-	// Ensure syncInProgress is reset when done
-	defer func() {
-		s.mu.Lock()
-		s.syncInProgress = false
-		s.mu.Unlock()
-	}()
+	defer s.releaseSyncLock()
 
 	// Perform genre and episode details synchronization
 	heavySyncErrors := s.syncGenresAndEpisodeDetails()

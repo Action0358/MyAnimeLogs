@@ -3,6 +3,7 @@ package scheduler
 import (
 	"io"
 	"log/slog"
+	"sync"
 	"testing"
 	"time"
 
@@ -270,4 +271,155 @@ func TestNewAnimeSyncSchedulerWithNilAnimeService(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, scheduler)
 	assert.Contains(t, err.Error(), "animeService cannot be nil")
+}
+
+// Mutex and concurrency tests
+
+// mockAnimeServiceWithDelay is a mock implementation with configurable delay for mutex testing
+type mockAnimeServiceWithDelay struct {
+	syncDelay time.Duration
+}
+
+func (m *mockAnimeServiceWithDelay) CreateEpisodesForAllAnimes() (int, int, error) {
+	return 0, 0, nil
+}
+
+func (m *mockAnimeServiceWithDelay) EnrichEpisodesWithTitles(animeID *int) (int, int, []string, error) {
+	return 0, 0, nil, nil
+}
+
+func (m *mockAnimeServiceWithDelay) SyncGenresForAllAnimes() (int, int, []string, error) {
+	if m.syncDelay > 0 {
+		time.Sleep(m.syncDelay)
+	}
+	return 10, 0, nil, nil
+}
+
+func (m *mockAnimeServiceWithDelay) SyncEpisodeDetailsForAllAnimes() (int, int, []string, error) {
+	if m.syncDelay > 0 {
+		time.Sleep(m.syncDelay)
+	}
+	return 10, 0, nil, nil
+}
+
+// TestTryAcquireSyncLock tests the sync lock acquisition mechanism
+func TestTryAcquireSyncLock(t *testing.T) {
+	logger := newTestLogger()
+	mockService := &mockAnimeServiceWithDelay{}
+
+	scheduler, err := NewAnimeSyncScheduler(nil, mockService, logger, false, 0, 0)
+	assert.NoError(t, err)
+
+	// First acquisition should succeed
+	assert.True(t, scheduler.tryAcquireSyncLock(), "First tryAcquireSyncLock should succeed")
+
+	// Second acquisition should fail (lock already held)
+	assert.False(t, scheduler.tryAcquireSyncLock(), "Second tryAcquireSyncLock should fail when lock is already held")
+
+	// Release lock
+	scheduler.releaseSyncLock()
+
+	// Third acquisition should succeed after release
+	assert.True(t, scheduler.tryAcquireSyncLock(), "tryAcquireSyncLock should succeed after lock is released")
+
+	scheduler.releaseSyncLock()
+}
+
+// TestConcurrentSyncPrevention tests that concurrent syncs are prevented
+func TestConcurrentSyncPrevention(t *testing.T) {
+	logger := newTestLogger()
+	mockService := &mockAnimeServiceWithDelay{
+		syncDelay: 10 * time.Millisecond,
+	}
+
+	scheduler, err := NewAnimeSyncScheduler(nil, mockService, logger, false, 0, 0)
+	assert.NoError(t, err)
+
+	var wg sync.WaitGroup
+	syncAttempts := 5
+	successfulAcquisitions := 0
+	failedAcquisitions := 0
+	var mu sync.Mutex
+
+	// Try to run multiple syncs concurrently
+	for i := 0; i < syncAttempts; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			if scheduler.tryAcquireSyncLock() {
+				mu.Lock()
+				successfulAcquisitions++
+				mu.Unlock()
+
+				// Simulate sync work
+				time.Sleep(20 * time.Millisecond)
+
+				scheduler.releaseSyncLock()
+			} else {
+				mu.Lock()
+				failedAcquisitions++
+				mu.Unlock()
+			}
+		}()
+	}
+
+	wg.Wait()
+
+	// At least one sync should have succeeded
+	assert.Greater(t, successfulAcquisitions, 0, "Expected at least one successful sync acquisition")
+
+	// Some syncs should have been prevented (failed to acquire lock)
+	assert.Greater(t, failedAcquisitions, 0, "Expected some sync attempts to be prevented by the lock")
+
+	// Total should equal attempts
+	assert.Equal(t, syncAttempts, successfulAcquisitions+failedAcquisitions,
+		"Total attempts should equal successful + failed")
+
+	t.Logf("Sync attempts: %d successful, %d prevented", successfulAcquisitions, failedAcquisitions)
+}
+
+// TestReleaseSyncLockIdempotency tests that releasing lock multiple times is safe
+func TestReleaseSyncLockIdempotency(t *testing.T) {
+	logger := newTestLogger()
+	mockService := &mockAnimeServiceWithDelay{}
+
+	scheduler, err := NewAnimeSyncScheduler(nil, mockService, logger, false, 0, 0)
+	assert.NoError(t, err)
+
+	// Acquire lock
+	assert.True(t, scheduler.tryAcquireSyncLock(), "Failed to acquire lock")
+
+	// Release lock multiple times (should not panic)
+	scheduler.releaseSyncLock()
+	scheduler.releaseSyncLock()
+	scheduler.releaseSyncLock()
+
+	// Should be able to acquire lock again
+	assert.True(t, scheduler.tryAcquireSyncLock(), "Should be able to acquire lock after multiple releases")
+
+	scheduler.releaseSyncLock()
+}
+
+// TestSyncLockWithDefer tests that defer properly releases the lock
+func TestSyncLockWithDefer(t *testing.T) {
+	logger := newTestLogger()
+	mockService := &mockAnimeServiceWithDelay{}
+
+	scheduler, err := NewAnimeSyncScheduler(nil, mockService, logger, false, 0, 0)
+	assert.NoError(t, err)
+
+	// Simulate a function that uses defer to release lock
+	func() {
+		assert.True(t, scheduler.tryAcquireSyncLock(), "Failed to acquire lock")
+		defer scheduler.releaseSyncLock()
+
+		// Simulate some work
+		time.Sleep(10 * time.Millisecond)
+	}()
+
+	// Lock should be released after function returns
+	assert.True(t, scheduler.tryAcquireSyncLock(), "Lock should be released after defer")
+
+	scheduler.releaseSyncLock()
 }
