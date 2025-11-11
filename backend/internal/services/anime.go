@@ -1748,7 +1748,22 @@ func (s *AnimeService) syncGenresForAnime(animeID int, malAnimeID string) error 
 func (s *AnimeService) SyncEpisodeDetailsForAllAnimes() (int, int, []string, error) {
 	s.logger.Info("Starting episode details sync for all animes")
 
-	// Get all animes with MAL ID (for duration sync)
+	// Get total count for progress reporting
+	countQuery := `
+		SELECT COUNT(DISTINCT a.id)
+		FROM animes a
+		INNER JOIN episodes e ON a.id = e.anime_id
+		WHERE a.mal_anime_id IS NOT NULL AND a.mal_anime_id != ''
+	`
+	var totalCount int
+	err := s.db.QueryRow(countQuery).Scan(&totalCount)
+	if err != nil {
+		return 0, 0, nil, fmt.Errorf("failed to count animes: %w", err)
+	}
+
+	s.logger.Info("Starting episode details sync", "total_animes", totalCount)
+
+	// Stream processing: get animes with MAL ID
 	query := `
 		SELECT DISTINCT a.id, a.mal_anime_id
 		FROM animes a
@@ -1763,62 +1778,62 @@ func (s *AnimeService) SyncEpisodeDetailsForAllAnimes() (int, int, []string, err
 	}
 	defer rows.Close()
 
-	type animeInfo struct {
-		ID         int
-		MalAnimeID string
-	}
+	successCount := 0
+	failureCount := 0
+	var errorMessages []string
+	processedCount := 0
+	logInterval := 100 // Log progress every 100 animes
 
-	var animes []animeInfo
+	// Stream processing: process each anime one by one without loading all into memory
 	for rows.Next() {
-		var anime animeInfo
-		if err := rows.Scan(&anime.ID, &anime.MalAnimeID); err != nil {
+		var animeID int
+		var malAnimeID string
+
+		if err := rows.Scan(&animeID, &malAnimeID); err != nil {
 			s.logger.Error("Failed to scan anime row", "error", err)
+			failureCount++
+			errorMsg := fmt.Sprintf("Anime scan error: %s", err.Error())
+			errorMessages = append(errorMessages, errorMsg)
+			processedCount++
 			continue
 		}
-		animes = append(animes, anime)
+
+		// Sync episode details for this anime
+		err := s.syncEpisodeDetailsForAnime(animeID, malAnimeID)
+		if err != nil {
+			failureCount++
+			errorMsg := fmt.Sprintf("Anime ID %d (MAL ID %s): %s", animeID, malAnimeID, err.Error())
+			errorMessages = append(errorMessages, errorMsg)
+			s.logger.Warn("Failed to sync episode details for anime",
+				"anime_id", animeID,
+				"mal_anime_id", malAnimeID,
+				"error", err)
+		} else {
+			successCount++
+		}
+
+		processedCount++
+
+		// Log progress periodically
+		if processedCount%logInterval == 0 {
+			s.logger.Info("Episode details sync progress",
+				"processed", processedCount,
+				"total", totalCount,
+				"success", successCount,
+				"failure", failureCount,
+				"progress", fmt.Sprintf("%.1f%%", float64(processedCount)/float64(totalCount)*100))
+		}
 	}
 
 	if err := rows.Err(); err != nil {
 		return 0, 0, nil, fmt.Errorf("error iterating anime rows: %w", err)
 	}
 
-	s.logger.Info("Found animes with MAL ID", "count", len(animes))
-
-	successCount := 0
-	failureCount := 0
-	var errorMessages []string
-	logInterval := 100 // Log progress every 100 animes
-
-	// Sync episode details for each anime
-	for i, anime := range animes {
-		err := s.syncEpisodeDetailsForAnime(anime.ID, anime.MalAnimeID)
-		if err != nil {
-			failureCount++
-			errorMsg := fmt.Sprintf("Anime ID %d (MAL ID %s): %s", anime.ID, anime.MalAnimeID, err.Error())
-			errorMessages = append(errorMessages, errorMsg)
-			s.logger.Warn("Failed to sync episode details for anime",
-				"anime_id", anime.ID,
-				"mal_anime_id", anime.MalAnimeID,
-				"error", err)
-		} else {
-			successCount++
-		}
-
-		// Log progress periodically
-		if (i+1)%logInterval == 0 {
-			s.logger.Info("Episode details sync progress",
-				"processed", i+1,
-				"total", len(animes),
-				"success", successCount,
-				"failure", failureCount,
-				"progress", fmt.Sprintf("%.1f%%", float64(i+1)/float64(len(animes))*100))
-		}
-	}
-
 	s.logger.Info("Episode details sync completed",
 		"success_count", successCount,
 		"failure_count", failureCount,
-		"total_animes", len(animes))
+		"total_processed", processedCount,
+		"total_animes", totalCount)
 
 	return successCount, failureCount, errorMessages, nil
 }
