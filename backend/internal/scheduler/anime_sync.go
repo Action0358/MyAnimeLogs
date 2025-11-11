@@ -13,6 +13,14 @@ import (
 // seasonOrder defines the order of seasons in a year
 var seasonOrder = []string{"winter", "spring", "summer", "autumn"}
 
+// min returns the minimum of two integers
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 // appendErrorsWithLimit appends errors to the error list with a maximum limit
 // to prevent log spam. Returns the updated error list.
 func appendErrorsWithLimit(errors []string, newErrors []string, maxErrors int, errorType string) []string {
@@ -128,6 +136,46 @@ func (s *AnimeSyncScheduler) Start() {
 			s.logger.Info("Performing initial full sync of all seasons")
 			s.syncAllSeasons(next)
 			s.initialSynced = true
+
+			// Run heavy operations in background after initial sync
+			go func() {
+				s.logger.Info("Starting background sync of genres and episode details")
+				time.Sleep(30 * time.Second) // Wait 30 seconds to let initial sync complete
+
+				// Sync genres
+				s.logger.Info("Background: Syncing genre information from Jikan API")
+				genreSuccessCount, genreFailureCount, genreErrors, genreErr := s.animeService.SyncGenresForAllAnimes()
+				if genreErr != nil {
+					s.logger.Error("Background genre sync failed", "error", genreErr)
+				} else {
+					s.logger.Info("Background genre sync completed",
+						"success_count", genreSuccessCount,
+						"failure_count", genreFailureCount)
+					if len(genreErrors) > 0 {
+						s.logger.Warn("Background genre sync had errors",
+							"error_count", len(genreErrors),
+							"sample_errors", genreErrors[:min(5, len(genreErrors))])
+					}
+				}
+
+				// Sync episode details
+				s.logger.Info("Background: Syncing episode details from Jikan API")
+				detailsSuccessCount, detailsFailureCount, detailsErrors, detailsErr := s.animeService.SyncEpisodeDetailsForAllAnimes()
+				if detailsErr != nil {
+					s.logger.Error("Background episode details sync failed", "error", detailsErr)
+				} else {
+					s.logger.Info("Background episode details sync completed",
+						"success_count", detailsSuccessCount,
+						"failure_count", detailsFailureCount)
+					if len(detailsErrors) > 0 {
+						s.logger.Warn("Background episode details sync had errors",
+							"error_count", len(detailsErrors),
+							"sample_errors", detailsErrors[:min(5, len(detailsErrors))])
+					}
+				}
+
+				s.logger.Info("Background sync of genres and episode details completed")
+			}()
 		}
 
 		// Use interruptible sleep to avoid resource leak
