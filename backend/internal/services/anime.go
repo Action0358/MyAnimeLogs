@@ -1553,13 +1553,16 @@ func (s *AnimeService) EnrichEpisodesWithTitles(animeID *int) (int, int, []strin
 // Only syncs animes that haven't been synced in the last 30 days to reduce API calls
 // Returns: success count, failure count, error messages, error
 func (s *AnimeService) SyncGenresForAllAnimes() (int, int, []string, error) {
-	return s.syncGenresForAnimesWithFilter(30)
+	return s.syncGenresForAnimesWithFilter(30, 0) // 30 days filter, no limit
 }
 
 // syncGenresForAnimesWithFilter syncs genres for animes that haven't been synced in the specified number of days
 // If daysThreshold is 0, syncs all animes regardless of last sync time
-func (s *AnimeService) syncGenresForAnimesWithFilter(daysThreshold int) (int, int, []string, error) {
-	s.logger.Info("Starting genre sync for animes", "days_threshold", daysThreshold)
+// If limit > 0, only syncs up to that many animes (for batch processing)
+func (s *AnimeService) syncGenresForAnimesWithFilter(daysThreshold int, limit int) (int, int, []string, error) {
+	s.logger.Info("Starting genre sync for animes",
+		"days_threshold", daysThreshold,
+		"limit", limit)
 
 	// Build query to get animes with MAL ID that need genre sync
 	query := `
@@ -1567,17 +1570,27 @@ func (s *AnimeService) syncGenresForAnimesWithFilter(daysThreshold int) (int, in
 		FROM animes
 		WHERE mal_anime_id IS NOT NULL AND mal_anime_id != ''
 	`
+	args := []interface{}{}
+	argIndex := 1
 
 	// Add filter for animes that haven't been synced recently
 	if daysThreshold > 0 {
 		query += fmt.Sprintf(`
-		AND (genres_synced_at IS NULL OR genres_synced_at < CURRENT_TIMESTAMP - INTERVAL '%d days')
-		`, daysThreshold)
+		AND (genres_synced_at IS NULL OR genres_synced_at < CURRENT_TIMESTAMP - INTERVAL '$%d days')
+		`, argIndex)
+		args = append(args, daysThreshold)
+		argIndex++
 	}
 
 	query += " ORDER BY id"
 
-	rows, err := s.db.Query(query)
+	// Add limit if specified
+	if limit > 0 {
+		query += fmt.Sprintf(" LIMIT $%d", argIndex)
+		args = append(args, limit)
+	}
+
+	rows, err := s.db.Query(query, args...)
 	if err != nil {
 		return 0, 0, nil, fmt.Errorf("failed to query animes: %w", err)
 	}
@@ -1586,6 +1599,10 @@ func (s *AnimeService) syncGenresForAnimesWithFilter(daysThreshold int) (int, in
 	successCount := 0
 	failureCount := 0
 	var errorMessages []string
+	processedCount := 0
+	logInterval := 100 // Log progress every 100 animes
+	consecutiveErrors := 0
+	maxConsecutiveErrors := 10 // Stop if 10 consecutive errors occur
 
 	// Stream processing: process each anime one by one without loading all into memory
 	for rows.Next() {
@@ -1595,22 +1612,44 @@ func (s *AnimeService) syncGenresForAnimesWithFilter(daysThreshold int) (int, in
 		if err := rows.Scan(&animeID, &malAnimeID); err != nil {
 			s.logger.Error("Failed to scan anime row", "error", err)
 			failureCount++
+			consecutiveErrors++
 			errorMessages = append(errorMessages, fmt.Sprintf("Anime scan error: %s", err.Error()))
-			continue
+		} else {
+			// Sync genres for this anime
+			err := s.syncGenresForAnime(animeID, malAnimeID)
+			if err != nil {
+				failureCount++
+				consecutiveErrors++
+				errorMsg := fmt.Sprintf("Anime ID %d (MAL ID %s): %s", animeID, malAnimeID, err.Error())
+				errorMessages = append(errorMessages, errorMsg)
+				s.logger.Warn("Failed to sync genres for anime",
+					"anime_id", animeID,
+					"mal_anime_id", malAnimeID,
+					"error", err,
+					"consecutive_errors", consecutiveErrors)
+			} else {
+				successCount++
+				consecutiveErrors = 0 // Reset on success
+			}
+
+			processedCount++
+
+			// Log progress periodically
+			if processedCount%logInterval == 0 {
+				s.logger.Info("Genre sync progress",
+					"processed", processedCount,
+					"success", successCount,
+					"failure", failureCount,
+					"error_rate", fmt.Sprintf("%.2f%%", float64(failureCount)/float64(processedCount)*100))
+			}
 		}
 
-		// Sync genres for this anime
-		err := s.syncGenresForAnime(animeID, malAnimeID)
-		if err != nil {
-			failureCount++
-			errorMsg := fmt.Sprintf("Anime ID %d (MAL ID %s): %s", animeID, malAnimeID, err.Error())
-			errorMessages = append(errorMessages, errorMsg)
-			s.logger.Warn("Failed to sync genres for anime",
-				"anime_id", animeID,
-				"mal_anime_id", malAnimeID,
-				"error", err)
-		} else {
-			successCount++
+		// Check for too many consecutive errors (circuit breaker)
+		if consecutiveErrors >= maxConsecutiveErrors {
+			s.logger.Error("Too many consecutive errors, stopping genre sync",
+				"consecutive_errors", consecutiveErrors,
+				"processed", processedCount)
+			break
 		}
 	}
 
@@ -1621,7 +1660,9 @@ func (s *AnimeService) syncGenresForAnimesWithFilter(daysThreshold int) (int, in
 	s.logger.Info("Genre sync completed",
 		"success_count", successCount,
 		"failure_count", failureCount,
-		"days_threshold", daysThreshold)
+		"total_processed", processedCount,
+		"days_threshold", daysThreshold,
+		"limit", limit)
 
 	return successCount, failureCount, errorMessages, nil
 }
@@ -1698,6 +1739,204 @@ func (s *AnimeService) syncGenresForAnime(animeID int, malAnimeID string) error 
 		"anime_id", animeID,
 		"mal_anime_id", malAnimeID,
 		"genre_count", insertedCount)
+
+	return nil
+}
+
+// SyncEpisodeDetailsForAllAnimes syncs episode details (air_date and duration) for all animes
+// Returns: success count, failure count, error messages, error
+func (s *AnimeService) SyncEpisodeDetailsForAllAnimes() (int, int, []string, error) {
+	s.logger.Info("Starting episode details sync for all animes")
+
+	// Get total count for progress reporting
+	countQuery := `
+		SELECT COUNT(DISTINCT a.id)
+		FROM animes a
+		INNER JOIN episodes e ON a.id = e.anime_id
+		WHERE a.mal_anime_id IS NOT NULL AND a.mal_anime_id != ''
+	`
+	var totalCount int
+	err := s.db.QueryRow(countQuery).Scan(&totalCount)
+	if err != nil {
+		return 0, 0, nil, fmt.Errorf("failed to count animes: %w", err)
+	}
+
+	s.logger.Info("Starting episode details sync", "total_animes", totalCount)
+
+	// Stream processing: get animes with MAL ID
+	query := `
+		SELECT DISTINCT a.id, a.mal_anime_id
+		FROM animes a
+		INNER JOIN episodes e ON a.id = e.anime_id
+		WHERE a.mal_anime_id IS NOT NULL AND a.mal_anime_id != ''
+		ORDER BY a.id
+	`
+
+	rows, err := s.db.Query(query)
+	if err != nil {
+		return 0, 0, nil, fmt.Errorf("failed to query animes: %w", err)
+	}
+	defer rows.Close()
+
+	successCount := 0
+	failureCount := 0
+	var errorMessages []string
+	processedCount := 0
+	logInterval := 100 // Log progress every 100 animes
+
+	// Stream processing: process each anime one by one without loading all into memory
+	for rows.Next() {
+		var animeID int
+		var malAnimeID string
+
+		if err := rows.Scan(&animeID, &malAnimeID); err != nil {
+			s.logger.Error("Failed to scan anime row", "error", err)
+			failureCount++
+			errorMsg := fmt.Sprintf("Anime scan error: %s", err.Error())
+			errorMessages = append(errorMessages, errorMsg)
+			processedCount++
+			continue
+		}
+
+		// Sync episode details for this anime
+		err := s.syncEpisodeDetailsForAnime(animeID, malAnimeID)
+		if err != nil {
+			failureCount++
+			errorMsg := fmt.Sprintf("Anime ID %d (MAL ID %s): %s", animeID, malAnimeID, err.Error())
+			errorMessages = append(errorMessages, errorMsg)
+			s.logger.Warn("Failed to sync episode details for anime",
+				"anime_id", animeID,
+				"mal_anime_id", malAnimeID,
+				"error", err)
+		} else {
+			successCount++
+		}
+
+		processedCount++
+
+		// Log progress periodically
+		if processedCount%logInterval == 0 {
+			s.logger.Info("Episode details sync progress",
+				"processed", processedCount,
+				"total", totalCount,
+				"success", successCount,
+				"failure", failureCount,
+				"progress", fmt.Sprintf("%.1f%%", float64(processedCount)/float64(totalCount)*100))
+		}
+	}
+
+	if err := rows.Err(); err != nil {
+		return 0, 0, nil, fmt.Errorf("error iterating anime rows: %w", err)
+	}
+
+	s.logger.Info("Episode details sync completed",
+		"success_count", successCount,
+		"failure_count", failureCount,
+		"total_processed", processedCount,
+		"total_animes", totalCount)
+
+	return successCount, failureCount, errorMessages, nil
+}
+
+// syncEpisodeDetailsForAnime syncs episode details (air_date and duration) for a single anime
+// Uses a single transaction to ensure atomicity and batch updates for better performance
+func (s *AnimeService) syncEpisodeDetailsForAnime(animeID int, malAnimeID string) error {
+	// Fetch episodes from Jikan API
+	episodes, err := s.jikanClient.GetAnimeEpisodes(malAnimeID)
+	if err != nil {
+		if errors.Is(err, ErrJikanNotFound) {
+			s.logger.Debug("Anime not found in Jikan", "anime_id", animeID, "mal_anime_id", malAnimeID)
+			return nil // Not an error, just no data available
+		}
+		return fmt.Errorf("failed to fetch episodes from Jikan: %w", err)
+	}
+
+	if len(episodes) == 0 {
+		return nil // No episodes to sync
+	}
+
+	// Begin transaction for atomic updates
+	tx, err := s.db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback() // Rollback if not committed
+
+	// Prepare update statement for better performance
+	updateQuery := `
+		UPDATE episodes
+		SET duration_minutes = COALESCE($1, duration_minutes),
+		    air_date = COALESCE($2, air_date),
+		    updated_at = CURRENT_TIMESTAMP
+		WHERE anime_id = $3 AND episode_number = $4
+	`
+	stmt, err := tx.Prepare(updateQuery)
+	if err != nil {
+		return fmt.Errorf("failed to prepare update statement: %w", err)
+	}
+	defer stmt.Close()
+
+	updatedCount := 0
+	for _, jikanEp := range episodes {
+		// Extract episode number from URL
+		episodeNumber, err := s.jikanClient.ExtractEpisodeNumber(jikanEp.URL)
+		if err != nil {
+			s.logger.Warn("Failed to extract episode number",
+				"anime_id", animeID,
+				"url", jikanEp.URL,
+				"error", err)
+			continue
+		}
+
+		// Prepare duration (nullable)
+		var duration *int
+		if jikanEp.Duration > 0 {
+			duration = &jikanEp.Duration
+		}
+
+		// Parse air_date to time.Time (nullable)
+		var airDate *time.Time
+		if jikanEp.Aired != nil && *jikanEp.Aired != "" {
+			// Try ISO 8601 format first (e.g., "2025-07-06T00:00:00+00:00")
+			parsedDate, err := time.Parse(time.RFC3339, *jikanEp.Aired)
+			if err != nil {
+				// Try simple date format (e.g., "2025-07-06")
+				parsedDate, err = time.Parse("2006-01-02", *jikanEp.Aired)
+			}
+			if err == nil {
+				airDate = &parsedDate
+			} else {
+				s.logger.Debug("Failed to parse air_date",
+					"anime_id", animeID,
+					"episode_number", episodeNumber,
+					"aired", *jikanEp.Aired,
+					"error", err)
+			}
+		}
+
+		// Execute update with prepared statement
+		_, err = stmt.Exec(duration, airDate, animeID, episodeNumber)
+		if err != nil {
+			s.logger.Warn("Failed to update episode details",
+				"anime_id", animeID,
+				"episode_number", episodeNumber,
+				"error", err)
+			continue
+		}
+
+		updatedCount++
+	}
+
+	// Commit transaction
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	s.logger.Debug("Synced episode details for anime",
+		"anime_id", animeID,
+		"mal_anime_id", malAnimeID,
+		"updated_count", updatedCount,
+		"total_episodes", len(episodes))
 
 	return nil
 }
