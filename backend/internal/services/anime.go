@@ -1531,7 +1531,7 @@ func (s *AnimeService) EnrichEpisodesWithTitles(animeID *int) (int, int, []strin
 	successCount := 0
 	failureCount := 0
 	skippedCount := 0
-	errors := []string{}
+	errorMessages := []string{}
 	consecutiveRateLimitErrors := 0
 
 	for i, anime := range animes {
@@ -1547,8 +1547,8 @@ func (s *AnimeService) EnrichEpisodesWithTitles(animeID *int) (int, int, []strin
 
 		err := s.annictClient.UpdateEpisodeTitlesFromAnnict(anime.id, anime.annictID)
 		if err != nil {
-			// Check if this is a rate limit error (429)
-			if strings.Contains(err.Error(), "status 429") {
+			// Check if this is a rate limit error using errors.Is
+			if errors.Is(err, ErrRateLimitExceeded) {
 				consecutiveRateLimitErrors++
 				skippedCount++
 
@@ -1575,7 +1575,7 @@ func (s *AnimeService) EnrichEpisodesWithTitles(animeID *int) (int, int, []strin
 			consecutiveRateLimitErrors = 0
 			failureCount++
 			errorMsg := fmt.Sprintf("Anime ID %d: %s", anime.id, err.Error())
-			errors = append(errors, errorMsg)
+			errorMessages = append(errorMessages, errorMsg)
 			s.logger.Warn("Failed to update episode titles",
 				"anime_id", anime.id,
 				"error", err)
@@ -1594,7 +1594,7 @@ func (s *AnimeService) EnrichEpisodesWithTitles(animeID *int) (int, int, []strin
 		"failure_count", failureCount,
 		"skipped_count", skippedCount)
 
-	return successCount, failureCount, errors, nil
+	return successCount, failureCount, errorMessages, nil
 }
 
 // SyncGenresForAllAnimes syncs genre information for all animes that have MAL ID

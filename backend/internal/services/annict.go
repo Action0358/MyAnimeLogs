@@ -2,6 +2,7 @@ package services
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"myanimelogs/internal/common"
@@ -10,6 +11,11 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+)
+
+// Sentinel errors for Annict API
+var (
+	ErrRateLimitExceeded = errors.New("annict API rate limit exceeded")
 )
 
 const annictAPIEndpoint = "https://api.annict.com/v1/works"
@@ -101,9 +107,9 @@ func (c *AnnictClient) makeRequest(params url.Values) (*models.AnnictWorkRespons
 			return nil, fmt.Errorf("annict API returned status %d, and failed to read response body: %w", resp.StatusCode, readErr)
 		}
 
-		// Return specific error for rate limiting
+		// Return sentinel error for rate limiting
 		if resp.StatusCode == http.StatusTooManyRequests {
-			return nil, fmt.Errorf("annict API returned status 429: Retry later")
+			return nil, fmt.Errorf("%w: status %d", ErrRateLimitExceeded, resp.StatusCode)
 		}
 
 		return nil, fmt.Errorf("annict API returned status %d, body: %s", resp.StatusCode, string(body))

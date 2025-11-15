@@ -5,7 +5,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"time"
 
@@ -17,30 +16,33 @@ import (
 )
 
 func main() {
+	// Initialize logger first
+	logger := common.NewLogger(common.LogLevelInfo, "text")
+
 	// Load environment variables
 	if err := godotenv.Load(".env.local"); err != nil {
-		log.Printf("Warning: .env.local file not found: %v", err)
+		logger.Warn(".env.local file not found", "error", err)
 	}
-
-	// Initialize logger
-	logger := common.NewLogger(common.LogLevelInfo, "text")
 
 	// Initialize database
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
-		log.Fatal("DATABASE_URL is not set")
+		logger.Error("DATABASE_URL is not set")
+		os.Exit(1)
 	}
 
 	db, err := database.New(dbURL)
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		logger.Error("Failed to connect to database", "error", err)
+		os.Exit(1)
 	}
 	defer db.Close()
 
 	// Initialize services
 	annictToken := os.Getenv("ANNICT_API_KEY")
 	if annictToken == "" {
-		log.Fatal("ANNICT_API_KEY is not set")
+		logger.Error("ANNICT_API_KEY is not set")
+		os.Exit(1)
 	}
 
 	annictClient := services.NewAnnictClientWithDB(annictToken, db, logger)
@@ -54,34 +56,44 @@ func main() {
 	startTime := time.Now()
 
 	// Step 1: Enrich episode titles
-	fmt.Println("Step 1/2: Enriching episode titles from Annict API...")
+	logger.Info("Step 1/2: Enriching episode titles from Annict API...")
 	titleSuccess, titleFailure, titleErrors, err := animeService.EnrichEpisodesWithTitles(nil)
 	if err != nil {
-		log.Fatalf("Failed to enrich episode titles: %v", err)
+		logger.Error("Failed to enrich episode titles", "error", err)
+		os.Exit(1)
 	}
 
-	fmt.Printf("Episode titles: Success=%d, Failure=%d\n", titleSuccess, titleFailure)
+	logger.Info("Episode titles completed",
+		"success", titleSuccess,
+		"failure", titleFailure)
 	if len(titleErrors) > 0 {
-		fmt.Printf("Errors (first 5): %v\n", titleErrors[:min(5, len(titleErrors))])
+		logger.Warn("Episode title errors occurred",
+			"error_count", len(titleErrors),
+			"sample_errors", titleErrors[:min(5, len(titleErrors))])
 	}
 
 	// Step 2: Sync episode details (air_date and duration)
-	fmt.Println("\nStep 2/2: Syncing episode details from Jikan API...")
+	logger.Info("Step 2/2: Syncing episode details from Jikan API...")
 	detailSuccess, detailFailure, detailErrors, err := animeService.SyncEpisodeDetailsForAllAnimes()
 	if err != nil {
-		log.Fatalf("Failed to sync episode details: %v", err)
+		logger.Error("Failed to sync episode details", "error", err)
+		os.Exit(1)
 	}
 
-	fmt.Printf("Episode details: Success=%d, Failure=%d\n", detailSuccess, detailFailure)
+	logger.Info("Episode details completed",
+		"success", detailSuccess,
+		"failure", detailFailure)
 	if len(detailErrors) > 0 {
-		fmt.Printf("Errors (first 5): %v\n", detailErrors[:min(5, len(detailErrors))])
+		logger.Warn("Episode detail errors occurred",
+			"error_count", len(detailErrors),
+			"sample_errors", detailErrors[:min(5, len(detailErrors))])
 	}
 
 	duration := time.Since(startTime)
-	fmt.Printf("\n=== Sync completed in %s ===\n", duration)
+	logger.Info("Sync completed", "duration", duration.String())
 
 	// Display statistics
-	fmt.Println("\nFinal statistics:")
+	logger.Info("Fetching final statistics...")
 	rows, err := db.Query(`
 		SELECT 
 			COUNT(*) as total_episodes,
@@ -91,7 +103,7 @@ func main() {
 		FROM episodes
 	`)
 	if err != nil {
-		log.Printf("Failed to get statistics: %v", err)
+		logger.Error("Failed to get statistics", "error", err)
 		return
 	}
 	defer rows.Close()
@@ -99,18 +111,22 @@ func main() {
 	if rows.Next() {
 		var total, customTitle, duration, airDate int
 		if err := rows.Scan(&total, &customTitle, &duration, &airDate); err != nil {
-			log.Printf("Failed to scan statistics: %v", err)
+			logger.Error("Failed to scan statistics", "error", err)
 			return
 		}
 
-		fmt.Printf("  Total episodes: %d\n", total)
-		fmt.Printf("  With custom title: %d (%.1f%%)\n", customTitle, float64(customTitle)/float64(total)*100)
-		fmt.Printf("  With duration: %d (%.1f%%)\n", duration, float64(duration)/float64(total)*100)
-		fmt.Printf("  With air_date: %d (%.1f%%)\n", airDate, float64(airDate)/float64(total)*100)
+		logger.Info("Final statistics",
+			"total_episodes", total,
+			"with_custom_title", customTitle,
+			"custom_title_percent", fmt.Sprintf("%.1f%%", float64(customTitle)/float64(total)*100),
+			"with_duration", duration,
+			"duration_percent", fmt.Sprintf("%.1f%%", float64(duration)/float64(total)*100),
+			"with_air_date", airDate,
+			"air_date_percent", fmt.Sprintf("%.1f%%", float64(airDate)/float64(total)*100))
 	}
 
-	fmt.Println("\n✓ Manual full sync completed successfully!")
-	fmt.Println("Future syncs will only update new/changed data.")
+	logger.Info("✓ Manual full sync completed successfully!")
+	logger.Info("Future syncs will only update new/changed data.")
 }
 
 func min(a, b int) int {
