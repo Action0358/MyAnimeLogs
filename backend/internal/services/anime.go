@@ -1142,20 +1142,12 @@ func (s *AnimeService) enrichEpisodesWithDuration(animeID int, malAnimeID string
 	// Update episodes with duration from Jikan API
 	updatedCount := 0
 	for _, jikanEp := range jikanEpisodes {
-		// Extract episode number from URL
-		episodeNumber, err := s.jikanClient.ExtractEpisodeNumber(jikanEp.URL)
-		if err != nil {
-			s.logger.Warn("Failed to extract episode number",
-				"url", jikanEp.URL,
-				"mal_anime_id", malAnimeID,
-				"error", err)
-			continue
-		}
+		// Use mal_id as episode number (Jikan API's mal_id corresponds to episode number)
+		episodeNumber := jikanEp.MalID
 
 		if episodeNumber <= 0 {
 			s.logger.Debug("Invalid episode number from Jikan API",
-				"episode_number", episodeNumber,
-				"url", jikanEp.URL,
+				"mal_id", jikanEp.MalID,
 				"mal_anime_id", malAnimeID)
 			continue
 		}
@@ -1496,16 +1488,24 @@ func (s *AnimeService) EnrichEpisodesWithTitles(animeID *int) (int, int, []strin
 	}
 
 	query := `
-		SELECT id, annict_id
-		FROM animes
-		WHERE annict_id IS NOT NULL
+		SELECT a.id, a.annict_id
+		FROM animes a
+		WHERE a.annict_id IS NOT NULL
+		AND EXISTS (
+			SELECT 1 FROM episodes e 
+			WHERE e.anime_id = a.id
+		)
 	`
 	args := []interface{}{}
 
 	if animeID != nil {
-		query += " AND id = $1"
+		query += " AND a.id = $1"
 		args = append(args, *animeID)
 	}
+
+	// Add ORDER BY to prioritize recent seasons (descending order)
+	// This ensures newer anime are processed first
+	query += " ORDER BY a.season DESC NULLS LAST, a.id DESC"
 
 	rows, err := s.db.Query(query, args...)
 	if err != nil {
@@ -1524,21 +1524,63 @@ func (s *AnimeService) EnrichEpisodesWithTitles(animeID *int) (int, int, []strin
 		animes = append(animes, anime)
 	}
 
+	s.logger.Info("Starting episode title enrichment",
+		"total_animes", len(animes))
+
 	// エピソードタイトルを更新
 	successCount := 0
 	failureCount := 0
-	errors := []string{}
+	skippedCount := 0
+	errorMessages := []string{}
+	consecutiveRateLimitErrors := 0
 
-	for _, anime := range animes {
+	for i, anime := range animes {
+		// Log progress every 10 animes
+		if i > 0 && i%10 == 0 {
+			s.logger.Info("Episode title enrichment progress",
+				"processed", i,
+				"total", len(animes),
+				"success", successCount,
+				"failure", failureCount,
+				"skipped", skippedCount)
+		}
+
 		err := s.annictClient.UpdateEpisodeTitlesFromAnnict(anime.id, anime.annictID)
 		if err != nil {
+			// Check if this is a rate limit error using errors.Is
+			if errors.Is(err, ErrRateLimitExceeded) {
+				consecutiveRateLimitErrors++
+				skippedCount++
+
+				// If we hit rate limit multiple times in a row, stop processing
+				if consecutiveRateLimitErrors >= 3 {
+					s.logger.Warn("Hit rate limit 3 times consecutively, stopping episode title enrichment",
+						"processed", i,
+						"total", len(animes),
+						"success", successCount,
+						"failure", failureCount,
+						"skipped", skippedCount)
+					break
+				}
+
+				// Wait longer before continuing
+				s.logger.Warn("Rate limit hit, waiting 5 seconds before continuing",
+					"anime_id", anime.id,
+					"consecutive_errors", consecutiveRateLimitErrors)
+				time.Sleep(5 * time.Second)
+				continue
+			}
+
+			// Reset consecutive rate limit counter on other errors
+			consecutiveRateLimitErrors = 0
 			failureCount++
 			errorMsg := fmt.Sprintf("Anime ID %d: %s", anime.id, err.Error())
-			errors = append(errors, errorMsg)
+			errorMessages = append(errorMessages, errorMsg)
 			s.logger.Warn("Failed to update episode titles",
 				"anime_id", anime.id,
 				"error", err)
 		} else {
+			consecutiveRateLimitErrors = 0
 			successCount++
 		}
 
@@ -1546,7 +1588,13 @@ func (s *AnimeService) EnrichEpisodesWithTitles(animeID *int) (int, int, []strin
 		// No need to call applyRateLimit() here
 	}
 
-	return successCount, failureCount, errors, nil
+	s.logger.Info("Episode title enrichment finished",
+		"total_animes", len(animes),
+		"success_count", successCount,
+		"failure_count", failureCount,
+		"skipped_count", skippedCount)
+
+	return successCount, failureCount, errorMessages, nil
 }
 
 // SyncGenresForAllAnimes syncs genre information for all animes that have MAL ID
@@ -1748,12 +1796,13 @@ func (s *AnimeService) syncGenresForAnime(animeID int, malAnimeID string) error 
 func (s *AnimeService) SyncEpisodeDetailsForAllAnimes() (int, int, []string, error) {
 	s.logger.Info("Starting episode details sync for all animes")
 
-	// Get total count for progress reporting
+	// Get total count for progress reporting (only animes with episodes missing duration or air_date)
 	countQuery := `
 		SELECT COUNT(DISTINCT a.id)
 		FROM animes a
 		INNER JOIN episodes e ON a.id = e.anime_id
 		WHERE a.mal_anime_id IS NOT NULL AND a.mal_anime_id != ''
+		AND (e.duration_minutes IS NULL OR e.air_date IS NULL)
 	`
 	var totalCount int
 	err := s.db.QueryRow(countQuery).Scan(&totalCount)
@@ -1763,12 +1812,13 @@ func (s *AnimeService) SyncEpisodeDetailsForAllAnimes() (int, int, []string, err
 
 	s.logger.Info("Starting episode details sync", "total_animes", totalCount)
 
-	// Stream processing: get animes with MAL ID
+	// Stream processing: get animes with MAL ID that have episodes missing duration or air_date
 	query := `
 		SELECT DISTINCT a.id, a.mal_anime_id
 		FROM animes a
 		INNER JOIN episodes e ON a.id = e.anime_id
 		WHERE a.mal_anime_id IS NOT NULL AND a.mal_anime_id != ''
+		AND (e.duration_minutes IS NULL OR e.air_date IS NULL)
 		ORDER BY a.id
 	`
 
@@ -1878,13 +1928,13 @@ func (s *AnimeService) syncEpisodeDetailsForAnime(animeID int, malAnimeID string
 
 	updatedCount := 0
 	for _, jikanEp := range episodes {
-		// Extract episode number from URL
-		episodeNumber, err := s.jikanClient.ExtractEpisodeNumber(jikanEp.URL)
-		if err != nil {
-			s.logger.Warn("Failed to extract episode number",
+		// Use mal_id as episode number (Jikan API's mal_id corresponds to episode number)
+		episodeNumber := jikanEp.MalID
+
+		if episodeNumber <= 0 {
+			s.logger.Debug("Invalid episode number from Jikan API",
 				"anime_id", animeID,
-				"url", jikanEp.URL,
-				"error", err)
+				"mal_id", jikanEp.MalID)
 			continue
 		}
 
