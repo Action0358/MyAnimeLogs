@@ -16,9 +16,15 @@ import (
 )
 
 func main() {
-	// Initialize logger first
 	logger := common.NewLogger(common.LogLevelInfo, "text")
 
+	if err := run(logger); err != nil {
+		logger.Error("Manual full sync failed", "error", err)
+		os.Exit(1)
+	}
+}
+
+func run(logger *common.Logger) error {
 	// Load environment variables
 	if err := godotenv.Load(".env.local"); err != nil {
 		logger.Warn(".env.local file not found", "error", err)
@@ -27,22 +33,19 @@ func main() {
 	// Initialize database
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
-		logger.Error("DATABASE_URL is not set")
-		os.Exit(1)
+		return fmt.Errorf("DATABASE_URL is not set")
 	}
 
 	db, err := database.New(dbURL)
 	if err != nil {
-		logger.Error("Failed to connect to database", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to connect to database: %w", err)
 	}
 	defer db.Close()
 
 	// Initialize services
 	annictToken := os.Getenv("ANNICT_API_KEY")
 	if annictToken == "" {
-		logger.Error("ANNICT_API_KEY is not set")
-		os.Exit(1)
+		return fmt.Errorf("ANNICT_API_KEY is not set")
 	}
 
 	annictClient := services.NewAnnictClientWithDB(annictToken, db, logger)
@@ -59,8 +62,7 @@ func main() {
 	logger.Info("Step 1/2: Enriching episode titles from Annict API...")
 	titleSuccess, titleFailure, titleErrors, err := animeService.EnrichEpisodesWithTitles(nil)
 	if err != nil {
-		logger.Error("Failed to enrich episode titles", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to enrich episode titles: %w", err)
 	}
 
 	logger.Info("Episode titles completed",
@@ -76,8 +78,7 @@ func main() {
 	logger.Info("Step 2/2: Syncing episode details from Jikan API...")
 	detailSuccess, detailFailure, detailErrors, err := animeService.SyncEpisodeDetailsForAllAnimes()
 	if err != nil {
-		logger.Error("Failed to sync episode details", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to sync episode details: %w", err)
 	}
 
 	logger.Info("Episode details completed",
@@ -103,16 +104,14 @@ func main() {
 		FROM episodes
 	`)
 	if err != nil {
-		logger.Error("Failed to get statistics", "error", err)
-		return
+		return fmt.Errorf("failed to get statistics: %w", err)
 	}
 	defer rows.Close()
 
 	if rows.Next() {
 		var total, customTitle, duration, airDate int
 		if err := rows.Scan(&total, &customTitle, &duration, &airDate); err != nil {
-			logger.Error("Failed to scan statistics", "error", err)
-			return
+			return fmt.Errorf("failed to scan statistics: %w", err)
 		}
 
 		logger.Info("Final statistics",
@@ -127,6 +126,8 @@ func main() {
 
 	logger.Info("✓ Manual full sync completed successfully!")
 	logger.Info("Future syncs will only update new/changed data.")
+
+	return nil
 }
 
 func min(a, b int) int {

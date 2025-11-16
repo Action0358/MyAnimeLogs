@@ -1481,6 +1481,13 @@ func (s *AnimeService) createEpisodesForAnime(animeID int, count int) error {
 
 // EnrichEpisodesWithTitles enriches episodes with titles from Annict API
 func (s *AnimeService) EnrichEpisodesWithTitles(animeID *int) (int, int, []string, error) {
+	// Constants for rate limit handling
+	const (
+		progressLogInterval      = 10              // Log progress every N animes
+		maxConsecutiveRateLimits = 3               // Stop after N consecutive rate limit errors
+		rateLimitWaitDuration    = 5 * time.Second // Wait duration when rate limit is hit
+	)
+
 	// アニメ一覧を取得
 	var animes []struct {
 		id       int
@@ -1535,8 +1542,8 @@ func (s *AnimeService) EnrichEpisodesWithTitles(animeID *int) (int, int, []strin
 	consecutiveRateLimitErrors := 0
 
 	for i, anime := range animes {
-		// Log progress every 10 animes
-		if i > 0 && i%10 == 0 {
+		// Log progress at regular intervals
+		if i > 0 && i%progressLogInterval == 0 {
 			s.logger.Info("Episode title enrichment progress",
 				"processed", i,
 				"total", len(animes),
@@ -1553,21 +1560,23 @@ func (s *AnimeService) EnrichEpisodesWithTitles(animeID *int) (int, int, []strin
 				skippedCount++
 
 				// If we hit rate limit multiple times in a row, stop processing
-				if consecutiveRateLimitErrors >= 3 {
-					s.logger.Warn("Hit rate limit 3 times consecutively, stopping episode title enrichment",
+				if consecutiveRateLimitErrors >= maxConsecutiveRateLimits {
+					s.logger.Warn("Hit rate limit multiple times consecutively, stopping episode title enrichment",
 						"processed", i,
 						"total", len(animes),
 						"success", successCount,
 						"failure", failureCount,
-						"skipped", skippedCount)
+						"skipped", skippedCount,
+						"max_consecutive_rate_limits", maxConsecutiveRateLimits)
 					break
 				}
 
-				// Wait longer before continuing
-				s.logger.Warn("Rate limit hit, waiting 5 seconds before continuing",
+				// Wait before continuing
+				s.logger.Warn("Rate limit hit, waiting before continuing",
 					"anime_id", anime.id,
-					"consecutive_errors", consecutiveRateLimitErrors)
-				time.Sleep(5 * time.Second)
+					"consecutive_errors", consecutiveRateLimitErrors,
+					"wait_duration", rateLimitWaitDuration.String())
+				time.Sleep(rateLimitWaitDuration)
 				continue
 			}
 
