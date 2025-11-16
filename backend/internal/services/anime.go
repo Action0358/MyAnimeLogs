@@ -1633,7 +1633,7 @@ func (s *AnimeService) syncGenresForAnimesWithFilter(daysThreshold int, limit in
 	// Add filter for animes that haven't been synced recently
 	if daysThreshold > 0 {
 		query += fmt.Sprintf(`
-		AND (genres_synced_at IS NULL OR genres_synced_at < CURRENT_TIMESTAMP - INTERVAL '$%d days')
+		AND (genres_synced_at IS NULL OR genres_synced_at < CURRENT_TIMESTAMP - ($%d || ' days')::INTERVAL)
 		`, argIndex)
 		args = append(args, daysThreshold)
 		argIndex++

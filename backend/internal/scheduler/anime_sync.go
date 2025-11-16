@@ -118,10 +118,15 @@ func (s *AnimeSyncScheduler) runBackgroundSync() {
 
 	// Log completion with status
 	if len(errors) > 0 {
+		// Calculate sample size inline to avoid dependency on min function
+		sampleSize := 5
+		if len(errors) < sampleSize {
+			sampleSize = len(errors)
+		}
 		s.logger.Error("Background sync completed with errors",
 			"duration", duration.String(),
 			"error_count", len(errors),
-			"sample_errors", errors[:min(5, len(errors))])
+			"sample_errors", errors[:sampleSize])
 	} else {
 		s.logger.Info("Background sync completed successfully",
 			"duration", duration.String())

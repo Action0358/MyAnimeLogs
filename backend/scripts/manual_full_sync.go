@@ -69,9 +69,13 @@ func run(logger *common.Logger) error {
 		"success", titleSuccess,
 		"failure", titleFailure)
 	if len(titleErrors) > 0 {
+		sampleSize := 5
+		if len(titleErrors) < sampleSize {
+			sampleSize = len(titleErrors)
+		}
 		logger.Warn("Episode title errors occurred",
 			"error_count", len(titleErrors),
-			"sample_errors", titleErrors[:min(5, len(titleErrors))])
+			"sample_errors", titleErrors[:sampleSize])
 	}
 
 	// Step 2: Sync episode details (air_date and duration)
@@ -85,9 +89,13 @@ func run(logger *common.Logger) error {
 		"success", detailSuccess,
 		"failure", detailFailure)
 	if len(detailErrors) > 0 {
+		sampleSize := 5
+		if len(detailErrors) < sampleSize {
+			sampleSize = len(detailErrors)
+		}
 		logger.Warn("Episode detail errors occurred",
 			"error_count", len(detailErrors),
-			"sample_errors", detailErrors[:min(5, len(detailErrors))])
+			"sample_errors", detailErrors[:sampleSize])
 	}
 
 	duration := time.Since(startTime)
