@@ -2,6 +2,7 @@ package services
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"myanimelogs/internal/common"
@@ -10,6 +11,11 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+)
+
+// Sentinel errors for Annict API
+var (
+	ErrRateLimitExceeded = errors.New("annict API rate limit exceeded")
 )
 
 const annictAPIEndpoint = "https://api.annict.com/v1/works"
@@ -42,7 +48,7 @@ func NewAnnictClient(token string) *AnnictClient {
 		HTTPClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
-		rateLimitDelay: 500 * time.Millisecond,
+		rateLimitDelay: 1000 * time.Millisecond, // Increased from 500ms to 1s to avoid rate limiting
 	}
 }
 
@@ -54,7 +60,7 @@ func NewAnnictClientWithDB(token string, db *database.DB, logger *common.Logger)
 		},
 		DB:             db,
 		logger:         logger,
-		rateLimitDelay: 500 * time.Millisecond,
+		rateLimitDelay: 1000 * time.Millisecond, // Increased from 500ms to 1s to avoid rate limiting
 	}
 }
 
@@ -98,9 +104,15 @@ func (c *AnnictClient) makeRequest(params url.Values) (*models.AnnictWorkRespons
 	if resp.StatusCode != http.StatusOK {
 		body, readErr := io.ReadAll(resp.Body)
 		if readErr != nil {
-			return nil, fmt.Errorf("annict api returned non-200 status: %d, and failed to read response body: %w", resp.StatusCode, readErr)
+			return nil, fmt.Errorf("annict API returned status %d, and failed to read response body: %w", resp.StatusCode, readErr)
 		}
-		return nil, fmt.Errorf("annict api returned non-200 status: %d, body: %s", resp.StatusCode, string(body))
+
+		// Return sentinel error for rate limiting
+		if resp.StatusCode == http.StatusTooManyRequests {
+			return nil, fmt.Errorf("%w: status %d", ErrRateLimitExceeded, resp.StatusCode)
+		}
+
+		return nil, fmt.Errorf("annict API returned status %d, body: %s", resp.StatusCode, string(body))
 	}
 
 	var annictResponse models.AnnictWorkResponse
@@ -425,27 +437,22 @@ func (c *AnnictClient) UpdateEpisodeTitlesFromAnnict(animeID int, annictID int) 
 		return fmt.Errorf("no episodes found in database for anime_id %d", animeID)
 	}
 
+	// Annict APIのエピソードは既にsort_numberでソートされている
 	// データベースのエピソード番号とAnnict APIのエピソードを順序でマッチング
-	// Annict APIのエピソードは既にsort_numberでソートされているため、
-	// 通算エピソード番号（38, 39, 40...）でも正しく対応できる
+	// DBのepisode_number=1がAnnictの最初のエピソード(インデックス0)に対応
 	successCount := 0
 	for i, dbEpisodeNumber := range dbEpisodeNumbers {
 		if i >= len(annictEpisodes) {
+			if c.logger != nil {
+				c.logger.Debug("No more Annict episodes available",
+					"anime_id", animeID,
+					"db_episode_number", dbEpisodeNumber,
+					"annict_episode_count", len(annictEpisodes))
+			}
 			break // Annict APIのエピソードが足りない場合は終了
 		}
 
 		annictEp := annictEpisodes[i]
-
-		// Validate that Number is a positive value
-		if annictEp.Number <= 0 {
-			if c.logger != nil {
-				c.logger.Warn("Invalid episode number from Annict",
-					"anime_id", animeID,
-					"annict_number", annictEp.Number,
-					"title", annictEp.Title)
-			}
-			continue
-		}
 
 		// エピソードを更新
 		result, err := c.DB.Exec(`
@@ -461,7 +468,8 @@ func (c *AnnictClient) UpdateEpisodeTitlesFromAnnict(animeID int, annictID int) 
 				c.logger.Warn("Failed to update episode",
 					"anime_id", animeID,
 					"db_episode_number", dbEpisodeNumber,
-					"annict_number", annictEp.Number,
+					"annict_index", i,
+					"annict_sort_number", annictEp.SortNumber,
 					"error", err)
 			}
 			continue
@@ -474,6 +482,8 @@ func (c *AnnictClient) UpdateEpisodeTitlesFromAnnict(animeID int, annictID int) 
 				c.logger.Debug("Updated episode title",
 					"anime_id", animeID,
 					"db_episode_number", dbEpisodeNumber,
+					"annict_index", i,
+					"annict_sort_number", annictEp.SortNumber,
 					"annict_number", annictEp.Number,
 					"title", annictEp.Title)
 			}
