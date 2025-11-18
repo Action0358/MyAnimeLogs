@@ -130,7 +130,6 @@ func (c *AnnictClient) FetchWorksBySeason(season string) (*models.AnnictWorkResp
 	params.Add("filter_season", season)
 	params.Add("sort_watchers_count", defaultSortOrder)
 	params.Add("per_page", defaultPerPage)
-	// Note: fields parameter removed - causes 500 error in current API version
 	return c.makeRequest(params)
 }
 
@@ -138,7 +137,6 @@ func (c *AnnictClient) FetchPopularWorks() (*models.AnnictWorkResponse, error) {
 	params := url.Values{}
 	params.Add("sort_watchers_count", defaultSortOrder)
 	params.Add("per_page", defaultPerPage)
-	// Note: fields parameter removed - causes 500 error in current API version
 	return c.makeRequest(params)
 }
 
@@ -297,7 +295,6 @@ func (c *AnnictClient) SearchAnimesByKeyword(keyword string) (*models.AnnictWork
 	params.Add("filter_title", keyword)
 	params.Add("sort_watchers_count", defaultSortOrder)
 	params.Add("per_page", "20")
-	// Note: fields parameter removed - causes 500 error in current API version
 	return c.makeRequest(params)
 }
 
@@ -332,7 +329,6 @@ func (c *AnnictClient) FetchEpisodesByWorkID(workID int) ([]AnnictEpisode, error
 
 		params := url.Values{}
 		params.Add("filter_work_id", fmt.Sprintf("%d", workID))
-		// Note: fields parameter removed - causes 500 error in current API version
 		params.Add("per_page", "50")
 		params.Add("page", fmt.Sprintf("%d", page))
 		params.Add("sort_sort_number", "asc")
