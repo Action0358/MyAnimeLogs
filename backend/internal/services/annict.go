@@ -20,12 +20,10 @@ var (
 
 const annictAPIEndpoint = "https://api.annict.com/v1/works"
 
-const (
-	defaultSortOrder = "desc"
-	defaultPerPage   = "50"
-	// Note: fields parameter is no longer supported by Annict API (causes 500 error)
-	// Using default response instead
-)
+// Note: fields parameter is no longer supported by Annict API (causes 500 error)
+// Using default response instead
+const defaultSortOrder = "desc"
+const defaultPerPage = "50"
 
 type AnnictClient struct {
 	Token          string
