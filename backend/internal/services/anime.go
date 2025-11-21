@@ -1369,16 +1369,16 @@ func (s *AnimeService) SyncEpisodeDurations(animeID *int) (int, int, int, int, [
 	return totalAnimes, successCount, failureCount, skippedCount, errors, nil
 }
 
-// CreateEpisodesForAllAnimes creates episodes for all animes that don't have episodes yet
+// CreateEpisodesForAllAnimes creates episodes for all animes that have missing episodes
 func (s *AnimeService) CreateEpisodesForAllAnimes() (int, int, error) {
-	// Get all animes that have episodes_count > 0 but no episodes
+	// Get all animes where episodes_count doesn't match actual episode count
 	query := `
-		SELECT a.id, a.title, a.episodes_count
+		SELECT a.id, a.title, a.episodes_count, COALESCE(COUNT(e.id), 0) as actual_count
 		FROM animes a
+		LEFT JOIN episodes e ON a.id = e.anime_id
 		WHERE a.episodes_count > 0
-		AND NOT EXISTS (
-			SELECT 1 FROM episodes e WHERE e.anime_id = a.id
-		)
+		GROUP BY a.id, a.title, a.episodes_count
+		HAVING a.episodes_count > COALESCE(COUNT(e.id), 0)
 		ORDER BY a.id
 	`
 
@@ -1392,12 +1392,13 @@ func (s *AnimeService) CreateEpisodesForAllAnimes() (int, int, error) {
 		id            int
 		title         string
 		episodesCount int
+		actualCount   int
 	}
 
 	var animes []animeInfo
 	for rows.Next() {
 		var anime animeInfo
-		if err := rows.Scan(&anime.id, &anime.title, &anime.episodesCount); err != nil {
+		if err := rows.Scan(&anime.id, &anime.title, &anime.episodesCount, &anime.actualCount); err != nil {
 			return 0, 0, fmt.Errorf("failed to scan anime: %w", err)
 		}
 		animes = append(animes, anime)
@@ -1407,18 +1408,21 @@ func (s *AnimeService) CreateEpisodesForAllAnimes() (int, int, error) {
 		return 0, 0, fmt.Errorf("error iterating animes: %w", err)
 	}
 
-	s.logger.Info("Found animes without episodes", "count", len(animes))
+	s.logger.Info("Found animes with missing episodes", "count", len(animes))
 
 	successCount := 0
 	failureCount := 0
 
 	for _, anime := range animes {
-		s.logger.Info("Creating episodes for anime",
+		missingCount := anime.episodesCount - anime.actualCount
+		s.logger.Info("Creating missing episodes for anime",
 			"anime_id", anime.id,
 			"title", anime.title,
-			"episodes_count", anime.episodesCount)
+			"expected_count", anime.episodesCount,
+			"actual_count", anime.actualCount,
+			"missing_count", missingCount)
 
-		err := s.createEpisodesForAnime(anime.id, anime.episodesCount)
+		err := s.createEpisodesForAnime(anime.id, anime.episodesCount, anime.actualCount)
 		if err != nil {
 			failureCount++
 			s.logger.Error("Failed to create episodes",
@@ -1437,17 +1441,8 @@ func (s *AnimeService) CreateEpisodesForAllAnimes() (int, int, error) {
 }
 
 // createEpisodesForAnime creates episode records for a specific anime using bulk insert
-func (s *AnimeService) createEpisodesForAnime(animeID int, count int) error {
-	// Check existing episodes count
-	var existingCount int
-	err := s.db.QueryRow(`
-		SELECT COUNT(*) FROM episodes WHERE anime_id = $1
-	`, animeID).Scan(&existingCount)
-
-	if err != nil {
-		return fmt.Errorf("failed to check existing episodes: %w", err)
-	}
-
+// existingCount is passed from the caller to avoid redundant database query
+func (s *AnimeService) createEpisodesForAnime(animeID int, count int, existingCount int) error {
 	// If we already have all episodes, skip
 	if existingCount >= count {
 		return nil
@@ -1455,7 +1450,7 @@ func (s *AnimeService) createEpisodesForAnime(animeID int, count int) error {
 
 	// Use generate_series for bulk insert - much more efficient than N individual inserts
 	// This creates all episodes in a single database call
-	_, err = s.db.Exec(`
+	_, err := s.db.Exec(`
 		INSERT INTO episodes (anime_id, title, episode_number, created_at, updated_at)
 		SELECT 
 			$1,
