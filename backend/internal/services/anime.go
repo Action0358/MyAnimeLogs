@@ -1422,7 +1422,7 @@ func (s *AnimeService) CreateEpisodesForAllAnimes() (int, int, error) {
 			"actual_count", anime.actualCount,
 			"missing_count", missingCount)
 
-		err := s.createEpisodesForAnime(anime.id, anime.episodesCount)
+		err := s.createEpisodesForAnime(anime.id, anime.episodesCount, anime.actualCount)
 		if err != nil {
 			failureCount++
 			s.logger.Error("Failed to create episodes",
@@ -1441,17 +1441,8 @@ func (s *AnimeService) CreateEpisodesForAllAnimes() (int, int, error) {
 }
 
 // createEpisodesForAnime creates episode records for a specific anime using bulk insert
-func (s *AnimeService) createEpisodesForAnime(animeID int, count int) error {
-	// Check existing episodes count
-	var existingCount int
-	err := s.db.QueryRow(`
-		SELECT COUNT(*) FROM episodes WHERE anime_id = $1
-	`, animeID).Scan(&existingCount)
-
-	if err != nil {
-		return fmt.Errorf("failed to check existing episodes: %w", err)
-	}
-
+// existingCount is passed from the caller to avoid redundant database query
+func (s *AnimeService) createEpisodesForAnime(animeID int, count int, existingCount int) error {
 	// If we already have all episodes, skip
 	if existingCount >= count {
 		return nil
@@ -1459,7 +1450,7 @@ func (s *AnimeService) createEpisodesForAnime(animeID int, count int) error {
 
 	// Use generate_series for bulk insert - much more efficient than N individual inserts
 	// This creates all episodes in a single database call
-	_, err = s.db.Exec(`
+	_, err := s.db.Exec(`
 		INSERT INTO episodes (anime_id, title, episode_number, created_at, updated_at)
 		SELECT 
 			$1,
