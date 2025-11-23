@@ -17,6 +17,7 @@ type AdminAnimeService interface {
 	SyncEpisodeDurations(animeID *int) (int, int, int, int, []string, error)
 	CreateEpisodesForAllAnimes() (int, int, error)
 	EnrichEpisodesWithTitles(animeID *int) (int, int, []string, error)
+	GetEpisodeSyncStatus(animeID int) (*models.EpisodeSyncStatus, error)
 }
 
 // SyncScheduler defines the interface for sync scheduler
@@ -189,5 +190,35 @@ func (h *AdminHandler) GetSyncStatus(c *gin.Context) {
 	}
 
 	status := h.syncScheduler.GetStatus()
+	c.JSON(http.StatusOK, status)
+}
+
+// GetEpisodeSyncStatusRequest represents the request for checking episode sync status
+type GetEpisodeSyncStatusRequest struct {
+	AnimeID int `form:"anime_id" binding:"required"`
+}
+
+// GetEpisodeSyncStatus returns the sync status for a specific anime's episodes
+// GET /api/admin/episode-sync-status?anime_id=69
+func (h *AdminHandler) GetEpisodeSyncStatus(c *gin.Context) {
+	var req GetEpisodeSyncStatusRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		h.response.ValidationErrorWithErr(c, err)
+		return
+	}
+
+	status, err := h.animeService.GetEpisodeSyncStatus(req.AnimeID)
+	if err != nil {
+		h.logger.Error("Failed to get episode sync status", "anime_id", req.AnimeID, "error", err)
+
+		if errors.Is(err, services.ErrAnimeNotFound) {
+			h.response.NotFoundError(c, "アニメが見つかりません")
+			return
+		}
+
+		h.response.InternalServerError(c, "エピソード同期状況の取得に失敗しました")
+		return
+	}
+
 	c.JSON(http.StatusOK, status)
 }

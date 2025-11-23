@@ -49,6 +49,19 @@ type UserFavorite struct {
 	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
 }
 
+// EpisodeSyncStatus represents the sync status for an anime's episodes
+type EpisodeSyncStatus struct {
+	AnimeID        int      `json:"anime_id"`
+	AnimeTitle     string   `json:"anime_title"`
+	AnnictID       *int     `json:"annict_id"`
+	TotalEpisodes  int      `json:"total_episodes"`
+	DefaultTitles  int      `json:"default_titles"`
+	CustomTitles   int      `json:"custom_titles"`
+	SyncPercentage float64  `json:"sync_percentage"`
+	NeedSync       bool     `json:"need_sync"`
+	SampleEpisodes []string `json:"sample_episodes,omitempty"`
+}
+
 type UserFavoriteRequest struct {
 	Status string `json:"status" binding:"required,oneof=watching completed planned dropped"`
 }
