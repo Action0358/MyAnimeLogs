@@ -40,33 +40,29 @@ func NewAnimeService(db *database.DB, logger *common.Logger, annictClient *Annic
 
 // GetEpisodeSyncStatus returns the sync status for a specific anime's episodes
 func (s *AnimeService) GetEpisodeSyncStatus(animeID int) (*models.EpisodeSyncStatus, error) {
-	// Get anime info
+	// Get anime info and episode statistics in a single query
 	var animeTitle string
 	var annictID *int
+	var totalEpisodes, defaultTitles, customTitles int
+
 	err := s.db.QueryRow(`
-		SELECT title, annict_id FROM animes WHERE id = $1
-	`, animeID).Scan(&animeTitle, &annictID)
+		SELECT 
+			a.title,
+			a.annict_id,
+			COUNT(e.id) as total,
+			COUNT(CASE WHEN e.title LIKE '第%話' THEN 1 END) as default_titles,
+			COUNT(CASE WHEN e.title NOT LIKE '第%話' THEN 1 END) as custom_titles
+		FROM animes a
+		LEFT JOIN episodes e ON a.id = e.anime_id
+		WHERE a.id = $1
+		GROUP BY a.id, a.title, a.annict_id
+	`, animeID).Scan(&animeTitle, &annictID, &totalEpisodes, &defaultTitles, &customTitles)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrAnimeNotFound
 		}
-		return nil, fmt.Errorf("failed to get anime info: %w", err)
-	}
-
-	// Get episode statistics
-	var totalEpisodes, defaultTitles, customTitles int
-	err = s.db.QueryRow(`
-		SELECT 
-			COUNT(*) as total,
-			COUNT(CASE WHEN title LIKE '第%話' THEN 1 END) as default_titles,
-			COUNT(CASE WHEN title NOT LIKE '第%話' THEN 1 END) as custom_titles
-		FROM episodes
-		WHERE anime_id = $1
-	`, animeID).Scan(&totalEpisodes, &defaultTitles, &customTitles)
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to get episode statistics: %w", err)
+		return nil, fmt.Errorf("failed to get anime info and episode statistics: %w", err)
 	}
 
 	// Get sample episodes

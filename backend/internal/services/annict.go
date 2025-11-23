@@ -352,14 +352,19 @@ func (c *AnnictClient) executeRequestWithRetry(req *http.Request, workID, page i
 
 		// レート制限エラー（429）の場合はリトライ
 		if resp.StatusCode == http.StatusTooManyRequests {
-			body, _ := io.ReadAll(resp.Body)
+			body, readErr := io.ReadAll(resp.Body)
 			resp.Body.Close()
-			lastErr = fmt.Errorf("rate limit exceeded: %s", string(body))
+			if readErr != nil {
+				lastErr = fmt.Errorf("rate limit exceeded (status 429), failed to read response body: %w", readErr)
+			} else {
+				lastErr = fmt.Errorf("rate limit exceeded: %s", string(body))
+			}
 			if c.logger != nil {
 				c.logger.Warn("Rate limit exceeded, retrying with exponential backoff",
 					"work_id", workID,
 					"page", page,
-					"retry", retry)
+					"retry", retry,
+					"error", lastErr)
 			}
 			continue
 		}
@@ -377,7 +382,8 @@ func (c *AnnictClient) returnPartialDataIfAvailable(allEpisodes []AnnictEpisode,
 			c.logger.Warn(context,
 				"work_id", workID,
 				"page", page,
-				"episodes_fetched", len(allEpisodes))
+				"episodes_fetched", len(allEpisodes),
+				"error", err)
 		}
 		return allEpisodes, fmt.Errorf("partial data: %w", err)
 	}
@@ -408,8 +414,13 @@ func (c *AnnictClient) FetchEpisodesByWorkID(workID int) ([]AnnictEpisode, error
 		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
-			body, _ := io.ReadAll(resp.Body)
-			err := fmt.Errorf("annict API returned status %d: %s", resp.StatusCode, string(body))
+			body, readErr := io.ReadAll(resp.Body)
+			var err error
+			if readErr != nil {
+				err = fmt.Errorf("annict API returned status %d, failed to read response body: %w", resp.StatusCode, readErr)
+			} else {
+				err = fmt.Errorf("annict API returned status %d: %s", resp.StatusCode, string(body))
+			}
 			return c.returnPartialDataIfAvailable(allEpisodes, workID, page, err, "API error")
 		}
 
@@ -666,12 +677,7 @@ func (c *AnnictClient) UpdateEpisodeTitlesFromAnnict(animeID int, annictID int) 
 	}
 
 	if c.logger != nil {
-		logLevel := "Info"
 		if isPartialData {
-			logLevel = "Warn"
-		}
-
-		if logLevel == "Warn" {
 			c.logger.Warn("Updated episode titles (partial data)",
 				"anime_id", animeID,
 				"success_count", successCount,
