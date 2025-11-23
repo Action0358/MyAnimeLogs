@@ -38,9 +38,82 @@ func NewAnimeService(db *database.DB, logger *common.Logger, annictClient *Annic
 	}
 }
 
-// GetDB returns the database connection (for admin operations)
-func (s *AnimeService) GetDB() *database.DB {
-	return s.db
+// GetEpisodeSyncStatus returns the sync status for a specific anime's episodes
+func (s *AnimeService) GetEpisodeSyncStatus(animeID int) (*models.EpisodeSyncStatus, error) {
+	// Get anime info
+	var animeTitle string
+	var annictID *int
+	err := s.db.QueryRow(`
+		SELECT title, annict_id FROM animes WHERE id = $1
+	`, animeID).Scan(&animeTitle, &annictID)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrAnimeNotFound
+		}
+		return nil, fmt.Errorf("failed to get anime info: %w", err)
+	}
+
+	// Get episode statistics
+	var totalEpisodes, defaultTitles, customTitles int
+	err = s.db.QueryRow(`
+		SELECT 
+			COUNT(*) as total,
+			COUNT(CASE WHEN title LIKE '第%話' THEN 1 END) as default_titles,
+			COUNT(CASE WHEN title NOT LIKE '第%話' THEN 1 END) as custom_titles
+		FROM episodes
+		WHERE anime_id = $1
+	`, animeID).Scan(&totalEpisodes, &defaultTitles, &customTitles)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get episode statistics: %w", err)
+	}
+
+	// Get sample episodes
+	rows, err := s.db.Query(`
+		SELECT episode_number, title
+		FROM episodes
+		WHERE anime_id = $1
+		ORDER BY episode_number
+		LIMIT 5
+	`, animeID)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get sample episodes: %w", err)
+	}
+	defer rows.Close()
+
+	var sampleEpisodes []string
+	for rows.Next() {
+		var episodeNumber int
+		var title string
+		if err := rows.Scan(&episodeNumber, &title); err != nil {
+			s.logger.Warn("Failed to scan sample episode", "anime_id", animeID, "error", err)
+			continue
+		}
+		sampleEpisodes = append(sampleEpisodes, fmt.Sprintf("Ep%d: %s", episodeNumber, title))
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating sample episodes: %w", err)
+	}
+
+	syncPercentage := 0.0
+	if totalEpisodes > 0 {
+		syncPercentage = float64(customTitles) / float64(totalEpisodes) * 100
+	}
+
+	return &models.EpisodeSyncStatus{
+		AnimeID:        animeID,
+		AnimeTitle:     animeTitle,
+		AnnictID:       annictID,
+		TotalEpisodes:  totalEpisodes,
+		DefaultTitles:  defaultTitles,
+		CustomTitles:   customTitles,
+		SyncPercentage: syncPercentage,
+		NeedSync:       defaultTitles > 0,
+		SampleEpisodes: sampleEpisodes,
+	}, nil
 }
 
 func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int) (*models.PaginatedResponse, error) {
