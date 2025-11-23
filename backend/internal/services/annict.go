@@ -326,8 +326,8 @@ func (c *AnnictClient) executeRequestWithRetry(req *http.Request, workID, page i
 
 	for retry := 0; retry < annictMaxRetries; retry++ {
 		if retry > 0 {
-			// Exponential backoff: 2^retry seconds (1s, 2s, 4s, ...)
-			backoffDelay := time.Duration(1<<uint(retry)) * time.Second
+			// Exponential backoff: 2^(retry-1) seconds (1s, 2s, 4s, ...)
+			backoffDelay := time.Duration(1<<uint(retry-1)) * time.Second
 			if c.logger != nil {
 				c.logger.Info("Retrying API request with exponential backoff",
 					"work_id", workID,
@@ -411,10 +411,11 @@ func (c *AnnictClient) FetchEpisodesByWorkID(workID int) ([]AnnictEpisode, error
 		if err != nil {
 			return c.returnPartialDataIfAvailable(allEpisodes, workID, page, err, "Request failed")
 		}
-		defer resp.Body.Close()
 
+		// Process response and close body immediately to avoid resource leaks
 		if resp.StatusCode != http.StatusOK {
 			body, readErr := io.ReadAll(resp.Body)
+			resp.Body.Close()
 			var err error
 			if readErr != nil {
 				err = fmt.Errorf("annict API returned status %d, failed to read response body: %w", resp.StatusCode, readErr)
@@ -426,8 +427,10 @@ func (c *AnnictClient) FetchEpisodesByWorkID(workID int) ([]AnnictEpisode, error
 
 		var response AnnictEpisodesResponse
 		if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+			resp.Body.Close()
 			return c.returnPartialDataIfAvailable(allEpisodes, workID, page, err, "Decode error")
 		}
+		resp.Body.Close()
 
 		allEpisodes = append(allEpisodes, response.Episodes...)
 
