@@ -2,6 +2,7 @@ package services
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"myanimelogs/internal/common"
@@ -47,7 +48,7 @@ func NewAnnictClient(token string) *AnnictClient {
 		HTTPClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
-		rateLimitDelay: 500 * time.Millisecond,
+		rateLimitDelay: 1000 * time.Millisecond, // Increased from 500ms to 1s to avoid rate limiting
 	}
 }
 
@@ -59,7 +60,7 @@ func NewAnnictClientWithDB(token string, db *database.DB, logger *common.Logger)
 		},
 		DB:             db,
 		logger:         logger,
-		rateLimitDelay: 500 * time.Millisecond,
+		rateLimitDelay: 1000 * time.Millisecond, // Increased from 500ms to 1s to avoid rate limiting
 	}
 }
 
@@ -103,9 +104,15 @@ func (c *AnnictClient) makeRequest(params url.Values) (*models.AnnictWorkRespons
 	if resp.StatusCode != http.StatusOK {
 		body, readErr := io.ReadAll(resp.Body)
 		if readErr != nil {
-			return nil, fmt.Errorf("annict api returned non-200 status: %d, and failed to read response body: %w", resp.StatusCode, readErr)
+			return nil, fmt.Errorf("annict API returned status %d, and failed to read response body: %w", resp.StatusCode, readErr)
 		}
-		return nil, fmt.Errorf("annict api returned non-200 status: %d, body: %s", resp.StatusCode, string(body))
+
+		// Return sentinel error for rate limiting
+		if resp.StatusCode == http.StatusTooManyRequests {
+			return nil, fmt.Errorf("%w: status %d", ErrRateLimitExceeded, resp.StatusCode)
+		}
+
+		return nil, fmt.Errorf("annict API returned status %d, body: %s", resp.StatusCode, string(body))
 	}
 
 	var annictResponse models.AnnictWorkResponse
@@ -123,7 +130,6 @@ func (c *AnnictClient) FetchWorksBySeason(season string) (*models.AnnictWorkResp
 	params.Add("filter_season", season)
 	params.Add("sort_watchers_count", defaultSortOrder)
 	params.Add("per_page", defaultPerPage)
-	params.Add("fields", annictAPIDefaultFields)
 	return c.makeRequest(params)
 }
 
@@ -131,7 +137,6 @@ func (c *AnnictClient) FetchPopularWorks() (*models.AnnictWorkResponse, error) {
 	params := url.Values{}
 	params.Add("sort_watchers_count", defaultSortOrder)
 	params.Add("per_page", defaultPerPage)
-	params.Add("fields", annictAPIDefaultFields)
 	return c.makeRequest(params)
 }
 
@@ -290,7 +295,6 @@ func (c *AnnictClient) SearchAnimesByKeyword(keyword string) (*models.AnnictWork
 	params.Add("filter_title", keyword)
 	params.Add("sort_watchers_count", defaultSortOrder)
 	params.Add("per_page", "20")
-	params.Add("fields", annictAPIDefaultFields)
 	return c.makeRequest(params)
 }
 
@@ -572,9 +576,9 @@ func (c *AnnictClient) UpdateEpisodeTitlesFromAnnict(animeID int, annictID int) 
 		return err
 	}
 
+	// Annict APIのエピソードは既にsort_numberでソートされている
 	// データベースのエピソード番号とAnnict APIのエピソードを順序でマッチング
-	// Annict APIのエピソードは既にsort_numberでソートされているため、
-	// 通算エピソード番号（38, 39, 40...）でも正しく対応できる
+	// DBのepisode_number=1がAnnictの最初のエピソード(インデックス0)に対応
 	successCount := 0
 	failureCount := 0
 
