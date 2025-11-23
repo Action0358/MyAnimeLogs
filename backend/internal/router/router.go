@@ -102,6 +102,7 @@ func Setup(db *database.DB, cfg *config.Config, syncScheduler handlers.SyncSched
 			admin.POST("/create-episodes", adminHandler.CreateEpisodesForAllAnimes)
 			admin.POST("/enrich/episode-titles", adminHandler.EnrichEpisodeTitles)
 			admin.GET("/sync/status", adminHandler.GetSyncStatus)
+			admin.GET("/episode-sync-status", adminHandler.GetEpisodeSyncStatus)
 
 			// エラー監視
 			admin.GET("/errors/metrics", monitoringHandler.GetErrorMetrics)
