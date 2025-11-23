@@ -12,11 +12,16 @@ import (
 	"time"
 )
 
-const annictAPIEndpoint = "https://api.annict.com/v1/works"
-
 const (
-	defaultSortOrder = "desc"
-	defaultPerPage   = "50"
+	annictAPIEndpoint = "https://api.annict.com/v1/works"
+	defaultSortOrder  = "desc"
+	defaultPerPage    = "50"
+
+	// エピソード取得の制限
+	annictMaxRetries         = 3   // 最大リトライ回数
+	annictMaxPagesPerAnime   = 100 // 最大ページ数（無限ループ防止）
+	annictMinEpisodesForSync = 2   // 同期対象の最小エピソード数（劇場版除外）
+
 	// AnnictAPIのデフォルトフィールド定義
 	annictAPIDefaultFields = "id,title,title_kana,title_en,media,media_text,season_name,released_on,released_on_about,official_site_url,wikipedia_url,twitter_username,twitter_hashtag,mal_anime_id,images,episodes_count,watchers_count,reviews_count,no_episodes"
 )
@@ -305,6 +310,70 @@ type AnnictEpisodesResponse struct {
 	PrevPage   *int            `json:"prev_page"`
 }
 
+// executeRequestWithRetry executes HTTP request with retry logic
+func (c *AnnictClient) executeRequestWithRetry(req *http.Request, workID, page int) (*http.Response, error) {
+	var resp *http.Response
+	var lastErr error
+
+	for retry := 0; retry < annictMaxRetries; retry++ {
+		if retry > 0 {
+			backoffDelay := time.Duration(retry) * time.Second
+			if c.logger != nil {
+				c.logger.Info("Retrying API request",
+					"work_id", workID,
+					"page", page,
+					"retry", retry,
+					"backoff_delay", backoffDelay)
+			}
+			time.Sleep(backoffDelay)
+		}
+
+		resp, lastErr = c.HTTPClient.Do(req)
+		if lastErr != nil {
+			if c.logger != nil {
+				c.logger.Warn("HTTP request failed",
+					"work_id", workID,
+					"page", page,
+					"retry", retry,
+					"error", lastErr)
+			}
+			continue
+		}
+
+		// レート制限エラー（429）の場合はリトライ
+		if resp.StatusCode == http.StatusTooManyRequests {
+			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+			lastErr = fmt.Errorf("rate limit exceeded: %s", string(body))
+			if c.logger != nil {
+				c.logger.Warn("Rate limit exceeded, retrying",
+					"work_id", workID,
+					"page", page,
+					"retry", retry)
+			}
+			continue
+		}
+
+		return resp, nil
+	}
+
+	return nil, fmt.Errorf("failed after %d retries: %w", annictMaxRetries, lastErr)
+}
+
+// returnPartialDataIfAvailable returns partial data with error if available
+func (c *AnnictClient) returnPartialDataIfAvailable(allEpisodes []AnnictEpisode, workID, page int, err error, context string) ([]AnnictEpisode, error) {
+	if len(allEpisodes) > 0 {
+		if c.logger != nil {
+			c.logger.Warn(context,
+				"work_id", workID,
+				"page", page,
+				"episodes_fetched", len(allEpisodes))
+		}
+		return allEpisodes, fmt.Errorf("partial data: %w", err)
+	}
+	return nil, err
+}
+
 // FetchEpisodesByWorkID fetches episode information from Annict API
 func (c *AnnictClient) FetchEpisodesByWorkID(workID int) ([]AnnictEpisode, error) {
 	if c.Token == "" {
@@ -314,45 +383,29 @@ func (c *AnnictClient) FetchEpisodesByWorkID(workID int) ([]AnnictEpisode, error
 	var allEpisodes []AnnictEpisode
 	page := 1
 
-	for {
-		// Apply rate limiting before each API request
+	for page <= annictMaxPagesPerAnime {
 		c.applyRateLimit()
 
-		params := url.Values{}
-		params.Add("filter_work_id", fmt.Sprintf("%d", workID))
-		params.Add("fields", "id,number,title,sort_number")
-		params.Add("per_page", "50")
-		params.Add("page", fmt.Sprintf("%d", page))
-		params.Add("sort_sort_number", "asc")
-
-		fullURL, err := url.Parse("https://api.annict.com/v1/episodes")
+		req, err := c.buildEpisodeRequest(workID, page)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse URL: %w", err)
-		}
-		fullURL.RawQuery = params.Encode()
-
-		req, err := http.NewRequest(http.MethodGet, fullURL.String(), nil)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create request: %w", err)
+			return nil, err
 		}
 
-		req.Header.Set("Authorization", "Bearer "+c.Token)
-		req.Header.Set("User-Agent", "MyAnimeLogs/1.0")
-
-		resp, err := c.HTTPClient.Do(req)
+		resp, err := c.executeRequestWithRetry(req, workID, page)
 		if err != nil {
-			return nil, fmt.Errorf("failed to execute request: %w", err)
+			return c.returnPartialDataIfAvailable(allEpisodes, workID, page, err, "Request failed")
 		}
 		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
-			return nil, fmt.Errorf("annict API returned status %d: %s", resp.StatusCode, string(body))
+			err := fmt.Errorf("annict API returned status %d: %s", resp.StatusCode, string(body))
+			return c.returnPartialDataIfAvailable(allEpisodes, workID, page, err, "API error")
 		}
 
 		var response AnnictEpisodesResponse
 		if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-			return nil, fmt.Errorf("failed to decode response: %w", err)
+			return c.returnPartialDataIfAvailable(allEpisodes, workID, page, err, "Decode error")
 		}
 
 		allEpisodes = append(allEpisodes, response.Episodes...)
@@ -364,6 +417,13 @@ func (c *AnnictClient) FetchEpisodesByWorkID(workID int) ([]AnnictEpisode, error
 		page = *response.NextPage
 	}
 
+	if page > annictMaxPagesPerAnime && c.logger != nil {
+		c.logger.Warn("Reached maximum page limit",
+			"work_id", workID,
+			"page", page,
+			"episodes_fetched", len(allEpisodes))
+	}
+
 	if c.logger != nil {
 		c.logger.Info("Fetched episodes from Annict",
 			"work_id", workID,
@@ -373,77 +433,183 @@ func (c *AnnictClient) FetchEpisodesByWorkID(workID int) ([]AnnictEpisode, error
 	return allEpisodes, nil
 }
 
-// UpdateEpisodeTitlesFromAnnict updates episode titles from Annict API
-func (c *AnnictClient) UpdateEpisodeTitlesFromAnnict(animeID int, annictID int) error {
-	// Annict APIからエピソード情報を取得
-	annictEpisodes, err := c.FetchEpisodesByWorkID(annictID)
+// buildEpisodeRequest builds HTTP request for fetching episodes
+func (c *AnnictClient) buildEpisodeRequest(workID, page int) (*http.Request, error) {
+	params := url.Values{}
+	params.Add("filter_work_id", fmt.Sprintf("%d", workID))
+	params.Add("fields", "id,number,title,sort_number")
+	params.Add("per_page", "50")
+	params.Add("page", fmt.Sprintf("%d", page))
+	params.Add("sort_sort_number", "asc")
+
+	fullURL, err := url.Parse("https://api.annict.com/v1/episodes")
 	if err != nil {
-		return fmt.Errorf("failed to fetch episodes from Annict: %w", err)
+		return nil, fmt.Errorf("failed to parse URL: %w", err)
+	}
+	fullURL.RawQuery = params.Encode()
+
+	req, err := http.NewRequest(http.MethodGet, fullURL.String(), nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Authorization", "Bearer "+c.Token)
+	req.Header.Set("User-Agent", "MyAnimeLogs/1.0")
+
+	return req, nil
+}
+
+// shouldSkipAnime checks if anime should be skipped (movies, shorts, etc.)
+func (c *AnnictClient) shouldSkipAnime(animeID, annictID int) (bool, error) {
+	var episodeCount int
+	err := c.DB.QueryRow(`SELECT COUNT(*) FROM episodes WHERE anime_id = $1`, animeID).Scan(&episodeCount)
+	if err != nil {
+		return false, fmt.Errorf("failed to count episodes: %w", err)
+	}
+
+	if episodeCount < annictMinEpisodesForSync {
+		if c.logger != nil {
+			c.logger.Info("Skipping anime with too few episodes",
+				"anime_id", animeID,
+				"annict_id", annictID,
+				"episode_count", episodeCount)
+		}
+		return true, nil
+	}
+
+	return false, nil
+}
+
+// fetchAnnictEpisodes fetches episodes from Annict API and handles partial data
+func (c *AnnictClient) fetchAnnictEpisodes(animeID, annictID int) ([]AnnictEpisode, bool, error) {
+	annictEpisodes, err := c.FetchEpisodesByWorkID(annictID)
+	isPartialData := false
+
+	if err != nil {
+		if len(annictEpisodes) > 0 {
+			isPartialData = true
+			if c.logger != nil {
+				c.logger.Warn("Partial episode data from Annict",
+					"anime_id", animeID,
+					"annict_id", annictID,
+					"episodes_count", len(annictEpisodes),
+					"error", err)
+			}
+		} else {
+			return nil, false, fmt.Errorf("failed to fetch episodes from Annict: %w", err)
+		}
 	}
 
 	if len(annictEpisodes) == 0 {
-		return fmt.Errorf("no episodes found for work_id %d", annictID)
+		return nil, false, fmt.Errorf("no episodes found for work_id %d", annictID)
 	}
 
-	// データベースの既存エピソード番号を取得
+	return annictEpisodes, isPartialData, nil
+}
+
+// getDBEpisodeNumbers retrieves episode numbers from database
+func (c *AnnictClient) getDBEpisodeNumbers(animeID int) ([]int, error) {
 	rows, err := c.DB.Query(`
 		SELECT episode_number FROM episodes 
 		WHERE anime_id = $1 
 		ORDER BY episode_number
 	`, animeID)
 	if err != nil {
-		return fmt.Errorf("failed to query episodes: %w", err)
+		return nil, fmt.Errorf("failed to query episodes: %w", err)
 	}
 	defer rows.Close()
 
-	var dbEpisodeNumbers []int
+	var episodeNumbers []int
 	for rows.Next() {
 		var episodeNumber int
 		if err := rows.Scan(&episodeNumber); err != nil {
-			// Database scan errors indicate serious problems and should not be ignored
 			if c.logger != nil {
 				c.logger.Error("Failed to scan episode number",
 					"anime_id", animeID,
 					"error", err)
 			}
-			return fmt.Errorf("failed to scan episode number: %w", err)
+			return nil, fmt.Errorf("failed to scan episode number: %w", err)
 		}
-		dbEpisodeNumbers = append(dbEpisodeNumbers, episodeNumber)
+		episodeNumbers = append(episodeNumbers, episodeNumber)
 	}
 
-	// Check for errors that occurred during iteration
 	if err := rows.Err(); err != nil {
 		if c.logger != nil {
 			c.logger.Error("Error during rows iteration",
 				"anime_id", animeID,
 				"error", err)
 		}
-		return fmt.Errorf("error during rows iteration: %w", err)
+		return nil, fmt.Errorf("error during rows iteration: %w", err)
 	}
 
-	if len(dbEpisodeNumbers) == 0 {
-		return fmt.Errorf("no episodes found in database for anime_id %d", animeID)
+	if len(episodeNumbers) == 0 {
+		return nil, fmt.Errorf("no episodes found in database for anime_id %d", animeID)
+	}
+
+	return episodeNumbers, nil
+}
+
+// UpdateEpisodeTitlesFromAnnict updates episode titles from Annict API
+func (c *AnnictClient) UpdateEpisodeTitlesFromAnnict(animeID int, annictID int) error {
+	// 劇場版・短編アニメをスキップ
+	skip, err := c.shouldSkipAnime(animeID, annictID)
+	if err != nil {
+		return err
+	}
+	if skip {
+		return nil
+	}
+
+	// Annict APIからエピソード情報を取得
+	annictEpisodes, isPartialData, err := c.fetchAnnictEpisodes(animeID, annictID)
+	if err != nil {
+		return err
+	}
+
+	// データベースの既存エピソード番号を取得
+	dbEpisodeNumbers, err := c.getDBEpisodeNumbers(animeID)
+	if err != nil {
+		return err
 	}
 
 	// データベースのエピソード番号とAnnict APIのエピソードを順序でマッチング
 	// Annict APIのエピソードは既にsort_numberでソートされているため、
 	// 通算エピソード番号（38, 39, 40...）でも正しく対応できる
 	successCount := 0
+	failureCount := 0
+
+	// エピソード数の不一致を警告
+	if len(dbEpisodeNumbers) != len(annictEpisodes) {
+		if c.logger != nil {
+			c.logger.Warn("Episode count mismatch",
+				"anime_id", animeID,
+				"db_count", len(dbEpisodeNumbers),
+				"annict_count", len(annictEpisodes))
+		}
+	}
+
 	for i, dbEpisodeNumber := range dbEpisodeNumbers {
 		if i >= len(annictEpisodes) {
+			if c.logger != nil {
+				c.logger.Warn("Not enough episodes from Annict API",
+					"anime_id", animeID,
+					"db_episode_number", dbEpisodeNumber,
+					"annict_episodes_count", len(annictEpisodes))
+			}
 			break // Annict APIのエピソードが足りない場合は終了
 		}
 
 		annictEp := annictEpisodes[i]
 
-		// Validate that Number is a positive value
-		if annictEp.Number <= 0 {
+		// タイトルが空の場合はスキップ
+		if annictEp.Title == "" {
 			if c.logger != nil {
-				c.logger.Warn("Invalid episode number from Annict",
+				c.logger.Warn("Empty episode title from Annict",
 					"anime_id", animeID,
-					"annict_number", annictEp.Number,
-					"title", annictEp.Title)
+					"db_episode_number", dbEpisodeNumber,
+					"annict_index", i)
 			}
+			failureCount++
 			continue
 		}
 
@@ -461,9 +627,10 @@ func (c *AnnictClient) UpdateEpisodeTitlesFromAnnict(animeID int, annictID int) 
 				c.logger.Warn("Failed to update episode",
 					"anime_id", animeID,
 					"db_episode_number", dbEpisodeNumber,
-					"annict_number", annictEp.Number,
+					"annict_index", i,
 					"error", err)
 			}
+			failureCount++
 			continue
 		}
 
@@ -474,17 +641,46 @@ func (c *AnnictClient) UpdateEpisodeTitlesFromAnnict(animeID int, annictID int) 
 				c.logger.Debug("Updated episode title",
 					"anime_id", animeID,
 					"db_episode_number", dbEpisodeNumber,
-					"annict_number", annictEp.Number,
+					"annict_index", i,
 					"title", annictEp.Title)
 			}
+		} else {
+			if c.logger != nil {
+				c.logger.Warn("No rows affected when updating episode",
+					"anime_id", animeID,
+					"db_episode_number", dbEpisodeNumber,
+					"annict_index", i)
+			}
+			failureCount++
 		}
 	}
 
 	if c.logger != nil {
-		c.logger.Info("Updated episode titles",
-			"anime_id", animeID,
-			"success_count", successCount,
-			"total_episodes", len(annictEpisodes))
+		logLevel := "Info"
+		if isPartialData {
+			logLevel = "Warn"
+		}
+
+		if logLevel == "Warn" {
+			c.logger.Warn("Updated episode titles (partial data)",
+				"anime_id", animeID,
+				"success_count", successCount,
+				"failure_count", failureCount,
+				"total_annict_episodes", len(annictEpisodes),
+				"total_db_episodes", len(dbEpisodeNumbers))
+		} else {
+			c.logger.Info("Updated episode titles",
+				"anime_id", animeID,
+				"success_count", successCount,
+				"failure_count", failureCount,
+				"total_annict_episodes", len(annictEpisodes),
+				"total_db_episodes", len(dbEpisodeNumbers))
+		}
+	}
+
+	// 少なくとも1つのエピソードが更新されていればエラーとしない
+	if successCount == 0 && len(dbEpisodeNumbers) > 0 {
+		return fmt.Errorf("failed to update any episodes for anime_id %d", animeID)
 	}
 
 	return nil

@@ -38,6 +38,11 @@ func NewAnimeService(db *database.DB, logger *common.Logger, annictClient *Annic
 	}
 }
 
+// GetDB returns the database connection (for admin operations)
+func (s *AnimeService) GetDB() *database.DB {
+	return s.db
+}
+
 func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int) (*models.PaginatedResponse, error) {
 	// Build WHERE clause
 	whereClauses := []string{}
