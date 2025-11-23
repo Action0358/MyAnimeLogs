@@ -150,6 +150,14 @@ func (m *MockAnimeService) EnrichEpisodesWithTitles(animeID *int) (int, int, []s
 	return args.Int(0), args.Int(1), args.Get(2).([]string), args.Error(3)
 }
 
+func (m *MockAnimeService) GetEpisodeSyncStatus(animeID int) (*models.EpisodeSyncStatus, error) {
+	args := m.Called(animeID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.EpisodeSyncStatus), args.Error(1)
+}
+
 func TestAdminHandler_SyncEpisodeDurations(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	logger := common.NewLogger(common.LogLevelDebug, "text")

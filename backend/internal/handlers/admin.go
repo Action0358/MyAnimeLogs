@@ -17,6 +17,7 @@ type AdminAnimeService interface {
 	SyncEpisodeDurations(animeID *int) (int, int, int, int, []string, error)
 	CreateEpisodesForAllAnimes() (int, int, error)
 	EnrichEpisodesWithTitles(animeID *int) (int, int, []string, error)
+	GetEpisodeSyncStatus(animeID int) (*models.EpisodeSyncStatus, error)
 }
 
 // SyncScheduler defines the interface for sync scheduler
@@ -197,19 +198,6 @@ type GetEpisodeSyncStatusRequest struct {
 	AnimeID int `form:"anime_id" binding:"required"`
 }
 
-// GetEpisodeSyncStatusResponse represents the response for episode sync status
-type GetEpisodeSyncStatusResponse struct {
-	AnimeID        int      `json:"anime_id"`
-	AnimeTitle     string   `json:"anime_title"`
-	AnnictID       *int     `json:"annict_id"`
-	TotalEpisodes  int      `json:"total_episodes"`
-	DefaultTitles  int      `json:"default_titles"`
-	CustomTitles   int      `json:"custom_titles"`
-	SyncPercentage float64  `json:"sync_percentage"`
-	NeedSync       bool     `json:"need_sync"`
-	SampleEpisodes []string `json:"sample_episodes,omitempty"`
-}
-
 // GetEpisodeSyncStatus returns the sync status for a specific anime's episodes
 // GET /api/admin/episode-sync-status?anime_id=69
 func (h *AdminHandler) GetEpisodeSyncStatus(c *gin.Context) {
@@ -219,78 +207,18 @@ func (h *AdminHandler) GetEpisodeSyncStatus(c *gin.Context) {
 		return
 	}
 
-	// Get anime info
-	var animeTitle string
-	var annictID *int
-	err := h.animeService.(*services.AnimeService).GetDB().QueryRow(`
-		SELECT title, annict_id FROM animes WHERE id = $1
-	`, req.AnimeID).Scan(&animeTitle, &annictID)
-
+	status, err := h.animeService.GetEpisodeSyncStatus(req.AnimeID)
 	if err != nil {
-		h.logger.Error("Failed to get anime info", "anime_id", req.AnimeID, "error", err)
-		h.response.NotFoundError(c, "アニメが見つかりません")
-		return
-	}
+		h.logger.Error("Failed to get episode sync status", "anime_id", req.AnimeID, "error", err)
 
-	// Get episode statistics
-	var totalEpisodes, defaultTitles, customTitles int
-	err = h.animeService.(*services.AnimeService).GetDB().QueryRow(`
-		SELECT 
-			COUNT(*) as total,
-			COUNT(CASE WHEN title LIKE '第%話' THEN 1 END) as default_titles,
-			COUNT(CASE WHEN title NOT LIKE '第%話' THEN 1 END) as custom_titles
-		FROM episodes
-		WHERE anime_id = $1
-	`, req.AnimeID).Scan(&totalEpisodes, &defaultTitles, &customTitles)
-
-	if err != nil {
-		h.logger.Error("Failed to get episode statistics", "anime_id", req.AnimeID, "error", err)
-		h.response.InternalServerError(c, "エピソード統計の取得に失敗しました")
-		return
-	}
-
-	// Get sample episodes
-	rows, err := h.animeService.(*services.AnimeService).GetDB().Query(`
-		SELECT episode_number, title
-		FROM episodes
-		WHERE anime_id = $1
-		ORDER BY episode_number
-		LIMIT 5
-	`, req.AnimeID)
-
-	if err != nil {
-		h.logger.Error("Failed to get sample episodes", "anime_id", req.AnimeID, "error", err)
-		h.response.InternalServerError(c, "サンプルエピソードの取得に失敗しました")
-		return
-	}
-	defer rows.Close()
-
-	var sampleEpisodes []string
-	for rows.Next() {
-		var episodeNumber int
-		var title string
-		if err := rows.Scan(&episodeNumber, &title); err != nil {
-			continue
+		if errors.Is(err, services.ErrAnimeNotFound) {
+			h.response.NotFoundError(c, "アニメが見つかりません")
+			return
 		}
-		sampleEpisodes = append(sampleEpisodes, fmt.Sprintf("Ep%d: %s", episodeNumber, title))
+
+		h.response.InternalServerError(c, "エピソード同期状況の取得に失敗しました")
+		return
 	}
 
-	syncPercentage := 0.0
-	if totalEpisodes > 0 {
-		syncPercentage = float64(customTitles) / float64(totalEpisodes) * 100
-	}
-
-	response := GetEpisodeSyncStatusResponse{
-		AnimeID:        req.AnimeID,
-		AnimeTitle:     animeTitle,
-		AnnictID:       annictID,
-		TotalEpisodes:  totalEpisodes,
-		DefaultTitles:  defaultTitles,
-		CustomTitles:   customTitles,
-		SyncPercentage: syncPercentage,
-		NeedSync:       defaultTitles > 0,
-		SampleEpisodes: sampleEpisodes,
-	}
-
-	c.JSON(http.StatusOK, response)
+	c.JSON(http.StatusOK, status)
 }

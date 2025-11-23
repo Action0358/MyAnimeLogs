@@ -27,6 +27,11 @@ const (
 	annictAPIDefaultFields = "id,title,title_kana,title_en,media,media_text,season_name,released_on,released_on_about,official_site_url,wikipedia_url,twitter_username,twitter_hashtag,mal_anime_id,images,episodes_count,watchers_count,reviews_count,no_episodes"
 )
 
+var (
+	// ErrRateLimitExceeded is returned when the API rate limit is exceeded
+	ErrRateLimitExceeded = errors.New("rate limit exceeded")
+)
+
 type AnnictClient struct {
 	Token          string
 	HTTPClient     *http.Client
@@ -109,7 +114,7 @@ func (c *AnnictClient) makeRequest(params url.Values) (*models.AnnictWorkRespons
 
 		// Return sentinel error for rate limiting
 		if resp.StatusCode == http.StatusTooManyRequests {
-			return nil, fmt.Errorf("%w: status %d", ErrRateLimitExceeded, resp.StatusCode)
+			return nil, fmt.Errorf("status %d: %w", resp.StatusCode, ErrRateLimitExceeded)
 		}
 
 		return nil, fmt.Errorf("annict API returned status %d, body: %s", resp.StatusCode, string(body))
@@ -314,16 +319,17 @@ type AnnictEpisodesResponse struct {
 	PrevPage   *int            `json:"prev_page"`
 }
 
-// executeRequestWithRetry executes HTTP request with retry logic
+// executeRequestWithRetry executes HTTP request with exponential backoff retry logic
 func (c *AnnictClient) executeRequestWithRetry(req *http.Request, workID, page int) (*http.Response, error) {
 	var resp *http.Response
 	var lastErr error
 
 	for retry := 0; retry < annictMaxRetries; retry++ {
 		if retry > 0 {
-			backoffDelay := time.Duration(retry) * time.Second
+			// Exponential backoff: 2^retry seconds (1s, 2s, 4s, ...)
+			backoffDelay := time.Duration(1<<uint(retry)) * time.Second
 			if c.logger != nil {
-				c.logger.Info("Retrying API request",
+				c.logger.Info("Retrying API request with exponential backoff",
 					"work_id", workID,
 					"page", page,
 					"retry", retry,
@@ -350,7 +356,7 @@ func (c *AnnictClient) executeRequestWithRetry(req *http.Request, workID, page i
 			resp.Body.Close()
 			lastErr = fmt.Errorf("rate limit exceeded: %s", string(body))
 			if c.logger != nil {
-				c.logger.Warn("Rate limit exceeded, retrying",
+				c.logger.Warn("Rate limit exceeded, retrying with exponential backoff",
 					"work_id", workID,
 					"page", page,
 					"retry", retry)
