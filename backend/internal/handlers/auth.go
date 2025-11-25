@@ -213,7 +213,14 @@ func (h *AuthHandler) DeleteIcon(c *gin.Context) {
 	}
 
 	// ファイルシステムから画像ファイルを削除
-	_ = h.uploadService.DeleteUserIcon(oldIconURL)
+	if err := h.uploadService.DeleteUserIcon(oldIconURL); err != nil {
+		// ファイル削除エラーはログに記録するが、処理は継続
+		// DBからは既に削除されているため、ユーザーには成功として返す
+		h.logger.Warn("Failed to delete icon file from filesystem",
+			"user_id", userID,
+			"icon_url", oldIconURL,
+			"error", err)
+	}
 
 	h.response.Success(c, gin.H{
 		"message": "プロフィール画像を削除しました",

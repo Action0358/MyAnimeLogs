@@ -116,12 +116,38 @@ func (c *AniListClient) GetCoverImageByMALId(malId string) (*CoverImage, error) 
 		"malId": malIdInt,
 	}
 
-	coverImage, err := c.executeGraphQLQuery(query, variables)
+	type Response struct {
+		Data struct {
+			Media struct {
+				IdMal      *int       `json:"idMal"`
+				CoverImage CoverImage `json:"coverImage"`
+			} `json:"Media"`
+		} `json:"data"`
+		Errors []struct {
+			Message string `json:"message"`
+		} `json:"errors"`
+	}
+
+	result, err := executeGraphQLQuery[Response](c, query, variables)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cover image by MAL ID %s: %w", malId, err)
 	}
 
-	return coverImage, nil
+	// GraphQLエラーチェック
+	if len(result.Errors) > 0 {
+		return nil, fmt.Errorf("graphql error: %s", result.Errors[0].Message)
+	}
+
+	// データが空の場合
+	if result.Data.Media.CoverImage.Large == "" {
+		return nil, fmt.Errorf("no cover image found")
+	}
+
+	// MAL IDをCoverImageに設定
+	coverImage := result.Data.Media.CoverImage
+	coverImage.MalId = result.Data.Media.IdMal
+
+	return &coverImage, nil
 }
 
 // GetCoverImageByTitle - タイトルでカバー画像を検索（フォールバック用）
@@ -143,102 +169,38 @@ func (c *AniListClient) GetCoverImageByTitle(title string) (*CoverImage, error) 
 		"search": title,
 	}
 
-	coverImage, err := c.executeGraphQLQuery(query, variables)
+	type Response struct {
+		Data struct {
+			Media struct {
+				IdMal      *int       `json:"idMal"`
+				CoverImage CoverImage `json:"coverImage"`
+			} `json:"Media"`
+		} `json:"data"`
+		Errors []struct {
+			Message string `json:"message"`
+		} `json:"errors"`
+	}
+
+	result, err := executeGraphQLQuery[Response](c, query, variables)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cover image by title %s: %w", title, err)
 	}
 
-	return coverImage, nil
-}
-
-// executeGraphQLQuery - GraphQLクエリを送信し、レスポンスを解析する共通ヘルパー
-func (c *AniListClient) executeGraphQLQuery(query string, variables map[string]interface{}) (*CoverImage, error) {
-	const maxRetries = 3
-	const retryDelay = 2 * time.Second
-
-	for attempt := 1; attempt <= maxRetries; attempt++ {
-		// リクエストボディ作成
-		requestBody := map[string]interface{}{
-			"query":     query,
-			"variables": variables,
-		}
-
-		jsonData, err := json.Marshal(requestBody)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal request: %w", err)
-		}
-
-		// HTTPリクエスト作成
-		req, err := http.NewRequest("POST", c.endpoint, bytes.NewBuffer(jsonData))
-		if err != nil {
-			return nil, fmt.Errorf("failed to create request: %w", err)
-		}
-
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Accept", "application/json")
-
-		// リクエスト送信
-		resp, err := c.httpClient.Do(req)
-		if err != nil {
-			if attempt < maxRetries {
-				// 指数バックオフ: 2秒, 4秒, 8秒...
-				time.Sleep(retryDelay * time.Duration(1<<(attempt-1)))
-				continue
-			}
-			return nil, fmt.Errorf("failed to send request: %w", err)
-		}
-		defer resp.Body.Close()
-
-		// レート制限の場合はリトライ
-		if resp.StatusCode == http.StatusTooManyRequests {
-			if attempt < maxRetries {
-				// 指数バックオフ: 2秒, 4秒, 8秒...
-				time.Sleep(retryDelay * time.Duration(attempt-1))
-				continue
-			}
-			return nil, fmt.Errorf("rate limited after %d attempts", maxRetries)
-		}
-
-		// ステータスコード確認
-		if resp.StatusCode != http.StatusOK {
-			return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-		}
-
-		// レスポンス解析
-		var result struct {
-			Data struct {
-				Media struct {
-					IdMal      *int       `json:"idMal"`
-					CoverImage CoverImage `json:"coverImage"`
-				} `json:"Media"`
-			} `json:"data"`
-			Errors []struct {
-				Message string `json:"message"`
-			} `json:"errors"`
-		}
-
-		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-			return nil, fmt.Errorf("failed to decode response: %w", err)
-		}
-
-		// GraphQLエラーチェック
-		if len(result.Errors) > 0 {
-			return nil, fmt.Errorf("graphql error: %s", result.Errors[0].Message)
-		}
-
-		// データが空の場合
-		if result.Data.Media.CoverImage.Large == "" {
-			return nil, fmt.Errorf("no cover image found")
-		}
-
-		// MAL IDをCoverImageに設定
-		coverImage := result.Data.Media.CoverImage
-		coverImage.MalId = result.Data.Media.IdMal
-
-		return &coverImage, nil
+	// GraphQLエラーチェック
+	if len(result.Errors) > 0 {
+		return nil, fmt.Errorf("graphql error: %s", result.Errors[0].Message)
 	}
 
-	return nil, fmt.Errorf("failed after %d attempts", maxRetries)
+	// データが空の場合
+	if result.Data.Media.CoverImage.Large == "" {
+		return nil, fmt.Errorf("no cover image found")
+	}
+
+	// MAL IDをCoverImageに設定
+	coverImage := result.Data.Media.CoverImage
+	coverImage.MalId = result.Data.Media.IdMal
+
+	return &coverImage, nil
 }
 
 // GetGenresByMALId - MyAnimeList IDからジャンル情報を取得
@@ -261,16 +223,39 @@ func (c *AniListClient) GetGenresByMALId(malId string) ([]string, error) {
 		"malId": malIdInt,
 	}
 
-	genres, err := c.executeGenresQuery(query, variables)
+	type Response struct {
+		Data struct {
+			Media struct {
+				Genres []string `json:"genres"`
+			} `json:"Media"`
+		} `json:"data"`
+		Errors []struct {
+			Message string `json:"message"`
+		} `json:"errors"`
+	}
+
+	result, err := executeGraphQLQuery[Response](c, query, variables)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get genres by MAL ID %s: %w", malId, err)
 	}
 
-	return genres, nil
+	// GraphQLエラーチェック
+	if len(result.Errors) > 0 {
+		return nil, fmt.Errorf("graphql error: %s", result.Errors[0].Message)
+	}
+
+	// ジャンルを日本語に変換
+	var translatedGenres []string
+	for _, genre := range result.Data.Media.Genres {
+		translatedGenre := translateGenre(genre)
+		translatedGenres = append(translatedGenres, translatedGenre)
+	}
+
+	return translatedGenres, nil
 }
 
-// executeGenresQuery - ジャンル取得用のGraphQLクエリを実行
-func (c *AniListClient) executeGenresQuery(query string, variables map[string]interface{}) ([]string, error) {
+// executeGraphQLQuery - GraphQLクエリを送信し、レスポンスを解析する共通ヘルパー（ジェネリクス版）
+func executeGraphQLQuery[T any](c *AniListClient, query string, variables map[string]interface{}) (*T, error) {
 	const maxRetries = 3
 	const retryDelay = 2 * time.Second
 
@@ -299,7 +284,9 @@ func (c *AniListClient) executeGenresQuery(query string, variables map[string]in
 		resp, err := c.httpClient.Do(req)
 		if err != nil {
 			if attempt < maxRetries {
-				time.Sleep(retryDelay * time.Duration(1<<(attempt-1)))
+				// 指数バックオフ: 2秒, 4秒, 8秒...
+				backoffDuration := retryDelay * time.Duration(1<<uint(attempt-1))
+				time.Sleep(backoffDuration)
 				continue
 			}
 			return nil, fmt.Errorf("failed to send request: %w", err)
@@ -309,7 +296,9 @@ func (c *AniListClient) executeGenresQuery(query string, variables map[string]in
 		// レート制限の場合はリトライ
 		if resp.StatusCode == http.StatusTooManyRequests {
 			if attempt < maxRetries {
-				time.Sleep(retryDelay * time.Duration(attempt))
+				// 指数バックオフ: 2秒, 4秒, 8秒...
+				backoffDuration := retryDelay * time.Duration(1<<uint(attempt-1))
+				time.Sleep(backoffDuration)
 				continue
 			}
 			return nil, fmt.Errorf("rate limited after %d attempts", maxRetries)
@@ -321,34 +310,12 @@ func (c *AniListClient) executeGenresQuery(query string, variables map[string]in
 		}
 
 		// レスポンス解析
-		var result struct {
-			Data struct {
-				Media struct {
-					Genres []string `json:"genres"`
-				} `json:"Media"`
-			} `json:"data"`
-			Errors []struct {
-				Message string `json:"message"`
-			} `json:"errors"`
-		}
-
+		var result T
 		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 			return nil, fmt.Errorf("failed to decode response: %w", err)
 		}
 
-		// GraphQLエラーチェック
-		if len(result.Errors) > 0 {
-			return nil, fmt.Errorf("graphql error: %s", result.Errors[0].Message)
-		}
-
-		// ジャンルを日本語に変換
-		var translatedGenres []string
-		for _, genre := range result.Data.Media.Genres {
-			translatedGenre := translateGenre(genre)
-			translatedGenres = append(translatedGenres, translatedGenre)
-		}
-
-		return translatedGenres, nil
+		return &result, nil
 	}
 
 	return nil, fmt.Errorf("failed after %d attempts", maxRetries)
