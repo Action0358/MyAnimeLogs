@@ -18,6 +18,7 @@ type AdminAnimeService interface {
 	CreateEpisodesForAllAnimes() (int, int, error)
 	EnrichEpisodesWithTitles(animeID *int) (int, int, []string, error)
 	GetEpisodeSyncStatus(animeID int) (*models.EpisodeSyncStatus, error)
+	SyncGenresForAllAnimes() (int, int, []string, error)
 }
 
 // SyncScheduler defines the interface for sync scheduler
@@ -221,4 +222,38 @@ func (h *AdminHandler) GetEpisodeSyncStatus(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, status)
+}
+
+// SyncGenresResponse represents the response for syncing genres
+type SyncGenresResponse struct {
+	SuccessCount int      `json:"success_count"`
+	FailureCount int      `json:"failure_count"`
+	Errors       []string `json:"errors,omitempty"`
+	Message      string   `json:"message"`
+}
+
+// SyncGenresForAllAnimes syncs genre information for all animes from AniList API
+// POST /api/admin/sync/genres
+func (h *AdminHandler) SyncGenresForAllAnimes(c *gin.Context) {
+	h.logger.Info("Starting genre sync for all animes")
+
+	successCount, failureCount, errs, err := h.animeService.SyncGenresForAllAnimes()
+	if err != nil {
+		h.logger.Error("Failed to sync genres", "error", err)
+		h.response.InternalServerError(c, "Failed to sync genres")
+		return
+	}
+
+	response := SyncGenresResponse{
+		SuccessCount: successCount,
+		FailureCount: failureCount,
+		Errors:       errs,
+		Message:      fmt.Sprintf("Genre sync completed: %d succeeded, %d failed", successCount, failureCount),
+	}
+
+	h.logger.Info("Genre sync completed",
+		"success_count", successCount,
+		"failure_count", failureCount)
+
+	c.JSON(http.StatusOK, response)
 }

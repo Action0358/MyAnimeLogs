@@ -1794,14 +1794,12 @@ func (s *AnimeService) syncGenresForAnimesWithFilter(daysThreshold int, limit in
 }
 
 // syncGenresForAnime syncs genre information for a single anime using transaction
+// Uses AniList API for genre information (recommended over Jikan API)
 func (s *AnimeService) syncGenresForAnime(animeID int, malAnimeID string) error {
-	// Fetch anime details from Jikan API (including genres)
-	genres, err := s.jikanClient.GetAnimeGenres(malAnimeID)
+	// Fetch genres from AniList API (returns Japanese genre names)
+	genres, err := s.anilistClient.GetGenresByMALId(malAnimeID)
 	if err != nil {
-		if errors.Is(err, ErrJikanNotFound) {
-			return fmt.Errorf("anime not found in MAL: %w", err)
-		}
-		return fmt.Errorf("failed to fetch genres from Jikan: %w", err)
+		return fmt.Errorf("failed to fetch genres from AniList: %w", err)
 	}
 
 	// Begin transaction to ensure atomicity
@@ -1837,11 +1835,11 @@ func (s *AnimeService) syncGenresForAnime(animeID int, malAnimeID string) error 
 
 		// Insert new genres using prepared statement
 		for _, genre := range genres {
-			_, err := stmt.Exec(animeID, genre.Name)
+			_, err := stmt.Exec(animeID, genre)
 			if err != nil {
 				s.logger.Warn("Failed to insert genre",
 					"anime_id", animeID,
-					"genre", genre.Name,
+					"genre", genre,
 					"error", err)
 				continue
 			}

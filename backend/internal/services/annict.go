@@ -254,6 +254,39 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork) (*models.Anim
 	// Note: Episode creation is now handled by AnimeService.createEpisodesForAnime
 	// This avoids code duplication and centralizes episode management
 
+	// Sync genres in background if MAL ID is available (non-blocking)
+	if work.MalAnimeID != nil && *work.MalAnimeID != "" {
+		go func() {
+			// Use AniList API to fetch and save genres
+			genres, err := NewAniListClient().GetGenresByMALId(*work.MalAnimeID)
+			if err != nil {
+				if c.logger != nil {
+					c.logger.Warn("Failed to get genres from AniList",
+						"anime_id", anime.ID,
+						"mal_anime_id", *work.MalAnimeID,
+						"error", err)
+				}
+				return
+			}
+
+			// Save genres to database
+			err = c.saveGenresToDatabase(anime.ID, genres)
+			if err != nil {
+				if c.logger != nil {
+					c.logger.Error("Failed to save genres",
+						"anime_id", anime.ID,
+						"error", err)
+				}
+			} else {
+				if c.logger != nil {
+					c.logger.Info("Successfully saved genres",
+						"anime_id", anime.ID,
+						"genres", genres)
+				}
+			}
+		}()
+	}
+
 	return &anime, nil
 }
 
@@ -571,6 +604,65 @@ func (c *AnnictClient) getDBEpisodeNumbers(animeID int) ([]int, error) {
 	}
 
 	return episodeNumbers, nil
+}
+
+// saveGenresToDatabase saves genre information to the database
+func (c *AnnictClient) saveGenresToDatabase(animeID int, genres []string) error {
+	if c.DB == nil {
+		return fmt.Errorf("database connection not available")
+	}
+
+	// Begin transaction
+	tx, err := c.DB.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Delete existing genres
+	_, err = tx.Exec(`DELETE FROM anime_genres WHERE anime_id = $1`, animeID)
+	if err != nil {
+		return fmt.Errorf("failed to delete existing genres: %w", err)
+	}
+
+	// Insert new genres
+	if len(genres) > 0 {
+		stmt, err := tx.Prepare(`
+			INSERT INTO anime_genres (anime_id, genre)
+			VALUES ($1, $2)
+			ON CONFLICT (anime_id, genre) DO NOTHING
+		`)
+		if err != nil {
+			return fmt.Errorf("failed to prepare insert statement: %w", err)
+		}
+		defer stmt.Close()
+
+		for _, genre := range genres {
+			_, err := stmt.Exec(animeID, genre)
+			if err != nil {
+				if c.logger != nil {
+					c.logger.Warn("Failed to insert genre",
+						"anime_id", animeID,
+						"genre", genre,
+						"error", err)
+				}
+				continue
+			}
+		}
+	}
+
+	// Update genres_synced_at timestamp
+	_, err = tx.Exec(`UPDATE animes SET genres_synced_at = CURRENT_TIMESTAMP WHERE id = $1`, animeID)
+	if err != nil {
+		return fmt.Errorf("failed to update genres_synced_at: %w", err)
+	}
+
+	// Commit transaction
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	return nil
 }
 
 // UpdateEpisodeTitlesFromAnnict updates episode titles from Annict API

@@ -101,6 +101,7 @@ func Setup(db *database.DB, cfg *config.Config, syncScheduler handlers.SyncSched
 			admin.POST("/sync/episode-durations", adminHandler.SyncEpisodeDurations)
 			admin.POST("/create-episodes", adminHandler.CreateEpisodesForAllAnimes)
 			admin.POST("/enrich/episode-titles", adminHandler.EnrichEpisodeTitles)
+			admin.POST("/sync/genres", adminHandler.SyncGenresForAllAnimes)
 			admin.GET("/sync/status", adminHandler.GetSyncStatus)
 			admin.GET("/episode-sync-status", adminHandler.GetEpisodeSyncStatus)
 
@@ -118,6 +119,7 @@ func Setup(db *database.DB, cfg *config.Config, syncScheduler handlers.SyncSched
 			protected.GET("/users/me", authHandler.GetMe)
 			protected.PUT("/users/me", authHandler.UpdateMe)
 			protected.POST("/users/me/icon", authHandler.UploadIcon)
+			protected.DELETE("/users/me/icon", authHandler.DeleteIcon)
 			protected.GET("/users/me/stats", authHandler.GetStats)
 			protected.GET("/users/me/export", authHandler.ExportData)
 

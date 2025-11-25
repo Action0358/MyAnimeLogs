@@ -158,6 +158,14 @@ func (m *MockAnimeService) GetEpisodeSyncStatus(animeID int) (*models.EpisodeSyn
 	return args.Get(0).(*models.EpisodeSyncStatus), args.Error(1)
 }
 
+func (m *MockAnimeService) SyncGenresForAllAnimes() (int, int, []string, error) {
+	args := m.Called()
+	if args.Get(2) == nil {
+		return args.Int(0), args.Int(1), nil, args.Error(3)
+	}
+	return args.Int(0), args.Int(1), args.Get(2).([]string), args.Error(3)
+}
+
 func TestAdminHandler_SyncEpisodeDurations(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	logger := common.NewLogger(common.LogLevelDebug, "text")
