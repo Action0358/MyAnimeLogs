@@ -91,6 +91,67 @@ type CoverImage struct {
 	MalId      *int   `json:"malId,omitempty"` // キャッシュキーとして使用
 }
 
+// coverImageResponse - カバー画像取得のGraphQLレスポンス構造体
+type coverImageResponse struct {
+	Data struct {
+		Media struct {
+			IdMal      *int       `json:"idMal"`
+			CoverImage CoverImage `json:"coverImage"`
+		} `json:"Media"`
+	} `json:"data"`
+	Errors []struct {
+		Message string `json:"message"`
+	} `json:"errors"`
+}
+
+// genresResponse - ジャンル取得のGraphQLレスポンス構造体
+type genresResponse struct {
+	Data struct {
+		Media struct {
+			Genres []string `json:"genres"`
+		} `json:"Media"`
+	} `json:"data"`
+	Errors []struct {
+		Message string `json:"message"`
+	} `json:"errors"`
+}
+
+// processCoverImageResponse - カバー画像レスポンスを処理する共通ヘルパー
+func processCoverImageResponse(result *coverImageResponse) (*CoverImage, error) {
+	// GraphQLエラーチェック
+	if len(result.Errors) > 0 {
+		return nil, fmt.Errorf("graphql error: %s", result.Errors[0].Message)
+	}
+
+	// データが空の場合
+	if result.Data.Media.CoverImage.Large == "" {
+		return nil, fmt.Errorf("no cover image found")
+	}
+
+	// MAL IDをCoverImageに設定
+	coverImage := result.Data.Media.CoverImage
+	coverImage.MalId = result.Data.Media.IdMal
+
+	return &coverImage, nil
+}
+
+// processGenresResponse - ジャンルレスポンスを処理する共通ヘルパー
+func processGenresResponse(result *genresResponse) ([]string, error) {
+	// GraphQLエラーチェック
+	if len(result.Errors) > 0 {
+		return nil, fmt.Errorf("graphql error: %s", result.Errors[0].Message)
+	}
+
+	// ジャンルを日本語に変換
+	var translatedGenres []string
+	for _, genre := range result.Data.Media.Genres {
+		translatedGenre := translateGenre(genre)
+		translatedGenres = append(translatedGenres, translatedGenre)
+	}
+
+	return translatedGenres, nil
+}
+
 // GetCoverImageByMALId - MyAnimeList IDからカバー画像を取得
 func (c *AniListClient) GetCoverImageByMALId(malId string) (*CoverImage, error) {
 	// MAL IDを整数に変換
@@ -116,38 +177,12 @@ func (c *AniListClient) GetCoverImageByMALId(malId string) (*CoverImage, error) 
 		"malId": malIdInt,
 	}
 
-	type Response struct {
-		Data struct {
-			Media struct {
-				IdMal      *int       `json:"idMal"`
-				CoverImage CoverImage `json:"coverImage"`
-			} `json:"Media"`
-		} `json:"data"`
-		Errors []struct {
-			Message string `json:"message"`
-		} `json:"errors"`
-	}
-
-	result, err := executeGraphQLQuery[Response](c, query, variables)
+	result, err := executeGraphQLQuery[coverImageResponse](c, query, variables)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cover image by MAL ID %s: %w", malId, err)
 	}
 
-	// GraphQLエラーチェック
-	if len(result.Errors) > 0 {
-		return nil, fmt.Errorf("graphql error: %s", result.Errors[0].Message)
-	}
-
-	// データが空の場合
-	if result.Data.Media.CoverImage.Large == "" {
-		return nil, fmt.Errorf("no cover image found")
-	}
-
-	// MAL IDをCoverImageに設定
-	coverImage := result.Data.Media.CoverImage
-	coverImage.MalId = result.Data.Media.IdMal
-
-	return &coverImage, nil
+	return processCoverImageResponse(result)
 }
 
 // GetCoverImageByTitle - タイトルでカバー画像を検索（フォールバック用）
@@ -169,38 +204,12 @@ func (c *AniListClient) GetCoverImageByTitle(title string) (*CoverImage, error) 
 		"search": title,
 	}
 
-	type Response struct {
-		Data struct {
-			Media struct {
-				IdMal      *int       `json:"idMal"`
-				CoverImage CoverImage `json:"coverImage"`
-			} `json:"Media"`
-		} `json:"data"`
-		Errors []struct {
-			Message string `json:"message"`
-		} `json:"errors"`
-	}
-
-	result, err := executeGraphQLQuery[Response](c, query, variables)
+	result, err := executeGraphQLQuery[coverImageResponse](c, query, variables)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cover image by title %s: %w", title, err)
 	}
 
-	// GraphQLエラーチェック
-	if len(result.Errors) > 0 {
-		return nil, fmt.Errorf("graphql error: %s", result.Errors[0].Message)
-	}
-
-	// データが空の場合
-	if result.Data.Media.CoverImage.Large == "" {
-		return nil, fmt.Errorf("no cover image found")
-	}
-
-	// MAL IDをCoverImageに設定
-	coverImage := result.Data.Media.CoverImage
-	coverImage.MalId = result.Data.Media.IdMal
-
-	return &coverImage, nil
+	return processCoverImageResponse(result)
 }
 
 // GetGenresByMALId - MyAnimeList IDからジャンル情報を取得
@@ -223,35 +232,12 @@ func (c *AniListClient) GetGenresByMALId(malId string) ([]string, error) {
 		"malId": malIdInt,
 	}
 
-	type Response struct {
-		Data struct {
-			Media struct {
-				Genres []string `json:"genres"`
-			} `json:"Media"`
-		} `json:"data"`
-		Errors []struct {
-			Message string `json:"message"`
-		} `json:"errors"`
-	}
-
-	result, err := executeGraphQLQuery[Response](c, query, variables)
+	result, err := executeGraphQLQuery[genresResponse](c, query, variables)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get genres by MAL ID %s: %w", malId, err)
 	}
 
-	// GraphQLエラーチェック
-	if len(result.Errors) > 0 {
-		return nil, fmt.Errorf("graphql error: %s", result.Errors[0].Message)
-	}
-
-	// ジャンルを日本語に変換
-	var translatedGenres []string
-	for _, genre := range result.Data.Media.Genres {
-		translatedGenre := translateGenre(genre)
-		translatedGenres = append(translatedGenres, translatedGenre)
-	}
-
-	return translatedGenres, nil
+	return processGenresResponse(result)
 }
 
 // executeGraphQLQuery - GraphQLクエリを送信し、レスポンスを解析する共通ヘルパー（ジェネリクス版）
