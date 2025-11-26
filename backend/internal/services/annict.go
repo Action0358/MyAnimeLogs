@@ -38,6 +38,7 @@ type AnnictClient struct {
 	DB             *database.DB
 	logger         *common.Logger
 	rateLimitDelay time.Duration
+	anilistClient  *AniListClient
 }
 
 // AnnictService defines the interface for Annict API interactions.
@@ -66,6 +67,7 @@ func NewAnnictClientWithDB(token string, db *database.DB, logger *common.Logger)
 		DB:             db,
 		logger:         logger,
 		rateLimitDelay: 1000 * time.Millisecond, // Increased from 500ms to 1s to avoid rate limiting
+		anilistClient:  NewAniListClient(),      // Initialize once for reuse
 	}
 }
 
@@ -253,6 +255,39 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork) (*models.Anim
 
 	// Note: Episode creation is now handled by AnimeService.createEpisodesForAnime
 	// This avoids code duplication and centralizes episode management
+
+	// Sync genres in background if MAL ID is available (non-blocking)
+	if work.MalAnimeID != nil && *work.MalAnimeID != "" && c.anilistClient != nil {
+		go func() {
+			// Use AniList API to fetch and save genres (reuse client)
+			genres, err := c.anilistClient.GetGenresByMALId(*work.MalAnimeID)
+			if err != nil {
+				if c.logger != nil {
+					c.logger.Warn("Failed to get genres from AniList",
+						"anime_id", anime.ID,
+						"mal_anime_id", *work.MalAnimeID,
+						"error", err)
+				}
+				return
+			}
+
+			// Save genres to database using shared function
+			err = saveGenresToDatabase(c.DB, c.logger, anime.ID, genres)
+			if err != nil {
+				if c.logger != nil {
+					c.logger.Error("Failed to save genres",
+						"anime_id", anime.ID,
+						"error", err)
+				}
+			} else {
+				if c.logger != nil {
+					c.logger.Info("Successfully saved genres",
+						"anime_id", anime.ID,
+						"genres", genres)
+				}
+			}
+		}()
+	}
 
 	return &anime, nil
 }
