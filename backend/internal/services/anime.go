@@ -1802,67 +1802,15 @@ func (s *AnimeService) syncGenresForAnime(animeID int, malAnimeID string) error 
 		return fmt.Errorf("failed to fetch genres from AniList: %w", err)
 	}
 
-	// Begin transaction to ensure atomicity
-	tx, err := s.db.Begin()
-	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
-	}
-	defer tx.Rollback() // Rollback if not committed
-
-	// Always delete existing genres to ensure data consistency
-	// Even if the new list is empty, we want to clear stale data
-	deleteQuery := `DELETE FROM anime_genres WHERE anime_id = $1`
-	_, err = tx.Exec(deleteQuery, animeID)
-	if err != nil {
-		return fmt.Errorf("failed to delete existing genres: %w", err)
-	}
-
-	insertedCount := 0
-
-	// Insert new genres if any exist
-	if len(genres) > 0 {
-		// Prepare insert statement for better performance
-		insertQuery := `
-			INSERT INTO anime_genres (anime_id, genre)
-			VALUES ($1, $2)
-			ON CONFLICT (anime_id, genre) DO NOTHING
-		`
-		stmt, err := tx.Prepare(insertQuery)
-		if err != nil {
-			return fmt.Errorf("failed to prepare insert statement: %w", err)
-		}
-		defer stmt.Close()
-
-		// Insert new genres using prepared statement
-		for _, genre := range genres {
-			_, err := stmt.Exec(animeID, genre)
-			if err != nil {
-				s.logger.Warn("Failed to insert genre",
-					"anime_id", animeID,
-					"genre", genre,
-					"error", err)
-				continue
-			}
-			insertedCount++
-		}
-	}
-
-	// Update genres_synced_at timestamp
-	updateQuery := `UPDATE animes SET genres_synced_at = CURRENT_TIMESTAMP WHERE id = $1`
-	_, err = tx.Exec(updateQuery, animeID)
-	if err != nil {
-		return fmt.Errorf("failed to update genres_synced_at: %w", err)
-	}
-
-	// Commit transaction
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
+	// Save genres to database using shared function
+	if err := saveGenresToDatabase(s.db, s.logger, animeID, genres); err != nil {
+		return err
 	}
 
 	s.logger.Debug("Synced genres for anime",
 		"anime_id", animeID,
 		"mal_anime_id", malAnimeID,
-		"genre_count", insertedCount)
+		"genre_count", len(genres))
 
 	return nil
 }

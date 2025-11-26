@@ -271,8 +271,8 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork) (*models.Anim
 				return
 			}
 
-			// Save genres to database
-			err = c.saveGenresToDatabase(anime.ID, genres)
+			// Save genres to database using shared function
+			err = saveGenresToDatabase(c.DB, c.logger, anime.ID, genres)
 			if err != nil {
 				if c.logger != nil {
 					c.logger.Error("Failed to save genres",
@@ -606,65 +606,6 @@ func (c *AnnictClient) getDBEpisodeNumbers(animeID int) ([]int, error) {
 	}
 
 	return episodeNumbers, nil
-}
-
-// saveGenresToDatabase saves genre information to the database
-func (c *AnnictClient) saveGenresToDatabase(animeID int, genres []string) error {
-	if c.DB == nil {
-		return fmt.Errorf("database connection not available")
-	}
-
-	// Begin transaction
-	tx, err := c.DB.Begin()
-	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
-	}
-	defer tx.Rollback()
-
-	// Delete existing genres
-	_, err = tx.Exec(`DELETE FROM anime_genres WHERE anime_id = $1`, animeID)
-	if err != nil {
-		return fmt.Errorf("failed to delete existing genres: %w", err)
-	}
-
-	// Insert new genres
-	if len(genres) > 0 {
-		stmt, err := tx.Prepare(`
-			INSERT INTO anime_genres (anime_id, genre)
-			VALUES ($1, $2)
-			ON CONFLICT (anime_id, genre) DO NOTHING
-		`)
-		if err != nil {
-			return fmt.Errorf("failed to prepare insert statement: %w", err)
-		}
-		defer stmt.Close()
-
-		for _, genre := range genres {
-			_, err := stmt.Exec(animeID, genre)
-			if err != nil {
-				if c.logger != nil {
-					c.logger.Warn("Failed to insert genre",
-						"anime_id", animeID,
-						"genre", genre,
-						"error", err)
-				}
-				continue
-			}
-		}
-	}
-
-	// Update genres_synced_at timestamp
-	_, err = tx.Exec(`UPDATE animes SET genres_synced_at = CURRENT_TIMESTAMP WHERE id = $1`, animeID)
-	if err != nil {
-		return fmt.Errorf("failed to update genres_synced_at: %w", err)
-	}
-
-	// Commit transaction
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
-	}
-
-	return nil
 }
 
 // UpdateEpisodeTitlesFromAnnict updates episode titles from Annict API
