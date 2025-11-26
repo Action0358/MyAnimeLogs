@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"myanimelogs/internal/common"
@@ -534,6 +535,179 @@ func TestAuthHandler_InternalServerError(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Contains(t, response, "message")
 	assert.Equal(t, "ユーザー登録に失敗しました", response["message"])
+
+	mockService.AssertExpectations(t)
+}
+
+func TestAuthHandler_DeleteIcon_Success(t *testing.T) {
+	handler, mockService := setupAuthHandler()
+
+	// Create a real upload service with test directory
+	logger := common.NewLogger(common.LogLevelInfo, "text")
+	uploadDir := "./test_uploads_delete_icon"
+	uploadService := services.NewUploadService(uploadDir, "/uploads", 5*1024*1024, logger)
+	handler.uploadService = uploadService
+
+	// Clean up test directory
+	defer func() {
+		_ = os.RemoveAll(uploadDir)
+	}()
+
+	iconURL := "/uploads/icons/user_1_icon.jpg"
+	mockUser := &models.UserResponse{
+		ID:    1,
+		Name:  "Test User",
+		Email: "test@example.com",
+		Icon:  &iconURL,
+	}
+
+	updatedUser := &models.UserResponse{
+		ID:    1,
+		Name:  "Test User",
+		Email: "test@example.com",
+		Icon:  nil,
+	}
+
+	mockService.On("GetUserByID", 1).Return(mockUser, nil)
+	mockService.On("UpdateUserIcon", 1, "").Return(updatedUser, nil)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Set("user_id", 1)
+	c.Request = httptest.NewRequest("DELETE", "/api/users/me/icon", nil)
+
+	handler.DeleteIcon(c)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.Equal(t, "プロフィール画像を削除しました", response["message"])
+
+	mockService.AssertExpectations(t)
+}
+
+func TestAuthHandler_DeleteIcon_NoIconSet(t *testing.T) {
+	handler, mockService := setupAuthHandler()
+
+	// Create a real upload service with test directory
+	logger := common.NewLogger(common.LogLevelInfo, "text")
+	uploadDir := "./test_uploads_delete_icon_no_icon"
+	uploadService := services.NewUploadService(uploadDir, "/uploads", 5*1024*1024, logger)
+	handler.uploadService = uploadService
+
+	// Clean up test directory
+	defer func() {
+		_ = os.RemoveAll(uploadDir)
+	}()
+
+	mockUser := &models.UserResponse{
+		ID:    1,
+		Name:  "Test User",
+		Email: "test@example.com",
+		Icon:  nil,
+	}
+
+	mockService.On("GetUserByID", 1).Return(mockUser, nil)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Set("user_id", 1)
+	c.Request = httptest.NewRequest("DELETE", "/api/users/me/icon", nil)
+
+	handler.DeleteIcon(c)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
+	var response map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	// ValidationErrorはデフォルトメッセージを返すので、ステータスコードで確認
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
+	mockService.AssertExpectations(t)
+}
+
+func TestAuthHandler_DeleteIcon_Unauthorized(t *testing.T) {
+	handler, _ := setupAuthHandler()
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	// user_idを設定しない（認証なし）
+	c.Request = httptest.NewRequest("DELETE", "/api/users/me/icon", nil)
+
+	handler.DeleteIcon(c)
+
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+
+	var response map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.Contains(t, response["error"], "認証が必要です")
+}
+
+func TestAuthHandler_DeleteIcon_GetUserError(t *testing.T) {
+	handler, mockService := setupAuthHandler()
+
+	// Create a real upload service with test directory
+	logger := common.NewLogger(common.LogLevelInfo, "text")
+	uploadDir := "./test_uploads_delete_icon_error"
+	uploadService := services.NewUploadService(uploadDir, "/uploads", 5*1024*1024, logger)
+	handler.uploadService = uploadService
+
+	// Clean up test directory
+	defer func() {
+		_ = os.RemoveAll(uploadDir)
+	}()
+
+	mockService.On("GetUserByID", 1).Return(nil, errors.New("database error"))
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Set("user_id", 1)
+	c.Request = httptest.NewRequest("DELETE", "/api/users/me/icon", nil)
+
+	handler.DeleteIcon(c)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+
+	mockService.AssertExpectations(t)
+}
+
+func TestAuthHandler_DeleteIcon_UpdateError(t *testing.T) {
+	handler, mockService := setupAuthHandler()
+
+	// Create a real upload service with test directory
+	logger := common.NewLogger(common.LogLevelInfo, "text")
+	uploadDir := "./test_uploads_delete_icon_update_error"
+	uploadService := services.NewUploadService(uploadDir, "/uploads", 5*1024*1024, logger)
+	handler.uploadService = uploadService
+
+	// Clean up test directory
+	defer func() {
+		_ = os.RemoveAll(uploadDir)
+	}()
+
+	iconURL := "/uploads/icons/user_1_icon.jpg"
+	mockUser := &models.UserResponse{
+		ID:    1,
+		Name:  "Test User",
+		Email: "test@example.com",
+		Icon:  &iconURL,
+	}
+
+	mockService.On("GetUserByID", 1).Return(mockUser, nil)
+	mockService.On("UpdateUserIcon", 1, "").Return(nil, errors.New("database error"))
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Set("user_id", 1)
+	c.Request = httptest.NewRequest("DELETE", "/api/users/me/icon", nil)
+
+	handler.DeleteIcon(c)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
 
 	mockService.AssertExpectations(t)
 }

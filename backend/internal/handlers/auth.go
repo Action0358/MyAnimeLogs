@@ -178,6 +178,56 @@ func (h *AuthHandler) UploadIcon(c *gin.Context) {
 	})
 }
 
+func (h *AuthHandler) DeleteIcon(c *gin.Context) {
+	userID, err := h.validator.GetUserIDFromContext(c)
+	if err != nil {
+		h.response.UnauthorizedError(c, "認証が必要です")
+		return
+	}
+
+	if h.uploadService == nil {
+		h.response.InternalServerError(c, "アップロードサービスが利用できません")
+		return
+	}
+
+	// 現在のユーザー情報を取得
+	currentUser, err := h.authService.GetUserByID(userID)
+	if err != nil {
+		h.response.InternalServerError(c, "ユーザー情報の取得に失敗しました")
+		return
+	}
+
+	// アイコンが設定されていない場合
+	if currentUser.Icon == nil || *currentUser.Icon == "" {
+		h.response.ValidationError(c, "プロフィール画像が設定されていません")
+		return
+	}
+
+	oldIconURL := *currentUser.Icon
+
+	// DBからアイコンURLを削除（NULLに設定）
+	user, err := h.authService.UpdateUserIcon(userID, "")
+	if err != nil {
+		h.response.InternalServerError(c, "プロフィール画像の削除に失敗しました")
+		return
+	}
+
+	// ファイルシステムから画像ファイルを削除
+	if err := h.uploadService.DeleteUserIcon(oldIconURL); err != nil {
+		// ファイル削除エラーはログに記録するが、処理は継続
+		// DBからは既に削除されているため、ユーザーには成功として返す
+		h.logger.Warn("Failed to delete icon file from filesystem",
+			"user_id", userID,
+			"icon_url", oldIconURL,
+			"error", err)
+	}
+
+	h.response.Success(c, gin.H{
+		"message": "プロフィール画像を削除しました",
+		"user":    user,
+	})
+}
+
 func (h *AuthHandler) GetStats(c *gin.Context) {
 	userID, err := h.validator.GetUserIDFromContext(c)
 	if err != nil {

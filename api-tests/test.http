@@ -92,6 +92,11 @@ POST {{baseUrl}}/api/users/me/icon
 # エラー: 401 Unauthorized
 DELETE {{baseUrl}}/api/users/me/icon
 
+### 8-3. プロフィール画像削除（画像未設定）
+# エラー: 400 Bad Request - プロフィール画像が設定されていません
+DELETE {{baseUrl}}/api/users/me/icon
+Authorization: Bearer {{login.response.body.access_token}}
+
 ### 9. 無効なトークン
 GET {{baseUrl}}/api/users/me
 Authorization: Bearer invalid.jwt.token
@@ -741,6 +746,41 @@ Authorization: Bearer {{login.response.body.access_token}}
 GET {{baseUrl}}/api/animes/1/episodes
 Authorization: Bearer {{login.response.body.access_token}}
 
+### 110-1. 管理者API - エピソード同期ステータス確認
+# 特定のアニメのエピソード同期状況を確認
+# レスポンス例:
+# {
+#   "anime_id": 1,
+#   "anime_title": "SPY×FAMILY Season 2",
+#   "annict_id": 7894,
+#   "total_episodes": 12,
+#   "default_titles": 3,
+#   "custom_titles": 9,
+#   "sync_percentage": 75.0,
+#   "need_sync": true,
+#   "sample_episodes": [
+#     "Ep1: 白い嫉妬／イーデン校バスジャック事件",
+#     "Ep2: 第2話",
+#     "Ep3: 第3話"
+#   ]
+# }
+GET {{baseUrl}}/api/admin/episode-sync-status?anime_id=1
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 110-2. エピソード同期ステータス確認（別のアニメ）
+GET {{baseUrl}}/api/admin/episode-sync-status?anime_id=2
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 110-3. エピソード同期ステータス確認（存在しないアニメ）
+# エラー: 404 Not Found
+GET {{baseUrl}}/api/admin/episode-sync-status?anime_id=99999
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 110-4. エピソード同期ステータス確認（anime_idなし）
+# エラー: 400 Bad Request
+GET {{baseUrl}}/api/admin/episode-sync-status
+Authorization: Bearer {{login.response.body.access_token}}
+
 ### ===== 注意事項 =====
 # 
 # Jikan API連携のテストについて:
@@ -775,3 +815,139 @@ Authorization: Bearer {{login.response.body.access_token}}
 # 2. データの確認（110）
 #    - タイトルが「第1話」から実際のエピソードタイトルに更新されます
 #    - 例: "白い嫉妬／イーデン校バスジャック事件"
+
+
+### ===== ジャンル同期機能テスト =====
+
+### 111. 管理者API - 全アニメのジャンル情報を同期
+# AniList APIからジャンル情報を取得してデータベースに保存
+# MAL IDが設定されている全アニメを処理
+POST {{baseUrl}}/api/admin/sync/genres
+Content-Type: {{contentType}}
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 112. ジャンル情報確認（同期後）
+# フィルター情報にジャンル一覧が含まれることを確認
+GET {{baseUrl}}/api/filters
+
+### 113. ジャンルでアニメ検索
+# ジャンルフィルターが正常に機能することを確認
+GET {{baseUrl}}/api/animes?genre=アクション
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 114. 複数ジャンルで高度検索
+# 複数のジャンルで絞り込み検索
+GET {{baseUrl}}/api/search/advanced?genre=アクション&genre=コメディ
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 115. ジャンル統計確認
+# フィルター情報でジャンルごとのアニメ数を確認
+GET {{baseUrl}}/api/filters
+
+### ===== ジャンル同期エラーケーステスト =====
+
+### 116. ジャンル同期（認証なし）
+# エラー: 401 Unauthorized
+POST {{baseUrl}}/api/admin/sync/genres
+Content-Type: {{contentType}}
+
+### 117. ジャンル同期（無効なトークン）
+# エラー: 401 Unauthorized
+POST {{baseUrl}}/api/admin/sync/genres
+Content-Type: {{contentType}}
+Authorization: Bearer invalid.token.here
+
+### ===== ジャンル同期統合テストシナリオ =====
+
+### 118. シナリオ1: アニメ同期 → ジャンル自動取得確認
+# 1. 新しいアニメを同期
+POST {{baseUrl}}/api/admin/sync/season
+Content-Type: {{contentType}}
+Authorization: Bearer {{login.response.body.access_token}}
+
+{
+  "season": "2024-autumn"
+}
+
+### 119. シナリオ2: ジャンル情報確認（数秒待機後）
+# バックグラウンド処理でジャンルが自動取得されているか確認
+GET {{baseUrl}}/api/filters
+
+### 120. シナリオ3: 既存アニメのジャンル一括同期
+# 既存の全アニメに対してジャンルを一括取得
+POST {{baseUrl}}/api/admin/sync/genres
+Content-Type: {{contentType}}
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 121. シナリオ4: ジャンル検索機能確認
+# ジャンルフィルターが正常に機能することを確認
+GET {{baseUrl}}/api/animes?genre=ファンタジー
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 122. シナリオ5: 高度検索でジャンル絞り込み
+# 複数条件でジャンル検索
+GET {{baseUrl}}/api/search/advanced?genre=アクション&min_rating=4.0&sort=rating&order=desc
+Authorization: Bearer {{login.response.body.access_token}}
+
+### ===== ジャンル同期パフォーマンステスト =====
+
+### 123. ジャンル同期の実行時間確認
+# 大量のアニメに対するジャンル同期の処理時間を確認
+# レスポンスのsuccess_countとfailure_countを確認
+POST {{baseUrl}}/api/admin/sync/genres
+Content-Type: {{contentType}}
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 124. ジャンル同期後のフィルター取得性能
+# ジャンル情報が増えた後のフィルター取得性能を確認
+GET {{baseUrl}}/api/filters
+
+### ===== ジャンルデータ検証テスト =====
+
+### 125. ジャンル名の日本語変換確認
+# フィルター情報で日本語のジャンル名が返されることを確認
+# 例: "Action" → "アクション", "Comedy" → "コメディ"
+GET {{baseUrl}}/api/filters
+
+### 126. ジャンル数の妥当性確認
+# 各アニメに2-3個のジャンルが設定されていることを確認
+# 100作品 × 平均2.5ジャンル = 約250件のジャンルレコード
+GET {{baseUrl}}/api/filters
+
+### 127. ジャンル検索結果の妥当性確認
+# 特定ジャンルで検索した結果が適切であることを確認
+GET {{baseUrl}}/api/animes?genre=SF
+Authorization: Bearer {{login.response.body.access_token}}
+
+### ===== 注意事項 =====
+#
+# ジャンル同期機能のテストについて:
+#
+# 1. 自動ジャンル取得（118-119）
+#    - 新規アニメ同期時、バックグラウンドでジャンル情報が自動取得されます
+#    - 処理完了まで数秒かかる場合があります
+#
+# 2. 一括ジャンル同期（120, 123）
+#    - MAL IDが設定されている全アニメを処理します
+#    - 100作品の場合、約70秒かかります（レート制限対策で700ms待機）
+#    - success_count, failure_count, errorsで結果を確認できます
+#
+# 3. ジャンル変換（125）
+#    - AniList APIから取得した英語のジャンル名が日本語に自動変換されます
+#    - 対応: Action→アクション, Comedy→コメディ, Drama→ドラマ など28種類
+#
+# 4. レート制限（123）
+#    - AniList API: 90リクエスト/分
+#    - リトライ機能: 最大3回、指数バックオフ（2秒、4秒、8秒）
+#
+# 5. データの確認
+#    - pgAdminなどでデータベースを直接確認することもできます:
+#      SELECT ag.anime_id, a.title, ag.genre
+#      FROM anime_genres ag
+#      JOIN animes a ON ag.anime_id = a.id
+#      ORDER BY ag.anime_id, ag.genre;
+#
+#      SELECT genre, COUNT(*) as count
+#      FROM anime_genres
+#      GROUP BY genre
+#      ORDER BY count DESC;
