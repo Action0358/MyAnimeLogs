@@ -285,17 +285,17 @@ func (h *AnnictHandler) getCoverImage(work *models.AnnictWork) *services.CoverIm
 		}
 	}
 
-    // MAL IDがない場合は、タイトルで検索（singleflightを使用）
-    if work.Title != "" {
-        titleCacheKey := "title:" + work.Title
-        result, _, _ := h.sfGroup.Do(titleCacheKey, func() (interface{}, error) {
-            return h.fetchCoverImageByTitle(work), nil
-        })
+	// MAL IDがない場合は、タイトルで検索（singleflightを使用）
+	if work.Title != "" {
+		titleCacheKey := "title:" + work.Title
+		result, _, _ := h.sfGroup.Do(titleCacheKey, func() (interface{}, error) {
+			return h.fetchCoverImageByTitle(work), nil
+		})
 
-        if result != nil {
-            return result.(*services.CoverImage)
-        }
-    }
+		if result != nil {
+			return result.(*services.CoverImage)
+		}
+	}
 
 	return nil
 }
@@ -334,7 +334,9 @@ func (h *AnnictHandler) fetchCoverImage(work *models.AnnictWork, cacheKey string
 	}
 
 	// レイヤー3: Anilist APIから取得（遅い: 100-150ms）
-	coverImage, err := h.anilistClient.GetCoverImageByMALId(cacheKey)
+	// Use background context for API call
+	ctx := context.Background()
+	coverImage, err := h.anilistClient.GetCoverImageByMALId(ctx, cacheKey)
 	if err != nil {
 		h.logger.Warn("Failed to fetch cover image from AniList API", "mal_anime_id", cacheKey, "error", err)
 		return nil
@@ -358,7 +360,9 @@ func (h *AnnictHandler) fetchCoverImage(work *models.AnnictWork, cacheKey string
 
 // fetchCoverImageByTitle - タイトルで画像を取得（フォールバック）
 func (h *AnnictHandler) fetchCoverImageByTitle(work *models.AnnictWork) *services.CoverImage {
-	coverImage, err := h.anilistClient.GetCoverImageByTitle(work.Title)
+	// Use background context for API call
+	ctx := context.Background()
+	coverImage, err := h.anilistClient.GetCoverImageByTitle(ctx, work.Title)
 	if err != nil {
 		h.logger.Warn("Failed to fetch cover image by title from AniList API", "title", work.Title, "error", err)
 		return nil
