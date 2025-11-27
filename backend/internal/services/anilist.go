@@ -2,12 +2,16 @@ package services
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
+	"myanimelogs/internal/constants"
 	"net/http"
 	"os"
 	"strconv"
 	"time"
+
+	"golang.org/x/time/rate"
 )
 
 const (
@@ -20,8 +24,9 @@ const (
 
 // AniListClient - AniList GraphQL API クライアント
 type AniListClient struct {
-	httpClient *http.Client
-	endpoint   string
+	httpClient  *http.Client
+	endpoint    string
+	rateLimiter *rate.Limiter
 }
 
 // genreTranslationMap - 英語から日本語へのジャンル変換マップ
@@ -75,11 +80,18 @@ func NewAniListClientWithEndpoint(endpoint string) *AniListClient {
 		endpoint = DefaultAniListEndpoint
 	}
 
+	// レートリミッターを作成
+	// AniList APIは90リクエスト/分なので、安全マージンを考慮して制限
+	// rate.Every()を使用して、リクエスト間の間隔を計算
+	requestsPerMinute := float64(constants.AniListAPIRateLimit) * constants.AniListAPIRateLimitSafetyMargin
+	limiter := rate.NewLimiter(rate.Every(time.Minute/time.Duration(requestsPerMinute)), 1)
+
 	return &AniListClient{
 		httpClient: &http.Client{
 			Timeout: DefaultHTTPClientTimeout,
 		},
-		endpoint: endpoint,
+		endpoint:    endpoint,
+		rateLimiter: limiter,
 	}
 }
 
@@ -153,7 +165,7 @@ func processGenresResponse(result *genresResponse) ([]string, error) {
 }
 
 // GetCoverImageByMALId - MyAnimeList IDからカバー画像を取得
-func (c *AniListClient) GetCoverImageByMALId(malId string) (*CoverImage, error) {
+func (c *AniListClient) GetCoverImageByMALId(ctx context.Context, malId string) (*CoverImage, error) {
 	// MAL IDを整数に変換
 	malIdInt, err := strconv.Atoi(malId)
 	if err != nil {
@@ -177,7 +189,7 @@ func (c *AniListClient) GetCoverImageByMALId(malId string) (*CoverImage, error) 
 		"malId": malIdInt,
 	}
 
-	result, err := executeGraphQLQuery[coverImageResponse](c, query, variables)
+	result, err := executeGraphQLQuery[coverImageResponse](c, ctx, query, variables)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cover image by MAL ID %s: %w", malId, err)
 	}
@@ -186,7 +198,7 @@ func (c *AniListClient) GetCoverImageByMALId(malId string) (*CoverImage, error) 
 }
 
 // GetCoverImageByTitle - タイトルでカバー画像を検索（フォールバック用）
-func (c *AniListClient) GetCoverImageByTitle(title string) (*CoverImage, error) {
+func (c *AniListClient) GetCoverImageByTitle(ctx context.Context, title string) (*CoverImage, error) {
 	// GraphQLクエリ（MAL IDも取得してキャッシュキーとして使用）
 	query := `
 	query ($search: String) {
@@ -204,7 +216,7 @@ func (c *AniListClient) GetCoverImageByTitle(title string) (*CoverImage, error) 
 		"search": title,
 	}
 
-	result, err := executeGraphQLQuery[coverImageResponse](c, query, variables)
+	result, err := executeGraphQLQuery[coverImageResponse](c, ctx, query, variables)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get cover image by title %s: %w", title, err)
 	}
@@ -213,7 +225,7 @@ func (c *AniListClient) GetCoverImageByTitle(title string) (*CoverImage, error) 
 }
 
 // GetGenresByMALId - MyAnimeList IDからジャンル情報を取得
-func (c *AniListClient) GetGenresByMALId(malId string) ([]string, error) {
+func (c *AniListClient) GetGenresByMALId(ctx context.Context, malId string) ([]string, error) {
 	// MAL IDを整数に変換
 	malIdInt, err := strconv.Atoi(malId)
 	if err != nil {
@@ -232,7 +244,7 @@ func (c *AniListClient) GetGenresByMALId(malId string) ([]string, error) {
 		"malId": malIdInt,
 	}
 
-	result, err := executeGraphQLQuery[genresResponse](c, query, variables)
+	result, err := executeGraphQLQuery[genresResponse](c, ctx, query, variables)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get genres by MAL ID %s: %w", malId, err)
 	}
@@ -241,11 +253,18 @@ func (c *AniListClient) GetGenresByMALId(malId string) ([]string, error) {
 }
 
 // executeGraphQLQuery - GraphQLクエリを送信し、レスポンスを解析する共通ヘルパー（ジェネリクス版）
-func executeGraphQLQuery[T any](c *AniListClient, query string, variables map[string]interface{}) (*T, error) {
+func executeGraphQLQuery[T any](c *AniListClient, ctx context.Context, query string, variables map[string]interface{}) (*T, error) {
 	const maxRetries = 3
 	const retryDelay = 2 * time.Second
 
 	for attempt := 1; attempt <= maxRetries; attempt++ {
+		// レートリミッターを使用してリクエストを制御
+		// Wait()はトークンが利用可能になるまでブロックする
+		// contextを伝播することで、キャンセルシグナルを適切に処理
+		if err := c.rateLimiter.Wait(ctx); err != nil {
+			return nil, fmt.Errorf("rate limiter error: %w", err)
+		}
+
 		// リクエストボディ作成
 		requestBody := map[string]interface{}{
 			"query":     query,
@@ -257,8 +276,8 @@ func executeGraphQLQuery[T any](c *AniListClient, query string, variables map[st
 			return nil, fmt.Errorf("failed to marshal request: %w", err)
 		}
 
-		// HTTPリクエスト作成
-		req, err := http.NewRequest("POST", c.endpoint, bytes.NewBuffer(jsonData))
+		// HTTPリクエスト作成（contextを伝播）
+		req, err := http.NewRequestWithContext(ctx, "POST", c.endpoint, bytes.NewBuffer(jsonData))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create request: %w", err)
 		}

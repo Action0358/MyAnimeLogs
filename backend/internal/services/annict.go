@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -259,8 +260,14 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork) (*models.Anim
 	// Sync genres in background if MAL ID is available (non-blocking)
 	if work.MalAnimeID != nil && *work.MalAnimeID != "" && c.anilistClient != nil {
 		go func() {
+			// Rate limiting is handled by AniListClient's internal rate limiter
+			// No need for manual sleep - the client will automatically throttle requests
+
+			// Use background context for goroutine (no parent context to cancel)
+			ctx := context.Background()
+
 			// Use AniList API to fetch and save genres (reuse client)
-			genres, err := c.anilistClient.GetGenresByMALId(*work.MalAnimeID)
+			genres, err := c.anilistClient.GetGenresByMALId(ctx, *work.MalAnimeID)
 			if err != nil {
 				if c.logger != nil {
 					c.logger.Warn("Failed to get genres from AniList",

@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -926,12 +927,15 @@ func (s *AnimeService) GetSearchSuggestions(query string, limit int) ([]string, 
 
 // enrichAnimeWithCoverImage - AniListから画像を取得してアニメ情報を拡張
 func (s *AnimeService) enrichAnimeWithCoverImage(anime *models.Anime) {
+	// Use background context for image enrichment
+	ctx := context.Background()
+
 	var coverImage *CoverImage
 	var err error
 
 	// MAL IDがある場合は、まずMAL IDで検索
 	if anime.MalAnimeID != nil && *anime.MalAnimeID != "" {
-		coverImage, err = s.anilistClient.GetCoverImageByMALId(*anime.MalAnimeID)
+		coverImage, err = s.anilistClient.GetCoverImageByMALId(ctx, *anime.MalAnimeID)
 		if err != nil {
 			s.logger.Debug("Failed to get cover image by MAL ID, trying title fallback",
 				"error", err,
@@ -942,7 +946,7 @@ func (s *AnimeService) enrichAnimeWithCoverImage(anime *models.Anime) {
 
 	// MAL IDがないか、MAL IDでの取得に失敗した場合は、タイトルで検索（フォールバック）
 	if coverImage == nil && anime.Title != "" {
-		coverImage, err = s.anilistClient.GetCoverImageByTitle(anime.Title)
+		coverImage, err = s.anilistClient.GetCoverImageByTitle(ctx, anime.Title)
 		if err != nil {
 			// フォールバックも失敗した場合は、Annictの画像を使用
 			s.logger.Debug("Failed to get cover image by title",
@@ -1682,6 +1686,13 @@ func (s *AnimeService) SyncGenresForAllAnimes() (int, int, []string, error) {
 	return s.syncGenresForAnimesWithFilter(30, 0) // 30 days filter, no limit
 }
 
+// SyncGenresWithLimit syncs genre information for a limited number of animes
+// Useful for batch processing to avoid API rate limits
+// Returns: success count, failure count, error messages, error
+func (s *AnimeService) SyncGenresWithLimit(limit int) (int, int, []string, error) {
+	return s.syncGenresForAnimesWithFilter(30, limit) // 30 days filter, with limit
+}
+
 // syncGenresForAnimesWithFilter syncs genres for animes that haven't been synced in the specified number of days
 // If daysThreshold is 0, syncs all animes regardless of last sync time
 // If limit > 0, only syncs up to that many animes (for batch processing)
@@ -1760,6 +1771,9 @@ func (s *AnimeService) syncGenresForAnimesWithFilter(daysThreshold int, limit in
 
 			processedCount++
 
+			// Rate limiting is handled by AniListClient's internal rate limiter
+			// No need for manual sleep here
+
 			// Log progress periodically
 			if processedCount%logInterval == 0 {
 				s.logger.Info("Genre sync progress",
@@ -1796,8 +1810,12 @@ func (s *AnimeService) syncGenresForAnimesWithFilter(daysThreshold int, limit in
 // syncGenresForAnime syncs genre information for a single anime using transaction
 // Uses AniList API for genre information (recommended over Jikan API)
 func (s *AnimeService) syncGenresForAnime(animeID int, malAnimeID string) error {
+	// Use background context for batch processing
+	// In a real-world scenario, you might want to pass context from the caller
+	ctx := context.Background()
+
 	// Fetch genres from AniList API (returns Japanese genre names)
-	genres, err := s.anilistClient.GetGenresByMALId(malAnimeID)
+	genres, err := s.anilistClient.GetGenresByMALId(ctx, malAnimeID)
 	if err != nil {
 		return fmt.Errorf("failed to fetch genres from AniList: %w", err)
 	}
