@@ -1767,8 +1767,8 @@ func (s *AnimeService) syncGenresForAnimesWithFilter(daysThreshold int, limit in
 
 			processedCount++
 
-			// Rate limiting: Wait between requests to avoid hitting AniList API rate limit
-			time.Sleep(constants.AniListAPIRateLimitDelay)
+			// Rate limiting is handled by AniListClient's internal rate limiter
+			// No need for manual sleep here
 
 			// Log progress periodically
 			if processedCount%logInterval == 0 {
