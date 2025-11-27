@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -48,7 +49,8 @@ func TestGetGenresByMALId(t *testing.T) {
 	client := NewAniListClientWithEndpoint(mockServer.URL)
 
 	// Test GetGenresByMALId
-	genres, err := client.GetGenresByMALId("53065")
+	ctx := context.Background()
+	genres, err := client.GetGenresByMALId(ctx, "53065")
 	if err != nil {
 		t.Fatalf("GetGenresByMALId failed: %v", err)
 	}
@@ -91,9 +93,10 @@ func TestTranslateGenre(t *testing.T) {
 
 func TestGetGenresByMALId_InvalidMALId(t *testing.T) {
 	client := NewAniListClient()
+	ctx := context.Background()
 
 	// Test with invalid MAL ID
-	_, err := client.GetGenresByMALId("invalid")
+	_, err := client.GetGenresByMALId(ctx, "invalid")
 	if err == nil {
 		t.Error("Expected error for invalid MAL ID, got nil")
 	}
@@ -101,9 +104,10 @@ func TestGetGenresByMALId_InvalidMALId(t *testing.T) {
 
 func TestGetGenresByMALId_EmptyMALId(t *testing.T) {
 	client := NewAniListClient()
+	ctx := context.Background()
 
 	// Test with empty MAL ID
-	_, err := client.GetGenresByMALId("")
+	_, err := client.GetGenresByMALId(ctx, "")
 	if err == nil {
 		t.Error("Expected error for empty MAL ID, got nil")
 	}
@@ -129,7 +133,8 @@ func TestGetGenresByMALId_NotFound(t *testing.T) {
 	client := NewAniListClientWithEndpoint(mockServer.URL)
 
 	// Test GetGenresByMALId with non-existent anime
-	_, err := client.GetGenresByMALId("999999")
+	ctx := context.Background()
+	_, err := client.GetGenresByMALId(ctx, "999999")
 	if err == nil {
 		t.Error("Expected error for non-existent anime, got nil")
 	}

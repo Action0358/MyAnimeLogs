@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -17,18 +18,16 @@ func TestAniListClientRateLimiter(t *testing.T) {
 // TestAniListClientRateLimiterThrottling tests that the rate limiter actually throttles requests
 func TestAniListClientRateLimiterThrottling(t *testing.T) {
 	client := NewAniListClient()
+	ctx := context.Background()
 
 	// Measure time for 3 consecutive requests
 	start := time.Now()
 
 	// Make 3 requests (should be throttled by rate limiter)
+	// This mirrors the production usage in executeGraphQLQuery
 	for i := 0; i < 3; i++ {
-		// Allow() returns true if a token is available, false otherwise
-		// We use AllowN to check without blocking
-		if !client.rateLimiter.Allow() {
-			// If not allowed, wait for token
-			_ = client.rateLimiter.Wait(t.Context())
-		}
+		err := client.rateLimiter.Wait(ctx)
+		assert.NoError(t, err, "Wait should not return an error")
 	}
 
 	elapsed := time.Since(start)
