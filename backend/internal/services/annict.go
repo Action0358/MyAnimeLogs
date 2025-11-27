@@ -259,6 +259,10 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork) (*models.Anim
 	// Sync genres in background if MAL ID is available (non-blocking)
 	if work.MalAnimeID != nil && *work.MalAnimeID != "" && c.anilistClient != nil {
 		go func() {
+			// Rate limiting: Wait 700ms to avoid hitting AniList API rate limit
+			// AniList allows 90 requests/minute, so 700ms = ~85 requests/minute
+			time.Sleep(700 * time.Millisecond)
+
 			// Use AniList API to fetch and save genres (reuse client)
 			genres, err := c.anilistClient.GetGenresByMALId(*work.MalAnimeID)
 			if err != nil {

@@ -1682,6 +1682,13 @@ func (s *AnimeService) SyncGenresForAllAnimes() (int, int, []string, error) {
 	return s.syncGenresForAnimesWithFilter(30, 0) // 30 days filter, no limit
 }
 
+// SyncGenresWithLimit syncs genre information for a limited number of animes
+// Useful for batch processing to avoid API rate limits
+// Returns: success count, failure count, error messages, error
+func (s *AnimeService) SyncGenresWithLimit(limit int) (int, int, []string, error) {
+	return s.syncGenresForAnimesWithFilter(30, limit) // 30 days filter, with limit
+}
+
 // syncGenresForAnimesWithFilter syncs genres for animes that haven't been synced in the specified number of days
 // If daysThreshold is 0, syncs all animes regardless of last sync time
 // If limit > 0, only syncs up to that many animes (for batch processing)
@@ -1759,6 +1766,10 @@ func (s *AnimeService) syncGenresForAnimesWithFilter(daysThreshold int, limit in
 			}
 
 			processedCount++
+
+			// Rate limiting: AniList API allows 90 requests/minute
+			// Wait 700ms between requests to stay under the limit (85 requests/minute)
+			time.Sleep(700 * time.Millisecond)
 
 			// Log progress periodically
 			if processedCount%logInterval == 0 {
