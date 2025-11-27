@@ -2,12 +2,16 @@ package services
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
+	"myanimelogs/internal/constants"
 	"net/http"
 	"os"
 	"strconv"
 	"time"
+
+	"golang.org/x/time/rate"
 )
 
 const (
@@ -20,8 +24,9 @@ const (
 
 // AniListClient - AniList GraphQL API クライアント
 type AniListClient struct {
-	httpClient *http.Client
-	endpoint   string
+	httpClient  *http.Client
+	endpoint    string
+	rateLimiter *rate.Limiter
 }
 
 // genreTranslationMap - 英語から日本語へのジャンル変換マップ
@@ -75,11 +80,18 @@ func NewAniListClientWithEndpoint(endpoint string) *AniListClient {
 		endpoint = DefaultAniListEndpoint
 	}
 
+	// レートリミッターを作成
+	// AniList APIは90リクエスト/分なので、85リクエスト/分に制限（安全マージン）
+	// rate.Every()を使用して、リクエスト間の間隔を計算
+	requestsPerMinute := float64(constants.AniListAPIRateLimit) * 0.94 // 85 requests/minute (94% of limit)
+	limiter := rate.NewLimiter(rate.Every(time.Minute/time.Duration(requestsPerMinute)), 1)
+
 	return &AniListClient{
 		httpClient: &http.Client{
 			Timeout: DefaultHTTPClientTimeout,
 		},
-		endpoint: endpoint,
+		endpoint:    endpoint,
+		rateLimiter: limiter,
 	}
 }
 
@@ -246,6 +258,12 @@ func executeGraphQLQuery[T any](c *AniListClient, query string, variables map[st
 	const retryDelay = 2 * time.Second
 
 	for attempt := 1; attempt <= maxRetries; attempt++ {
+		// レートリミッターを使用してリクエストを制御
+		// Wait()はトークンが利用可能になるまでブロックする
+		if err := c.rateLimiter.Wait(context.Background()); err != nil {
+			return nil, fmt.Errorf("rate limiter error: %w", err)
+		}
+
 		// リクエストボディ作成
 		requestBody := map[string]interface{}{
 			"query":     query,
