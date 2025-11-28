@@ -23,9 +23,13 @@ type Anime struct {
 
 type AnimeWithUserData struct {
 	Anime
-	UserFavorite  *UserFavorite `json:"user_favorite,omitempty"`
-	WatchProgress float64       `json:"watch_progress"`
-	Episodes      []Episode     `json:"episodes,omitempty"`
+	UserFavorite       *UserFavorite `json:"user_favorite,omitempty"`
+	UserRating         *UserRating   `json:"user_rating,omitempty"`
+	WatchProgress      float64       `json:"watch_progress"`
+	Episodes           []Episode     `json:"episodes,omitempty"`
+	AverageRating      *float64      `json:"average_rating,omitempty"`
+	RatingCount        int           `json:"rating_count"`
+	RatingDistribution map[int]int   `json:"rating_distribution,omitempty"`
 }
 
 type Episode struct {

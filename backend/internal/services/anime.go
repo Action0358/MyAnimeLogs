@@ -341,6 +341,64 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 	}
 	animeWithData.Episodes = episodes
 
+	// Get rating statistics (average and count)
+	// Using database aggregation for better performance and scalability
+	var avgRating sql.NullFloat64
+	var ratingCount int
+	err = s.db.QueryRow(`
+		SELECT AVG(rating), COUNT(*)
+		FROM user_ratings
+		WHERE anime_id = $1
+	`, animeID).Scan(&avgRating, &ratingCount)
+	if err != nil && err != sql.ErrNoRows {
+		s.logger.Warn("Failed to get rating statistics",
+			"anime_id", animeID,
+			"error", err)
+	} else if err == nil && avgRating.Valid {
+		animeWithData.AverageRating = &avgRating.Float64
+		animeWithData.RatingCount = ratingCount
+	}
+
+	// Get rating distribution
+	// Using database GROUP BY for efficient aggregation
+	rows, err := s.db.Query(`
+		SELECT FLOOR(rating) as rating_floor, COUNT(*) as count
+		FROM user_ratings
+		WHERE anime_id = $1
+		GROUP BY FLOOR(rating)
+		ORDER BY rating_floor
+	`, animeID)
+	if err != nil {
+		s.logger.Warn("Failed to get rating distribution",
+			"anime_id", animeID,
+			"error", err)
+	} else {
+		defer rows.Close()
+		distribution := make(map[int]int)
+		for rows.Next() {
+			var rating int
+			var count int
+			if err := rows.Scan(&rating, &count); err != nil {
+				s.logger.Warn("Failed to scan rating distribution row",
+					"anime_id", animeID,
+					"error", err)
+				continue
+			}
+			distribution[rating] = count
+		}
+
+		// Check for errors during iteration
+		if err := rows.Err(); err != nil {
+			s.logger.Warn("Error during rating distribution iteration",
+				"anime_id", animeID,
+				"error", err)
+		}
+
+		if len(distribution) > 0 {
+			animeWithData.RatingDistribution = distribution
+		}
+	}
+
 	// Add user data if authenticated
 	if userID != nil {
 		// Get user favorite status
@@ -349,8 +407,30 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 			SELECT id, user_id, anime_id, status, created_at, updated_at
 			FROM user_favorites WHERE user_id = $1 AND anime_id = $2
 		`, *userID, animeID).Scan(&favorite.ID, &favorite.UserID, &favorite.AnimeID, &favorite.Status, &favorite.CreatedAt, &favorite.UpdatedAt)
-		if err == nil {
+		if err != nil && err != sql.ErrNoRows {
+			// Log error but don't fail the entire request
+			s.logger.Warn("Failed to get user favorite status",
+				"user_id", *userID,
+				"anime_id", animeID,
+				"error", err)
+		} else if err == nil {
 			animeWithData.UserFavorite = &favorite
+		}
+
+		// Get user rating
+		var userRating models.UserRating
+		err = s.db.QueryRow(`
+			SELECT id, user_id, anime_id, rating, comment, created_at, updated_at
+			FROM user_ratings WHERE user_id = $1 AND anime_id = $2
+		`, *userID, animeID).Scan(&userRating.ID, &userRating.UserID, &userRating.AnimeID, &userRating.Rating, &userRating.Comment, &userRating.CreatedAt, &userRating.UpdatedAt)
+		if err != nil && err != sql.ErrNoRows {
+			// Log error but don't fail the entire request
+			s.logger.Warn("Failed to get user rating",
+				"user_id", *userID,
+				"anime_id", animeID,
+				"error", err)
+		} else if err == nil {
+			animeWithData.UserRating = &userRating
 		}
 
 		// Calculate watch progress
