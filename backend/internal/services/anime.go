@@ -341,60 +341,57 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 	}
 	animeWithData.Episodes = episodes
 
-	// Get rating statistics
-	var avgRating sql.NullFloat64
-	var ratingCount int
-	err = s.db.QueryRow(`
-		SELECT AVG(rating), COUNT(*)
-		FROM user_ratings
-		WHERE anime_id = $1
-	`, animeID).Scan(&avgRating, &ratingCount)
-	if err != nil && err != sql.ErrNoRows {
-		// Log error but don't fail the entire request
-		s.logger.Warn("Failed to get rating statistics",
-			"anime_id", animeID,
-			"error", err)
-	} else if err == nil && avgRating.Valid {
-		animeWithData.AverageRating = &avgRating.Float64
-		animeWithData.RatingCount = ratingCount
-	}
-
-	// Get rating distribution
+	// Get all ratings in a single query and calculate statistics in Go
+	// This is more efficient than multiple database round trips
 	rows, err := s.db.Query(`
-		SELECT FLOOR(rating) as rating_floor, COUNT(*) as count
+		SELECT rating
 		FROM user_ratings
 		WHERE anime_id = $1
-		GROUP BY FLOOR(rating)
-		ORDER BY rating_floor
 	`, animeID)
 	if err != nil {
 		// Log error but don't fail the entire request
-		s.logger.Warn("Failed to get rating distribution",
+		s.logger.Warn("Failed to get ratings",
 			"anime_id", animeID,
 			"error", err)
 	} else {
 		defer rows.Close()
-		distribution := make(map[int]int)
+
+		var ratings []float64
 		for rows.Next() {
-			var rating int
-			var count int
-			if err := rows.Scan(&rating, &count); err != nil {
-				s.logger.Warn("Failed to scan rating distribution row",
+			var rating float64
+			if err := rows.Scan(&rating); err != nil {
+				s.logger.Warn("Failed to scan rating",
 					"anime_id", animeID,
 					"error", err)
 				continue
 			}
-			distribution[rating] = count
+			ratings = append(ratings, rating)
 		}
 
 		// Check for errors during iteration
 		if err := rows.Err(); err != nil {
-			s.logger.Warn("Error during rating distribution iteration",
+			s.logger.Warn("Error during ratings iteration",
 				"anime_id", animeID,
 				"error", err)
 		}
 
-		if len(distribution) > 0 {
+		// Calculate statistics in Go
+		if len(ratings) > 0 {
+			// Calculate average
+			var sum float64
+			for _, r := range ratings {
+				sum += r
+			}
+			avg := sum / float64(len(ratings))
+			animeWithData.AverageRating = &avg
+			animeWithData.RatingCount = len(ratings)
+
+			// Calculate distribution
+			distribution := make(map[int]int)
+			for _, r := range ratings {
+				ratingFloor := int(r)
+				distribution[ratingFloor]++
+			}
 			animeWithData.RatingDistribution = distribution
 		}
 	}
