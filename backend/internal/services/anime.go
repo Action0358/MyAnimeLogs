@@ -349,7 +349,12 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 		FROM user_ratings
 		WHERE anime_id = $1
 	`, animeID).Scan(&avgRating, &ratingCount)
-	if err == nil && avgRating.Valid {
+	if err != nil && err != sql.ErrNoRows {
+		// Log error but don't fail the entire request
+		s.logger.Warn("Failed to get rating statistics",
+			"anime_id", animeID,
+			"error", err)
+	} else if err == nil && avgRating.Valid {
 		animeWithData.AverageRating = &avgRating.Float64
 		animeWithData.RatingCount = ratingCount
 	}
@@ -362,16 +367,33 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 		GROUP BY FLOOR(rating)
 		ORDER BY rating_floor
 	`, animeID)
-	if err == nil {
+	if err != nil {
+		// Log error but don't fail the entire request
+		s.logger.Warn("Failed to get rating distribution",
+			"anime_id", animeID,
+			"error", err)
+	} else {
 		defer rows.Close()
 		distribution := make(map[int]int)
 		for rows.Next() {
 			var rating int
 			var count int
-			if err := rows.Scan(&rating, &count); err == nil {
-				distribution[rating] = count
+			if err := rows.Scan(&rating, &count); err != nil {
+				s.logger.Warn("Failed to scan rating distribution row",
+					"anime_id", animeID,
+					"error", err)
+				continue
 			}
+			distribution[rating] = count
 		}
+
+		// Check for errors during iteration
+		if err := rows.Err(); err != nil {
+			s.logger.Warn("Error during rating distribution iteration",
+				"anime_id", animeID,
+				"error", err)
+		}
+
 		if len(distribution) > 0 {
 			animeWithData.RatingDistribution = distribution
 		}
@@ -385,7 +407,13 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 			SELECT id, user_id, anime_id, status, created_at, updated_at
 			FROM user_favorites WHERE user_id = $1 AND anime_id = $2
 		`, *userID, animeID).Scan(&favorite.ID, &favorite.UserID, &favorite.AnimeID, &favorite.Status, &favorite.CreatedAt, &favorite.UpdatedAt)
-		if err == nil {
+		if err != nil && err != sql.ErrNoRows {
+			// Log error but don't fail the entire request
+			s.logger.Warn("Failed to get user favorite status",
+				"user_id", *userID,
+				"anime_id", animeID,
+				"error", err)
+		} else if err == nil {
 			animeWithData.UserFavorite = &favorite
 		}
 
@@ -395,7 +423,13 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 			SELECT id, user_id, anime_id, rating, comment, created_at, updated_at
 			FROM user_ratings WHERE user_id = $1 AND anime_id = $2
 		`, *userID, animeID).Scan(&userRating.ID, &userRating.UserID, &userRating.AnimeID, &userRating.Rating, &userRating.Comment, &userRating.CreatedAt, &userRating.UpdatedAt)
-		if err == nil {
+		if err != nil && err != sql.ErrNoRows {
+			// Log error but don't fail the entire request
+			s.logger.Warn("Failed to get user rating",
+				"user_id", *userID,
+				"anime_id", animeID,
+				"error", err)
+		} else if err == nil {
 			animeWithData.UserRating = &userRating
 		}
 
