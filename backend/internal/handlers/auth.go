@@ -330,7 +330,14 @@ func (h *AuthHandler) GetUserSessions(c *gin.Context) {
 		return
 	}
 
-	sessions, err := h.authService.GetUserSessions(userID)
+	// Get current JTI from context to mark current session
+	currentJTI, _ := c.Get("jti")
+	jtiStr := ""
+	if currentJTI != nil {
+		jtiStr, _ = currentJTI.(string)
+	}
+
+	sessions, err := h.authService.GetUserSessions(userID, jtiStr)
 	if err != nil {
 		h.response.InternalServerError(c, "セッション一覧の取得に失敗しました")
 		return

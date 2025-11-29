@@ -25,9 +25,9 @@ type AuthServiceInterface interface {
 	RefreshToken(refreshToken string) (*models.TokenRefreshResponse, error)
 	Logout(refreshToken string) error
 	LogoutAllDevices(userID int) error
-	GetUserSessions(userID int) ([]models.SessionResponse, error)
+	GetUserSessions(userID int, currentJTI string) ([]models.SessionResponse, error)
 	DeleteSession(sessionID, userID int) error
-	GetSessionService() *SessionService
+	GetSessionService() SessionServiceInterface
 }
 
 // Ensure AuthService implements AuthServiceInterface
@@ -53,3 +53,21 @@ type AnimeServiceInterface interface {
 
 // Ensure AnimeService implements AnimeServiceInterface
 var _ AnimeServiceInterface = (*AnimeService)(nil)
+
+// SessionServiceInterface defines the interface for session service
+type SessionServiceInterface interface {
+	CreateSession(userID int, jti, userAgent, ipAddress string) (*models.Session, string, error)
+	ValidateSession(refreshToken string) (*models.Session, error)
+	UpdateActivity(sessionID int) error
+	UpdateActivityByJTI(jti string) error
+	UpdateSessionJTI(sessionID int, newJTI string) error
+	DeleteSession(refreshToken string) error
+	DeleteSessionByID(sessionID, userID int) error
+	DeleteUserSessions(userID int) error
+	GetUserSessions(userID int) ([]models.Session, error)
+	CleanupExpiredSessions() (int, error)
+	GetSessionByJTI(jti string) (*models.Session, error)
+}
+
+// Ensure SessionService implements SessionServiceInterface
+var _ SessionServiceInterface = (*SessionService)(nil)

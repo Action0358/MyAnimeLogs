@@ -20,7 +20,7 @@ func TestSessionService_CreateSession(t *testing.T) {
 	defer db.Close()
 
 	logger := common.NewLogger(common.LogLevelInfo, "json")
-	service := NewSessionService(db, logger, "test-secret")
+	service := NewSessionService(db, logger)
 
 	jti := utils.GenerateJTI()
 	session, refreshToken, err := service.CreateSession(1, jti, "test-agent", "127.0.0.1")
@@ -45,7 +45,7 @@ func TestSessionService_ValidateSession(t *testing.T) {
 	defer db.Close()
 
 	logger := common.NewLogger(common.LogLevelInfo, "json")
-	service := NewSessionService(db, logger, "test-secret")
+	service := NewSessionService(db, logger)
 
 	// Create a session first
 	jti := utils.GenerateJTI()
@@ -71,7 +71,7 @@ func TestSessionService_DeleteSession(t *testing.T) {
 	defer db.Close()
 
 	logger := common.NewLogger(common.LogLevelInfo, "json")
-	service := NewSessionService(db, logger, "test-secret")
+	service := NewSessionService(db, logger)
 
 	// Create a session first
 	jti := utils.GenerateJTI()

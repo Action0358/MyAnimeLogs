@@ -20,24 +20,22 @@ var (
 
 // SessionService handles session management
 type SessionService struct {
-	db        *database.DB
-	logger    *common.Logger
-	jwtSecret string
+	db     *database.DB
+	logger *common.Logger
 }
 
 // NewSessionService creates a new SessionService
-func NewSessionService(db *database.DB, logger *common.Logger, jwtSecret string) *SessionService {
+func NewSessionService(db *database.DB, logger *common.Logger) *SessionService {
 	return &SessionService{
-		db:        db,
-		logger:    logger,
-		jwtSecret: jwtSecret,
+		db:     db,
+		logger: logger,
 	}
 }
 
 // CreateSession creates a new session for a user
 func (s *SessionService) CreateSession(userID int, jti, userAgent, ipAddress string) (*models.Session, string, error) {
-	// Generate refresh token
-	refreshToken, err := utils.GenerateRefreshToken(userID, s.jwtSecret)
+	// Generate refresh token and its hash
+	refreshToken, refreshTokenHash, err := utils.GenerateRefreshTokenPair()
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to generate refresh token: %w", err)
 	}
@@ -45,13 +43,13 @@ func (s *SessionService) CreateSession(userID int, jti, userAgent, ipAddress str
 	// Calculate expiry (7 days)
 	expiresAt := time.Now().Add(7 * 24 * time.Hour)
 
-	// Insert session into database
+	// Insert session into database (store hash, not the token itself)
 	var session models.Session
 	err = s.db.QueryRow(`
 		INSERT INTO sessions (user_id, refresh_token, access_token_jti, user_agent, ip_address, expires_at, last_activity_at)
 		VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
 		RETURNING id, user_id, refresh_token, access_token_jti, user_agent, ip_address, expires_at, created_at, updated_at, last_activity_at
-	`, userID, refreshToken, jti, userAgent, ipAddress, expiresAt).Scan(
+	`, userID, refreshTokenHash, jti, userAgent, ipAddress, expiresAt).Scan(
 		&session.ID,
 		&session.UserID,
 		&session.RefreshToken,
@@ -72,24 +70,22 @@ func (s *SessionService) CreateSession(userID int, jti, userAgent, ipAddress str
 		"user_id", userID,
 		"expires_at", expiresAt)
 
+	// Return the plain token to the client (not the hash)
 	return &session, refreshToken, nil
 }
 
 // ValidateSession validates a refresh token and returns the session
 func (s *SessionService) ValidateSession(refreshToken string) (*models.Session, error) {
-	// Validate refresh token JWT
-	claims, err := utils.ValidateRefreshToken(refreshToken, s.jwtSecret)
-	if err != nil {
-		return nil, ErrInvalidRefreshToken
-	}
+	// Hash the provided token to compare with database
+	refreshTokenHash := utils.HashRefreshToken(refreshToken)
 
-	// Get session from database
+	// Get session from database using the hash
 	var session models.Session
-	err = s.db.QueryRow(`
+	err := s.db.QueryRow(`
 		SELECT id, user_id, refresh_token, access_token_jti, user_agent, ip_address, expires_at, created_at, updated_at, last_activity_at
 		FROM sessions
 		WHERE refresh_token = $1
-	`, refreshToken).Scan(
+	`, refreshTokenHash).Scan(
 		&session.ID,
 		&session.UserID,
 		&session.RefreshToken,
@@ -112,11 +108,6 @@ func (s *SessionService) ValidateSession(refreshToken string) (*models.Session, 
 	if time.Now().After(session.ExpiresAt) {
 		// Delete expired session
 		s.DeleteSession(refreshToken)
-		return nil, ErrSessionExpired
-	}
-
-	// Verify JWT expiry matches database
-	if claims.ExpiresAt != nil && time.Now().After(claims.ExpiresAt.Time) {
 		return nil, ErrSessionExpired
 	}
 
@@ -154,7 +145,7 @@ func (s *SessionService) UpdateSessionJTI(sessionID int, newJTI string) error {
 	_, err := s.db.Exec(`
 		UPDATE sessions
 		SET access_token_jti = $1, last_activity_at = CURRENT_TIMESTAMP
-		WHERE id = $1
+		WHERE id = $2
 	`, newJTI, sessionID)
 	if err != nil {
 		return fmt.Errorf("failed to update session JTI: %w", err)
@@ -164,9 +155,12 @@ func (s *SessionService) UpdateSessionJTI(sessionID int, newJTI string) error {
 
 // DeleteSession deletes a session by refresh token
 func (s *SessionService) DeleteSession(refreshToken string) error {
+	// Hash the token to find it in the database
+	refreshTokenHash := utils.HashRefreshToken(refreshToken)
+
 	result, err := s.db.Exec(`
 		DELETE FROM sessions WHERE refresh_token = $1
-	`, refreshToken)
+	`, refreshTokenHash)
 	if err != nil {
 		return fmt.Errorf("failed to delete session: %w", err)
 	}
@@ -176,7 +170,7 @@ func (s *SessionService) DeleteSession(refreshToken string) error {
 		return ErrSessionNotFound
 	}
 
-	s.logger.Info("Session deleted", "refresh_token_prefix", refreshToken[:10]+"...")
+	s.logger.Info("Session deleted")
 	return nil
 }
 
@@ -241,6 +235,7 @@ func (s *SessionService) GetUserSessions(userID int) ([]models.Session, error) {
 			&session.LastActivityAt,
 		)
 		if err != nil {
+			s.logger.Warn("Failed to scan session row", "error", err, "user_id", userID)
 			continue
 		}
 		sessions = append(sessions, session)

@@ -24,7 +24,7 @@ type AuthService struct {
 	userRepo       UserRepositoryInterface
 	db             *database.DB // Keep for export methods temporarily
 	statsService   *StatsService
-	sessionService *SessionService
+	sessionService SessionServiceInterface
 	logger         *common.Logger
 	jwtSecret      string
 }
@@ -35,7 +35,7 @@ func NewAuthService(db *database.DB, jwtSecret string) *AuthService {
 		userRepo:       nil, // Will be set by NewAuthServiceWithRepo
 		db:             db,
 		statsService:   NewStatsService(db, logger),
-		sessionService: NewSessionService(db, logger, jwtSecret),
+		sessionService: NewSessionService(db, logger),
 		logger:         logger,
 		jwtSecret:      jwtSecret,
 	}
@@ -48,7 +48,20 @@ func NewAuthServiceWithRepo(userRepo UserRepositoryInterface, db *database.DB, j
 		userRepo:       userRepo,
 		db:             db,
 		statsService:   NewStatsService(db, logger),
-		sessionService: NewSessionService(db, logger, jwtSecret),
+		sessionService: NewSessionService(db, logger),
+		logger:         logger,
+		jwtSecret:      jwtSecret,
+	}
+}
+
+// NewAuthServiceWithDeps creates a new AuthService with all dependencies injected (for testing)
+func NewAuthServiceWithDeps(userRepo UserRepositoryInterface, db *database.DB, sessionService SessionServiceInterface, jwtSecret string) *AuthService {
+	logger := common.NewLogger(common.LogLevelInfo, "json")
+	return &AuthService{
+		userRepo:       userRepo,
+		db:             db,
+		statsService:   NewStatsService(db, logger),
+		sessionService: sessionService,
 		logger:         logger,
 		jwtSecret:      jwtSecret,
 	}
@@ -402,7 +415,7 @@ func (s *AuthService) LogoutAllDevices(userID int) error {
 }
 
 // GetUserSessions returns all active sessions for a user
-func (s *AuthService) GetUserSessions(userID int) ([]models.SessionResponse, error) {
+func (s *AuthService) GetUserSessions(userID int, currentJTI string) ([]models.SessionResponse, error) {
 	sessions, err := s.sessionService.GetUserSessions(userID)
 	if err != nil {
 		return nil, err
@@ -410,7 +423,7 @@ func (s *AuthService) GetUserSessions(userID int) ([]models.SessionResponse, err
 
 	responses := make([]models.SessionResponse, len(sessions))
 	for i, session := range sessions {
-		responses[i] = session.ToResponse("")
+		responses[i] = session.ToResponse(currentJTI)
 	}
 
 	return responses, nil
@@ -422,6 +435,6 @@ func (s *AuthService) DeleteSession(sessionID, userID int) error {
 }
 
 // GetSessionService returns the session service (for middleware)
-func (s *AuthService) GetSessionService() *SessionService {
+func (s *AuthService) GetSessionService() SessionServiceInterface {
 	return s.sessionService
 }

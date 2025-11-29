@@ -94,8 +94,8 @@ func (m *MockAuthService) LogoutAllDevices(userID int) error {
 	return args.Error(0)
 }
 
-func (m *MockAuthService) GetUserSessions(userID int) ([]models.SessionResponse, error) {
-	args := m.Called(userID)
+func (m *MockAuthService) GetUserSessions(userID int, currentJTI string) ([]models.SessionResponse, error) {
+	args := m.Called(userID, currentJTI)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -107,12 +107,12 @@ func (m *MockAuthService) DeleteSession(sessionID, userID int) error {
 	return args.Error(0)
 }
 
-func (m *MockAuthService) GetSessionService() *services.SessionService {
+func (m *MockAuthService) GetSessionService() services.SessionServiceInterface {
 	args := m.Called()
 	if args.Get(0) == nil {
 		return nil
 	}
-	return args.Get(0).(*services.SessionService)
+	return args.Get(0).(services.SessionServiceInterface)
 }
 
 // setupAuthHandler creates a test handler with mock service
