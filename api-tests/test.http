@@ -981,8 +981,14 @@ Authorization: Bearer {{loginWithRefresh.response.body.access_token}}
 
 ### 131. 特定のセッションを削除
 # セッションIDを指定して削除
-# 注意: セッションIDは test #130 のレスポンスから取得してください
-# 例: {{loginWithRefresh.response.body.sessions[0].id}}
+# 
+# 重要: このテストを自動化する場合は、以下のように変数を使用してください：
+# 1. test #130 のレスポンスから sessions 配列を取得
+# 2. 削除したいセッションの ID を変数に保存
+# 3. その変数を使用してこのリクエストを実行
+# 
+# 現在はハードコードされた ID (1) を使用していますが、
+# これは実際のデータベース状態に依存するため、テストが失敗する可能性があります。
 DELETE {{baseUrl}}/api/users/me/sessions/1
 Authorization: Bearer {{loginWithRefresh.response.body.access_token}}
 
@@ -1107,8 +1113,15 @@ Authorization: Bearer {{device1Login.response.body.access_token}}
 
 ### 146. デバイス1からデバイス2のセッションを削除
 # セッションIDは test #145 のレスポンスから取得してください
-# 注意: デバイス2のセッションIDを使用する必要があります
-# 例: セッション一覧から is_current: false のセッションIDを取得
+# 
+# 重要: このテストを自動化する場合は、以下の手順を実行してください：
+# 1. test #145 (GET /api/users/me/sessions) を実行
+# 2. レスポンスから is_current: false のセッションを見つける
+# 3. そのセッションの ID を変数に保存
+# 4. その変数を使用してこのリクエストを実行
+# 
+# 現在はハードコードされた ID (2) を使用していますが、
+# これは実際のデータベース状態に依存するため、テストが失敗する可能性があります。
 DELETE {{baseUrl}}/api/users/me/sessions/2
 Authorization: Bearer {{device1Login.response.body.access_token}}
 

@@ -126,12 +126,6 @@ func (s *AuthService) registerWithRepo(req models.UserRegisterRequest, repo User
 	}, nil
 }
 
-// registerWithDB is kept for backward compatibility but delegates to repository
-// Deprecated: Use Register instead
-func (s *AuthService) registerWithDB(req models.UserRegisterRequest) (*models.UserResponse, error) {
-	repo := repository.NewUserRepository(s.db)
-	return s.registerWithRepo(req, repo)
-}
 
 func (s *AuthService) Login(req models.UserLoginRequest, userAgent, ipAddress string) (*models.LoginResponse, error) {
 	return s.loginWithRepo(req, userAgent, ipAddress, s.getRepository())
@@ -186,23 +180,11 @@ func (s *AuthService) loginWithRepo(req models.UserLoginRequest, userAgent, ipAd
 	}, nil
 }
 
-// loginWithDB is kept for backward compatibility but delegates to repository
-// Deprecated: Use Login instead
-func (s *AuthService) loginWithDB(req models.UserLoginRequest) (*models.LoginResponse, error) {
-	repo := repository.NewUserRepository(s.db)
-	return s.loginWithRepo(req, "", "", repo)
-}
 
 func (s *AuthService) GetUserByID(userID int) (*models.UserResponse, error) {
 	return s.getUserByIDWithRepo(userID, s.getRepository())
 }
 
-// getUserByIDWithDB is kept for backward compatibility but delegates to repository
-// Deprecated: Use GetUserByID instead
-func (s *AuthService) getUserByIDWithDB(userID int) (*models.UserResponse, error) {
-	repo := repository.NewUserRepository(s.db)
-	return s.getUserByIDWithRepo(userID, repo)
-}
 
 // getUserByIDWithRepo handles user retrieval through repository
 func (s *AuthService) getUserByIDWithRepo(userID int, repo UserRepositoryInterface) (*models.UserResponse, error) {
@@ -247,13 +229,6 @@ func (s *AuthService) updateUserWithRepo(userID int, req models.UserUpdateReques
 		SnsLink:       user.SnsLink,
 		CreatedAt:     user.CreatedAt,
 	}, nil
-}
-
-// updateUserWithDB is kept for backward compatibility but delegates to repository
-// Deprecated: Use UpdateUser instead
-func (s *AuthService) updateUserWithDB(userID int, req models.UserUpdateRequest) (*models.UserResponse, error) {
-	repo := repository.NewUserRepository(s.db)
-	return s.updateUserWithRepo(userID, req, repo)
 }
 
 func (s *AuthService) GetUserStats(userID int) (*models.UserStats, error) {
