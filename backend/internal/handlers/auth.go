@@ -331,10 +331,11 @@ func (h *AuthHandler) GetUserSessions(c *gin.Context) {
 	}
 
 	// Get current JTI from context to mark current session
-	currentJTI, _ := c.Get("jti")
 	jtiStr := ""
-	if currentJTI != nil {
-		jtiStr, _ = currentJTI.(string)
+	if jti, exists := c.Get("jti"); exists {
+		if jtiValue, ok := jti.(string); ok {
+			jtiStr = jtiValue
+		}
 	}
 
 	sessions, err := h.authService.GetUserSessions(userID, jtiStr)

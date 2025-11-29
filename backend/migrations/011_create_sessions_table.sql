@@ -2,7 +2,7 @@
 CREATE TABLE IF NOT EXISTS sessions (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    refresh_token VARCHAR(500) NOT NULL UNIQUE,
+    refresh_token VARCHAR(64) NOT NULL UNIQUE,  -- SHA-256 hash in Base64 (44 chars)
     access_token_jti VARCHAR(100) NOT NULL,
     user_agent TEXT,
     ip_address VARCHAR(45),

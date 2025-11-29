@@ -980,7 +980,9 @@ GET {{baseUrl}}/api/users/me/sessions
 Authorization: Bearer {{loginWithRefresh.response.body.access_token}}
 
 ### 131. 特定のセッションを削除
-# セッションIDを指定して削除（実際のIDに置き換えてください）
+# セッションIDを指定して削除
+# 注意: セッションIDは test #130 のレスポンスから取得してください
+# 例: {{loginWithRefresh.response.body.sessions[0].id}}
 DELETE {{baseUrl}}/api/users/me/sessions/1
 Authorization: Bearer {{loginWithRefresh.response.body.access_token}}
 
@@ -1027,6 +1029,7 @@ Content-Type: {{contentType}}
 
 ### 137. 存在しないセッションを削除
 # エラー: 404 Not Found
+# 注意: 実際のテストでは存在しないIDを使用してください
 DELETE {{baseUrl}}/api/users/me/sessions/99999
 Authorization: Bearer {{loginWithRefresh.response.body.access_token}}
 
@@ -1103,7 +1106,9 @@ GET {{baseUrl}}/api/users/me/sessions
 Authorization: Bearer {{device1Login.response.body.access_token}}
 
 ### 146. デバイス1からデバイス2のセッションを削除
-# セッションIDは実際の値に置き換えてください
+# セッションIDは test #145 のレスポンスから取得してください
+# 注意: デバイス2のセッションIDを使用する必要があります
+# 例: セッション一覧から is_current: false のセッションIDを取得
 DELETE {{baseUrl}}/api/users/me/sessions/2
 Authorization: Bearer {{device1Login.response.body.access_token}}
 

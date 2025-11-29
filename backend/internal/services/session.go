@@ -106,8 +106,10 @@ func (s *SessionService) ValidateSession(refreshToken string) (*models.Session, 
 
 	// Check if session is expired
 	if time.Now().After(session.ExpiresAt) {
-		// Delete expired session
-		s.DeleteSession(refreshToken)
+		// Delete expired session (log error but don't fail validation)
+		if err := s.DeleteSession(refreshToken); err != nil && err != ErrSessionNotFound {
+			s.logger.Warn("Failed to delete expired session", "error", err, "session_id", session.ID)
+		}
 		return nil, ErrSessionExpired
 	}
 

@@ -14,6 +14,11 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+const (
+	// AccessTokenLifetime is the duration for which an access token is valid
+	AccessTokenLifetime = 15 * time.Minute
+)
+
 var (
 	ErrEmailAlreadyExists = errors.New("email already exists")
 	ErrInvalidCredentials = errors.New("invalid credentials")
@@ -157,8 +162,8 @@ func (s *AuthService) loginWithRepo(req models.UserLoginRequest, userAgent, ipAd
 		return nil, fmt.Errorf("failed to create session: %w", err)
 	}
 
-	// Generate access token (15 minutes)
-	accessToken, err := utils.GenerateAccessToken(user.ID, user.Email, user.Name, jti, s.jwtSecret, 15*time.Minute)
+	// Generate access token
+	accessToken, err := utils.GenerateAccessToken(user.ID, user.Email, user.Name, jti, s.jwtSecret, AccessTokenLifetime)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate access token: %w", err)
 	}
@@ -167,7 +172,7 @@ func (s *AuthService) loginWithRepo(req models.UserLoginRequest, userAgent, ipAd
 		AccessToken:  accessToken,
 		RefreshToken: refreshToken,
 		TokenType:    "Bearer",
-		ExpiresIn:    900, // 15 minutes in seconds
+		ExpiresIn:    int(AccessTokenLifetime.Seconds()),
 		User: models.UserResponse{
 			ID:            user.ID,
 			Name:          user.Name,
@@ -382,25 +387,27 @@ func (s *AuthService) RefreshToken(refreshToken string) (*models.TokenRefreshRes
 	// Generate new JTI for new access token
 	newJTI := utils.GenerateJTI()
 
-	// Update session with new JTI
+	// Update session with new JTI - this must succeed for consistency
 	err = s.sessionService.UpdateSessionJTI(session.ID, newJTI)
 	if err != nil {
-		s.logger.Warn("Failed to update session JTI", "error", err)
+		return nil, fmt.Errorf("failed to update session JTI: %w", err)
 	}
 
-	// Generate new access token (15 minutes)
-	accessToken, err := utils.GenerateAccessToken(user.ID, user.Email, user.Name, newJTI, s.jwtSecret, 15*time.Minute)
+	// Generate new access token
+	accessToken, err := utils.GenerateAccessToken(user.ID, user.Email, user.Name, newJTI, s.jwtSecret, AccessTokenLifetime)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate access token: %w", err)
 	}
 
-	// Update last activity
-	s.sessionService.UpdateActivity(session.ID)
+	// Update last activity (non-critical, can fail silently)
+	if err := s.sessionService.UpdateActivity(session.ID); err != nil {
+		s.logger.Warn("Failed to update session activity", "error", err, "session_id", session.ID)
+	}
 
 	return &models.TokenRefreshResponse{
 		AccessToken: accessToken,
 		TokenType:   "Bearer",
-		ExpiresIn:   900, // 15 minutes in seconds
+		ExpiresIn:   int(AccessTokenLifetime.Seconds()),
 	}, nil
 }
 

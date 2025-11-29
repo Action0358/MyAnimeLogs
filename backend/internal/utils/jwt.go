@@ -43,21 +43,6 @@ func GenerateAccessToken(userID int, email, name, jti, secret string, expiry tim
 	return token.SignedString([]byte(secret))
 }
 
-// GenerateRefreshToken generates a long-lived refresh token (default: 7 days)
-func GenerateRefreshToken(userID int, secret string) (string, error) {
-	claims := jwt.RegisteredClaims{
-		Issuer:    "MyAnimeLogs",
-		Subject:   "MyAnimeLogs-refresh",
-		Audience:  []string{"MyAnimeLogs-users"},
-		ExpiresAt: jwt.NewNumericDate(time.Now().Add(7 * 24 * time.Hour)),
-		IssuedAt:  jwt.NewNumericDate(time.Now()),
-		ID:        GenerateJTI(),
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(secret))
-}
-
 // GenerateJTI generates a unique JWT ID
 func GenerateJTI() string {
 	return uuid.New().String()
@@ -82,30 +67,6 @@ func ValidateAccessToken(tokenString, secret string) (*JWTClaims, error) {
 	}
 
 	if claims, ok := token.Claims.(*JWTClaims); ok && token.Valid {
-		return claims, nil
-	}
-
-	return nil, errors.New("invalid token")
-}
-
-// ValidateRefreshToken validates a refresh token
-func ValidateRefreshToken(tokenString, secret string) (*jwt.RegisteredClaims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &jwt.RegisteredClaims{}, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, errors.New("unexpected signing method")
-		}
-		return []byte(secret), nil
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	if claims, ok := token.Claims.(*jwt.RegisteredClaims); ok && token.Valid {
-		// Verify this is a refresh token
-		if claims.Subject != "MyAnimeLogs-refresh" {
-			return nil, errors.New("not a refresh token")
-		}
 		return claims, nil
 	}
 
