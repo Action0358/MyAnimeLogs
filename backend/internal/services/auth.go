@@ -21,21 +21,23 @@ var (
 )
 
 type AuthService struct {
-	userRepo     UserRepositoryInterface
-	db           *database.DB // Keep for export methods temporarily
-	statsService *StatsService
-	logger       *common.Logger
-	jwtSecret    string
+	userRepo       UserRepositoryInterface
+	db             *database.DB // Keep for export methods temporarily
+	statsService   *StatsService
+	sessionService SessionServiceInterface
+	logger         *common.Logger
+	jwtSecret      string
 }
 
 func NewAuthService(db *database.DB, jwtSecret string) *AuthService {
 	logger := common.NewLogger(common.LogLevelInfo, "json")
 	return &AuthService{
-		userRepo:     nil, // Will be set by NewAuthServiceWithRepo
-		db:           db,
-		statsService: NewStatsService(db, logger),
-		logger:       logger,
-		jwtSecret:    jwtSecret,
+		userRepo:       nil, // Will be set by NewAuthServiceWithRepo
+		db:             db,
+		statsService:   NewStatsService(db, logger),
+		sessionService: NewSessionService(db, logger),
+		logger:         logger,
+		jwtSecret:      jwtSecret,
 	}
 }
 
@@ -43,11 +45,25 @@ func NewAuthService(db *database.DB, jwtSecret string) *AuthService {
 func NewAuthServiceWithRepo(userRepo UserRepositoryInterface, db *database.DB, jwtSecret string) *AuthService {
 	logger := common.NewLogger(common.LogLevelInfo, "json")
 	return &AuthService{
-		userRepo:     userRepo,
-		db:           db,
-		statsService: NewStatsService(db, logger),
-		logger:       logger,
-		jwtSecret:    jwtSecret,
+		userRepo:       userRepo,
+		db:             db,
+		statsService:   NewStatsService(db, logger),
+		sessionService: NewSessionService(db, logger),
+		logger:         logger,
+		jwtSecret:      jwtSecret,
+	}
+}
+
+// NewAuthServiceWithDeps creates a new AuthService with all dependencies injected (for testing)
+func NewAuthServiceWithDeps(userRepo UserRepositoryInterface, db *database.DB, sessionService SessionServiceInterface, jwtSecret string) *AuthService {
+	logger := common.NewLogger(common.LogLevelInfo, "json")
+	return &AuthService{
+		userRepo:       userRepo,
+		db:             db,
+		statsService:   NewStatsService(db, logger),
+		sessionService: sessionService,
+		logger:         logger,
+		jwtSecret:      jwtSecret,
 	}
 }
 
@@ -112,12 +128,12 @@ func (s *AuthService) registerWithDB(req models.UserRegisterRequest) (*models.Us
 	return s.registerWithRepo(req, repo)
 }
 
-func (s *AuthService) Login(req models.UserLoginRequest) (*models.LoginResponse, error) {
-	return s.loginWithRepo(req, s.getRepository())
+func (s *AuthService) Login(req models.UserLoginRequest, userAgent, ipAddress string) (*models.LoginResponse, error) {
+	return s.loginWithRepo(req, userAgent, ipAddress, s.getRepository())
 }
 
 // loginWithRepo handles user login through repository
-func (s *AuthService) loginWithRepo(req models.UserLoginRequest, repo UserRepositoryInterface) (*models.LoginResponse, error) {
+func (s *AuthService) loginWithRepo(req models.UserLoginRequest, userAgent, ipAddress string, repo UserRepositoryInterface) (*models.LoginResponse, error) {
 	user, err := repo.GetByEmail(req.Email)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user: %w", err)
@@ -132,15 +148,26 @@ func (s *AuthService) loginWithRepo(req models.UserLoginRequest, repo UserReposi
 		return nil, ErrInvalidCredentials
 	}
 
-	// Generate JWT token
-	token, err := utils.GenerateJWT(user.ID, user.Email, user.Name, s.jwtSecret)
+	// Generate JTI for access token
+	jti := utils.GenerateJTI()
+
+	// Create session and get refresh token
+	_, refreshToken, err := s.sessionService.CreateSession(user.ID, jti, userAgent, ipAddress)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate token: %w", err)
+		return nil, fmt.Errorf("failed to create session: %w", err)
+	}
+
+	// Generate access token (15 minutes)
+	accessToken, err := utils.GenerateAccessToken(user.ID, user.Email, user.Name, jti, s.jwtSecret, 15*time.Minute)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate access token: %w", err)
 	}
 
 	return &models.LoginResponse{
-		AccessToken: token,
-		TokenType:   "Bearer",
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
+		TokenType:    "Bearer",
+		ExpiresIn:    900, // 15 minutes in seconds
 		User: models.UserResponse{
 			ID:            user.ID,
 			Name:          user.Name,
@@ -158,7 +185,7 @@ func (s *AuthService) loginWithRepo(req models.UserLoginRequest, repo UserReposi
 // Deprecated: Use Login instead
 func (s *AuthService) loginWithDB(req models.UserLoginRequest) (*models.LoginResponse, error) {
 	repo := repository.NewUserRepository(s.db)
-	return s.loginWithRepo(req, repo)
+	return s.loginWithRepo(req, "", "", repo)
 }
 
 func (s *AuthService) GetUserByID(userID int) (*models.UserResponse, error) {
@@ -336,4 +363,78 @@ func (s *AuthService) ExportUserData(userID int, format string) (interface{}, er
 	}
 
 	return data, nil
+}
+
+// RefreshToken refreshes an access token using a refresh token
+func (s *AuthService) RefreshToken(refreshToken string) (*models.TokenRefreshResponse, error) {
+	// Validate refresh token and get session
+	session, err := s.sessionService.ValidateSession(refreshToken)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get user information
+	user, err := s.GetUserByID(session.UserID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Generate new JTI for new access token
+	newJTI := utils.GenerateJTI()
+
+	// Update session with new JTI
+	err = s.sessionService.UpdateSessionJTI(session.ID, newJTI)
+	if err != nil {
+		s.logger.Warn("Failed to update session JTI", "error", err)
+	}
+
+	// Generate new access token (15 minutes)
+	accessToken, err := utils.GenerateAccessToken(user.ID, user.Email, user.Name, newJTI, s.jwtSecret, 15*time.Minute)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate access token: %w", err)
+	}
+
+	// Update last activity
+	s.sessionService.UpdateActivity(session.ID)
+
+	return &models.TokenRefreshResponse{
+		AccessToken: accessToken,
+		TokenType:   "Bearer",
+		ExpiresIn:   900, // 15 minutes in seconds
+	}, nil
+}
+
+// Logout logs out a user by deleting their session
+func (s *AuthService) Logout(refreshToken string) error {
+	return s.sessionService.DeleteSession(refreshToken)
+}
+
+// LogoutAllDevices logs out a user from all devices
+func (s *AuthService) LogoutAllDevices(userID int) error {
+	return s.sessionService.DeleteUserSessions(userID)
+}
+
+// GetUserSessions returns all active sessions for a user
+func (s *AuthService) GetUserSessions(userID int, currentJTI string) ([]models.SessionResponse, error) {
+	sessions, err := s.sessionService.GetUserSessions(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	responses := make([]models.SessionResponse, len(sessions))
+	for i, session := range sessions {
+		responses[i] = session.ToResponse(currentJTI)
+	}
+
+	return responses, nil
+}
+
+// DeleteSession deletes a specific session
+func (s *AuthService) DeleteSession(sessionID, userID int) error {
+	return s.sessionService.DeleteSessionByID(sessionID, userID)
+}
+
+// GetSessionService returns the session service (for middleware)
+func (s *AuthService) GetSessionService() SessionServiceInterface {
+	return s.sessionService
 }

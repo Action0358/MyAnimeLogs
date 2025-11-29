@@ -951,3 +951,219 @@ Authorization: Bearer {{login.response.body.access_token}}
 #      FROM anime_genres
 #      GROUP BY genre
 #      ORDER BY count DESC;
+
+
+### ===== セッション管理とトークンリフレッシュ機能テスト =====
+
+### 128. ログイン（新しいレスポンス形式確認）
+# @name loginWithRefresh
+POST {{baseUrl}}/api/login
+Content-Type: {{contentType}}
+
+{
+  "email": "apitest@example.com",
+  "password": "testpass123"
+}
+
+### 129. トークンリフレッシュ
+# リフレッシュトークンを使って新しいアクセストークンを取得
+POST {{baseUrl}}/api/auth/refresh
+Content-Type: {{contentType}}
+
+{
+  "refresh_token": "{{loginWithRefresh.response.body.refresh_token}}"
+}
+
+### 130. セッション一覧取得
+# 現在アクティブなセッション一覧を取得
+GET {{baseUrl}}/api/users/me/sessions
+Authorization: Bearer {{loginWithRefresh.response.body.access_token}}
+
+### 131. 特定のセッションを削除
+# セッションIDを指定して削除（実際のIDに置き換えてください）
+DELETE {{baseUrl}}/api/users/me/sessions/1
+Authorization: Bearer {{loginWithRefresh.response.body.access_token}}
+
+### 132. 全デバイスからログアウト
+# 全てのセッションを削除
+POST {{baseUrl}}/api/users/me/logout-all
+Authorization: Bearer {{loginWithRefresh.response.body.access_token}}
+
+### 133. ログアウト
+# リフレッシュトークンを使ってログアウト
+POST {{baseUrl}}/api/logout
+Content-Type: {{contentType}}
+
+{
+  "refresh_token": "{{loginWithRefresh.response.body.refresh_token}}"
+}
+
+### ===== エラーケーステスト（セッション管理） =====
+
+### 134. 無効なリフレッシュトークンでリフレッシュ
+# エラー: 401 Unauthorized
+POST {{baseUrl}}/api/auth/refresh
+Content-Type: {{contentType}}
+
+{
+  "refresh_token": "invalid.refresh.token"
+}
+
+### 135. 期限切れのリフレッシュトークンでリフレッシュ
+# エラー: 401 Unauthorized
+POST {{baseUrl}}/api/auth/refresh
+Content-Type: {{contentType}}
+
+{
+  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.expired.token"
+}
+
+### 136. リフレッシュトークンなしでリフレッシュ
+# エラー: 400 Bad Request
+POST {{baseUrl}}/api/auth/refresh
+Content-Type: {{contentType}}
+
+{}
+
+### 137. 存在しないセッションを削除
+# エラー: 404 Not Found
+DELETE {{baseUrl}}/api/users/me/sessions/99999
+Authorization: Bearer {{loginWithRefresh.response.body.access_token}}
+
+### ===== セッション管理統合テストシナリオ =====
+
+### 138. シナリオ1: ログイン → トークンリフレッシュ → ログアウト
+# 1. ログイン
+# @name scenario1Login
+POST {{baseUrl}}/api/login
+Content-Type: {{contentType}}
+
+{
+  "email": "apitest@example.com",
+  "password": "testpass123"
+}
+
+### 139. シナリオ2: トークンリフレッシュ
+# 新しいアクセストークンを取得
+# @name scenario1Refresh
+POST {{baseUrl}}/api/auth/refresh
+Content-Type: {{contentType}}
+
+{
+  "refresh_token": "{{scenario1Login.response.body.refresh_token}}"
+}
+
+### 140. シナリオ3: 新しいアクセストークンでAPI呼び出し
+# リフレッシュされたトークンが正常に動作することを確認
+GET {{baseUrl}}/api/users/me
+Authorization: Bearer {{scenario1Refresh.response.body.access_token}}
+
+### 141. シナリオ4: ログアウト
+# セッションを削除
+POST {{baseUrl}}/api/logout
+Content-Type: {{contentType}}
+
+{
+  "refresh_token": "{{scenario1Login.response.body.refresh_token}}"
+}
+
+### 142. シナリオ5: ログアウト後のトークンリフレッシュ（失敗するはず）
+# エラー: 401 Unauthorized
+POST {{baseUrl}}/api/auth/refresh
+Content-Type: {{contentType}}
+
+{
+  "refresh_token": "{{scenario1Login.response.body.refresh_token}}"
+}
+
+### ===== 複数デバイスログインテスト =====
+
+### 143. デバイス1: ログイン
+# @name device1Login
+POST {{baseUrl}}/api/login
+Content-Type: {{contentType}}
+
+{
+  "email": "apitest@example.com",
+  "password": "testpass123"
+}
+
+### 144. デバイス2: ログイン（同じユーザー）
+# @name device2Login
+POST {{baseUrl}}/api/login
+Content-Type: {{contentType}}
+
+{
+  "email": "apitest@example.com",
+  "password": "testpass123"
+}
+
+### 145. セッション一覧確認（2つのセッションがあるはず）
+GET {{baseUrl}}/api/users/me/sessions
+Authorization: Bearer {{device1Login.response.body.access_token}}
+
+### 146. デバイス1からデバイス2のセッションを削除
+# セッションIDは実際の値に置き換えてください
+DELETE {{baseUrl}}/api/users/me/sessions/2
+Authorization: Bearer {{device1Login.response.body.access_token}}
+
+### 147. デバイス2のトークンが無効になったことを確認
+# デバイス2のリフレッシュトークンでリフレッシュを試みる（失敗するはず）
+POST {{baseUrl}}/api/auth/refresh
+Content-Type: {{contentType}}
+
+{
+  "refresh_token": "{{device2Login.response.body.refresh_token}}"
+}
+
+### 148. 全デバイスからログアウト
+POST {{baseUrl}}/api/users/me/logout-all
+Authorization: Bearer {{device1Login.response.body.access_token}}
+
+### ===== トークン有効期限テスト =====
+
+### 149. アクセストークンの有効期限確認
+# レスポンスのexpires_inフィールドを確認（900秒 = 15分）
+# @name tokenExpiryCheck
+POST {{baseUrl}}/api/login
+Content-Type: {{contentType}}
+
+{
+  "email": "apitest@example.com",
+  "password": "testpass123"
+}
+
+### 150. リフレッシュトークンの有効期限確認
+# リフレッシュトークンは7日間有効
+# セッション一覧のexpires_atフィールドで確認
+GET {{baseUrl}}/api/users/me/sessions
+Authorization: Bearer {{tokenExpiryCheck.response.body.access_token}}
+
+### ===== 注意事項 =====
+#
+# セッション管理とトークンリフレッシュ機能のテストについて:
+#
+# 1. トークンの有効期限
+#    - アクセストークン: 15分（900秒）
+#    - リフレッシュトークン: 7日間
+#
+# 2. セッション管理
+#    - 各ログインで新しいセッションが作成されます
+#    - セッションIDを使って特定のデバイスからログアウトできます
+#    - 全デバイスからログアウトすると、全てのセッションが削除されます
+#
+# 3. トークンリフレッシュ
+#    - アクセストークンの有効期限が切れる前にリフレッシュしてください
+#    - リフレッシュトークンが無効または期限切れの場合、再ログインが必要です
+#
+# 4. セキュリティ
+#    - リフレッシュトークンは安全に保管してください
+#    - 本番環境ではHTTPSを使用してください
+#    - 不審なログインがあった場合は、全デバイスからログアウトしてください
+#
+# 5. データベースの確認
+#    - pgAdminなどでsessionsテーブルを確認できます:
+#      SELECT id, user_id, user_agent, ip_address, created_at, last_activity_at, expires_at
+#      FROM sessions
+#      WHERE user_id = 1
+#      ORDER BY created_at DESC;
