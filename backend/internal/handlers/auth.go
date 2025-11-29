@@ -63,7 +63,11 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	loginResp, err := h.authService.Login(req)
+	// Get User-Agent and IP address
+	userAgent := c.GetHeader("User-Agent")
+	ipAddress := c.ClientIP()
+
+	loginResp, err := h.authService.Login(req, userAgent, ipAddress)
 	if err != nil {
 		if err == services.ErrInvalidCredentials {
 			h.response.UnauthorizedError(c, "メールアドレスまたはパスワードが正しくありません")
@@ -276,4 +280,105 @@ func (h *AuthHandler) ExportData(c *gin.Context) {
 	} else {
 		h.response.Success(c, data)
 	}
+}
+
+// RefreshToken refreshes an access token using a refresh token
+func (h *AuthHandler) RefreshToken(c *gin.Context) {
+	var req models.TokenRefreshRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.response.ValidationError(c, "リフレッシュトークンが必要です")
+		return
+	}
+
+	response, err := h.authService.RefreshToken(req.RefreshToken)
+	if err != nil {
+		if err == services.ErrSessionNotFound || err == services.ErrSessionExpired || err == services.ErrInvalidRefreshToken {
+			h.response.UnauthorizedError(c, "無効なリフレッシュトークンです")
+			return
+		}
+		h.response.InternalServerError(c, "トークンのリフレッシュに失敗しました")
+		return
+	}
+
+	h.response.Success(c, response)
+}
+
+// Logout logs out a user by deleting their session
+func (h *AuthHandler) Logout(c *gin.Context) {
+	var req models.LogoutRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.response.ValidationError(c, "リフレッシュトークンが必要です")
+		return
+	}
+
+	err := h.authService.Logout(req.RefreshToken)
+	if err != nil {
+		// Even if session not found, return success (idempotent)
+		if err != services.ErrSessionNotFound {
+			h.logger.Warn("Logout error", "error", err)
+		}
+	}
+
+	h.response.Success(c, gin.H{"message": "ログアウトしました"})
+}
+
+// GetUserSessions returns all active sessions for the current user
+func (h *AuthHandler) GetUserSessions(c *gin.Context) {
+	userID, err := h.validator.GetUserIDFromContext(c)
+	if err != nil {
+		h.response.UnauthorizedError(c, "認証が必要です")
+		return
+	}
+
+	sessions, err := h.authService.GetUserSessions(userID)
+	if err != nil {
+		h.response.InternalServerError(c, "セッション一覧の取得に失敗しました")
+		return
+	}
+
+	h.response.Success(c, gin.H{"sessions": sessions})
+}
+
+// DeleteSession deletes a specific session
+func (h *AuthHandler) DeleteSession(c *gin.Context) {
+	userID, err := h.validator.GetUserIDFromContext(c)
+	if err != nil {
+		h.response.UnauthorizedError(c, "認証が必要です")
+		return
+	}
+
+	sessionID, err := h.validator.ParseIDParam(c, "id")
+	if err != nil {
+		h.response.ValidationError(c, "無効なセッションIDです")
+		return
+	}
+
+	err = h.authService.DeleteSession(sessionID, userID)
+	if err != nil {
+		if err == services.ErrSessionNotFound {
+			h.response.NotFoundError(c, "セッションが見つかりません")
+			return
+		}
+		h.response.InternalServerError(c, "セッションの削除に失敗しました")
+		return
+	}
+
+	h.response.Success(c, gin.H{"message": "セッションを削除しました"})
+}
+
+// LogoutAllDevices logs out the user from all devices
+func (h *AuthHandler) LogoutAllDevices(c *gin.Context) {
+	userID, err := h.validator.GetUserIDFromContext(c)
+	if err != nil {
+		h.response.UnauthorizedError(c, "認証が必要です")
+		return
+	}
+
+	err = h.authService.LogoutAllDevices(userID)
+	if err != nil {
+		h.response.InternalServerError(c, "全デバイスからのログアウトに失敗しました")
+		return
+	}
+
+	h.response.Success(c, gin.H{"message": "全てのデバイスからログアウトしました"})
 }

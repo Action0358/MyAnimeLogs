@@ -72,6 +72,8 @@ func Setup(db *database.DB, cfg *config.Config, syncScheduler handlers.SyncSched
 		// 公開ルート（認証不要）
 		api.POST("/register", authHandler.Register)
 		api.POST("/login", authHandler.Login)
+		api.POST("/logout", authHandler.Logout)
+		api.POST("/auth/refresh", authHandler.RefreshToken)
 
 		// アニメルート（認証オプション）
 		api.GET("/animes", middleware.OptionalAuthMiddleware(cfg.JWTSecret), animeHandler.GetAnimes)
@@ -122,6 +124,11 @@ func Setup(db *database.DB, cfg *config.Config, syncScheduler handlers.SyncSched
 			protected.DELETE("/users/me/icon", authHandler.DeleteIcon)
 			protected.GET("/users/me/stats", authHandler.GetStats)
 			protected.GET("/users/me/export", authHandler.ExportData)
+
+			// セッション管理
+			protected.GET("/users/me/sessions", authHandler.GetUserSessions)
+			protected.DELETE("/users/me/sessions/:id", authHandler.DeleteSession)
+			protected.POST("/users/me/logout-all", authHandler.LogoutAllDevices)
 
 			// ユーザーのお気に入り
 			protected.GET("/users/me/favorites", animeHandler.GetFavorites)

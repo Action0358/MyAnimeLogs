@@ -16,12 +16,18 @@ type UserRepositoryInterface interface {
 // AuthServiceInterface defines the interface for authentication service
 type AuthServiceInterface interface {
 	Register(req models.UserRegisterRequest) (*models.UserResponse, error)
-	Login(req models.UserLoginRequest) (*models.LoginResponse, error)
+	Login(req models.UserLoginRequest, userAgent, ipAddress string) (*models.LoginResponse, error)
 	GetUserByID(userID int) (*models.UserResponse, error)
 	UpdateUser(userID int, req models.UserUpdateRequest) (*models.UserResponse, error)
 	UpdateUserIcon(userID int, iconURL string) (*models.UserResponse, error)
 	GetUserStats(userID int) (*models.UserStats, error)
 	ExportUserData(userID int, format string) (interface{}, error)
+	RefreshToken(refreshToken string) (*models.TokenRefreshResponse, error)
+	Logout(refreshToken string) error
+	LogoutAllDevices(userID int) error
+	GetUserSessions(userID int) ([]models.SessionResponse, error)
+	DeleteSession(sessionID, userID int) error
+	GetSessionService() *SessionService
 }
 
 // Ensure AuthService implements AuthServiceInterface
