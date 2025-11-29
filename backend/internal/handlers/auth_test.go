@@ -31,8 +31,8 @@ func (m *MockAuthService) Register(req models.UserRegisterRequest) (*models.User
 	return args.Get(0).(*models.UserResponse), args.Error(1)
 }
 
-func (m *MockAuthService) Login(req models.UserLoginRequest) (*models.LoginResponse, error) {
-	args := m.Called(req)
+func (m *MockAuthService) Login(req models.UserLoginRequest, userAgent, ipAddress string) (*models.LoginResponse, error) {
+	args := m.Called(req, userAgent, ipAddress)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -74,6 +74,45 @@ func (m *MockAuthService) GetUserStats(userID int) (*models.UserStats, error) {
 func (m *MockAuthService) ExportUserData(userID int, format string) (interface{}, error) {
 	args := m.Called(userID, format)
 	return args.Get(0), args.Error(1)
+}
+
+func (m *MockAuthService) RefreshToken(refreshToken string) (*models.TokenRefreshResponse, error) {
+	args := m.Called(refreshToken)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.TokenRefreshResponse), args.Error(1)
+}
+
+func (m *MockAuthService) Logout(refreshToken string) error {
+	args := m.Called(refreshToken)
+	return args.Error(0)
+}
+
+func (m *MockAuthService) LogoutAllDevices(userID int) error {
+	args := m.Called(userID)
+	return args.Error(0)
+}
+
+func (m *MockAuthService) GetUserSessions(userID int, currentJTI string) ([]models.SessionResponse, error) {
+	args := m.Called(userID, currentJTI)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]models.SessionResponse), args.Error(1)
+}
+
+func (m *MockAuthService) DeleteSession(sessionID, userID int) error {
+	args := m.Called(sessionID, userID)
+	return args.Error(0)
+}
+
+func (m *MockAuthService) GetSessionService() services.SessionServiceInterface {
+	args := m.Called()
+	if args.Get(0) == nil {
+		return nil
+	}
+	return args.Get(0).(services.SessionServiceInterface)
 }
 
 // setupAuthHandler creates a test handler with mock service
@@ -212,7 +251,7 @@ func TestAuthHandler_Login_Success(t *testing.T) {
 		},
 	}
 
-	mockService.On("Login", req).Return(expectedResponse, nil)
+	mockService.On("Login", req, mock.Anything, mock.Anything).Return(expectedResponse, nil)
 
 	// Setup Gin router
 	gin.SetMode(gin.TestMode)
@@ -251,7 +290,7 @@ func TestAuthHandler_Login_InvalidCredentials(t *testing.T) {
 		Password: "wrongpassword",
 	}
 
-	mockService.On("Login", req).Return(nil, services.ErrInvalidCredentials)
+	mockService.On("Login", req, mock.Anything, mock.Anything).Return(nil, services.ErrInvalidCredentials)
 
 	// Setup Gin router
 	gin.SetMode(gin.TestMode)

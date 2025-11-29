@@ -47,9 +47,25 @@ type UserResponse struct {
 }
 
 type LoginResponse struct {
-	AccessToken string       `json:"access_token"`
-	TokenType   string       `json:"token_type"`
-	User        UserResponse `json:"user"`
+	AccessToken  string       `json:"access_token"`
+	RefreshToken string       `json:"refresh_token"`
+	TokenType    string       `json:"token_type"`
+	ExpiresIn    int          `json:"expires_in"` // seconds
+	User         UserResponse `json:"user"`
+}
+
+type TokenRefreshRequest struct {
+	RefreshToken string `json:"refresh_token" binding:"required"`
+}
+
+type TokenRefreshResponse struct {
+	AccessToken string `json:"access_token"`
+	TokenType   string `json:"token_type"`
+	ExpiresIn   int    `json:"expires_in"` // seconds
+}
+
+type LogoutRequest struct {
+	RefreshToken string `json:"refresh_token" binding:"required"`
 }
 
 type UserStats struct {
