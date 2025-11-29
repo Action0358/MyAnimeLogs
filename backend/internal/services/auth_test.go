@@ -64,6 +64,78 @@ func (m *MockUserRepository) EmailExists(email string) (bool, error) {
 	return args.Bool(0), args.Error(1)
 }
 
+// MockSessionService implements SessionServiceInterface for testing
+type MockSessionService struct {
+	mock.Mock
+}
+
+func (m *MockSessionService) CreateSession(userID int, jti, userAgent, ipAddress string) (*models.Session, string, error) {
+	args := m.Called(userID, jti, userAgent, ipAddress)
+	if args.Get(0) == nil {
+		return nil, "", args.Error(2)
+	}
+	return args.Get(0).(*models.Session), args.String(1), args.Error(2)
+}
+
+func (m *MockSessionService) ValidateSession(refreshToken string) (*models.Session, error) {
+	args := m.Called(refreshToken)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.Session), args.Error(1)
+}
+
+func (m *MockSessionService) UpdateActivity(sessionID int) error {
+	args := m.Called(sessionID)
+	return args.Error(0)
+}
+
+func (m *MockSessionService) UpdateActivityByJTI(jti string) error {
+	args := m.Called(jti)
+	return args.Error(0)
+}
+
+func (m *MockSessionService) UpdateSessionJTI(sessionID int, newJTI string) error {
+	args := m.Called(sessionID, newJTI)
+	return args.Error(0)
+}
+
+func (m *MockSessionService) DeleteSession(refreshToken string) error {
+	args := m.Called(refreshToken)
+	return args.Error(0)
+}
+
+func (m *MockSessionService) DeleteSessionByID(sessionID, userID int) error {
+	args := m.Called(sessionID, userID)
+	return args.Error(0)
+}
+
+func (m *MockSessionService) DeleteUserSessions(userID int) error {
+	args := m.Called(userID)
+	return args.Error(0)
+}
+
+func (m *MockSessionService) GetUserSessions(userID int) ([]models.Session, error) {
+	args := m.Called(userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]models.Session), args.Error(1)
+}
+
+func (m *MockSessionService) CleanupExpiredSessions() (int, error) {
+	args := m.Called()
+	return args.Int(0), args.Error(1)
+}
+
+func (m *MockSessionService) GetSessionByJTI(jti string) (*models.Session, error) {
+	args := m.Called(jti)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*models.Session), args.Error(1)
+}
+
 // Test service error constants
 func TestAuthService_ErrorConstants(t *testing.T) {
 	assert.Equal(t, "email already exists", ErrEmailAlreadyExists.Error())
@@ -146,7 +218,8 @@ func TestAuthService_Register_EmailAlreadyExists(t *testing.T) {
 // Test Login method - Success
 func TestAuthService_Login_Success(t *testing.T) {
 	mockRepo := new(MockUserRepository)
-	service := NewAuthServiceWithRepo(mockRepo, nil, "test-secret")
+	mockSessionService := new(MockSessionService)
+	service := NewAuthServiceWithDeps(mockRepo, nil, mockSessionService, "test-secret")
 
 	// Create a user with hashed password
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)
@@ -163,28 +236,43 @@ func TestAuthService_Login_Success(t *testing.T) {
 	// Setup mock expectations
 	mockRepo.On("GetByEmail", "test@example.com").Return(user, nil)
 
+	// Mock session creation
+	mockSession := &models.Session{
+		ID:             1,
+		UserID:         1,
+		RefreshToken:   "hashed_refresh_token",
+		AccessTokenJTI: "test-jti",
+		ExpiresAt:      time.Now().Add(7 * 24 * time.Hour),
+	}
+	mockSessionService.On("CreateSession", 1, mock.Anything, "test-agent", "127.0.0.1").
+		Return(mockSession, "plain_refresh_token", nil)
+
 	req := models.UserLoginRequest{
 		Email:    "test@example.com",
 		Password: "password123",
 	}
 
-	result, err := service.Login(req)
+	result, err := service.Login(req, "test-agent", "127.0.0.1")
 
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
 	assert.Equal(t, "Bearer", result.TokenType)
 	assert.NotEmpty(t, result.AccessToken)
+	assert.Equal(t, "plain_refresh_token", result.RefreshToken)
+	assert.Equal(t, 900, result.ExpiresIn)
 	assert.Equal(t, 1, result.User.ID)
 	assert.Equal(t, "Test User", result.User.Name)
 	assert.Equal(t, "test@example.com", result.User.Email)
 
 	mockRepo.AssertExpectations(t)
+	mockSessionService.AssertExpectations(t)
 }
 
 // Test Login method - Invalid credentials
 func TestAuthService_Login_InvalidCredentials(t *testing.T) {
 	mockRepo := new(MockUserRepository)
-	service := NewAuthServiceWithRepo(mockRepo, nil, "test-secret")
+	mockSessionService := new(MockSessionService)
+	service := NewAuthServiceWithDeps(mockRepo, nil, mockSessionService, "test-secret")
 
 	// Setup mock to return nil user (not found)
 	mockRepo.On("GetByEmail", "nonexistent@example.com").Return(nil, nil)
@@ -194,7 +282,7 @@ func TestAuthService_Login_InvalidCredentials(t *testing.T) {
 		Password: "password123",
 	}
 
-	result, err := service.Login(req)
+	result, err := service.Login(req, "test-agent", "127.0.0.1")
 
 	assert.Error(t, err)
 	assert.Equal(t, ErrInvalidCredentials, err)
@@ -415,5 +503,136 @@ func TestAuthService_UpdateUserIcon_RepositoryError(t *testing.T) {
 	assert.Error(t, err)
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), "failed to update user icon")
+	mockRepo.AssertExpectations(t)
+}
+
+// Test RefreshToken method - Success
+func TestAuthService_RefreshToken_Success(t *testing.T) {
+	mockRepo := new(MockUserRepository)
+	mockSessionService := new(MockSessionService)
+	service := NewAuthServiceWithDeps(mockRepo, nil, mockSessionService, "test-secret")
+
+	// Mock session
+	mockSession := &models.Session{
+		ID:             1,
+		UserID:         1,
+		RefreshToken:   "hashed_refresh_token",
+		AccessTokenJTI: "old-jti",
+		ExpiresAt:      time.Now().Add(7 * 24 * time.Hour),
+	}
+
+	// Mock user
+	user := &models.User{
+		ID:          1,
+		Name:        "Test User",
+		Email:       "test@example.com",
+		Description: testutil.StringPtr("Test description"),
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}
+
+	// Setup mock expectations
+	mockSessionService.On("ValidateSession", "plain_refresh_token").Return(mockSession, nil)
+	mockRepo.On("GetByID", 1).Return(user, nil)
+	mockSessionService.On("UpdateSessionJTI", 1, mock.Anything).Return(nil)
+	mockSessionService.On("UpdateActivity", 1).Return(nil)
+
+	result, err := service.RefreshToken("plain_refresh_token")
+
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, "Bearer", result.TokenType)
+	assert.NotEmpty(t, result.AccessToken)
+	assert.Equal(t, 900, result.ExpiresIn)
+
+	mockSessionService.AssertExpectations(t)
+	mockRepo.AssertExpectations(t)
+}
+
+// Test RefreshToken method - Invalid refresh token
+func TestAuthService_RefreshToken_InvalidToken(t *testing.T) {
+	mockRepo := new(MockUserRepository)
+	mockSessionService := new(MockSessionService)
+	service := NewAuthServiceWithDeps(mockRepo, nil, mockSessionService, "test-secret")
+
+	// Setup mock to return error
+	mockSessionService.On("ValidateSession", "invalid_token").Return(nil, ErrInvalidRefreshToken)
+
+	result, err := service.RefreshToken("invalid_token")
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Equal(t, ErrInvalidRefreshToken, err)
+
+	mockSessionService.AssertExpectations(t)
+}
+
+// Test RefreshToken method - UpdateSessionJTI fails
+func TestAuthService_RefreshToken_UpdateJTIFails(t *testing.T) {
+	mockRepo := new(MockUserRepository)
+	mockSessionService := new(MockSessionService)
+	service := NewAuthServiceWithDeps(mockRepo, nil, mockSessionService, "test-secret")
+
+	// Mock session
+	mockSession := &models.Session{
+		ID:             1,
+		UserID:         1,
+		RefreshToken:   "hashed_refresh_token",
+		AccessTokenJTI: "old-jti",
+		ExpiresAt:      time.Now().Add(7 * 24 * time.Hour),
+	}
+
+	// Mock user
+	user := &models.User{
+		ID:          1,
+		Name:        "Test User",
+		Email:       "test@example.com",
+		Description: testutil.StringPtr("Test description"),
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}
+
+	// Setup mock expectations
+	mockSessionService.On("ValidateSession", "plain_refresh_token").Return(mockSession, nil)
+	mockRepo.On("GetByID", 1).Return(user, nil)
+	mockSessionService.On("UpdateSessionJTI", 1, mock.Anything).Return(assert.AnError)
+
+	result, err := service.RefreshToken("plain_refresh_token")
+
+	// Should fail because UpdateSessionJTI failed
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "failed to update session JTI")
+
+	mockSessionService.AssertExpectations(t)
+	mockRepo.AssertExpectations(t)
+}
+
+// Test RefreshToken method - User not found
+func TestAuthService_RefreshToken_UserNotFound(t *testing.T) {
+	mockRepo := new(MockUserRepository)
+	mockSessionService := new(MockSessionService)
+	service := NewAuthServiceWithDeps(mockRepo, nil, mockSessionService, "test-secret")
+
+	// Mock session
+	mockSession := &models.Session{
+		ID:             1,
+		UserID:         999,
+		RefreshToken:   "hashed_refresh_token",
+		AccessTokenJTI: "old-jti",
+		ExpiresAt:      time.Now().Add(7 * 24 * time.Hour),
+	}
+
+	// Setup mock expectations
+	mockSessionService.On("ValidateSession", "plain_refresh_token").Return(mockSession, nil)
+	mockRepo.On("GetByID", 999).Return(nil, ErrUserNotFound)
+
+	result, err := service.RefreshToken("plain_refresh_token")
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.ErrorIs(t, err, ErrUserNotFound)
+
+	mockSessionService.AssertExpectations(t)
 	mockRepo.AssertExpectations(t)
 }

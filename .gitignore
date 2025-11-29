@@ -65,3 +65,4 @@ myanimelogs_sql_validation
 *.bak
 *~
 *.tsbuildinfo
+backend/server
