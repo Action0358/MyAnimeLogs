@@ -38,10 +38,10 @@ const Footer: React.FC = () => {
               <ul className="space-y-2">
                 <li>
                   <Link
-                    href="/animes"
+                    href="/"
                     className="text-gray-600 hover:text-gray-900 transition-colors"
                   >
-                    アニメ一覧
+                    ホーム
                   </Link>
                 </li>
                 <li>
@@ -54,10 +54,10 @@ const Footer: React.FC = () => {
                 </li>
                 <li>
                   <Link
-                    href="/about"
+                    href="/mypage"
                     className="text-gray-600 hover:text-gray-900 transition-colors"
                   >
-                    サイトについて
+                    マイページ
                   </Link>
                 </li>
               </ul>
@@ -70,36 +70,36 @@ const Footer: React.FC = () => {
               </h3>
               <ul className="space-y-2">
                 <li>
-                  <Link
-                    href="/help"
+                  <a
+                    href="#"
                     className="text-gray-600 hover:text-gray-900 transition-colors"
                   >
                     ヘルプ
-                  </Link>
+                  </a>
                 </li>
                 <li>
-                  <Link
-                    href="/contact"
+                  <a
+                    href="#"
                     className="text-gray-600 hover:text-gray-900 transition-colors"
                   >
                     お問い合わせ
-                  </Link>
+                  </a>
                 </li>
                 <li>
-                  <Link
-                    href="/privacy"
+                  <a
+                    href="#"
                     className="text-gray-600 hover:text-gray-900 transition-colors"
                   >
                     プライバシーポリシー
-                  </Link>
+                  </a>
                 </li>
                 <li>
-                  <Link
-                    href="/terms"
+                  <a
+                    href="#"
                     className="text-gray-600 hover:text-gray-900 transition-colors"
                   >
                     利用規約
-                  </Link>
+                  </a>
                 </li>
               </ul>
             </div>

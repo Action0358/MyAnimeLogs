@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { usePathname } from 'next/navigation'
 import { Button } from '../ui/Button'
 import { useAuth } from '@/contexts/AuthContext'
 import { UserMenu } from './UserMenu'
@@ -11,6 +12,9 @@ const Header: React.FC = () => {
   const { user, isLoading } = useAuth()
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [imageError, setImageError] = useState(false)
+  const pathname = usePathname()
+
+  const isHomePage = pathname === '/'
 
   const authButtonClassName =
     'text-xs sm:text-sm px-2 py-1 sm:px-4 sm:py-2 whitespace-nowrap'
@@ -20,7 +24,7 @@ const Header: React.FC = () => {
   }
 
   return (
-    <header className="bg-gray-50">
+    <header className={isHomePage ? 'bg-transparent absolute top-0 left-0 right-0 z-10' : 'bg-gray-50'}>
       <div className="flex items-center justify-between h-20 sm:h-24 px-4 sm:px-6 lg:px-8">
         {/* ロゴ・ブランド */}
         <div className="flex items-center flex-shrink-0">
@@ -31,7 +35,7 @@ const Header: React.FC = () => {
                 alt="MyAnimeLogs"
                 width={400}
                 height={80}
-                className="h-full w-full object-contain object-left"
+                className={`h-full w-full object-contain object-left ${isHomePage ? 'brightness-0 invert' : ''}`}
                 priority
               />
             </div>
@@ -82,22 +86,22 @@ const Header: React.FC = () => {
             </div>
           ) : (
             <div className="flex items-center gap-1.5 sm:gap-3">
-              <Link href="/register">
-                <Button
-                  variant="primary"
-                  size="sm"
-                  className={authButtonClassName}
-                >
-                  新規登録
-                </Button>
-              </Link>
               <Link href="/login">
                 <Button
                   variant="ghost"
                   size="sm"
-                  className={authButtonClassName}
+                  className={`${authButtonClassName} ${isHomePage ? 'text-white border-white hover:bg-white/10' : ''}`}
                 >
                   ログイン
+                </Button>
+              </Link>
+              <Link href="/register">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  className={`${authButtonClassName} ${isHomePage ? 'bg-white text-blue-600 hover:bg-gray-100' : ''}`}
+                >
+                  新規登録
                 </Button>
               </Link>
             </div>
