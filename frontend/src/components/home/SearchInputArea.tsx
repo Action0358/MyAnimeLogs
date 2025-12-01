@@ -2,7 +2,9 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import type { Route } from 'next';
 import type { SearchTab } from './SearchContainer';
+import { SEASONS, GENRES } from '@/constants/search';
 
 interface SearchInputAreaProps {
   activeTab: SearchTab;
@@ -13,26 +15,6 @@ const SearchInputArea: React.FC<SearchInputAreaProps> = ({ activeTab }) => {
   const [keyword, setKeyword] = useState('');
   const [season, setSeason] = useState('');
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
-
-  const seasons = [
-    '2025年冬',
-    '2024年秋',
-    '2024年夏',
-    '2024年春',
-    '2024年冬',
-    '2023年秋',
-  ];
-
-  const genres = [
-    'アクション',
-    'ラブコメ',
-    '異世界',
-    'SF',
-    'ファンタジー',
-    'ドラマ',
-    'コメディ',
-    'ホラー',
-  ];
 
   const handleGenreToggle = (genre: string) => {
     setSelectedGenres((prev) =>
@@ -54,11 +36,11 @@ const SearchInputArea: React.FC<SearchInputAreaProps> = ({ activeTab }) => {
     }
 
     if (searchQuery) {
-      router.push(`/search${searchQuery}` as any);
+      router.push(`/search${searchQuery}` as Route);
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       handleSearch();
     }
@@ -73,7 +55,7 @@ const SearchInputArea: React.FC<SearchInputAreaProps> = ({ activeTab }) => {
             type="text"
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
-            onKeyPress={handleKeyPress}
+            onKeyDown={handleKeyDown}
             placeholder="作品名"
             className="flex-1 px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
           />
@@ -95,7 +77,7 @@ const SearchInputArea: React.FC<SearchInputAreaProps> = ({ activeTab }) => {
             className="flex-1 px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
           >
             <option value="">放送時期を選択</option>
-            {seasons.map((s) => (
+            {SEASONS.map((s) => (
               <option key={s} value={s}>
                 {s}
               </option>
@@ -115,7 +97,7 @@ const SearchInputArea: React.FC<SearchInputAreaProps> = ({ activeTab }) => {
       {activeTab === 'genre' && (
         <div className="space-y-4">
           <div className="flex flex-wrap gap-2">
-            {genres.map((genre) => (
+            {GENRES.map((genre) => (
               <button
                 key={genre}
                 onClick={() => handleGenreToggle(genre)}

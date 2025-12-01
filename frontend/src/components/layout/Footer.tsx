@@ -1,5 +1,6 @@
 import React from 'react'
 import Link from 'next/link'
+import type { Route } from 'next'
 import Container from './Container'
 
 const Footer: React.FC = () => {
@@ -70,36 +71,36 @@ const Footer: React.FC = () => {
               </h3>
               <ul className="space-y-2">
                 <li>
-                  <a
-                    href="#"
+                  <Link
+                    href={'/help' as Route}
                     className="text-gray-600 hover:text-gray-900 transition-colors"
                   >
                     ヘルプ
-                  </a>
+                  </Link>
                 </li>
                 <li>
-                  <a
-                    href="#"
+                  <Link
+                    href={'/contact' as Route}
                     className="text-gray-600 hover:text-gray-900 transition-colors"
                   >
                     お問い合わせ
-                  </a>
+                  </Link>
                 </li>
                 <li>
-                  <a
-                    href="#"
+                  <Link
+                    href={'/privacy' as Route}
                     className="text-gray-600 hover:text-gray-900 transition-colors"
                   >
                     プライバシーポリシー
-                  </a>
+                  </Link>
                 </li>
                 <li>
-                  <a
-                    href="#"
+                  <Link
+                    href={'/terms' as Route}
                     className="text-gray-600 hover:text-gray-900 transition-colors"
                   >
                     利用規約
-                  </a>
+                  </Link>
                 </li>
               </ul>
             </div>

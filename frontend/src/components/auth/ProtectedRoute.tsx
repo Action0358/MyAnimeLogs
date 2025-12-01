@@ -21,7 +21,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     if (!isLoading) {
       if (!isAuthenticated) {
         // 認証されていない場合は即座にリダイレクト（履歴を残さない）
-        router.replace(redirectTo as any)
+        router.replace(redirectTo)
       } else {
         // 認証されている場合のみレンダリングを許可
         setShouldRender(true)
