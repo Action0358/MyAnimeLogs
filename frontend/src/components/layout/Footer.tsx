@@ -1,5 +1,6 @@
 import React from 'react'
 import Link from 'next/link'
+import type { Route } from 'next'
 import Container from './Container'
 
 const Footer: React.FC = () => {
@@ -38,10 +39,10 @@ const Footer: React.FC = () => {
               <ul className="space-y-2">
                 <li>
                   <Link
-                    href="/animes"
+                    href="/"
                     className="text-gray-600 hover:text-gray-900 transition-colors"
                   >
-                    アニメ一覧
+                    ホーム
                   </Link>
                 </li>
                 <li>
@@ -54,10 +55,10 @@ const Footer: React.FC = () => {
                 </li>
                 <li>
                   <Link
-                    href="/about"
+                    href="/mypage"
                     className="text-gray-600 hover:text-gray-900 transition-colors"
                   >
-                    サイトについて
+                    マイページ
                   </Link>
                 </li>
               </ul>
@@ -71,7 +72,7 @@ const Footer: React.FC = () => {
               <ul className="space-y-2">
                 <li>
                   <Link
-                    href="/help"
+                    href={'/help' as Route}
                     className="text-gray-600 hover:text-gray-900 transition-colors"
                   >
                     ヘルプ
@@ -79,7 +80,7 @@ const Footer: React.FC = () => {
                 </li>
                 <li>
                   <Link
-                    href="/contact"
+                    href={'/contact' as Route}
                     className="text-gray-600 hover:text-gray-900 transition-colors"
                   >
                     お問い合わせ
@@ -87,7 +88,7 @@ const Footer: React.FC = () => {
                 </li>
                 <li>
                   <Link
-                    href="/privacy"
+                    href={'/privacy' as Route}
                     className="text-gray-600 hover:text-gray-900 transition-colors"
                   >
                     プライバシーポリシー
@@ -95,7 +96,7 @@ const Footer: React.FC = () => {
                 </li>
                 <li>
                   <Link
-                    href="/terms"
+                    href={'/terms' as Route}
                     className="text-gray-600 hover:text-gray-900 transition-colors"
                   >
                     利用規約
