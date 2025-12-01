@@ -81,7 +81,6 @@ const SearchInputArea: React.FC<SearchInputAreaProps> = ({ activeTab }) => {
             onClick={handleSearch}
             className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium flex items-center justify-center gap-2 w-full md:w-auto"
           >
-            <span>🔍</span>
             <span>検索</span>
           </button>
         </div>
@@ -107,7 +106,6 @@ const SearchInputArea: React.FC<SearchInputAreaProps> = ({ activeTab }) => {
             disabled={!season}
             className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium flex items-center justify-center gap-2 w-full md:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <span>🔍</span>
             <span>検索</span>
           </button>
         </div>
@@ -139,7 +137,6 @@ const SearchInputArea: React.FC<SearchInputAreaProps> = ({ activeTab }) => {
             disabled={selectedGenres.length === 0}
             className="w-full px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <span>🔍</span>
             <span>検索</span>
           </button>
         </div>
