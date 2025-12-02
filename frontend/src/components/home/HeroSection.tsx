@@ -1,26 +1,22 @@
 'use client';
 
 import React from 'react';
-import Image from 'next/image';
 import SearchContainer from './SearchContainer';
 
 const HeroSection: React.FC = () => {
   return (
-    <section className="relative min-h-[600px] md:min-h-[60vh] flex flex-col items-center justify-center bg-gradient-to-br from-blue-600 to-blue-800 text-white px-4 py-16">
+    <section className="relative flex flex-col items-center bg-gradient-to-br from-blue-600 to-blue-800 text-white px-4 pt-44 pb-24 md:pt-52 md:pb-32">
       {/* キャッチコピー */}
-      <h2 className="text-sm md:text-lg text-center mb-2 md:mb-3">
+      <h2 className="text-base md:text-xl text-center mb-4 md:mb-6 font-medium">
         あなたのアニメ視聴体験を記録・管理しよう
       </h2>
 
       {/* ロゴ */}
-      <div className="mb-8 md:mb-12">
-        <Image
-          src="/logo.png"
+      <div className="mb-16 md:mb-20">
+        <img
+          src="/logo.svg"
           alt="MyAnimeLogs"
-          width={400}
-          height={80}
-          className="w-[250px] md:w-[400px] h-auto brightness-0 invert"
-          priority
+          className="h-28 md:h-40 w-auto brightness-0 invert"
         />
       </div>
 

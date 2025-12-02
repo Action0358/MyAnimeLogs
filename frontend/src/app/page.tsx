@@ -14,7 +14,7 @@ const HomePage: React.FC = () => {
       {/* 既存のコンテンツ */}
       <Container className="py-12">
         {/* 今期アニメセクション */}
-        <div className="mb-16">
+        <div id="current-season" className="mb-16 scroll-mt-24">
           <CurrentSeasonAnime />
         </div>
 
