@@ -2,15 +2,18 @@
 
 import React, { useState } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
 import { usePathname } from 'next/navigation'
+import { Menu } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { useAuth } from '@/contexts/AuthContext'
 import { UserMenu } from './UserMenu'
+import { GlobalNav } from './GlobalNav'
+import { MobileNav } from './MobileNav'
 
 const Header: React.FC = () => {
   const { user, isLoading } = useAuth()
-  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false)
   const [imageError, setImageError] = useState(false)
   const pathname = usePathname()
 
@@ -19,36 +22,47 @@ const Header: React.FC = () => {
   const authButtonClassName =
     'text-xs sm:text-sm px-2 py-1 sm:px-4 sm:py-2 whitespace-nowrap'
 
-  const toggleMenu = () => {
-    setIsMenuOpen(!isMenuOpen)
+  const toggleUserMenu = () => {
+    setIsUserMenuOpen(!isUserMenuOpen)
+  }
+
+  const toggleMobileNav = () => {
+    setIsMobileNavOpen(!isMobileNavOpen)
   }
 
   return (
     <header className={isHomePage ? 'bg-transparent absolute top-0 left-0 right-0 z-10' : 'bg-gray-50'}>
       <div className="flex items-center justify-between h-20 sm:h-24 px-4 sm:px-6 lg:px-8">
-        {/* ロゴ・ブランド */}
-        <div className="flex items-center flex-shrink-0">
-          <Link href="/" className="flex items-center group">
-            <div className="relative h-16 sm:h-20 w-56 sm:w-72 transition-transform duration-300 group-hover:scale-105">
-              <Image
-                src="/logo.png"
-                alt="MyAnimeLogs"
-                width={400}
-                height={80}
-                className={`h-full w-full object-contain object-left ${isHomePage ? 'brightness-0 invert' : ''}`}
-                priority
-              />
-            </div>
+        {/* 左側: ロゴ + グローバルナビゲーション */}
+        <div className="flex items-center gap-6 flex-1">
+          {/* ロゴ・ブランド */}
+          <Link href="/" className="flex items-center group flex-shrink-0">
+            <img
+              src="/logo.svg"
+              alt="MyAnimeLogs"
+              className={`h-10 sm:h-12 w-auto transition-transform duration-300 group-hover:scale-105 ${isHomePage ? 'brightness-0 invert' : ''}`}
+            />
           </Link>
+
+          {/* グローバルナビゲーション（デスクトップ） */}
+          <GlobalNav />
         </div>
 
-        {/* ナビゲーション */}
-        <nav className="hidden md:flex items-center space-x-8">
-          {/* 将来的にナビゲーションリンクを追加する場合はここに配置 */}
-        </nav>
-
-        {/* ユーザーメニュー */}
+        {/* 右側のメニュー */}
         <div className="flex items-center gap-2 sm:gap-3">
+          {/* モバイルメニューボタン */}
+          <button
+            onClick={toggleMobileNav}
+            className={`md:hidden p-2 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+              isHomePage
+                ? 'text-white hover:bg-white/10 focus:ring-white'
+                : 'text-gray-700 hover:bg-gray-100 focus:ring-blue-500'
+            }`}
+            aria-label="メニューを開く"
+            aria-expanded={isMobileNavOpen}
+          >
+            <Menu className="h-6 w-6" />
+          </button>
           {isLoading ? (
             <div className="flex items-center space-x-2">
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
@@ -60,9 +74,10 @@ const Header: React.FC = () => {
             <div className="relative flex items-center gap-2">
               {/* ユーザーアイコン（クリックでメニュー表示） */}
               <button
-                onClick={toggleMenu}
+                onClick={toggleUserMenu}
                 className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center hover:bg-blue-200 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                 aria-label="ユーザーメニュー"
+                aria-expanded={isUserMenuOpen}
               >
                 {user.icon && !imageError ? (
                   <img
@@ -80,8 +95,8 @@ const Header: React.FC = () => {
 
               {/* ドロップダウンメニュー */}
               <UserMenu
-                isOpen={isMenuOpen}
-                onClose={() => setIsMenuOpen(false)}
+                isOpen={isUserMenuOpen}
+                onClose={() => setIsUserMenuOpen(false)}
               />
             </div>
           ) : (
@@ -108,6 +123,9 @@ const Header: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* モバイルナビゲーション */}
+      <MobileNav isOpen={isMobileNavOpen} onClose={() => setIsMobileNavOpen(false)} />
     </header>
   )
 }
