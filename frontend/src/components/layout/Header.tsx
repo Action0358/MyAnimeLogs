@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { UserMenu } from './UserMenu'
 import { GlobalNav } from './GlobalNav'
 import { MobileNav } from './MobileNav'
+import { NAV_TEXT_STYLES } from './navigationConfig'
 
 const Header: React.FC = () => {
   const { user, isLoading } = useAuth()
@@ -102,7 +103,7 @@ const Header: React.FC = () => {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className={`!text-base !font-bold !px-3 !py-2 ${isHomePage ? 'text-white border-white hover:bg-white/10' : ''}`}
+                  className={`!${NAV_TEXT_STYLES} !px-3 !py-2 ${isHomePage ? 'text-white border-white hover:bg-white/10' : ''}`}
                 >
                   ログイン
                 </Button>
@@ -111,7 +112,7 @@ const Header: React.FC = () => {
                 <Button
                   variant="primary"
                   size="sm"
-                  className={`!text-base !font-bold !px-3 !py-2 ${isHomePage ? 'bg-white text-blue-600 hover:bg-gray-100' : ''}`}
+                  className={`!${NAV_TEXT_STYLES} !px-3 !py-2 ${isHomePage ? 'bg-white text-blue-600 hover:bg-gray-100' : ''}`}
                 >
                   新規登録
                 </Button>
