@@ -3,6 +3,7 @@
 import React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import type { Route } from 'next'
 import { NAV_TEXT_STYLES } from './navigationConfig'
 
 interface NavLinkProps {
@@ -45,7 +46,7 @@ export const NavLink: React.FC<NavLinkProps> = ({
 
   return (
     <Link
-      href={href as any}
+      href={href as Route}
       onClick={onClick}
       className={linkClassName}
       aria-current={isActive ? 'page' : undefined}

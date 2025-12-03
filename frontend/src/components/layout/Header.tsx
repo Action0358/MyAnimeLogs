@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import type { Route } from 'next'
 import { Menu } from 'lucide-react'
 import { Button } from '../ui/Button'
 import { useAuth } from '@/contexts/AuthContext'
@@ -34,7 +35,7 @@ const Header: React.FC = () => {
         {/* 左側: ロゴ + グローバルナビゲーション */}
         <div className="flex items-center gap-6 flex-1">
           {/* ロゴ・ブランド */}
-          <Link href="/" className="flex items-center group flex-shrink-0">
+          <Link href={"/" as Route} className="flex items-center group flex-shrink-0">
             <img
               src="/logo.svg"
               alt="MyAnimeLogs"
@@ -99,19 +100,23 @@ const Header: React.FC = () => {
             </div>
           ) : (
             <div className="flex items-center gap-1.5 sm:gap-3">
-              <Link href="/login">
+              <Link href={"/login" as Route}>
                 <Button
                   variant="ghost"
                   size="sm"
+                  // Note: !important を使用してButtonコンポーネントのデフォルトスタイルを上書き
+                  // 将来的にはButtonコンポーネントに新しいvariantを追加することを検討
                   className={`!${NAV_TEXT_STYLES} !px-3 !py-2 ${isHomePage ? 'text-white border-white hover:bg-white/10' : ''}`}
                 >
                   ログイン
                 </Button>
               </Link>
-              <Link href="/register">
+              <Link href={"/register" as Route}>
                 <Button
                   variant="primary"
                   size="sm"
+                  // Note: !important を使用してButtonコンポーネントのデフォルトスタイルを上書き
+                  // 将来的にはButtonコンポーネントに新しいvariantを追加することを検討
                   className={`!${NAV_TEXT_STYLES} !px-3 !py-2 ${isHomePage ? 'bg-white text-blue-600 hover:bg-gray-100' : ''}`}
                 >
                   新規登録
