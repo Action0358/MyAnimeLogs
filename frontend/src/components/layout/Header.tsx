@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { UserMenu } from './UserMenu'
 import { GlobalNav } from './GlobalNav'
 import { MobileNav } from './MobileNav'
+import { NAV_TEXT_STYLES } from './navigationConfig'
 
 const Header: React.FC = () => {
   const { user, isLoading } = useAuth()
@@ -18,9 +19,6 @@ const Header: React.FC = () => {
   const pathname = usePathname()
 
   const isHomePage = pathname === '/'
-
-  const authButtonClassName =
-    'text-xs sm:text-sm px-2 py-1 sm:px-4 sm:py-2 whitespace-nowrap'
 
   const toggleUserMenu = () => {
     setIsUserMenuOpen(!isUserMenuOpen)
@@ -105,7 +103,7 @@ const Header: React.FC = () => {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className={`${authButtonClassName} ${isHomePage ? 'text-white border-white hover:bg-white/10' : ''}`}
+                  className={`!${NAV_TEXT_STYLES} !px-3 !py-2 ${isHomePage ? 'text-white border-white hover:bg-white/10' : ''}`}
                 >
                   ログイン
                 </Button>
@@ -114,7 +112,7 @@ const Header: React.FC = () => {
                 <Button
                   variant="primary"
                   size="sm"
-                  className={`${authButtonClassName} ${isHomePage ? 'bg-white text-blue-600 hover:bg-gray-100' : ''}`}
+                  className={`!${NAV_TEXT_STYLES} !px-3 !py-2 ${isHomePage ? 'bg-white text-blue-600 hover:bg-gray-100' : ''}`}
                 >
                   新規登録
                 </Button>

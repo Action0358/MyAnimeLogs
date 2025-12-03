@@ -3,6 +3,7 @@
 import React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { NAV_TEXT_STYLES } from './navigationConfig'
 
 interface NavLinkProps {
   href: string
@@ -35,7 +36,8 @@ export const NavLink: React.FC<NavLinkProps> = ({
     : 'text-blue-600 border-b-2 border-blue-600'
   
   const linkClassName = `
-    px-2 py-2 text-base font-bold transition-colors
+    ${NAV_TEXT_STYLES}
+    px-2 py-2 transition-colors
     ${baseStyle}
     ${isActive ? activeStyle : ''}
     ${className}
