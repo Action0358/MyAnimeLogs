@@ -26,27 +26,12 @@ const AboutPage: React.FC = () => {
             <h2 className="text-2xl font-semibold text-gray-900 mb-4">
               主な機能
             </h2>
-            <ul className="space-y-3 text-gray-700">
-              <li className="flex items-start">
-                <span className="text-blue-600 mr-2">•</span>
-                <span>アニメの視聴記録と評価管理</span>
-              </li>
-              <li className="flex items-start">
-                <span className="text-blue-600 mr-2">•</span>
-                <span>今期放送中のアニメ情報</span>
-              </li>
-              <li className="flex items-start">
-                <span className="text-blue-600 mr-2">•</span>
-                <span>人気アニメのランキング</span>
-              </li>
-              <li className="flex items-start">
-                <span className="text-blue-600 mr-2">•</span>
-                <span>詳細な統計情報の表示</span>
-              </li>
-              <li className="flex items-start">
-                <span className="text-blue-600 mr-2">•</span>
-                <span>アニメの検索機能</span>
-              </li>
+            <ul className="space-y-3 text-gray-700 list-disc list-inside marker:text-blue-600">
+              <li>アニメの視聴記録と評価管理</li>
+              <li>今期放送中のアニメ情報</li>
+              <li>人気アニメのランキング</li>
+              <li>詳細な統計情報の表示</li>
+              <li>アニメの検索機能</li>
             </ul>
           </section>
 

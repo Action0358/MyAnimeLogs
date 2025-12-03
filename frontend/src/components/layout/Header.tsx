@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import type { Route } from 'next'
 import { Menu } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { Button } from '../ui/Button'
 import { useAuth } from '@/contexts/AuthContext'
 import { UserMenu } from './UserMenu'
@@ -30,7 +31,14 @@ const Header: React.FC = () => {
   }
 
   return (
-    <header className={isHomePage ? 'bg-transparent absolute top-0 left-0 right-0 z-10' : 'bg-gray-50'}>
+    <header
+      className={cn(
+        'h-20 sm:h-24',
+        isHomePage
+          ? 'bg-transparent absolute top-0 left-0 right-0 z-10'
+          : 'bg-gray-50'
+      )}
+    >
       <div className="flex items-center justify-between h-20 sm:h-24 px-4 sm:px-6 lg:px-8">
         {/* 左側: ロゴ + グローバルナビゲーション */}
         <div className="flex items-center gap-6 flex-1">
@@ -52,11 +60,12 @@ const Header: React.FC = () => {
           {/* モバイルメニューボタン */}
           <button
             onClick={toggleMobileNav}
-            className={`md:hidden p-2 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+            className={cn(
+              'md:hidden p-2 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2',
               isHomePage
                 ? 'text-white hover:bg-white/10 focus:ring-white'
                 : 'text-gray-700 hover:bg-gray-100 focus:ring-blue-500'
-            }`}
+            )}
             aria-label="メニューを開く"
             aria-expanded={isMobileNavOpen}
           >
@@ -102,22 +111,18 @@ const Header: React.FC = () => {
             <div className="flex items-center gap-1.5 sm:gap-3">
               <Link href={"/login" as Route}>
                 <Button
-                  variant="ghost"
+                  variant={isHomePage ? 'ghost-on-dark' : 'ghost'}
                   size="sm"
-                  // Note: !important を使用してButtonコンポーネントのデフォルトスタイルを上書き
-                  // 将来的にはButtonコンポーネントに新しいvariantを追加することを検討
-                  className={`!${NAV_TEXT_STYLES} !px-3 !py-2 ${isHomePage ? 'text-white border-white hover:bg-white/10' : ''}`}
+                  className={cn(NAV_TEXT_STYLES, 'px-3 py-2')}
                 >
                   ログイン
                 </Button>
               </Link>
               <Link href={"/register" as Route}>
                 <Button
-                  variant="primary"
+                  variant={isHomePage ? 'primary-on-dark' : 'primary'}
                   size="sm"
-                  // Note: !important を使用してButtonコンポーネントのデフォルトスタイルを上書き
-                  // 将来的にはButtonコンポーネントに新しいvariantを追加することを検討
-                  className={`!${NAV_TEXT_STYLES} !px-3 !py-2 ${isHomePage ? 'bg-white text-blue-600 hover:bg-gray-100' : ''}`}
+                  className={cn(NAV_TEXT_STYLES, 'px-3 py-2')}
                 >
                   新規登録
                 </Button>
