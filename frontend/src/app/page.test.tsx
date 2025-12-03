@@ -42,7 +42,7 @@ describe('HomePage', () => {
     )
 
     const heading = screen.getByRole('heading', {
-      name: /MyAnimeLogs へようこそ/i,
+      name: /あなたのアニメ視聴体験を記録・管理しよう/i,
     })
 
     expect(heading).toBeInTheDocument()
