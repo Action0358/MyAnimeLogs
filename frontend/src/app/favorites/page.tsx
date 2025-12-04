@@ -15,7 +15,7 @@ const FavoritesPage: React.FC = () => {
 
       {/* 空状態の表示 */}
       <div className="text-center py-16">
-        <div className="text-6xl mb-4">⭐</div>
+        <div className="text-6xl mb-4" aria-hidden="true">⭐</div>
         <h2 className="text-xl font-semibold text-gray-700 mb-2">
           お気に入りがまだありません
         </h2>

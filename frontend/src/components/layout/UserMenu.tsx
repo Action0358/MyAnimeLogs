@@ -10,6 +10,17 @@ interface UserMenuProps {
   onClose: () => void
 }
 
+interface MenuItem {
+  label: string
+  href: Route
+}
+
+const MENU_ITEMS: MenuItem[] = [
+  { label: 'マイページ', href: '/mypage' as Route },
+  { label: 'お気に入り', href: '/favorites' as Route },
+  { label: '視聴統計', href: '/stats' as Route },
+]
+
 export const UserMenu: React.FC<UserMenuProps> = ({ isOpen, onClose }) => {
   const { user, logout } = useAuth()
   const menuRef = useRef<HTMLDivElement>(null)
@@ -50,27 +61,16 @@ export const UserMenu: React.FC<UserMenuProps> = ({ isOpen, onClose }) => {
 
       {/* メインメニュー */}
       <nav className="py-1">
-        <Link
-          href={"/mypage" as Route}
-          onClick={onClose}
-          className="block px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
-        >
-          <span className="text-base font-semibold">マイページ</span>
-        </Link>
-        <Link
-          href={"/favorites" as Route}
-          onClick={onClose}
-          className="block px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
-        >
-          <span className="text-base font-semibold">お気に入り</span>
-        </Link>
-        <Link
-          href={"/stats" as Route}
-          onClick={onClose}
-          className="block px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
-        >
-          <span className="text-base font-semibold">視聴統計</span>
-        </Link>
+        {MENU_ITEMS.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            onClick={onClose}
+            className="block px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <span className="text-base font-semibold">{item.label}</span>
+          </Link>
+        ))}
       </nav>
 
       {/* ログアウト */}
