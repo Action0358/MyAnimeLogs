@@ -2,6 +2,7 @@
 
 import React, { useRef, useEffect } from 'react'
 import Link from 'next/link'
+import type { Route } from 'next'
 import { useAuth } from '@/contexts/AuthContext'
 
 interface UserMenuProps {
@@ -50,18 +51,25 @@ export const UserMenu: React.FC<UserMenuProps> = ({ isOpen, onClose }) => {
       {/* メインメニュー */}
       <nav className="py-1">
         <Link
-          href="/mypage"
+          href={"/mypage" as Route}
           onClick={onClose}
           className="block px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
         >
           <span className="text-base font-semibold">マイページ</span>
         </Link>
         <Link
-          href="/stats"
+          href={"/favorites" as Route}
           onClick={onClose}
           className="block px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
         >
-          <span className="text-base font-semibold">統計</span>
+          <span className="text-base font-semibold">お気に入り</span>
+        </Link>
+        <Link
+          href={"/stats" as Route}
+          onClick={onClose}
+          className="block px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
+        >
+          <span className="text-base font-semibold">視聴統計</span>
         </Link>
       </nav>
 
