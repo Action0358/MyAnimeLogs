@@ -1,6 +1,8 @@
 'use client'
 
 import React from 'react'
+import Link from 'next/link'
+import type { Route } from 'next'
 import { Container } from '@/components/layout'
 
 const FavoritesPage: React.FC = () => {
@@ -20,12 +22,12 @@ const FavoritesPage: React.FC = () => {
           <p className="text-gray-500 mb-6">
             気になるアニメを見つけたら、お気に入りに追加してみましょう
           </p>
-          <a
-            href="/"
+          <Link
+            href={"/" as Route}
             className="inline-block px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium"
           >
             アニメを探す
-          </a>
+          </Link>
         </div>
 
         {/* TODO: お気に入りアニメ一覧の実装 */}
