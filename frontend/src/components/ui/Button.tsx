@@ -30,7 +30,7 @@ export const Button: React.FC<ButtonProps> = ({
     ghost:
       'text-gray-700 hover:bg-gray-100 active:bg-gray-200 focus:ring-gray-500',
     'ghost-on-dark':
-      'text-white border border-white hover:bg-white/10 active:bg-white/20 focus:ring-white',
+      'text-white hover:bg-white/10 active:bg-white/20 focus:ring-white',
     'primary-on-dark':
       'bg-white text-blue-600 hover:bg-gray-100 active:bg-gray-200 focus:ring-white',
   }
