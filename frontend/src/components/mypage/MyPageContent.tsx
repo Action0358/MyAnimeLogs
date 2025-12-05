@@ -160,23 +160,24 @@ export const MyPageContent: React.FC = () => {
         <div className="max-w-6xl mx-auto">
           <div className="bg-white rounded-lg shadow-sm">
             {/* ヘッダー部分 */}
-            <div className="p-6 border-b border-gray-200">
+            <div className="p-4 sm:p-6 border-b border-gray-200">
               <div className="flex items-center justify-between mb-4">
-                <p className="text-sm text-gray-500">{registrationDate} 登録</p>
+                <p className="text-xs sm:text-sm text-gray-500">{registrationDate} 登録</p>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => router.push('/mypage/edit')}
+                  className="text-xs sm:text-sm"
                 >
                   ⚙️ 設定
                 </Button>
               </div>
 
               {/* プロフィール情報 */}
-              <div className="flex items-start space-x-6">
+              <div className="flex flex-col sm:flex-row items-start sm:space-x-6 space-y-4 sm:space-y-0">
                 {/* 左側: アイコン */}
-                <div className="flex-shrink-0">
-                  <div className="w-32 h-32 bg-gray-100 rounded-full overflow-hidden">
+                <div className="flex-shrink-0 mx-auto sm:mx-0">
+                  <div className="w-24 h-24 sm:w-32 sm:h-32 bg-gray-100 rounded-full overflow-hidden">
                     {user?.icon && !imageError ? (
                       <img
                         src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${user.icon}`}
@@ -186,36 +187,36 @@ export const MyPageContent: React.FC = () => {
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
-                        <span className="text-gray-400 text-5xl">👤</span>
+                        <span className="text-gray-400 text-4xl sm:text-5xl">👤</span>
                       </div>
                     )}
                   </div>
                 </div>
 
                 {/* 右側: ユーザー情報とプロフィール詳細 */}
-                <div className="flex-1">
+                <div className="flex-1 w-full">
                   {/* ユーザー名と統計 */}
-                  <div className="mb-6">
-                    <h1 className="text-3xl font-bold text-blue-900 mb-3">
+                  <div className="mb-4 sm:mb-6">
+                    <h1 className="text-2xl sm:text-3xl font-bold text-blue-900 mb-3 text-center sm:text-left">
                       {user?.name}
                     </h1>
 
                     {/* 統計バッジ */}
-                    <div className="flex items-center space-x-6">
+                    <div className="flex items-center justify-center sm:justify-start space-x-4 sm:space-x-6">
                       <div className="flex items-center space-x-2">
-                        <span className="text-xl">📺</span>
+                        <span className="text-lg sm:text-xl">📺</span>
                         <div>
                           <p className="text-xs text-gray-500">視聴数</p>
-                          <p className="text-base font-bold text-gray-900">
+                          <p className="text-sm sm:text-base font-bold text-gray-900">
                             {stats?.totalEpisodesWatched || 0}
                           </p>
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <span className="text-xl">✅</span>
+                        <span className="text-lg sm:text-xl">✅</span>
                         <div>
                           <p className="text-xs text-gray-500">完了</p>
-                          <p className="text-base font-bold text-gray-900">
+                          <p className="text-sm sm:text-base font-bold text-gray-900">
                             {stats?.totalAnimesCompleted || 0}
                           </p>
                         </div>
@@ -224,9 +225,9 @@ export const MyPageContent: React.FC = () => {
                   </div>
 
                   {/* プロフィール詳細 */}
-                  <div className="space-y-6 max-w-3xl">
+                  <div className="space-y-4 sm:space-y-6 max-w-3xl">
                     <div>
-                      <h3 className="text-lg font-bold text-gray-900 mb-2">
+                      <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-2">
                         プロフィール
                       </h3>
                       <p className="text-gray-900 whitespace-pre-wrap text-sm leading-relaxed">
@@ -235,7 +236,7 @@ export const MyPageContent: React.FC = () => {
                     </div>
 
                     <div>
-                      <h3 className="text-lg font-bold text-gray-900 mb-2">
+                      <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-2">
                         好きなアニメ
                       </h3>
                       <p className="text-gray-900 text-sm leading-relaxed">
@@ -244,7 +245,7 @@ export const MyPageContent: React.FC = () => {
                     </div>
 
                     <div>
-                      <h3 className="text-lg font-bold text-gray-900 mb-2">
+                      <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-2">
                         SNSリンク
                       </h3>
                       <div>
@@ -253,7 +254,7 @@ export const MyPageContent: React.FC = () => {
                             href={snsLink}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-blue-600 hover:underline text-sm"
+                            className="text-blue-600 hover:underline text-sm break-all"
                           >
                             {snsLink}
                           </a>
@@ -268,22 +269,22 @@ export const MyPageContent: React.FC = () => {
             </div>
 
             {/* タブナビゲーション */}
-            <div className="border-b border-gray-200">
-              <div className="flex space-x-8 px-6">
+            <div className="border-b border-gray-200 overflow-x-auto">
+              <div className="flex space-x-4 sm:space-x-8 px-4 sm:px-6 min-w-max">
                 <button
                   onClick={() => setActiveTab('favorites')}
-                  className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
+                  className={`py-3 sm:py-4 px-2 border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap ${
                     activeTab === 'favorites'
                       ? 'border-blue-600 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700'
                   }`}
                 >
                   お気に入り
-                  <span className="ml-2 text-xs">{favorites.length}</span>
+                  <span className="ml-1 sm:ml-2 text-xs">{favorites.length}</span>
                 </button>
                 <button
                   onClick={() => setActiveTab('stats')}
-                  className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
+                  className={`py-3 sm:py-4 px-2 border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap ${
                     activeTab === 'stats'
                       ? 'border-blue-600 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -293,7 +294,7 @@ export const MyPageContent: React.FC = () => {
                 </button>
                 <button
                   onClick={() => setActiveTab('history')}
-                  className={`py-4 px-2 border-b-2 font-medium text-sm transition-colors ${
+                  className={`py-3 sm:py-4 px-2 border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap ${
                     activeTab === 'history'
                       ? 'border-blue-600 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -305,7 +306,7 @@ export const MyPageContent: React.FC = () => {
             </div>
 
             {/* タブコンテンツ */}
-            <div className="p-6">
+            <div className="p-4 sm:p-6">
               {activeTab === 'favorites' && (
                 <div>
                   {favorites.length > 0 ? (

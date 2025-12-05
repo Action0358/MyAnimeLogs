@@ -76,7 +76,7 @@ const RegisterPage: React.FC = () => {
               placeholder="マイアニメログ"
               required
               autoComplete="name"
-              helperText="1〜100文字で入力してください"
+              helperText="1〜50文字で入力してください"
             />
 
             <Input

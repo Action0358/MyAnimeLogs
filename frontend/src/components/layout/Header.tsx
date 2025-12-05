@@ -11,7 +11,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { UserMenu } from './UserMenu'
 import { GlobalNav } from './GlobalNav'
 import { MobileNav } from './MobileNav'
-import { NAV_TEXT_STYLES } from './navigationConfig'
+
 
 const Header: React.FC = () => {
   const { user, isLoading } = useAuth()
@@ -40,24 +40,9 @@ const Header: React.FC = () => {
       )}
     >
       <div className="flex items-center justify-between h-20 sm:h-24 px-4 sm:px-6 lg:px-8">
-        {/* 左側: ロゴ + グローバルナビゲーション */}
+        {/* 左側: ハンバーガーメニュー（モバイル）/ ロゴ + グローバルナビゲーション（デスクトップ） */}
         <div className="flex items-center gap-6 flex-1">
-          {/* ロゴ・ブランド */}
-          <Link href={"/" as Route} className="flex items-center group flex-shrink-0">
-            <img
-              src="/logo.svg"
-              alt="MyAnimeLogs"
-              className={`h-10 sm:h-12 w-auto transition-transform duration-300 group-hover:scale-105 ${isHomePage ? 'brightness-0 invert' : ''}`}
-            />
-          </Link>
-
-          {/* グローバルナビゲーション（デスクトップ） */}
-          <GlobalNav />
-        </div>
-
-        {/* 右側のメニュー */}
-        <div className="flex items-center gap-2 sm:gap-3">
-          {/* モバイルメニューボタン */}
+          {/* モバイルメニューボタン（左側に配置） */}
           <button
             onClick={toggleMobileNav}
             className={cn(
@@ -71,6 +56,22 @@ const Header: React.FC = () => {
           >
             <Menu className="h-6 w-6" />
           </button>
+
+          {/* ロゴ・ブランド（デスクトップのみ表示） */}
+          <Link href={"/" as Route} className="hidden md:flex items-center group flex-shrink-0">
+            <img
+              src="/logo.svg"
+              alt="MyAnimeLogs"
+              className={`h-10 sm:h-12 w-auto transition-transform duration-300 group-hover:scale-105 ${isHomePage ? 'brightness-0 invert' : ''}`}
+            />
+          </Link>
+
+          {/* グローバルナビゲーション（デスクトップ） */}
+          <GlobalNav />
+        </div>
+
+        {/* 右側のメニュー */}
+        <div className="flex items-center gap-2 sm:gap-3">
           {isLoading ? (
             <div className="flex items-center space-x-2">
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
@@ -108,12 +109,15 @@ const Header: React.FC = () => {
               />
             </div>
           ) : (
-            <div className="flex items-center gap-1.5 sm:gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               <Link href={"/login" as Route}>
                 <Button
                   variant={isHomePage ? 'ghost-on-dark' : 'ghost'}
                   size="sm"
-                  className={cn(NAV_TEXT_STYLES, 'px-3 py-2')}
+                  className={cn(
+                    'text-xs px-2 py-1.5',
+                    'md:text-base md:font-bold md:px-3 md:py-2'
+                  )}
                 >
                   ログイン
                 </Button>
@@ -122,7 +126,10 @@ const Header: React.FC = () => {
                 <Button
                   variant={isHomePage ? 'primary-on-dark' : 'primary'}
                   size="sm"
-                  className={cn(NAV_TEXT_STYLES, 'px-3 py-2')}
+                  className={cn(
+                    'text-xs px-2 py-1.5',
+                    'md:text-base md:font-bold md:px-3 md:py-2'
+                  )}
                 >
                   新規登録
                 </Button>

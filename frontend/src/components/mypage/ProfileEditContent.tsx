@@ -9,9 +9,9 @@ import { Button } from '@/components/ui/Button'
 import { put, uploadFile, ApiClientError } from '@/lib/api/client'
 
 // Validation constants
-const MAX_NAME_LENGTH = 100
-const MAX_DESCRIPTION_LENGTH = 10000
-const MAX_FAVORITE_ANIME_LENGTH = 300
+const MAX_NAME_LENGTH = 50
+const MAX_DESCRIPTION_LENGTH = 500
+const MAX_FAVORITE_ANIME_LENGTH = 200
 
 // Shared styles
 const TEXTAREA_CLASS_NAME =
@@ -348,20 +348,20 @@ export const ProfileEditContent: React.FC = () => {
               <Button
                 type="submit"
                 variant="primary"
-                size="lg"
+                size="md"
                 isLoading={isLoading || isUploadingIcon}
                 disabled={!hasChanges || isLoading || isUploadingIcon}
-                className="flex-1"
+                className="flex-1 text-sm"
               >
                 {isLoading || isUploadingIcon ? '保存中...' : '保存する'}
               </Button>
               <Button
                 type="button"
                 variant="outline"
-                size="lg"
+                size="md"
                 onClick={handleCancel}
                 disabled={isLoading || isUploadingIcon}
-                className="flex-1"
+                className="flex-1 text-sm"
               >
                 キャンセル
               </Button>
