@@ -73,7 +73,8 @@ export const storage = {
  * @returns 完全なURL（例: "http://localhost:8080/uploads/icons/user123.png"）
  */
 export const buildIconUrl = (iconPath: string | null | undefined): string | null => {
-  if (!iconPath) return null;
+  // null, undefined, 空文字、空白のみの文字列をnullとして扱う
+  if (!iconPath || !iconPath.trim()) return null;
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
   return `${apiUrl}${iconPath}`;
 };

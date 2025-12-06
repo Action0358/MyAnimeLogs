@@ -7,15 +7,14 @@ DECLARE
     long_description_count INTEGER;
     long_favorite_anime_count INTEGER;
 BEGIN
-    -- Count descriptions longer than 500 characters
-    SELECT COUNT(*) INTO long_description_count
-    FROM users
-    WHERE LENGTH(description) > 500;
-    
-    -- Count favorite_anime longer than 200 characters
-    SELECT COUNT(*) INTO long_favorite_anime_count
-    FROM users
-    WHERE LENGTH(favorite_anime) > 200;
+    -- Efficiently count both fields in a single table scan using FILTER
+    SELECT 
+        COUNT(*) FILTER (WHERE LENGTH(description) > 500),
+        COUNT(*) FILTER (WHERE LENGTH(favorite_anime) > 200)
+    INTO 
+        long_description_count,
+        long_favorite_anime_count
+    FROM users;
     
     -- Log warnings if data will be truncated
     IF long_description_count > 0 THEN
