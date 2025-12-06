@@ -7,6 +7,7 @@ import { Container } from '@/components/layout'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { put, uploadFile, ApiClientError } from '@/lib/api/client'
+import { buildIconUrl } from '@/lib/utils'
 
 // Validation constants
 const MAX_NAME_LENGTH = 50
@@ -40,9 +41,7 @@ export const ProfileEditContent: React.FC = () => {
 
   const [iconFile, setIconFile] = useState<File | null>(null)
   const [iconPreview, setIconPreview] = useState<string | null>(
-    user?.icon
-      ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${user.icon}`
-      : null
+    buildIconUrl(user?.icon)
   )
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)

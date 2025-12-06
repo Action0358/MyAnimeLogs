@@ -66,3 +66,14 @@ export const storage = {
     }
   },
 };
+
+/**
+ * アイコンURLを構築する
+ * @param iconPath - アイコンのパス（例: "/uploads/icons/user123.png"）
+ * @returns 完全なURL（例: "http://localhost:8080/uploads/icons/user123.png"）
+ */
+export const buildIconUrl = (iconPath: string | null | undefined): string | null => {
+  if (!iconPath) return null;
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+  return `${apiUrl}${iconPath}`;
+};

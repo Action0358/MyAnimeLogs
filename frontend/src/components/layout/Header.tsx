@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import type { Route } from 'next'
 import { Menu } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, buildIconUrl } from '@/lib/utils'
 import { Button } from '../ui/Button'
 import { useAuth } from '@/contexts/AuthContext'
 import { UserMenu } from './UserMenu'
@@ -90,7 +90,7 @@ const Header: React.FC = () => {
               >
                 {user.icon && !imageError ? (
                   <img
-                    src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${user.icon}`}
+                    src={buildIconUrl(user.icon) || ''}
                     alt={user.name}
                     className="w-10 h-10 rounded-full object-cover"
                     onError={() => setImageError(true)}

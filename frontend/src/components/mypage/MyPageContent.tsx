@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { Container } from '@/components/layout'
 import { Button } from '@/components/ui/Button'
 import { getAnimeStatusConfig } from '@/utils/animeStatus'
+import { buildIconUrl } from '@/lib/utils'
 import {
   DEFAULT_USER_STATS,
   ERROR_MESSAGES,
@@ -180,7 +181,7 @@ export const MyPageContent: React.FC = () => {
                   <div className="w-24 h-24 sm:w-32 sm:h-32 bg-gray-100 rounded-full overflow-hidden">
                     {user?.icon && !imageError ? (
                       <img
-                        src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${user.icon}`}
+                        src={buildIconUrl(user.icon) || ''}
                         alt={user.name}
                         className="w-full h-full object-cover"
                         onError={() => setImageError(true)}
