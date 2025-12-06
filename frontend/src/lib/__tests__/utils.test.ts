@@ -41,12 +41,14 @@ describe('buildIconUrl', () => {
   });
 
   it('should handle paths without leading slash', () => {
+    delete process.env.NEXT_PUBLIC_API_URL;
     expect(buildIconUrl('uploads/icons/user123.png')).toBe(
       'http://localhost:8080uploads/icons/user123.png'
     );
   });
 
   it('should preserve path with spaces (after trim check)', () => {
+    delete process.env.NEXT_PUBLIC_API_URL;
     expect(buildIconUrl('/uploads/icons/user 123.png')).toBe(
       'http://localhost:8080/uploads/icons/user 123.png'
     );
