@@ -225,8 +225,8 @@ export const MyPageContent: React.FC = () => {
                   </div>
 
                   {/* プロフィール詳細 */}
-                  <div className="space-y-4 sm:space-y-6 max-w-3xl">
-                    <div>
+                  <div className="space-y-3 sm:space-y-4 max-w-3xl">
+                    <div className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                       <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-2">
                         プロフィール
                       </h3>
@@ -235,7 +235,7 @@ export const MyPageContent: React.FC = () => {
                       </p>
                     </div>
 
-                    <div>
+                    <div className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                       <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-2">
                         好きなアニメ
                       </h3>
@@ -244,7 +244,7 @@ export const MyPageContent: React.FC = () => {
                       </p>
                     </div>
 
-                    <div>
+                    <div className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                       <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-2">
                         SNSリンク
                       </h3>
