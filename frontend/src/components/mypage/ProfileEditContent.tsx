@@ -7,11 +7,12 @@ import { Container } from '@/components/layout'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { put, uploadFile, ApiClientError } from '@/lib/api/client'
+import { buildIconUrl } from '@/lib/utils'
 
 // Validation constants
-const MAX_NAME_LENGTH = 100
-const MAX_DESCRIPTION_LENGTH = 10000
-const MAX_FAVORITE_ANIME_LENGTH = 300
+const MAX_NAME_LENGTH = 50
+const MAX_DESCRIPTION_LENGTH = 500
+const MAX_FAVORITE_ANIME_LENGTH = 200
 
 // Shared styles
 const TEXTAREA_CLASS_NAME =
@@ -40,9 +41,7 @@ export const ProfileEditContent: React.FC = () => {
 
   const [iconFile, setIconFile] = useState<File | null>(null)
   const [iconPreview, setIconPreview] = useState<string | null>(
-    user?.icon
-      ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}${user.icon}`
-      : null
+    buildIconUrl(user?.icon)
   )
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -348,20 +347,20 @@ export const ProfileEditContent: React.FC = () => {
               <Button
                 type="submit"
                 variant="primary"
-                size="lg"
+                size="md"
                 isLoading={isLoading || isUploadingIcon}
                 disabled={!hasChanges || isLoading || isUploadingIcon}
-                className="flex-1"
+                className="flex-1 text-sm"
               >
                 {isLoading || isUploadingIcon ? '保存中...' : '保存する'}
               </Button>
               <Button
                 type="button"
                 variant="outline"
-                size="lg"
+                size="md"
                 onClick={handleCancel}
                 disabled={isLoading || isUploadingIcon}
-                className="flex-1"
+                className="flex-1 text-sm"
               >
                 キャンセル
               </Button>

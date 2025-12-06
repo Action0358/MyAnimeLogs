@@ -18,7 +18,7 @@ type User struct {
 }
 
 type UserRegisterRequest struct {
-	Name     string `json:"name" binding:"required,min=1,max=100"`
+	Name     string `json:"name" binding:"required,min=1,max=50"`
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required,min=8"`
 }
@@ -29,9 +29,9 @@ type UserLoginRequest struct {
 }
 
 type UserUpdateRequest struct {
-	Name          *string `json:"name,omitempty" binding:"omitempty,min=1,max=100"`
-	Description   *string `json:"description,omitempty" binding:"omitempty,max=10000"`
-	FavoriteAnime *string `json:"favorite_anime,omitempty" binding:"omitempty,max=300"`
+	Name          *string `json:"name,omitempty" binding:"omitempty,min=1,max=50"`
+	Description   *string `json:"description,omitempty" binding:"omitempty,max=500"`
+	FavoriteAnime *string `json:"favorite_anime,omitempty" binding:"omitempty,max=200"`
 	SnsLink       *string `json:"sns_link,omitempty" binding:"omitempty,url,max=500"`
 }
 
