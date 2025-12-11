@@ -132,11 +132,12 @@ export const apiClient = async <T = any>(
             return await apiClientInternal<T>(endpoint, options, newToken)
           }
         } catch (refreshError) {
-          console.error('❌ Token refresh failed during API call')
-          // リフレッシュ失敗時はunauthorizedHandlerを呼び出す
+          console.error('❌ Token refresh failed during API call:', refreshError)
+          // リフレッシュ失敗時はunauthorizedHandlerを呼び出してログアウト
           if (unauthorizedHandler) {
             unauthorizedHandler()
           }
+          // 元の401エラーを再スロー
           throw error
         }
       }

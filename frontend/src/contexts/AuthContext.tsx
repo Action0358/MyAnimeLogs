@@ -44,6 +44,7 @@ const TOKEN_EXPIRES_AT_KEY = 'token_expires_at'
 
 // タイムアウト設定
 const INACTIVITY_TIMEOUT = 30 * 60 * 1000 // 30分
+const TOKEN_REFRESH_MARGIN = 60 * 1000 // 1分
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
@@ -67,48 +68,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     storage.remove(TOKEN_EXPIRES_AT_KEY)
   }, [])
 
-  // トークンリフレッシュ関数
+  // トークンリフレッシュ関数（API呼び出しに専念）
   const refreshAccessToken = useCallback(async (): Promise<string | null> => {
-    try {
-      const storedRefreshToken = storage.getUnsafe(REFRESH_TOKEN_KEY)
-      if (!storedRefreshToken) {
-        console.warn('⚠️ No refresh token available')
-        return null
-      }
-
-      console.log('🔄 Refreshing access token...')
-
-      const response = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refresh_token: storedRefreshToken }),
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to refresh token')
-      }
-
-      const data = await response.json()
-      const newAccessToken = data.access_token
-      const expiresIn = data.expires_in || 900 // デフォルト15分
-
-      setToken(newAccessToken)
-      setTokenExpiresAt(Date.now() + expiresIn * 1000)
-
-      storage.set(TOKEN_KEY, newAccessToken)
-      storage.set(TOKEN_EXPIRES_AT_KEY, Date.now() + expiresIn * 1000)
-
-      console.log('✅ Token refreshed successfully')
-      console.log(`⏰ New token expires in ${expiresIn}s`)
-
-      return newAccessToken
-    } catch (error) {
-      console.error('❌ Token refresh failed:', error)
-      // リフレッシュ失敗時はログアウト
-      clearAuthData()
-      return null
+    const storedRefreshToken = storage.getUnsafe(REFRESH_TOKEN_KEY)
+    if (!storedRefreshToken) {
+      console.warn('⚠️ No refresh token available')
+      throw new Error('No refresh token available')
     }
-  }, [clearAuthData])
+
+    console.log('🔄 Refreshing access token...')
+
+    const response = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: storedRefreshToken }),
+    })
+
+    if (!response.ok) {
+      throw new Error('Failed to refresh token')
+    }
+
+    const data = await response.json()
+    const newAccessToken = data.access_token
+    const expiresIn = data.expires_in || 900 // デフォルト15分
+
+    setToken(newAccessToken)
+    setTokenExpiresAt(Date.now() + expiresIn * 1000)
+
+    storage.set(TOKEN_KEY, newAccessToken)
+    storage.set(TOKEN_EXPIRES_AT_KEY, Date.now() + expiresIn * 1000)
+
+    console.log('✅ Token refreshed successfully')
+    console.log(`⏰ New token expires in ${expiresIn}s`)
+
+    return newAccessToken
+  }, [])
 
   // 401エラー時のグローバルハンドラーとリフレッシュハンドラーを登録
   useEffect(() => {
@@ -141,17 +135,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       } catch (error) {
         console.error('Failed to initialize auth state:', error)
         // 不正なデータの場合はストレージをクリア（エラー回復）
-        storage.remove(TOKEN_KEY)
-        storage.remove(REFRESH_TOKEN_KEY)
-        storage.remove(USER_KEY)
-        storage.remove(TOKEN_EXPIRES_AT_KEY)
+        clearAuthData()
       } finally {
         setIsLoading(false)
       }
     }
 
     initAuth()
-  }, [refreshAccessToken])
+  }, [refreshAccessToken, clearAuthData])
 
   const login = useCallback(
     async (email: string, password: string) => {
@@ -262,29 +253,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     if (!tokenExpiresAt || !user) return
 
     // トークン期限の1分前にリフレッシュ
-    const refreshTime = tokenExpiresAt - Date.now() - 60000
+    const refreshTime = tokenExpiresAt - Date.now() - TOKEN_REFRESH_MARGIN
 
     if (refreshTime > 0) {
       console.log(`⏰ Token will be refreshed in ${Math.round(refreshTime / 1000)}s`)
 
       const timer = setTimeout(() => {
         console.log('🔄 Auto-refreshing token...')
-        refreshAccessToken()
+        refreshAccessToken().catch(error => {
+          console.error('❌ Auto-refresh failed:', error)
+          clearAuthData()
+        })
       }, refreshTime)
 
       return () => clearTimeout(timer)
-    } else if (refreshTime > -60000) {
+    } else if (refreshTime > -TOKEN_REFRESH_MARGIN) {
       // 期限切れから1分以内の場合は即座にリフレッシュ
       console.log('⚠️ Token expired recently, refreshing now...')
-      refreshAccessToken()
+      refreshAccessToken().catch(error => {
+        console.error('❌ Immediate refresh failed:', error)
+        clearAuthData()
+      })
     }
-  }, [tokenExpiresAt, user, refreshAccessToken])
+  }, [tokenExpiresAt, user, refreshAccessToken, clearAuthData])
 
   // 非アクティブタイムアウト
   useEffect(() => {
     if (!user) return // ログインしていない場合はスキップ
 
-    let inactivityTimer: NodeJS.Timeout
+    let inactivityTimer: ReturnType<typeof setTimeout>
 
     const resetTimer = () => {
       clearTimeout(inactivityTimer)
