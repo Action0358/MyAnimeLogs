@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { storage } from '@/lib/utils'
 
 const TOKEN_EXPIRES_AT_KEY = 'token_expires_at'
+const TOKEN_EXPIRING_SOON_THRESHOLD = 2 * 60 * 1000 // 2分
 
 export function TokenDebug() {
   const { user } = useAuth()
@@ -54,7 +55,7 @@ export function TokenDebug() {
 
   const minutes = Math.floor(timeLeft / 60000)
   const seconds = Math.floor((timeLeft % 60000) / 1000)
-  const isExpiringSoon = timeLeft < 120000 // 2分以内
+  const isExpiringSoon = timeLeft < TOKEN_EXPIRING_SOON_THRESHOLD
 
   return (
     <div className="fixed bottom-4 right-4 bg-gray-800 text-white p-4 rounded-lg shadow-lg z-50 min-w-[200px]">

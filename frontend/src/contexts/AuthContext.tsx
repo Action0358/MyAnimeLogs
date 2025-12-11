@@ -9,7 +9,7 @@ import React, {
 } from 'react'
 import { useRouter } from 'next/navigation'
 import { storage } from '@/lib/utils'
-import { post, ApiClientError, setUnauthorizedHandler, setRefreshTokenHandler, API_BASE_URL } from '@/lib/api/client'
+import { post, postInternal, ApiClientError, setUnauthorizedHandler, setRefreshTokenHandler } from '@/lib/api/client'
 
 interface User {
   id: number
@@ -78,17 +78,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
     console.log('🔄 Refreshing access token...')
 
-    const response = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh_token: storedRefreshToken }),
-    })
+    // postInternalを使用（無限ループを避けるため）
+    const data = await postInternal<{ access_token: string; expires_in: number }>(
+      '/api/auth/refresh',
+      { refresh_token: storedRefreshToken }
+    )
 
-    if (!response.ok) {
-      throw new Error('Failed to refresh token')
-    }
-
-    const data = await response.json()
     const newAccessToken = data.access_token
     const expiresIn = data.expires_in || 900 // デフォルト15分
 
@@ -225,12 +220,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       const storedRefreshToken = storage.getUnsafe(REFRESH_TOKEN_KEY)
       if (storedRefreshToken) {
-        // バックエンドにログアウトを通知
-        await fetch(`${API_BASE_URL}/api/logout`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refresh_token: storedRefreshToken }),
-        }).catch(err => console.error('Logout API error:', err))
+        // バックエンドにログアウトを通知（postInternalを使用）
+        await postInternal('/api/logout', { refresh_token: storedRefreshToken })
+          .catch(err => console.error('Logout API error:', err))
       }
     } catch (error) {
       console.error('Logout error:', error)
