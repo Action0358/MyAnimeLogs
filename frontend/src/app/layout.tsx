@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { Header, Footer } from '@/components/layout'
 import { QueryProvider } from '@/components/providers'
 import { AuthProvider } from '@/contexts/AuthContext'
+import { TokenDebug } from '@/components/debug/TokenDebug'
 
 export const metadata: Metadata = {
   title: 'MyAnimeLogs',
@@ -28,6 +29,7 @@ export default function RootLayout({
               {children}
             </main>
             <Footer />
+            {process.env.NODE_ENV === 'development' && <TokenDebug />}
           </QueryProvider>
         </AuthProvider>
       </body>
