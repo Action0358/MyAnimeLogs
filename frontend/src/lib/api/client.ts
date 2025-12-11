@@ -3,7 +3,7 @@
  * 全てのAPI呼び出しで使用する共通クライアント
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
 
 interface ApiError {
   message: string
@@ -29,10 +29,27 @@ export class ApiClientError extends Error {
 let unauthorizedHandler: (() => void) | null = null
 
 /**
+ * トークンリフレッシュハンドラー
+ */
+let refreshTokenHandler: (() => Promise<string | null>) | null = null
+
+/**
+ * 進行中のトークンリフレッシュPromise（競合状態を防ぐ）
+ */
+let ongoingRefreshPromise: Promise<string | null> | null = null
+
+/**
  * 401エラーハンドラーを登録
  */
 export const setUnauthorizedHandler = (handler: () => void) => {
   unauthorizedHandler = handler
+}
+
+/**
+ * トークンリフレッシュハンドラーを登録
+ */
+export const setRefreshTokenHandler = (handler: () => Promise<string | null>) => {
+  refreshTokenHandler = handler
 }
 
 /**
@@ -49,13 +66,14 @@ const getAuthToken = (): string | null => {
 }
 
 /**
- * 認証付きfetchリクエスト
+ * 認証付きfetchリクエスト（リトライなし）
  */
-export const apiClient = async <T = any>(
+const apiClientInternal = async <T = any>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  token?: string
 ): Promise<T> => {
-  const token = getAuthToken()
+  const authToken = token || getAuthToken()
   
   const headers: Record<string, string> = {}
   
@@ -65,8 +83,8 @@ export const apiClient = async <T = any>(
   }
   
   // 認証トークンがある場合は追加
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`
   }
   
   // 既存のヘッダーをマージ
@@ -82,26 +100,69 @@ export const apiClient = async <T = any>(
     headers,
   }
   
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, config)
+  
+  // レスポンスボディを取得
+  const data = await response.json().catch(() => null)
+  
+  if (!response.ok) {
+    const errorMessage = data?.message || data?.error || `HTTPエラー: ${response.status}`
+    const error = new ApiClientError(errorMessage, response.status)
+    throw error
+  }
+  
+  return data as T
+}
+
+/**
+ * 認証付きfetchリクエスト（自動リフレッシュ対応）
+ */
+export const apiClient = async <T = any>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<T> => {
   try {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, config)
-    
-    // レスポンスボディを取得
-    const data = await response.json().catch(() => null)
-    
-    if (!response.ok) {
-      const errorMessage = data?.message || data?.error || `HTTPエラー: ${response.status}`
-      const error = new ApiClientError(errorMessage, response.status)
-      
-      // 401エラーの場合はグローバルハンドラーを呼び出す
-      if (response.status === 401 && unauthorizedHandler) {
-        unauthorizedHandler()
+    return await apiClientInternal<T>(endpoint, options)
+  } catch (error) {
+    if (error instanceof ApiClientError && error.status === 401) {
+      // 401エラーの場合、トークンをリフレッシュして再試行
+      if (refreshTokenHandler) {
+        console.log('🔄 401 error - refreshing token and retrying...')
+        
+        try {
+          // 進行中のリフレッシュがあればそれを待つ（競合状態を防ぐ）
+          if (!ongoingRefreshPromise) {
+            ongoingRefreshPromise = refreshTokenHandler()
+              .finally(() => {
+                // リフレッシュ完了後にPromiseをクリア
+                ongoingRefreshPromise = null
+              })
+          }
+          
+          const newToken = await ongoingRefreshPromise
+          
+          if (newToken) {
+            // 新しいトークンで再試行
+            return await apiClientInternal<T>(endpoint, options, newToken)
+          }
+        } catch (refreshError) {
+          console.error('❌ Token refresh failed during API call:', refreshError)
+          // リフレッシュ失敗時はunauthorizedHandlerを呼び出してログアウト
+          if (unauthorizedHandler) {
+            unauthorizedHandler()
+          }
+          // 元の401エラーを再スロー
+          throw error
+        }
       }
       
-      throw error
+      // リフレッシュハンドラーがない場合はunauthorizedHandlerを呼び出す
+      if (unauthorizedHandler) {
+        unauthorizedHandler()
+      }
     }
     
-    return data as T
-  } catch (error) {
+    // その他のエラー
     if (error instanceof ApiClientError) {
       throw error
     }
@@ -169,5 +230,21 @@ export const uploadFile = <T = any>(
   return apiClient<T>(endpoint, {
     method: 'POST',
     body: formData,
+  })
+}
+
+/**
+ * 内部用POSTリクエスト（リトライなし）
+ * トークンリフレッシュなど、無限ループを避けたい場合に使用
+ */
+export const postInternal = <T = any>(
+  endpoint: string,
+  body?: any,
+  options?: RequestInit
+): Promise<T> => {
+  return apiClientInternal<T>(endpoint, {
+    ...options,
+    method: 'POST',
+    body: body ? JSON.stringify(body) : undefined,
   })
 }
