@@ -9,7 +9,7 @@ import React, {
 } from 'react'
 import { useRouter } from 'next/navigation'
 import { storage } from '@/lib/utils'
-import { post, ApiClientError, setUnauthorizedHandler, setRefreshTokenHandler } from '@/lib/api/client'
+import { post, ApiClientError, setUnauthorizedHandler, setRefreshTokenHandler, API_BASE_URL } from '@/lib/api/client'
 
 interface User {
   id: number
@@ -55,6 +55,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
 
+  // 認証情報をクリアするヘルパー関数
+  const clearAuthData = useCallback(() => {
+    setUser(null)
+    setToken(null)
+    setRefreshToken(null)
+    setTokenExpiresAt(null)
+    storage.remove(TOKEN_KEY)
+    storage.remove(REFRESH_TOKEN_KEY)
+    storage.remove(USER_KEY)
+    storage.remove(TOKEN_EXPIRES_AT_KEY)
+  }, [])
+
   // トークンリフレッシュ関数
   const refreshAccessToken = useCallback(async (): Promise<string | null> => {
     try {
@@ -66,7 +78,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       console.log('🔄 Refreshing access token...')
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/auth/refresh`, {
+      const response = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refresh_token: storedRefreshToken }),
@@ -93,34 +105,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     } catch (error) {
       console.error('❌ Token refresh failed:', error)
       // リフレッシュ失敗時はログアウト
-      setUser(null)
-      setToken(null)
-      setRefreshToken(null)
-      setTokenExpiresAt(null)
-      storage.remove(TOKEN_KEY)
-      storage.remove(REFRESH_TOKEN_KEY)
-      storage.remove(USER_KEY)
-      storage.remove(TOKEN_EXPIRES_AT_KEY)
+      clearAuthData()
       return null
     }
-  }, [])
+  }, [clearAuthData])
 
   // 401エラー時のグローバルハンドラーとリフレッシュハンドラーを登録
   useEffect(() => {
-    setUnauthorizedHandler(() => {
-      // 認証状態をクリア
-      setUser(null)
-      setToken(null)
-      setRefreshToken(null)
-      setTokenExpiresAt(null)
-      storage.remove(TOKEN_KEY)
-      storage.remove(REFRESH_TOKEN_KEY)
-      storage.remove(USER_KEY)
-      storage.remove(TOKEN_EXPIRES_AT_KEY)
-    })
-
+    setUnauthorizedHandler(clearAuthData)
     setRefreshTokenHandler(refreshAccessToken)
-  }, [refreshAccessToken])
+  }, [clearAuthData, refreshAccessToken])
 
   // トークンとユーザー情報の初期化
   useEffect(() => {
@@ -241,7 +235,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       const storedRefreshToken = storage.getUnsafe(REFRESH_TOKEN_KEY)
       if (storedRefreshToken) {
         // バックエンドにログアウトを通知
-        await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/logout`, {
+        await fetch(`${API_BASE_URL}/api/logout`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ refresh_token: storedRefreshToken }),
@@ -251,19 +245,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       console.error('Logout error:', error)
     } finally {
       // トークンをクリア
-      setUser(null)
-      setToken(null)
-      setRefreshToken(null)
-      setTokenExpiresAt(null)
-      storage.remove(TOKEN_KEY)
-      storage.remove(REFRESH_TOKEN_KEY)
-      storage.remove(USER_KEY)
-      storage.remove(TOKEN_EXPIRES_AT_KEY)
+      clearAuthData()
 
       console.log('✅ Logged out')
       router.push('/')
     }
-  }, [router])
+  }, [router, clearAuthData])
 
   const updateUser = useCallback((userData: User) => {
     setUser(userData)
@@ -303,10 +290,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       clearTimeout(inactivityTimer)
       inactivityTimer = setTimeout(() => {
         console.log('⏱️ Inactivity timeout - logging out')
+        // TODO: トースト通知を実装してユーザーに通知
+        // 現在はコンソールログのみ
         logout()
-        if (typeof window !== 'undefined') {
-          alert('非アクティブのため自動ログアウトしました')
-        }
       }, INACTIVITY_TIMEOUT)
     }
 

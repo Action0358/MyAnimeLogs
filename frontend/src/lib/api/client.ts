@@ -3,7 +3,7 @@
  * 全てのAPI呼び出しで使用する共通クライアント
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
 
 interface ApiError {
   message: string

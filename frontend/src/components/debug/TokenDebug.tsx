@@ -22,11 +22,18 @@ export function TokenDebug() {
       }
     }
 
+    // 初回取得
     updateExpiresAt()
 
-    // 1秒ごとに更新
-    const interval = setInterval(updateExpiresAt, 1000)
-    return () => clearInterval(interval)
+    // storageイベントリスナーで他のタブでの変更を検知
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === TOKEN_EXPIRES_AT_KEY) {
+        updateExpiresAt()
+      }
+    }
+
+    window.addEventListener('storage', handleStorageChange)
+    return () => window.removeEventListener('storage', handleStorageChange)
   }, [])
 
   useEffect(() => {
