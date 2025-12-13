@@ -1,17 +1,39 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { Container } from '@/components/layout'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
+import { LOGOUT_REASON_MESSAGES } from '@/lib/constants'
 
-const LoginPage: React.FC = () => {
+// 型ガード関数: reason が LOGOUT_REASON_MESSAGES の有効なキーかチェック
+const isValidLogoutReason = (reason: string): reason is keyof typeof LOGOUT_REASON_MESSAGES => {
+  return reason in LOGOUT_REASON_MESSAGES
+}
+
+// URLパラメータを処理するコンポーネント
+const LoginMessage: React.FC<{ onSetInfo: (message: string) => void }> = ({ onSetInfo }) => {
+  const searchParams = useSearchParams()
+
+  useEffect(() => {
+    const reason = searchParams.get('reason')
+    if (reason && isValidLogoutReason(reason)) {
+      onSetInfo(LOGOUT_REASON_MESSAGES[reason])
+    }
+  }, [searchParams, onSetInfo])
+
+  return null
+}
+
+const LoginPageContent: React.FC = () => {
   const { login } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [info, setInfo] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -30,6 +52,9 @@ const LoginPage: React.FC = () => {
 
   return (
     <Container className="py-12">
+      <Suspense fallback={null}>
+        <LoginMessage onSetInfo={setInfo} />
+      </Suspense>
       <div className="max-w-md mx-auto">
         {/* ヘッダー */}
         <div className="text-center mb-8">
@@ -43,6 +68,12 @@ const LoginPage: React.FC = () => {
         {/* ログインフォーム */}
         <div className="bg-white rounded-lg border border-gray-200 p-8 shadow-sm">
           <form onSubmit={handleSubmit} className="space-y-6">
+            {info && (
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
+                <p className="text-sm text-blue-700">{info}</p>
+              </div>
+            )}
+            
             {error && (
               <div className="p-4 bg-red-50 border border-red-200 rounded-md">
                 <p className="text-sm text-red-600">{error}</p>
@@ -132,6 +163,10 @@ const LoginPage: React.FC = () => {
       </div>
     </Container>
   )
+}
+
+const LoginPage: React.FC = () => {
+  return <LoginPageContent />
 }
 
 export default LoginPage
