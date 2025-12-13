@@ -1,18 +1,30 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { Container } from '@/components/layout'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
+import { LOGOUT_REASON_MESSAGES } from '@/lib/constants'
 
 const LoginPage: React.FC = () => {
   const { login } = useAuth()
+  const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [info, setInfo] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+
+  // URLパラメータからメッセージを取得
+  useEffect(() => {
+    const reason = searchParams.get('reason')
+    if (reason && reason in LOGOUT_REASON_MESSAGES) {
+      setInfo(LOGOUT_REASON_MESSAGES[reason])
+    }
+  }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -43,6 +55,12 @@ const LoginPage: React.FC = () => {
         {/* ログインフォーム */}
         <div className="bg-white rounded-lg border border-gray-200 p-8 shadow-sm">
           <form onSubmit={handleSubmit} className="space-y-6">
+            {info && (
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
+                <p className="text-sm text-blue-700">{info}</p>
+              </div>
+            )}
+            
             {error && (
               <div className="p-4 bg-red-50 border border-red-200 rounded-md">
                 <p className="text-sm text-red-600">{error}</p>
