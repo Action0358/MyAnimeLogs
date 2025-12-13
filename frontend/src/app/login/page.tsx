@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
@@ -9,22 +9,32 @@ import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { LOGOUT_REASON_MESSAGES } from '@/lib/constants'
 
-const LoginPage: React.FC = () => {
-  const { login } = useAuth()
+// 型ガード関数: reason が LOGOUT_REASON_MESSAGES の有効なキーかチェック
+const isValidLogoutReason = (reason: string): reason is keyof typeof LOGOUT_REASON_MESSAGES => {
+  return reason in LOGOUT_REASON_MESSAGES
+}
+
+// URLパラメータを処理するコンポーネント
+const LoginMessage: React.FC<{ onSetInfo: (message: string) => void }> = ({ onSetInfo }) => {
   const searchParams = useSearchParams()
+
+  useEffect(() => {
+    const reason = searchParams.get('reason')
+    if (reason && isValidLogoutReason(reason)) {
+      onSetInfo(LOGOUT_REASON_MESSAGES[reason])
+    }
+  }, [searchParams, onSetInfo])
+
+  return null
+}
+
+const LoginPageContent: React.FC = () => {
+  const { login } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [info, setInfo] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-
-  // URLパラメータからメッセージを取得
-  useEffect(() => {
-    const reason = searchParams.get('reason')
-    if (reason && reason in LOGOUT_REASON_MESSAGES) {
-      setInfo(LOGOUT_REASON_MESSAGES[reason as keyof typeof LOGOUT_REASON_MESSAGES])
-    }
-  }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -42,6 +52,9 @@ const LoginPage: React.FC = () => {
 
   return (
     <Container className="py-12">
+      <Suspense fallback={null}>
+        <LoginMessage onSetInfo={setInfo} />
+      </Suspense>
       <div className="max-w-md mx-auto">
         {/* ヘッダー */}
         <div className="text-center mb-8">
@@ -150,6 +163,10 @@ const LoginPage: React.FC = () => {
       </div>
     </Container>
   )
+}
+
+const LoginPage: React.FC = () => {
+  return <LoginPageContent />
 }
 
 export default LoginPage

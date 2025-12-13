@@ -34,6 +34,15 @@ export const LOGOUT_REASON_MESSAGES = {
  */
 export type LogoutReason = 'timeout' | 'unauthorized' | 'manual'
 
+/**
+ * ログアウト理由に応じたリダイレクト先のマップ
+ */
+export const LOGOUT_REDIRECT_PATHS = {
+  timeout: '/login?reason=timeout',
+  unauthorized: '/login?reason=unauthorized',
+  manual: '/',
+} as const satisfies Record<LogoutReason, string>
+
 // ========================
 // ストレージキー
 // ========================

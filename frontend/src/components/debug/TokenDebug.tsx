@@ -11,11 +11,10 @@ import {
 } from '@/lib/constants'
 
 export function TokenDebug() {
-  const { user } = useAuth()
+  const { user, lastActivityTime } = useAuth()
   const [timeLeft, setTimeLeft] = useState<number>(0)
   const [tokenExpiresAt, setTokenExpiresAt] = useState<number | null>(null)
   const [inactivityTimeLeft, setInactivityTimeLeft] = useState<number>(INACTIVITY_TIMEOUT)
-  const lastActivityRef = useRef<number>(Date.now())
 
   useEffect(() => {
     // localStorageから有効期限を取得
@@ -56,38 +55,19 @@ export function TokenDebug() {
     return () => clearInterval(interval)
   }, [tokenExpiresAt])
 
-  // 非アクティブタイマーの監視
-  useEffect(() => {
-    if (!user) return
-
-    const updateActivity = () => {
-      lastActivityRef.current = Date.now()
-    }
-
-    const events = ['mousedown', 'keydown', 'scroll', 'touchstart']
-    events.forEach(event => {
-      document.addEventListener(event, updateActivity)
-    })
-
-    return () => {
-      events.forEach(event => {
-        document.removeEventListener(event, updateActivity)
-      })
-    }
-  }, [user])
-
   // 非アクティブ時間のカウントダウン
+  // AuthContextから最終アクティビティ時刻を取得して計算
   useEffect(() => {
     if (!user) return
 
     const interval = setInterval(() => {
-      const elapsed = Date.now() - lastActivityRef.current
+      const elapsed = Date.now() - lastActivityTime
       const left = Math.max(0, INACTIVITY_TIMEOUT - elapsed)
       setInactivityTimeLeft(left)
     }, 1000)
 
     return () => clearInterval(interval)
-  }, [user])
+  }, [user, lastActivityTime])
 
   if (!user || !tokenExpiresAt) return null
 

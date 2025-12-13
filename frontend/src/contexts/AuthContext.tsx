@@ -6,11 +6,12 @@ import React, {
   useState,
   useEffect,
   useCallback,
+  useRef,
 } from 'react'
 import { useRouter } from 'next/navigation'
 import { storage } from '@/lib/utils'
 import { post, postInternal, ApiClientError, setUnauthorizedHandler, setRefreshTokenHandler } from '@/lib/api/client'
-import { INACTIVITY_TIMEOUT, TOKEN_REFRESH_MARGIN, STORAGE_KEYS, type LogoutReason } from '@/lib/constants'
+import { INACTIVITY_TIMEOUT, TOKEN_REFRESH_MARGIN, STORAGE_KEYS, LOGOUT_REDIRECT_PATHS, type LogoutReason } from '@/lib/constants'
 
 interface User {
   id: number
@@ -33,6 +34,7 @@ interface AuthContextType {
   isLoading: boolean
   isAuthenticated: boolean
   refreshAccessToken: () => Promise<string | null>
+  lastActivityTime: number
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -45,6 +47,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [refreshToken, setRefreshToken] = useState<string | null>(null)
   const [tokenExpiresAt, setTokenExpiresAt] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const lastActivityRef = useRef<number>(Date.now())
   const router = useRouter()
 
   // 認証情報をクリアするヘルパー関数
@@ -211,7 +214,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     [router]
   )
 
-  const logout = useCallback(async (reason?: LogoutReason) => {
+  const logout = useCallback(async (reason: LogoutReason = 'manual') => {
     try {
       const storedRefreshToken = storage.getUnsafe(STORAGE_KEYS.REFRESH_TOKEN)
       if (storedRefreshToken) {
@@ -227,14 +230,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       console.log('✅ Logged out')
       
-      // ログアウト理由に応じてリダイレクト先を変更
-      if (reason === 'timeout') {
-        router.push('/login?reason=timeout')
-      } else if (reason === 'unauthorized') {
-        router.push('/login?reason=unauthorized')
-      } else {
-        router.push('/')
-      }
+      // ログアウト理由に応じたリダイレクト先をマップから取得
+      const redirectPath = LOGOUT_REDIRECT_PATHS[reason]
+      router.push(redirectPath)
     }
   }, [router, clearAuthData])
 
@@ -279,6 +277,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     let inactivityTimer: ReturnType<typeof setTimeout>
 
     const resetTimer = () => {
+      lastActivityRef.current = Date.now()
       clearTimeout(inactivityTimer)
       inactivityTimer = setTimeout(() => {
         console.log('⏱️ Inactivity timeout - logging out')
@@ -312,6 +311,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     isLoading,
     isAuthenticated: !!user && !!token,
     refreshAccessToken,
+    lastActivityTime: lastActivityRef.current,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
