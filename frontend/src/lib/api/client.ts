@@ -34,6 +34,11 @@ let unauthorizedHandler: (() => void) | null = null
 let refreshTokenHandler: (() => Promise<string | null>) | null = null
 
 /**
+ * 進行中のトークンリフレッシュPromise（競合状態を防ぐ）
+ */
+let ongoingRefreshPromise: Promise<string | null> | null = null
+
+/**
  * 401エラーハンドラーを登録
  */
 export const setUnauthorizedHandler = (handler: () => void) => {
@@ -125,7 +130,16 @@ export const apiClient = async <T = any>(
         console.log('🔄 401 error - refreshing token and retrying...')
         
         try {
-          const newToken = await refreshTokenHandler()
+          // 進行中のリフレッシュがあればそれを待つ（競合状態を防ぐ）
+          if (!ongoingRefreshPromise) {
+            ongoingRefreshPromise = refreshTokenHandler()
+              .finally(() => {
+                // リフレッシュ完了後にPromiseをクリア
+                ongoingRefreshPromise = null
+              })
+          }
+          
+          const newToken = await ongoingRefreshPromise
           
           if (newToken) {
             // 新しいトークンで再試行
@@ -216,5 +230,21 @@ export const uploadFile = <T = any>(
   return apiClient<T>(endpoint, {
     method: 'POST',
     body: formData,
+  })
+}
+
+/**
+ * 内部用POSTリクエスト（リトライなし）
+ * トークンリフレッシュなど、無限ループを避けたい場合に使用
+ */
+export const postInternal = <T = any>(
+  endpoint: string,
+  body?: any,
+  options?: RequestInit
+): Promise<T> => {
+  return apiClientInternal<T>(endpoint, {
+    ...options,
+    method: 'POST',
+    body: body ? JSON.stringify(body) : undefined,
   })
 }
