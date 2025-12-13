@@ -1,16 +1,21 @@
 'use client'
 
 import { useAuth } from '@/contexts/AuthContext'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { storage } from '@/lib/utils'
-import { STORAGE_KEYS, TOKEN_EXPIRING_SOON_THRESHOLD, INACTIVITY_TIMEOUT } from '@/lib/constants'
+import { 
+  STORAGE_KEYS, 
+  TOKEN_EXPIRING_SOON_THRESHOLD, 
+  INACTIVITY_TIMEOUT,
+  INACTIVITY_WARNING_THRESHOLD 
+} from '@/lib/constants'
 
 export function TokenDebug() {
   const { user } = useAuth()
   const [timeLeft, setTimeLeft] = useState<number>(0)
   const [tokenExpiresAt, setTokenExpiresAt] = useState<number | null>(null)
   const [inactivityTimeLeft, setInactivityTimeLeft] = useState<number>(INACTIVITY_TIMEOUT)
-  const [lastActivity, setLastActivity] = useState<number>(Date.now())
+  const lastActivityRef = useRef<number>(Date.now())
 
   useEffect(() => {
     // localStorageから有効期限を取得
@@ -56,7 +61,7 @@ export function TokenDebug() {
     if (!user) return
 
     const updateActivity = () => {
-      setLastActivity(Date.now())
+      lastActivityRef.current = Date.now()
     }
 
     const events = ['mousedown', 'keydown', 'scroll', 'touchstart']
@@ -76,13 +81,13 @@ export function TokenDebug() {
     if (!user) return
 
     const interval = setInterval(() => {
-      const elapsed = Date.now() - lastActivity
+      const elapsed = Date.now() - lastActivityRef.current
       const left = Math.max(0, INACTIVITY_TIMEOUT - elapsed)
       setInactivityTimeLeft(left)
     }, 1000)
 
     return () => clearInterval(interval)
-  }, [user, lastActivity])
+  }, [user])
 
   if (!user || !tokenExpiresAt) return null
 
@@ -92,7 +97,7 @@ export function TokenDebug() {
 
   const inactivityMinutes = Math.floor(inactivityTimeLeft / 60000)
   const inactivitySeconds = Math.floor((inactivityTimeLeft % 60000) / 1000)
-  const isInactivityWarning = inactivityTimeLeft < 5 * 60 * 1000 // 5分以内
+  const isInactivityWarning = inactivityTimeLeft < INACTIVITY_WARNING_THRESHOLD
 
   return (
     <div className="fixed bottom-4 right-4 bg-gray-800 text-white p-4 rounded-lg shadow-lg z-50 min-w-[240px]">

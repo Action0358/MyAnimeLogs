@@ -22,8 +22,9 @@ export const TOKEN_REFRESH_MARGIN = 60 * 1000 // 1分
 
 /**
  * ログアウト理由のメッセージマップ
+ * TypeScriptの型推論を活用するため、明示的な型注釈は省略
  */
-export const LOGOUT_REASON_MESSAGES: Record<string, string> = {
+export const LOGOUT_REASON_MESSAGES = {
   timeout: 'セッションがタイムアウトしました。再度ログインしてください。',
   unauthorized: 'ログインセッションが終了しました。再度ログインしてください。',
 } as const
@@ -53,3 +54,9 @@ export const STORAGE_KEYS = {
  * この時間以内になると警告を表示
  */
 export const TOKEN_EXPIRING_SOON_THRESHOLD = 2 * 60 * 1000 // 2分
+
+/**
+ * 非アクティブ警告の閾値（ミリ秒）
+ * この時間以内になると警告を表示
+ */
+export const INACTIVITY_WARNING_THRESHOLD = 5 * 60 * 1000 // 5分
