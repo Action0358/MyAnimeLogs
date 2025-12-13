@@ -22,7 +22,7 @@ const LoginPage: React.FC = () => {
   useEffect(() => {
     const reason = searchParams.get('reason')
     if (reason && reason in LOGOUT_REASON_MESSAGES) {
-      setInfo(LOGOUT_REASON_MESSAGES[reason])
+      setInfo(LOGOUT_REASON_MESSAGES[reason as keyof typeof LOGOUT_REASON_MESSAGES])
     }
   }, [searchParams])
 
