@@ -10,6 +10,7 @@ import React, {
 import { useRouter } from 'next/navigation'
 import { storage } from '@/lib/utils'
 import { post, postInternal, ApiClientError, setUnauthorizedHandler, setRefreshTokenHandler } from '@/lib/api/client'
+import { INACTIVITY_TIMEOUT, TOKEN_REFRESH_MARGIN, STORAGE_KEYS, type LogoutReason } from '@/lib/constants'
 
 interface User {
   id: number
@@ -27,7 +28,7 @@ interface AuthContextType {
   token: string | null
   login: (email: string, password: string) => Promise<void>
   register: (name: string, email: string, password: string) => Promise<void>
-  logout: () => void
+  logout: (reason?: LogoutReason) => void
   updateUser: (userData: User) => void
   isLoading: boolean
   isAuthenticated: boolean
@@ -35,18 +36,6 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
-
-// ストレージキーを定数として定義
-const TOKEN_KEY = 'auth_token'
-const REFRESH_TOKEN_KEY = 'refresh_token'
-const USER_KEY = 'user_data'
-const TOKEN_EXPIRES_AT_KEY = 'token_expires_at'
-
-// タイムアウト設定
-const INACTIVITY_TIMEOUT = process.env.NEXT_PUBLIC_INACTIVITY_TIMEOUT 
-  ? parseInt(process.env.NEXT_PUBLIC_INACTIVITY_TIMEOUT) * 1000 
-  : 30 * 60 * 1000 // デフォルト30分
-const TOKEN_REFRESH_MARGIN = 60 * 1000 // 1分
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
@@ -64,10 +53,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     setToken(null)
     setRefreshToken(null)
     setTokenExpiresAt(null)
-    storage.remove(TOKEN_KEY)
-    storage.remove(REFRESH_TOKEN_KEY)
-    storage.remove(USER_KEY)
-    storage.remove(TOKEN_EXPIRES_AT_KEY)
+    storage.remove(STORAGE_KEYS.TOKEN)
+    storage.remove(STORAGE_KEYS.REFRESH_TOKEN)
+    storage.remove(STORAGE_KEYS.USER)
+    storage.remove(STORAGE_KEYS.TOKEN_EXPIRES_AT)
     
     if (redirectToLogin) {
       router.push('/login?reason=unauthorized')
@@ -76,7 +65,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // トークンリフレッシュ関数（API呼び出しに専念）
   const refreshAccessToken = useCallback(async (): Promise<string | null> => {
-    const storedRefreshToken = storage.getUnsafe(REFRESH_TOKEN_KEY)
+    const storedRefreshToken = storage.getUnsafe(STORAGE_KEYS.REFRESH_TOKEN)
     if (!storedRefreshToken) {
       console.warn('⚠️ No refresh token available')
       throw new Error('No refresh token available')
@@ -96,8 +85,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     setToken(newAccessToken)
     setTokenExpiresAt(Date.now() + expiresIn * 1000)
 
-    storage.set(TOKEN_KEY, newAccessToken)
-    storage.set(TOKEN_EXPIRES_AT_KEY, Date.now() + expiresIn * 1000)
+    storage.set(STORAGE_KEYS.TOKEN, newAccessToken)
+    storage.set(STORAGE_KEYS.TOKEN_EXPIRES_AT, Date.now() + expiresIn * 1000)
 
     console.log('✅ Token refreshed successfully')
     console.log(`⏰ New token expires in ${expiresIn}s`)
@@ -115,10 +104,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     const initAuth = async () => {
       try {
-        const storedToken = storage.getUnsafe(TOKEN_KEY)
-        const storedRefreshToken = storage.getUnsafe(REFRESH_TOKEN_KEY)
-        const storedUser = storage.getUnsafe(USER_KEY)
-        const storedExpiresAt = storage.getUnsafe(TOKEN_EXPIRES_AT_KEY)
+        const storedToken = storage.getUnsafe(STORAGE_KEYS.TOKEN)
+        const storedRefreshToken = storage.getUnsafe(STORAGE_KEYS.REFRESH_TOKEN)
+        const storedUser = storage.getUnsafe(STORAGE_KEYS.USER)
+        const storedExpiresAt = storage.getUnsafe(STORAGE_KEYS.TOKEN_EXPIRES_AT)
 
         if (storedRefreshToken && storedUser) {
           setRefreshToken(storedRefreshToken)
@@ -168,10 +157,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         setTokenExpiresAt(Date.now() + expiresIn * 1000)
         setUser(data.user)
 
-        storage.set(TOKEN_KEY, accessToken)
-        storage.set(REFRESH_TOKEN_KEY, refreshTokenValue)
-        storage.set(TOKEN_EXPIRES_AT_KEY, Date.now() + expiresIn * 1000)
-        storage.set(USER_KEY, data.user)
+        storage.set(STORAGE_KEYS.TOKEN, accessToken)
+        storage.set(STORAGE_KEYS.REFRESH_TOKEN, refreshTokenValue)
+        storage.set(STORAGE_KEYS.TOKEN_EXPIRES_AT, Date.now() + expiresIn * 1000)
+        storage.set(STORAGE_KEYS.USER, data.user)
 
         console.log('✅ Login successful')
         console.log(`⏰ Token expires in ${expiresIn}s`)
@@ -203,8 +192,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           if (accessToken) {
             setToken(accessToken)
             setUser(data.user)
-            storage.set(TOKEN_KEY, accessToken)
-            storage.set(USER_KEY, data.user)
+            storage.set(STORAGE_KEYS.TOKEN, accessToken)
+            storage.set(STORAGE_KEYS.USER, data.user)
             router.push('/')
           } else {
             // トークンがない場合はログインページへ
@@ -222,9 +211,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     [router]
   )
 
-  const logout = useCallback(async (reason?: 'timeout' | 'unauthorized' | 'manual') => {
+  const logout = useCallback(async (reason?: LogoutReason) => {
     try {
-      const storedRefreshToken = storage.getUnsafe(REFRESH_TOKEN_KEY)
+      const storedRefreshToken = storage.getUnsafe(STORAGE_KEYS.REFRESH_TOKEN)
       if (storedRefreshToken) {
         // バックエンドにログアウトを通知（postInternalを使用）
         await postInternal('/api/logout', { refresh_token: storedRefreshToken })
@@ -233,8 +222,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     } catch (error) {
       console.error('Logout error:', error)
     } finally {
-      // トークンをクリア
-      clearAuthData()
+      // トークンをクリア（リダイレクトは自身で制御するため false を渡す）
+      clearAuthData(false)
 
       console.log('✅ Logged out')
       
@@ -251,7 +240,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const updateUser = useCallback((userData: User) => {
     setUser(userData)
-    storage.set(USER_KEY, userData)
+    storage.set(STORAGE_KEYS.USER, userData)
   }, [])
 
   // 自動リフレッシュタイマー

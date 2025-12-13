@@ -3,12 +3,7 @@
 import { useAuth } from '@/contexts/AuthContext'
 import { useEffect, useState } from 'react'
 import { storage } from '@/lib/utils'
-
-const TOKEN_EXPIRES_AT_KEY = 'token_expires_at'
-const TOKEN_EXPIRING_SOON_THRESHOLD = 2 * 60 * 1000 // 2分
-const INACTIVITY_TIMEOUT = process.env.NEXT_PUBLIC_INACTIVITY_TIMEOUT 
-  ? parseInt(process.env.NEXT_PUBLIC_INACTIVITY_TIMEOUT) * 1000 
-  : 30 * 60 * 1000 // デフォルト30分
+import { STORAGE_KEYS, TOKEN_EXPIRING_SOON_THRESHOLD, INACTIVITY_TIMEOUT } from '@/lib/constants'
 
 export function TokenDebug() {
   const { user } = useAuth()
@@ -21,7 +16,7 @@ export function TokenDebug() {
     // localStorageから有効期限を取得
     const updateExpiresAt = () => {
       try {
-        const expiresAt = storage.getUnsafe(TOKEN_EXPIRES_AT_KEY)
+        const expiresAt = storage.getUnsafe(STORAGE_KEYS.TOKEN_EXPIRES_AT)
         setTokenExpiresAt(expiresAt)
       } catch {
         setTokenExpiresAt(null)
@@ -33,7 +28,7 @@ export function TokenDebug() {
 
     // storageイベントリスナーで他のタブでの変更を検知
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === TOKEN_EXPIRES_AT_KEY) {
+      if (e.key === STORAGE_KEYS.TOKEN_EXPIRES_AT) {
         updateExpiresAt()
       }
     }

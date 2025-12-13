@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { Container } from '@/components/layout'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
+import { LOGOUT_REASON_MESSAGES } from '@/lib/constants'
 
 const LoginPage: React.FC = () => {
   const { login } = useAuth()
@@ -20,10 +21,8 @@ const LoginPage: React.FC = () => {
   // URLパラメータからメッセージを取得
   useEffect(() => {
     const reason = searchParams.get('reason')
-    if (reason === 'timeout') {
-      setInfo('セッションがタイムアウトしました。再度ログインしてください。')
-    } else if (reason === 'unauthorized') {
-      setInfo('ログインセッションが終了しました。再度ログインしてください。')
+    if (reason && reason in LOGOUT_REASON_MESSAGES) {
+      setInfo(LOGOUT_REASON_MESSAGES[reason])
     }
   }, [searchParams])
 
