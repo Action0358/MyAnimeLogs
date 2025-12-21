@@ -95,11 +95,21 @@ paths:
                   user:
                     $ref: "#/components/schemas/User"
         "401":
-          description: 認証失敗
+          description: 認証失敗（メールアドレスまたはパスワードが正しくない）
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+              example:
+                error: "メールアドレスまたはパスワードが正しくありません"
+        "403":
+          description: アカウントロック（5回連続でログイン失敗した場合、15分間ロック）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "アカウントがロックされています。しばらく時間をおいてから再試行してください。"
   /users/me:
     get:
       summary: マイページ情報を取得

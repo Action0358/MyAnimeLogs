@@ -140,6 +140,76 @@ Content-Type: {{contentType}}
   "password": "wrongpassword"
 }
 
+### ===== アカウントロックアウト機能テスト =====
+# 
+# アカウントロックアウト仕様:
+# - 5回連続でログイン失敗するとアカウントがロックされる
+# - ロック期間は15分間
+# - ロック中は正しいパスワードでもログインできない
+# - ロック期間が過ぎると自動的に解除される
+# - 存在しないメールアドレスでのログイン試行はカウントされない（セキュリティ対策）
+#
+# 注意: このテストを実行する前に、テスト用ユーザーを作成してください
+# また、テスト後はデータベースでロック状態をリセットする必要があります:
+# docker compose exec postgres psql -U user -d myanimelogs -c "UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE email = 'locktest@example.com';"
+
+### 13-1. ロックアウトテスト用ユーザー登録
+POST {{baseUrl}}/api/register
+Content-Type: {{contentType}}
+
+{
+  "name": "ロックアウトテストユーザー",
+  "email": "locktest@example.com",
+  "password": "testpass123"
+}
+
+### 13-2. ログイン失敗（ロックアウトテスト）
+# このリクエストを5回実行するとアカウントがロックされます
+# 5回目以降は403 FORBIDDENが返されます
+POST {{baseUrl}}/api/login
+Content-Type: {{contentType}}
+
+{
+  "email": "locktest@example.com",
+  "password": "wrongpassword"
+}
+
+### 13-3. ロック中のログイン試行（正しいパスワードでも失敗）
+# レスポンス: 403 Forbidden
+# エラーメッセージ: "アカウントがロックされています。しばらく時間をおいてから再試行してください。"
+POST {{baseUrl}}/api/login
+Content-Type: {{contentType}}
+
+{
+  "email": "locktest@example.com",
+  "password": "testpass123"
+}
+
+### 13-4. 存在しないメールアドレスでのログイン試行
+# レスポンス: 401 Unauthorized
+# 注意: 存在しないメールアドレスでの試行はロックアウトカウントに影響しない
+POST {{baseUrl}}/api/login
+Content-Type: {{contentType}}
+
+{
+  "email": "nonexistent@example.com",
+  "password": "anypassword"
+}
+
+### 13-5. ロック解除後のログイン（手動リセット後）
+# 
+# このテストを実行する前に、以下のコマンドでロックを解除してください:
+# docker compose exec postgres psql -U user -d myanimelogs -c "UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE email = 'locktest@example.com';"
+#
+# レスポンス: 200 OK
+POST {{baseUrl}}/api/login
+Content-Type: {{contentType}}
+
+{
+  "email": "locktest@example.com",
+  "password": "testpass123"
+}
+
 ### ===== 複数ユーザーテスト =====
 
 ### 14. 2番目のユーザー登録
@@ -1185,3 +1255,6 @@ Authorization: Bearer {{tokenExpiryCheck.response.body.access_token}}
 #      FROM sessions
 #      WHERE user_id = 1
 #      ORDER BY created_at DESC;
+
+
+

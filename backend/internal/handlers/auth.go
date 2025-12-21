@@ -69,10 +69,20 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	loginResp, err := h.authService.Login(req, userAgent, ipAddress)
 	if err != nil {
+		// Check if account is locked
+		if err == services.ErrAccountLocked {
+			h.response.ForbiddenError(c, "アカウントがロックされています。しばらく時間をおいてから再試行してください。")
+			return
+		}
+
 		if err == services.ErrInvalidCredentials {
+			// Try to get remaining attempts for better error message
+			// Note: We can't get user ID from email without exposing user existence
+			// So we'll just show generic error
 			h.response.UnauthorizedError(c, "メールアドレスまたはパスワードが正しくありません")
 			return
 		}
+
 		h.response.InternalServerError(c, "ログインに失敗しました")
 		return
 	}
