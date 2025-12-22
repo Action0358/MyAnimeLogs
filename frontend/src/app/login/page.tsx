@@ -39,6 +39,17 @@ const LoginPageContent: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
+    setInfo('')  // ログイン試行時に情報メッセージをクリア
+    
+    // URLからreasonパラメータを削除
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href)
+      if (url.searchParams.has('reason')) {
+        url.searchParams.delete('reason')
+        window.history.replaceState({}, '', url.toString())
+      }
+    }
+    
     setIsLoading(true)
 
     try {
