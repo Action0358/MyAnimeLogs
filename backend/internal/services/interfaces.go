@@ -1,6 +1,11 @@
 package services
 
-import "myanimelogs/internal/models"
+import (
+	"time"
+
+	"myanimelogs/internal/models"
+	"myanimelogs/internal/repository"
+)
 
 // UserRepositoryInterface defines the interface for user repository
 type UserRepositoryInterface interface {
@@ -11,6 +16,10 @@ type UserRepositoryInterface interface {
 	UpdatePartial(userID int, req models.UserUpdateRequest) (*models.User, error)
 	UpdateIcon(userID int, iconURL string) (*models.User, error)
 	EmailExists(email string) (bool, error)
+	// Account lockout methods
+	IncrementFailedAttempts(userID int, maxAttempts int, lockoutDuration time.Duration) (*repository.LockoutResult, error)
+	ResetFailedAttempts(userID int) error
+	IsAccountLocked(userID int) (bool, *time.Time, error)
 }
 
 // AuthServiceInterface defines the interface for authentication service

@@ -17,12 +17,18 @@ import (
 const (
 	// AccessTokenLifetime is the duration for which an access token is valid
 	AccessTokenLifetime = 15 * time.Minute
+
+	// Account lockout constants
+	MaxLoginAttempts = 5
+	LockoutDuration  = 15 * time.Minute
+	WarningThreshold = 3 // Show warning after this many failed attempts
 )
 
 var (
 	ErrEmailAlreadyExists = errors.New("email already exists")
 	ErrInvalidCredentials = errors.New("invalid credentials")
 	ErrUserNotFound       = errors.New("user not found")
+	ErrAccountLocked      = errors.New("account is locked")
 )
 
 type AuthService struct {
@@ -126,7 +132,6 @@ func (s *AuthService) registerWithRepo(req models.UserRegisterRequest, repo User
 	}, nil
 }
 
-
 func (s *AuthService) Login(req models.UserLoginRequest, userAgent, ipAddress string) (*models.LoginResponse, error) {
 	return s.loginWithRepo(req, userAgent, ipAddress, s.getRepository())
 }
@@ -141,10 +146,33 @@ func (s *AuthService) loginWithRepo(req models.UserLoginRequest, userAgent, ipAd
 		return nil, ErrInvalidCredentials
 	}
 
+	// Check if account is locked using repository method
+	isLocked, lockedUntil, err := repo.IsAccountLocked(user.ID)
+	if err != nil {
+		// ロック状態の確認に失敗した場合は、セキュリティのためログイン処理を中断
+		s.logger.Error("Failed to check lock status", "error", err, "user_id", user.ID)
+		return nil, fmt.Errorf("failed to check account lock status: %w", err)
+	}
+
+	if isLocked {
+		s.logger.Warn("Login attempt on locked account", "user_id", user.ID, "locked_until", lockedUntil)
+		return nil, ErrAccountLocked
+	}
+
 	// Check password
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password))
 	if err != nil {
+		// Password is incorrect - increment failed attempts atomically
+		if err := s.incrementFailedAttempts(user.ID, repo); err != nil {
+			s.logger.Error("Failed to increment failed login attempts", "error", err, "user_id", user.ID)
+		}
 		return nil, ErrInvalidCredentials
+	}
+
+	// Password is correct - reset failed attempts
+	if err := s.resetFailedAttempts(user.ID, repo); err != nil {
+		s.logger.Warn("Failed to reset failed login attempts", "error", err, "user_id", user.ID)
+		// Don't fail the login if we can't reset the counter
 	}
 
 	// Generate JTI for access token
@@ -180,11 +208,65 @@ func (s *AuthService) loginWithRepo(req models.UserLoginRequest, userAgent, ipAd
 	}, nil
 }
 
+// incrementFailedAttempts increments the failed login attempts counter atomically
+func (s *AuthService) incrementFailedAttempts(userID int, repo UserRepositoryInterface) error {
+	s.logger.Info("incrementFailedAttempts called", "user_id", userID)
+
+	// Use atomic repository method to prevent race conditions
+	result, err := repo.IncrementFailedAttempts(userID, MaxLoginAttempts, LockoutDuration)
+	if err != nil {
+		s.logger.Error("Failed to increment failed login attempts", "error", err, "user_id", userID)
+		return err
+	}
+
+	s.logger.Info("Incremented failed login attempts", "user_id", userID, "new_attempts", result.NewAttempts)
+
+	// Log if account was locked
+	if result.LockedUntil != nil {
+		s.logger.Warn("Account locked due to failed login attempts",
+			"user_id", userID,
+			"attempts", result.NewAttempts,
+			"locked_until", result.LockedUntil.Format("2006-01-02 15:04:05"))
+	}
+
+	return nil
+}
+
+// resetFailedAttempts resets the failed login attempts counter
+func (s *AuthService) resetFailedAttempts(userID int, repo UserRepositoryInterface) error {
+	return repo.ResetFailedAttempts(userID)
+}
+
+// CheckAccountLock checks if an account is locked and returns lock information
+func (s *AuthService) CheckAccountLock(userID int) (bool, *time.Time, error) {
+	return s.getRepository().IsAccountLocked(userID)
+}
+
+// UnlockAccount manually unlocks an account (for admin use)
+func (s *AuthService) UnlockAccount(userID int) error {
+	return s.getRepository().ResetFailedAttempts(userID)
+}
+
+// GetRemainingAttempts returns the number of remaining login attempts
+func (s *AuthService) GetRemainingAttempts(userID int) (int, error) {
+	user, err := s.getRepository().GetByID(userID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get user: %w", err)
+	}
+	if user == nil {
+		return 0, ErrUserNotFound
+	}
+
+	remaining := MaxLoginAttempts - user.FailedLoginAttempts
+	if remaining < 0 {
+		remaining = 0
+	}
+	return remaining, nil
+}
 
 func (s *AuthService) GetUserByID(userID int) (*models.UserResponse, error) {
 	return s.getUserByIDWithRepo(userID, s.getRepository())
 }
-
 
 // getUserByIDWithRepo handles user retrieval through repository
 func (s *AuthService) getUserByIDWithRepo(userID int, repo UserRepositoryInterface) (*models.UserResponse, error) {
