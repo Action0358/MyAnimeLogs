@@ -5,16 +5,19 @@ import (
 )
 
 type User struct {
-	ID            int       `json:"id" db:"id"`
-	Name          string    `json:"name" db:"name"`
-	Email         string    `json:"email" db:"email"`
-	Password      string    `json:"-" db:"password"` // Never expose password in JSON
-	Description   *string   `json:"description" db:"description"`
-	Icon          *string   `json:"icon" db:"icon"`
-	FavoriteAnime *string   `json:"favorite_anime" db:"favorite_anime"`
-	SnsLink       *string   `json:"sns_link" db:"sns_link"`
-	CreatedAt     time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at" db:"updated_at"`
+	ID                  int        `json:"id" db:"id"`
+	Name                string     `json:"name" db:"name"`
+	Email               string     `json:"email" db:"email"`
+	Password            string     `json:"-" db:"password"` // Never expose password in JSON
+	Description         *string    `json:"description" db:"description"`
+	Icon                *string    `json:"icon" db:"icon"`
+	FavoriteAnime       *string    `json:"favorite_anime" db:"favorite_anime"`
+	SnsLink             *string    `json:"sns_link" db:"sns_link"`
+	FailedLoginAttempts int        `json:"-" db:"failed_login_attempts"`
+	LastFailedLoginAt   *time.Time `json:"-" db:"last_failed_login_at"`
+	LockedUntil         *time.Time `json:"-" db:"locked_until"`
+	CreatedAt           time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt           time.Time  `json:"updated_at" db:"updated_at"`
 }
 
 type UserRegisterRequest struct {

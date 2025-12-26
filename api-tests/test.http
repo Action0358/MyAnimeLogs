@@ -140,9 +140,79 @@ Content-Type: {{contentType}}
   "password": "wrongpassword"
 }
 
+### ===== アカウントロックアウト機能テスト =====
+# 
+# アカウントロックアウト仕様:
+# - 5回連続でログイン失敗するとアカウントがロックされる
+# - ロック期間は15分間
+# - ロック中は正しいパスワードでもログインできない
+# - ロック期間が過ぎると自動的に解除される
+# - 存在しないメールアドレスでのログイン試行はカウントされない（セキュリティ対策）
+#
+# 注意: このテストを実行する前に、テスト用ユーザーを作成してください
+# また、テスト後はデータベースでロック状態をリセットする必要があります:
+# docker compose exec postgres psql -U user -d myanimelogs -c "UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE email = 'locktest@example.com';"
+
+### 14-1. ロックアウトテスト用ユーザー登録
+POST {{baseUrl}}/api/register
+Content-Type: {{contentType}}
+
+{
+  "name": "ロックアウトテストユーザー",
+  "email": "locktest@example.com",
+  "password": "testpass123"
+}
+
+### 14-2. ログイン失敗（ロックアウトテスト）
+# このリクエストを5回実行するとアカウントがロックされます
+# 5回目以降は403 FORBIDDENが返されます
+POST {{baseUrl}}/api/login
+Content-Type: {{contentType}}
+
+{
+  "email": "locktest@example.com",
+  "password": "wrongpassword"
+}
+
+### 14-3. ロック中のログイン試行（正しいパスワードでも失敗）
+# レスポンス: 403 Forbidden
+# エラーメッセージ: "アカウントがロックされています。しばらく時間をおいてから再試行してください。"
+POST {{baseUrl}}/api/login
+Content-Type: {{contentType}}
+
+{
+  "email": "locktest@example.com",
+  "password": "testpass123"
+}
+
+### 14-4. 存在しないメールアドレスでのログイン試行
+# レスポンス: 401 Unauthorized
+# 注意: 存在しないメールアドレスでの試行はロックアウトカウントに影響しない
+POST {{baseUrl}}/api/login
+Content-Type: {{contentType}}
+
+{
+  "email": "nonexistent@example.com",
+  "password": "anypassword"
+}
+
+### 14-5. ロック解除後のログイン（手動リセット後）
+# 
+# このテストを実行する前に、以下のコマンドでロックを解除してください:
+# docker compose exec postgres psql -U user -d myanimelogs -c "UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE email = 'locktest@example.com';"
+#
+# レスポンス: 200 OK
+POST {{baseUrl}}/api/login
+Content-Type: {{contentType}}
+
+{
+  "email": "locktest@example.com",
+  "password": "testpass123"
+}
+
 ### ===== 複数ユーザーテスト =====
 
-### 14. 2番目のユーザー登録
+### 15. 2番目のユーザー登録
 POST {{baseUrl}}/api/register
 Content-Type: {{contentType}}
 
@@ -152,7 +222,7 @@ Content-Type: {{contentType}}
   "password": "secondpass123"
 }
 
-### 15. 2番目のユーザーログイン
+### 16. 2番目のユーザーログイン
 # @name login2
 POST {{baseUrl}}/api/login
 Content-Type: {{contentType}}
@@ -162,72 +232,72 @@ Content-Type: {{contentType}}
   "password": "secondpass123"
 }
 
-### 16. 2番目のユーザーのプロフィール取得
+### 17. 2番目のユーザーのプロフィール取得
 GET {{baseUrl}}/api/users/me
 Authorization: Bearer {{login2.response.body.access_token}}
 
 ### ===== 開発用エンドポイント =====
 
-### 17. ホットリロードテスト
+### 18. ホットリロードテスト
 GET {{baseUrl}}/test-hot-reload
 
-### 18. Annict API接続テスト
+### 19. Annict API接続テスト
 GET {{baseUrl}}/annict/test
 
 ### ===== Annict API エンドポイント =====
 
-### 19. 今期アニメ取得
+### 20. 今期アニメ取得
 GET {{baseUrl}}/api/annict/works
 
-### 20. 人気アニメ取得
+### 21. 人気アニメ取得
 GET {{baseUrl}}/api/annict/popular-works
 
-### 21. 特定シーズンのアニメ取得
+### 22. 特定シーズンのアニメ取得
 GET {{baseUrl}}/api/annict/works?season=2024-autumn
 
 ### ===== アニメ管理API =====
 
-### 22. アニメ一覧取得（認証なし）
+### 23. アニメ一覧取得（認証なし）
 GET {{baseUrl}}/api/animes
 
-### 23. アニメ一覧取得（認証あり）
+### 24. アニメ一覧取得（認証あり）
 GET {{baseUrl}}/api/animes
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 24. アニメ検索（キーワード）
+### 25. アニメ検索（キーワード）
 GET {{baseUrl}}/api/animes?keyword=進撃
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 25. アニメ検索（シーズンフィルター）
+### 26. アニメ検索（シーズンフィルター）
 GET {{baseUrl}}/api/animes?season=2024-autumn
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 26. アニメ詳細取得（認証なし）
+### 27. アニメ詳細取得（認証なし）
 GET {{baseUrl}}/api/animes/1
 
-### 27. アニメ詳細取得（認証あり）
+### 28. アニメ詳細取得（認証あり）
 GET {{baseUrl}}/api/animes/1
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 28. アニメのエピソード一覧取得
+### 29. アニメのエピソード一覧取得
 GET {{baseUrl}}/api/animes/1/episodes
 Authorization: Bearer {{login.response.body.access_token}}
 
 ### ===== お気に入り管理API =====
 
-### 29. お気に入り一覧取得（全て）
+### 30. お気に入り一覧取得（全て）
 GET {{baseUrl}}/api/users/me/favorites
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 30. お気に入り一覧取得（視聴中のみ）
+### 31. お気に入り一覧取得（視聴中のみ）
 GET {{baseUrl}}/api/users/me/favorites?status=watching
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 31. お気に入り一覧取得（視聴完了のみ）
+### 32. お気に入り一覧取得（視聴完了のみ）
 GET {{baseUrl}}/api/users/me/favorites?status=completed
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 32. お気に入り登録（視聴中）
+### 33. お気に入り登録（視聴中）
 PUT {{baseUrl}}/api/users/me/favorites/1
 Content-Type: {{contentType}}
 Authorization: Bearer {{login.response.body.access_token}}
@@ -236,7 +306,7 @@ Authorization: Bearer {{login.response.body.access_token}}
   "status": "watching"
 }
 
-### 33. お気に入り更新（視聴完了）
+### 34. お気に入り更新（視聴完了）
 PUT {{baseUrl}}/api/users/me/favorites/1
 Content-Type: {{contentType}}
 Authorization: Bearer {{login.response.body.access_token}}
@@ -245,7 +315,7 @@ Authorization: Bearer {{login.response.body.access_token}}
   "status": "completed"
 }
 
-### 34. お気に入り登録（視聴予定）
+### 35. お気に入り登録（視聴予定）
 PUT {{baseUrl}}/api/users/me/favorites/2
 Content-Type: {{contentType}}
 Authorization: Bearer {{login.response.body.access_token}}
@@ -254,13 +324,13 @@ Authorization: Bearer {{login.response.body.access_token}}
   "status": "planned"
 }
 
-### 35. お気に入り削除
+### 36. お気に入り削除
 DELETE {{baseUrl}}/api/users/me/favorites/1
 Authorization: Bearer {{login.response.body.access_token}}
 
 ### ===== 視聴進捗管理API =====
 
-### 36. エピソード視聴状態更新（視聴済み）
+### 37. エピソード視聴状態更新（視聴済み）
 PUT {{baseUrl}}/api/episodes/1/watch
 Content-Type: {{contentType}}
 Authorization: Bearer {{login.response.body.access_token}}
@@ -269,7 +339,7 @@ Authorization: Bearer {{login.response.body.access_token}}
   "viewed": true
 }
 
-### 37. エピソード視聴状態更新（未視聴）
+### 38. エピソード視聴状態更新（未視聴）
 PUT {{baseUrl}}/api/episodes/1/watch
 Content-Type: {{contentType}}
 Authorization: Bearer {{login.response.body.access_token}}
@@ -280,7 +350,7 @@ Authorization: Bearer {{login.response.body.access_token}}
 
 ### ===== 評価システムAPI =====
 
-### 38. アニメ評価登録
+### 39. アニメ評価登録
 PUT {{baseUrl}}/api/animes/1/rating
 Content-Type: {{contentType}}
 Authorization: Bearer {{login.response.body.access_token}}
@@ -290,7 +360,7 @@ Authorization: Bearer {{login.response.body.access_token}}
   "comment": "とても面白いアニメでした！"
 }
 
-### 39. アニメ評価更新
+### 40. アニメ評価更新
 PUT {{baseUrl}}/api/animes/1/rating
 Content-Type: {{contentType}}
 Authorization: Bearer {{login.response.body.access_token}}
@@ -300,27 +370,27 @@ Authorization: Bearer {{login.response.body.access_token}}
   "comment": "最高のアニメです！"
 }
 
-### 40. アニメ評価削除
+### 41. アニメ評価削除
 DELETE {{baseUrl}}/api/animes/1/rating
 Authorization: Bearer {{login.response.body.access_token}}
 
 ### ===== 視聴履歴・統計API =====
 
-### 41. 最近視聴したエピソード
+### 42. 最近視聴したエピソード
 GET {{baseUrl}}/api/users/me/recently-watched
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 42. 最近視聴したエピソード（件数指定）
+### 43. 最近視聴したエピソード（件数指定）
 GET {{baseUrl}}/api/users/me/recently-watched?limit=5
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 43. 視聴予定リスト
+### 44. 視聴予定リスト
 GET {{baseUrl}}/api/users/me/watchlist
 Authorization: Bearer {{login.response.body.access_token}}
 
 ### ===== エラーケーステスト（お気に入り関連） =====
 
-### 44. 存在しないアニメをお気に入り登録
+### 45. 存在しないアニメをお気に入り登録
 PUT {{baseUrl}}/api/users/me/favorites/99999
 Content-Type: {{contentType}}
 Authorization: Bearer {{login.response.body.access_token}}
@@ -329,7 +399,7 @@ Authorization: Bearer {{login.response.body.access_token}}
   "status": "watching"
 }
 
-### 45. 無効なステータスでお気に入り登録
+### 46. 無効なステータスでお気に入り登録
 PUT {{baseUrl}}/api/users/me/favorites/1
 Content-Type: {{contentType}}
 Authorization: Bearer {{login.response.body.access_token}}
@@ -338,7 +408,7 @@ Authorization: Bearer {{login.response.body.access_token}}
   "status": "invalid_status"
 }
 
-### 46. 存在しないエピソードの視聴状態更新
+### 47. 存在しないエピソードの視聴状態更新
 PUT {{baseUrl}}/api/episodes/99999/watch
 Content-Type: {{contentType}}
 Authorization: Bearer {{login.response.body.access_token}}
@@ -347,7 +417,7 @@ Authorization: Bearer {{login.response.body.access_token}}
   "viewed": true
 }
 
-### 47. 無効な評価値でアニメ評価
+### 48. 無効な評価値でアニメ評価
 PUT {{baseUrl}}/api/animes/1/rating
 Content-Type: {{contentType}}
 Authorization: Bearer {{login.response.body.access_token}}
@@ -359,7 +429,7 @@ Authorization: Bearer {{login.response.body.access_token}}
 
 ### ===== 管理者API（データ同期） =====
 
-### 48. 今期アニメをデータベースに同期
+### 49. 今期アニメをデータベースに同期
 POST {{baseUrl}}/api/admin/sync/season
 Content-Type: {{contentType}}
 Authorization: Bearer {{login.response.body.access_token}}
@@ -368,34 +438,34 @@ Authorization: Bearer {{login.response.body.access_token}}
   "season": "2024-autumn"
 }
 
-### 49. 人気アニメをデータベースに同期
+### 50. 人気アニメをデータベースに同期
 POST {{baseUrl}}/api/admin/sync/popular
 Content-Type: {{contentType}}
 Authorization: Bearer {{login.response.body.access_token}}
 
 ### ===== パフォーマンステスト =====
 
-### 50. 大量データでのアニメ一覧取得
+### 51. 大量データでのアニメ一覧取得
 GET {{baseUrl}}/api/animes?per_page=100
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 51. 複数条件での検索
+### 52. 複数条件での検索
 GET {{baseUrl}}/api/animes?keyword=進撃&season=2024-autumn&status=airing&sort=rating
 Authorization: Bearer {{login.response.body.access_token}}
 
 ### ===== 監視・ヘルスチェックAPI =====
 
-### 52. 基本ヘルスチェック
+### 53. 基本ヘルスチェック
 GET {{baseUrl}}/health
 
-### 53. 詳細ヘルスチェック
+### 54. 詳細ヘルスチェック
 GET {{baseUrl}}/health/detailed
 
-### 54. エラーメトリクス取得（管理者）
+### 55. エラーメトリクス取得（管理者）
 GET {{baseUrl}}/api/admin/errors/metrics
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 55. トップエラー取得（管理者）
+### 56. トップエラー取得（管理者）
 # レスポンス例:
 # {
 #   "top_errors": [...],
@@ -408,196 +478,195 @@ Authorization: Bearer {{login.response.body.access_token}}
 GET {{baseUrl}}/api/admin/errors/top?limit=5
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 55-1. トップエラー取得（件数指定）
+### 56-1. トップエラー取得（件数指定）
 GET {{baseUrl}}/api/admin/errors/top?limit=3
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 55-2. トップエラー取得（デフォルト件数）
+### 56-2. トップエラー取得（デフォルト件数）
 GET {{baseUrl}}/api/admin/errors/top
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 55-3. トップエラー取得（カウント順ソート）
+### 56-3. トップエラー取得（カウント順ソート）
 GET {{baseUrl}}/api/admin/errors/top?limit=5&sort=count
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 55-4. トップエラー取得（レート順ソート）
+### 56-4. トップエラー取得（レート順ソート）
 GET {{baseUrl}}/api/admin/errors/top?limit=5&sort=rate
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 55-5. トップエラー取得（時刻順ソート）
+### 56-5. トップエラー取得（時刻順ソート）
 GET {{baseUrl}}/api/admin/errors/top?limit=5&sort=time
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 55-6. トップエラー取得（エラーコード順ソート）
+### 56-6. トップエラー取得（エラーコード順ソート）
 GET {{baseUrl}}/api/admin/errors/top?limit=5&sort=code
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 56. エラーメトリクスリセット（管理者）
+### 57. エラーメトリクスリセット（管理者）
 POST {{baseUrl}}/api/admin/errors/reset
 Authorization: Bearer {{login.response.body.access_token}}
 
 ### ===== 新しい検索・フィルタリング機能テスト =====
 
-### 57. フィルター情報取得
+### 58. フィルター情報取得
 GET {{baseUrl}}/api/filters
 
-### 58. 検索候補取得
+### 59. 検索候補取得
 GET {{baseUrl}}/api/search/suggestions?q=進撃
 
-### 59. 人気検索キーワード取得
+### 60. 人気検索キーワード取得
 GET {{baseUrl}}/api/search/popular
 
-### 60. 人気検索キーワード取得（件数指定）
+### 61. 人気検索キーワード取得（件数指定）
 GET {{baseUrl}}/api/search/popular?limit=5
 
 ### ===== 高度検索機能テスト =====
 
-### 61. 高度検索（基本クエリ）
+### 62. 高度検索（基本クエリ）
 GET {{baseUrl}}/api/search/advanced?q=進撃
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 62. 高度検索（複数ジャンル）
+### 63. 高度検索（複数ジャンル）
 GET {{baseUrl}}/api/search/advanced?genre=アクション&genre=ドラマ
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 63. 高度検索（年指定）
+### 64. 高度検索（年指定）
 GET {{baseUrl}}/api/search/advanced?year=2024
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 64. 高度検索（シーズン指定）
+### 65. 高度検索（シーズン指定）
 GET {{baseUrl}}/api/search/advanced?season=autumn
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 65. 高度検索（評価範囲指定）
+### 66. 高度検索（評価範囲指定）
 GET {{baseUrl}}/api/search/advanced?min_rating=4.0&max_rating=5.0
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 66. 高度検索（ユーザーステータス指定）
+### 67. 高度検索（ユーザーステータス指定）
 GET {{baseUrl}}/api/search/advanced?user_status=watching
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 67. 高度検索（タイトル順ソート・昇順）
+### 68. 高度検索（タイトル順ソート・昇順）
 GET {{baseUrl}}/api/search/advanced?sort=title&order=asc
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 68. 高度検索（評価順ソート・降順）
+### 69. 高度検索（評価順ソート・降順）
 GET {{baseUrl}}/api/search/advanced?sort=rating&order=desc
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 69. 高度検索（年順ソート・降順）
+### 70. 高度検索（年順ソート・降順）
 GET {{baseUrl}}/api/search/advanced?sort=year&order=desc
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 70. 高度検索（人気順ソート・降順）
+### 71. 高度検索（人気順ソート・降順）
 GET {{baseUrl}}/api/search/advanced?sort=popularity&order=desc
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 71. 高度検索（更新日順ソート・降順）
+### 72. 高度検索（更新日順ソート・降順）
 GET {{baseUrl}}/api/search/advanced?sort=updated&order=desc
 Authorization: Bearer {{login.response.body.access_token}}
 
 ### ===== 複合検索条件テスト =====
 
-### 72. 高度検索（複合条件1: クエリ + ジャンル + 年）
+### 73. 高度検索（複合条件1: クエリ + ジャンル + 年）
 GET {{baseUrl}}/api/search/advanced?q=進撃&genre=アクション&year=2024
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 73. 高度検索（複合条件2: シーズン + 評価範囲 + ソート）
+### 74. 高度検索（複合条件2: シーズン + 評価範囲 + ソート）
 GET {{baseUrl}}/api/search/advanced?season=autumn&min_rating=3.5&sort=rating&order=desc
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 74. 高度検索（複合条件3: 全条件指定）
+### 75. 高度検索（複合条件3: 全条件指定）
 GET {{baseUrl}}/api/search/advanced?q=アニメ&genre=アクション&genre=ドラマ&year=2024&season=autumn&min_rating=3.0&max_rating=5.0&user_status=watching&sort=rating&order=desc&page=1&per_page=10
 Authorization: Bearer {{login.response.body.access_token}}
 
 ### ===== ページネーションテスト =====
 
-### 75. 高度検索（1ページ目）
+### 76. 高度検索（1ページ目）
 GET {{baseUrl}}/api/search/advanced?page=1&per_page=5
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 76. 高度検索（2ページ目）
+### 77. 高度検索（2ページ目）
 GET {{baseUrl}}/api/search/advanced?page=2&per_page=5
 Authorization: Bearer {{login.response.body.access_token}}
 
 ### ===== エラーケーステスト（検索機能） =====
 
-### 77. 検索候補取得（クエリなし）
+### 78. 検索候補取得（クエリなし）
 GET {{baseUrl}}/api/search/suggestions
 
-### 78. 高度検索（無効な評価範囲）
+### 79. 高度検索（無効な評価範囲）
 GET {{baseUrl}}/api/search/advanced?min_rating=6.0&max_rating=10.0
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 79. 高度検索（無効なソート項目）
+### 80. 高度検索（無効なソート項目）
 GET {{baseUrl}}/api/search/advanced?sort=invalid_sort
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 80. 高度検索（無効なページ番号）
+### 81. 高度検索（無効なページ番号）
 GET {{baseUrl}}/api/search/advanced?page=0
 Authorization: Bearer {{login.response.body.access_token}}
 
 ### ===== パフォーマンステスト（検索機能） =====
 
-### 81. 高度検索（大量結果）
+### 82. 高度検索（大量結果）
 GET {{baseUrl}}/api/search/advanced?per_page=100
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 82. 高度検索（複雑な条件での性能テスト）
+### 83. 高度検索（複雑な条件での性能テスト）
 GET {{baseUrl}}/api/search/advanced?q=アニメ&genre=アクション&genre=ドラマ&genre=コメディ&min_rating=1.0&max_rating=5.0&sort=rating&order=desc&per_page=50
 Authorization: Bearer {{login.response.body.access_token}}
 
 ### ===== 全文検索テスト =====
 
-### 83. 全文検索（タイトル部分一致）
+### 84. 全文検索（タイトル部分一致）
 GET {{baseUrl}}/api/search/advanced?q=進撃
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 84. 全文検索（説明文検索）
+### 85. 全文検索（説明文検索）
 GET {{baseUrl}}/api/search/advanced?q=巨人
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 85. 全文検索（ひらがな検索）
+### 86. 全文検索（ひらがな検索）
 GET {{baseUrl}}/api/search/advanced?q=しんげき
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 86. 全文検索（カタカナ検索）
+### 87. 全文検索（カタカナ検索）
 GET {{baseUrl}}/api/search/advanced?q=アニメ
 Authorization: Bearer {{login.response.body.access_token}}
 
 ### ===== 改善機能の追加テスト =====
 
-### 87. エラーハンドリングテスト（無効なパラメータ）
+### 88. エラーハンドリングテスト（無効なパラメータ）
 GET {{baseUrl}}/api/search/suggestions?q=&limit=abc
 
-### 88. エラーハンドリングテスト（大きすぎるlimit）
+### 89. エラーハンドリングテスト（大きすぎるlimit）
 GET {{baseUrl}}/api/search/suggestions?q=test&limit=1000
 
-### 89. 検索候補（部分一致テスト）
+### 90. 検索候補（部分一致テスト）
 GET {{baseUrl}}/api/search/suggestions?q=鬼
 
-### 90. 検索候補（英語部分一致）
+### 91. 検索候補（英語部分一致）
 GET {{baseUrl}}/api/search/suggestions?q=PSYCHO
 
-### 91. 人気検索（最大件数テスト）
+### 92. 人気検索（最大件数テスト）
 GET {{baseUrl}}/api/search/popular?limit=50
 
-### =====
- Jikan API 連携機能テスト =====
+### ===== Jikan API 連携機能テスト =====
 
-### 92. エピソード視聴時間の自動取得テスト
+### 93. エピソード視聴時間の自動取得テスト
 # エピソード情報を取得すると、バックグラウンドでJikan APIから視聴時間が自動取得される
 # 最初のリクエストではduration_minutesがnullの可能性がある
 # 数秒後に再度リクエストすると、duration_minutesが設定されているはず
 GET {{baseUrl}}/api/animes/1/episodes
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 93. エピソード視聴時間の確認（2回目）
+### 94. エピソード視聴時間の確認（2回目）
 # 5秒待ってから再度リクエストして、duration_minutesが設定されているか確認
 GET {{baseUrl}}/api/animes/1/episodes
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 94. 管理者API - 全アニメのエピソード視聴時間を同期
+### 95. 管理者API - 全アニメのエピソード視聴時間を同期
 # MAL IDが設定されている全アニメのエピソード視聴時間をJikan APIから取得
 POST {{baseUrl}}/api/admin/sync/episode-durations
 Content-Type: {{contentType}}
@@ -605,7 +674,7 @@ Authorization: Bearer {{login.response.body.access_token}}
 
 {}
 
-### 95. 管理者API - 特定アニメのエピソード視聴時間を同期
+### 96. 管理者API - 特定アニメのエピソード視聴時間を同期
 # 特定のアニメのみエピソード視聴時間を同期
 POST {{baseUrl}}/api/admin/sync/episode-durations
 Content-Type: {{contentType}}
@@ -615,14 +684,14 @@ Authorization: Bearer {{login.response.body.access_token}}
   "anime_id": 1
 }
 
-### 96. ユーザー統計 - 視聴時間データを含む統計取得
+### 97. ユーザー統計 - 視聴時間データを含む統計取得
 # total_watch_time_minutesに実際のエピソード視聴時間が反映される
 GET {{baseUrl}}/api/users/me/stats
 Authorization: Bearer {{login.response.body.access_token}}
 
 ### ===== Jikan API エラーケーステスト =====
 
-### 97. 存在しないアニメIDで同期
+### 98. 存在しないアニメIDで同期
 POST {{baseUrl}}/api/admin/sync/episode-durations
 Content-Type: {{contentType}}
 Authorization: Bearer {{login.response.body.access_token}}
@@ -631,24 +700,24 @@ Authorization: Bearer {{login.response.body.access_token}}
   "anime_id": 99999
 }
 
-### 98. MAL IDがないアニメのエピソード取得
+### 99. MAL IDがないアニメのエピソード取得
 # MAL IDが設定されていないアニメの場合、視聴時間は取得されない（nullのまま）
 GET {{baseUrl}}/api/animes/999/episodes
 Authorization: Bearer {{login.response.body.access_token}}
 
 ### ===== Jikan API 統合テストシナリオ =====
 
-### 99. シナリオ1: 新規アニメの視聴時間取得フロー
+### 100. シナリオ1: 新規アニメの視聴時間取得フロー
 # 1. アニメ一覧を取得してMAL IDがあるアニメを確認
 GET {{baseUrl}}/api/animes?per_page=5
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 100. シナリオ2: エピソード情報取得（初回）
+### 101. シナリオ2: エピソード情報取得（初回）
 # duration_minutesがnullの可能性がある
 GET {{baseUrl}}/api/animes/1/episodes
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 101. シナリオ3: エピソード視聴状態を更新
+### 102. シナリオ3: エピソード視聴状態を更新
 # エピソードを視聴済みにする
 PUT {{baseUrl}}/api/episodes/1/watch
 Content-Type: {{contentType}}
@@ -658,12 +727,12 @@ Authorization: Bearer {{login.response.body.access_token}}
   "viewed": true
 }
 
-### 102. シナリオ4: 統計情報で視聴時間を確認
+### 103. シナリオ4: 統計情報で視聴時間を確認
 # total_watch_time_minutesに視聴時間が反映される
 GET {{baseUrl}}/api/users/me/stats
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 103. シナリオ5: 管理者による一括同期
+### 104. シナリオ5: 管理者による一括同期
 # 全アニメのエピソード視聴時間を一括で同期
 POST {{baseUrl}}/api/admin/sync/episode-durations
 Content-Type: {{contentType}}
@@ -671,14 +740,14 @@ Authorization: Bearer {{login.response.body.access_token}}
 
 {}
 
-### 104. シナリオ6: 同期後のエピソード情報確認
+### 105. シナリオ6: 同期後のエピソード情報確認
 # duration_minutesが設定されているはず
 GET {{baseUrl}}/api/animes/1/episodes
 Authorization: Bearer {{login.response.body.access_token}}
 
 ### ===== Jikan API パフォーマンステスト =====
 
-### 105. 複数アニメのエピソード情報を連続取得
+### 106. 複数アニメのエピソード情報を連続取得
 # レート制限（1秒3リクエスト）が正しく機能するかテスト
 GET {{baseUrl}}/api/animes/1/episodes
 Authorization: Bearer {{login.response.body.access_token}}
@@ -693,12 +762,12 @@ Authorization: Bearer {{login.response.body.access_token}}
 
 ### ===== Jikan API データ検証テスト =====
 
-### 106. エピソード視聴時間の妥当性確認
+### 107. エピソード視聴時間の妥当性確認
 # duration_minutesが1〜180分の範囲内であることを確認
 GET {{baseUrl}}/api/animes/1/episodes
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 107. 視聴時間データの統計計算確認
+### 108. 視聴時間データの統計計算確認
 # 複数エピソードを視聴済みにして、総視聴時間が正しく計算されるか確認
 PUT {{baseUrl}}/api/episodes/1/watch
 Content-Type: {{contentType}}
@@ -723,7 +792,7 @@ Authorization: Bearer {{login.response.body.access_token}}
 
 ### ===== Annict API エピソードタイトル取得機能テスト =====
 
-### 108. 管理者API - 全アニメのエピソードタイトルを取得
+### 109. 管理者API - 全アニメのエピソードタイトルを取得
 # Annict IDが設定されている全アニメのエピソードタイトルをAnnict APIから取得
 POST {{baseUrl}}/api/admin/enrich/episode-titles
 Content-Type: {{contentType}}
@@ -731,7 +800,7 @@ Authorization: Bearer {{login.response.body.access_token}}
 
 {}
 
-### 109. 管理者API - 特定アニメのエピソードタイトルを取得
+### 110. 管理者API - 特定アニメのエピソードタイトルを取得
 # 特定のアニメのみエピソードタイトルを取得
 POST {{baseUrl}}/api/admin/enrich/episode-titles
 Content-Type: {{contentType}}
@@ -741,12 +810,12 @@ Authorization: Bearer {{login.response.body.access_token}}
   "anime_id": 1
 }
 
-### 110. エピソードタイトル確認（更新後）
+### 111. エピソードタイトル確認（更新後）
 # タイトルが実際のエピソードタイトルに更新されているか確認
 GET {{baseUrl}}/api/animes/1/episodes
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 110-1. 管理者API - エピソード同期ステータス確認
+### 111-1. 管理者API - エピソード同期ステータス確認
 # 特定のアニメのエピソード同期状況を確認
 # レスポンス例:
 # {
@@ -767,16 +836,16 @@ Authorization: Bearer {{login.response.body.access_token}}
 GET {{baseUrl}}/api/admin/episode-sync-status?anime_id=1
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 110-2. エピソード同期ステータス確認（別のアニメ）
+### 111-2. エピソード同期ステータス確認（別のアニメ）
 GET {{baseUrl}}/api/admin/episode-sync-status?anime_id=2
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 110-3. エピソード同期ステータス確認（存在しないアニメ）
+### 111-3. エピソード同期ステータス確認（存在しないアニメ）
 # エラー: 404 Not Found
 GET {{baseUrl}}/api/admin/episode-sync-status?anime_id=99999
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 110-4. エピソード同期ステータス確認（anime_idなし）
+### 111-4. エピソード同期ステータス確認（anime_idなし）
 # エラー: 400 Bad Request
 GET {{baseUrl}}/api/admin/episode-sync-status
 Authorization: Bearer {{login.response.body.access_token}}
@@ -785,16 +854,16 @@ Authorization: Bearer {{login.response.body.access_token}}
 # 
 # Jikan API連携のテストについて:
 # 
-# 1. 自動取得のテスト（92-93）
+# 1. 自動取得のテスト（93-94）
 #    - 最初のリクエストではduration_minutesがnullの可能性があります
 #    - バックグラウンド処理が完了するまで数秒待ってから再度リクエストしてください
 # 
-# 2. 管理者APIのテスト（94-95）
+# 2. 管理者APIのテスト（95-96）
 #    - 管理者権限が必要です
 #    - MAL IDが設定されているアニメのみ同期されます
 #    - レート制限により、大量のアニメを同期する場合は時間がかかります
 # 
-# 3. レート制限（105）
+# 3. レート制限（106）
 #    - Jikan APIは1秒間に3リクエストまでの制限があります
 #    - 連続でリクエストすると、自動的にレート制限が適用されます
 # 
@@ -807,51 +876,51 @@ Authorization: Bearer {{login.response.body.access_token}}
 #
 # Annict API エピソードタイトル取得のテストについて:
 #
-# 1. エピソードタイトル取得（108-109）
+# 1. エピソードタイトル取得（109-110）
 #    - 管理者権限が必要です
 #    - Annict IDが設定されているアニメのみ取得されます
 #    - レート制限対策として0.5秒の待機時間が設定されています
 #
-# 2. データの確認（110）
+# 2. データの確認（111）
 #    - タイトルが「第1話」から実際のエピソードタイトルに更新されます
 #    - 例: "白い嫉妬／イーデン校バスジャック事件"
 
 
 ### ===== ジャンル同期機能テスト =====
 
-### 111. 管理者API - 全アニメのジャンル情報を同期
+### 112. 管理者API - 全アニメのジャンル情報を同期
 # AniList APIからジャンル情報を取得してデータベースに保存
 # MAL IDが設定されている全アニメを処理
 POST {{baseUrl}}/api/admin/sync/genres
 Content-Type: {{contentType}}
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 112. ジャンル情報確認（同期後）
+### 113. ジャンル情報確認（同期後）
 # フィルター情報にジャンル一覧が含まれることを確認
 GET {{baseUrl}}/api/filters
 
-### 113. ジャンルでアニメ検索
+### 114. ジャンルでアニメ検索
 # ジャンルフィルターが正常に機能することを確認
 GET {{baseUrl}}/api/animes?genre=アクション
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 114. 複数ジャンルで高度検索
+### 115. 複数ジャンルで高度検索
 # 複数のジャンルで絞り込み検索
 GET {{baseUrl}}/api/search/advanced?genre=アクション&genre=コメディ
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 115. ジャンル統計確認
+### 116. ジャンル統計確認
 # フィルター情報でジャンルごとのアニメ数を確認
 GET {{baseUrl}}/api/filters
 
 ### ===== ジャンル同期エラーケーステスト =====
 
-### 116. ジャンル同期（認証なし）
+### 117. ジャンル同期（認証なし）
 # エラー: 401 Unauthorized
 POST {{baseUrl}}/api/admin/sync/genres
 Content-Type: {{contentType}}
 
-### 117. ジャンル同期（無効なトークン）
+### 118. ジャンル同期（無効なトークン）
 # エラー: 401 Unauthorized
 POST {{baseUrl}}/api/admin/sync/genres
 Content-Type: {{contentType}}
@@ -859,7 +928,7 @@ Authorization: Bearer invalid.token.here
 
 ### ===== ジャンル同期統合テストシナリオ =====
 
-### 118. シナリオ1: アニメ同期 → ジャンル自動取得確認
+### 119. シナリオ1: アニメ同期 → ジャンル自動取得確認
 # 1. 新しいアニメを同期
 POST {{baseUrl}}/api/admin/sync/season
 Content-Type: {{contentType}}
@@ -869,52 +938,52 @@ Authorization: Bearer {{login.response.body.access_token}}
   "season": "2024-autumn"
 }
 
-### 119. シナリオ2: ジャンル情報確認（数秒待機後）
+### 120. シナリオ2: ジャンル情報確認（数秒待機後）
 # バックグラウンド処理でジャンルが自動取得されているか確認
 GET {{baseUrl}}/api/filters
 
-### 120. シナリオ3: 既存アニメのジャンル一括同期
+### 121. シナリオ3: 既存アニメのジャンル一括同期
 # 既存の全アニメに対してジャンルを一括取得
 POST {{baseUrl}}/api/admin/sync/genres
 Content-Type: {{contentType}}
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 121. シナリオ4: ジャンル検索機能確認
+### 122. シナリオ4: ジャンル検索機能確認
 # ジャンルフィルターが正常に機能することを確認
 GET {{baseUrl}}/api/animes?genre=ファンタジー
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 122. シナリオ5: 高度検索でジャンル絞り込み
+### 123. シナリオ5: 高度検索でジャンル絞り込み
 # 複数条件でジャンル検索
 GET {{baseUrl}}/api/search/advanced?genre=アクション&min_rating=4.0&sort=rating&order=desc
 Authorization: Bearer {{login.response.body.access_token}}
 
 ### ===== ジャンル同期パフォーマンステスト =====
 
-### 123. ジャンル同期の実行時間確認
+### 124. ジャンル同期の実行時間確認
 # 大量のアニメに対するジャンル同期の処理時間を確認
 # レスポンスのsuccess_countとfailure_countを確認
 POST {{baseUrl}}/api/admin/sync/genres
 Content-Type: {{contentType}}
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 124. ジャンル同期後のフィルター取得性能
+### 125. ジャンル同期後のフィルター取得性能
 # ジャンル情報が増えた後のフィルター取得性能を確認
 GET {{baseUrl}}/api/filters
 
 ### ===== ジャンルデータ検証テスト =====
 
-### 125. ジャンル名の日本語変換確認
+### 126. ジャンル名の日本語変換確認
 # フィルター情報で日本語のジャンル名が返されることを確認
 # 例: "Action" → "アクション", "Comedy" → "コメディ"
 GET {{baseUrl}}/api/filters
 
-### 126. ジャンル数の妥当性確認
+### 127. ジャンル数の妥当性確認
 # 各アニメに2-3個のジャンルが設定されていることを確認
 # 100作品 × 平均2.5ジャンル = 約250件のジャンルレコード
 GET {{baseUrl}}/api/filters
 
-### 127. ジャンル検索結果の妥当性確認
+### 128. ジャンル検索結果の妥当性確認
 # 特定ジャンルで検索した結果が適切であることを確認
 GET {{baseUrl}}/api/animes?genre=SF
 Authorization: Bearer {{login.response.body.access_token}}
@@ -923,20 +992,20 @@ Authorization: Bearer {{login.response.body.access_token}}
 #
 # ジャンル同期機能のテストについて:
 #
-# 1. 自動ジャンル取得（118-119）
+# 1. 自動ジャンル取得（119-120）
 #    - 新規アニメ同期時、バックグラウンドでジャンル情報が自動取得されます
 #    - 処理完了まで数秒かかる場合があります
 #
-# 2. 一括ジャンル同期（120, 123）
+# 2. 一括ジャンル同期（121, 124）
 #    - MAL IDが設定されている全アニメを処理します
 #    - 100作品の場合、約70秒かかります（レート制限対策で700ms待機）
 #    - success_count, failure_count, errorsで結果を確認できます
 #
-# 3. ジャンル変換（125）
+# 3. ジャンル変換（126）
 #    - AniList APIから取得した英語のジャンル名が日本語に自動変換されます
 #    - 対応: Action→アクション, Comedy→コメディ, Drama→ドラマ など28種類
 #
-# 4. レート制限（123）
+# 4. レート制限（124）
 #    - AniList API: 90リクエスト/分
 #    - リトライ機能: 最大3回、指数バックオフ（2秒、4秒、8秒）
 #
@@ -955,7 +1024,7 @@ Authorization: Bearer {{login.response.body.access_token}}
 
 ### ===== セッション管理とトークンリフレッシュ機能テスト =====
 
-### 128. ログイン（新しいレスポンス形式確認）
+### 129. ログイン（新しいレスポンス形式確認）
 # @name loginWithRefresh
 POST {{baseUrl}}/api/login
 Content-Type: {{contentType}}
@@ -965,7 +1034,7 @@ Content-Type: {{contentType}}
   "password": "testpass123"
 }
 
-### 129. トークンリフレッシュ
+### 130. トークンリフレッシュ
 # リフレッシュトークンを使って新しいアクセストークンを取得
 POST {{baseUrl}}/api/auth/refresh
 Content-Type: {{contentType}}
@@ -974,16 +1043,16 @@ Content-Type: {{contentType}}
   "refresh_token": "{{loginWithRefresh.response.body.refresh_token}}"
 }
 
-### 130. セッション一覧取得
+### 131. セッション一覧取得
 # 現在アクティブなセッション一覧を取得
 GET {{baseUrl}}/api/users/me/sessions
 Authorization: Bearer {{loginWithRefresh.response.body.access_token}}
 
-### 131. 特定のセッションを削除
+### 132. 特定のセッションを削除
 # セッションIDを指定して削除
 # 
 # 重要: このテストを自動化する場合は、以下のように変数を使用してください：
-# 1. test #130 のレスポンスから sessions 配列を取得
+# 1. test #131 のレスポンスから sessions 配列を取得
 # 2. 削除したいセッションの ID を変数に保存
 # 3. その変数を使用してこのリクエストを実行
 # 
@@ -992,12 +1061,12 @@ Authorization: Bearer {{loginWithRefresh.response.body.access_token}}
 DELETE {{baseUrl}}/api/users/me/sessions/1
 Authorization: Bearer {{loginWithRefresh.response.body.access_token}}
 
-### 132. 全デバイスからログアウト
+### 133. 全デバイスからログアウト
 # 全てのセッションを削除
 POST {{baseUrl}}/api/users/me/logout-all
 Authorization: Bearer {{loginWithRefresh.response.body.access_token}}
 
-### 133. ログアウト
+### 134. ログアウト
 # リフレッシュトークンを使ってログアウト
 POST {{baseUrl}}/api/logout
 Content-Type: {{contentType}}
@@ -1008,7 +1077,7 @@ Content-Type: {{contentType}}
 
 ### ===== エラーケーステスト（セッション管理） =====
 
-### 134. 無効なリフレッシュトークンでリフレッシュ
+### 135. 無効なリフレッシュトークンでリフレッシュ
 # エラー: 401 Unauthorized
 POST {{baseUrl}}/api/auth/refresh
 Content-Type: {{contentType}}
@@ -1017,7 +1086,7 @@ Content-Type: {{contentType}}
   "refresh_token": "invalid.refresh.token"
 }
 
-### 135. 期限切れのリフレッシュトークンでリフレッシュ
+### 136. 期限切れのリフレッシュトークンでリフレッシュ
 # エラー: 401 Unauthorized
 POST {{baseUrl}}/api/auth/refresh
 Content-Type: {{contentType}}
@@ -1026,14 +1095,14 @@ Content-Type: {{contentType}}
   "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.expired.token"
 }
 
-### 136. リフレッシュトークンなしでリフレッシュ
+### 137. リフレッシュトークンなしでリフレッシュ
 # エラー: 400 Bad Request
 POST {{baseUrl}}/api/auth/refresh
 Content-Type: {{contentType}}
 
 {}
 
-### 137. 存在しないセッションを削除
+### 138. 存在しないセッションを削除
 # エラー: 404 Not Found
 # 注意: 実際のテストでは存在しないIDを使用してください
 DELETE {{baseUrl}}/api/users/me/sessions/99999
@@ -1041,7 +1110,7 @@ Authorization: Bearer {{loginWithRefresh.response.body.access_token}}
 
 ### ===== セッション管理統合テストシナリオ =====
 
-### 138. シナリオ1: ログイン → トークンリフレッシュ → ログアウト
+### 139. シナリオ1: ログイン → トークンリフレッシュ → ログアウト
 # 1. ログイン
 # @name scenario1Login
 POST {{baseUrl}}/api/login
@@ -1052,7 +1121,7 @@ Content-Type: {{contentType}}
   "password": "testpass123"
 }
 
-### 139. シナリオ2: トークンリフレッシュ
+### 140. シナリオ2: トークンリフレッシュ
 # 新しいアクセストークンを取得
 # @name scenario1Refresh
 POST {{baseUrl}}/api/auth/refresh
@@ -1062,12 +1131,12 @@ Content-Type: {{contentType}}
   "refresh_token": "{{scenario1Login.response.body.refresh_token}}"
 }
 
-### 140. シナリオ3: 新しいアクセストークンでAPI呼び出し
+### 141. シナリオ3: 新しいアクセストークンでAPI呼び出し
 # リフレッシュされたトークンが正常に動作することを確認
 GET {{baseUrl}}/api/users/me
 Authorization: Bearer {{scenario1Refresh.response.body.access_token}}
 
-### 141. シナリオ4: ログアウト
+### 142. シナリオ4: ログアウト
 # セッションを削除
 POST {{baseUrl}}/api/logout
 Content-Type: {{contentType}}
@@ -1076,7 +1145,7 @@ Content-Type: {{contentType}}
   "refresh_token": "{{scenario1Login.response.body.refresh_token}}"
 }
 
-### 142. シナリオ5: ログアウト後のトークンリフレッシュ（失敗するはず）
+### 143. シナリオ5: ログアウト後のトークンリフレッシュ（失敗するはず）
 # エラー: 401 Unauthorized
 POST {{baseUrl}}/api/auth/refresh
 Content-Type: {{contentType}}
@@ -1087,7 +1156,7 @@ Content-Type: {{contentType}}
 
 ### ===== 複数デバイスログインテスト =====
 
-### 143. デバイス1: ログイン
+### 144. デバイス1: ログイン
 # @name device1Login
 POST {{baseUrl}}/api/login
 Content-Type: {{contentType}}
@@ -1097,7 +1166,7 @@ Content-Type: {{contentType}}
   "password": "testpass123"
 }
 
-### 144. デバイス2: ログイン（同じユーザー）
+### 145. デバイス2: ログイン（同じユーザー）
 # @name device2Login
 POST {{baseUrl}}/api/login
 Content-Type: {{contentType}}
@@ -1107,15 +1176,15 @@ Content-Type: {{contentType}}
   "password": "testpass123"
 }
 
-### 145. セッション一覧確認（2つのセッションがあるはず）
+### 146. セッション一覧確認（2つのセッションがあるはず）
 GET {{baseUrl}}/api/users/me/sessions
 Authorization: Bearer {{device1Login.response.body.access_token}}
 
-### 146. デバイス1からデバイス2のセッションを削除
-# セッションIDは test #145 のレスポンスから取得してください
+### 147. デバイス1からデバイス2のセッションを削除
+# セッションIDは test #146 のレスポンスから取得してください
 # 
 # 重要: このテストを自動化する場合は、以下の手順を実行してください：
-# 1. test #145 (GET /api/users/me/sessions) を実行
+# 1. test #146 (GET /api/users/me/sessions) を実行
 # 2. レスポンスから is_current: false のセッションを見つける
 # 3. そのセッションの ID を変数に保存
 # 4. その変数を使用してこのリクエストを実行
@@ -1125,7 +1194,7 @@ Authorization: Bearer {{device1Login.response.body.access_token}}
 DELETE {{baseUrl}}/api/users/me/sessions/2
 Authorization: Bearer {{device1Login.response.body.access_token}}
 
-### 147. デバイス2のトークンが無効になったことを確認
+### 148. デバイス2のトークンが無効になったことを確認
 # デバイス2のリフレッシュトークンでリフレッシュを試みる（失敗するはず）
 POST {{baseUrl}}/api/auth/refresh
 Content-Type: {{contentType}}
@@ -1134,13 +1203,13 @@ Content-Type: {{contentType}}
   "refresh_token": "{{device2Login.response.body.refresh_token}}"
 }
 
-### 148. 全デバイスからログアウト
+### 149. 全デバイスからログアウト
 POST {{baseUrl}}/api/users/me/logout-all
 Authorization: Bearer {{device1Login.response.body.access_token}}
 
 ### ===== トークン有効期限テスト =====
 
-### 149. アクセストークンの有効期限確認
+### 150. アクセストークンの有効期限確認
 # レスポンスのexpires_inフィールドを確認（900秒 = 15分）
 # @name tokenExpiryCheck
 POST {{baseUrl}}/api/login
@@ -1151,7 +1220,7 @@ Content-Type: {{contentType}}
   "password": "testpass123"
 }
 
-### 150. リフレッシュトークンの有効期限確認
+### 151. リフレッシュトークンの有効期限確認
 # リフレッシュトークンは7日間有効
 # セッション一覧のexpires_atフィールドで確認
 GET {{baseUrl}}/api/users/me/sessions
@@ -1185,3 +1254,6 @@ Authorization: Bearer {{tokenExpiryCheck.response.body.access_token}}
 #      FROM sessions
 #      WHERE user_id = 1
 #      ORDER BY created_at DESC;
+
+
+
