@@ -14,7 +14,6 @@ import (
 func TestAccountLockoutConstants(t *testing.T) {
 	assert.Equal(t, 5, MaxLoginAttempts, "MaxLoginAttempts should be 5")
 	assert.Equal(t, 15*time.Minute, LockoutDuration, "LockoutDuration should be 15 minutes")
-	assert.Equal(t, 3, WarningThreshold, "WarningThreshold should be 3")
 }
 
 // TestAccountLockoutErrors verifies error constants

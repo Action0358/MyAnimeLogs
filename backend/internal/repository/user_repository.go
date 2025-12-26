@@ -228,6 +228,9 @@ func (r *UserRepository) ResetFailedAttempts(userID int) error {
 }
 
 // IsAccountLocked checks if the account is currently locked
+// Note: This method expects the user to exist. If the user is not found (sql.ErrNoRows),
+// it returns an error because this indicates a data inconsistency or race condition
+// (the user should have been verified to exist before calling this method).
 func (r *UserRepository) IsAccountLocked(userID int) (bool, *time.Time, error) {
 	var lockedUntil *time.Time
 	err := r.db.QueryRow(`
@@ -235,7 +238,7 @@ func (r *UserRepository) IsAccountLocked(userID int) (bool, *time.Time, error) {
 	`, userID).Scan(&lockedUntil)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return false, nil, nil
+			return false, nil, fmt.Errorf("user not found (id=%d): possible data inconsistency", userID)
 		}
 		return false, nil, fmt.Errorf("failed to check account lock status: %w", err)
 	}

@@ -21,7 +21,6 @@ const (
 	// Account lockout constants
 	MaxLoginAttempts = 5
 	LockoutDuration  = 15 * time.Minute
-	WarningThreshold = 3 // Show warning after this many failed attempts
 )
 
 var (
