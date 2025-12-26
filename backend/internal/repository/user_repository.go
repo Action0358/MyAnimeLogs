@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"time"
 
 	"myanimelogs/internal/database"
 	"myanimelogs/internal/models"
@@ -20,11 +21,15 @@ func NewUserRepository(db *database.DB) *UserRepository {
 func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
 	var user models.User
 	err := r.db.QueryRow(`
-		SELECT id, name, email, password, description, icon, favorite_anime, sns_link, created_at, updated_at
+		SELECT id, name, email, password, description, icon, favorite_anime, sns_link,
+		       failed_login_attempts, last_failed_login_at, locked_until,
+		       created_at, updated_at
 		FROM users WHERE email = $1
 	`, email).Scan(
 		&user.ID, &user.Name, &user.Email, &user.Password,
-		&user.Description, &user.Icon, &user.FavoriteAnime, &user.SnsLink, &user.CreatedAt, &user.UpdatedAt,
+		&user.Description, &user.Icon, &user.FavoriteAnime, &user.SnsLink,
+		&user.FailedLoginAttempts, &user.LastFailedLoginAt, &user.LockedUntil,
+		&user.CreatedAt, &user.UpdatedAt,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -38,11 +43,15 @@ func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
 func (r *UserRepository) GetByID(id int) (*models.User, error) {
 	var user models.User
 	err := r.db.QueryRow(`
-		SELECT id, name, email, description, icon, favorite_anime, sns_link, created_at, updated_at
+		SELECT id, name, email, description, icon, favorite_anime, sns_link,
+		       failed_login_attempts, last_failed_login_at, locked_until,
+		       created_at, updated_at
 		FROM users WHERE id = $1
 	`, id).Scan(
 		&user.ID, &user.Name, &user.Email,
-		&user.Description, &user.Icon, &user.FavoriteAnime, &user.SnsLink, &user.CreatedAt, &user.UpdatedAt,
+		&user.Description, &user.Icon, &user.FavoriteAnime, &user.SnsLink,
+		&user.FailedLoginAttempts, &user.LastFailedLoginAt, &user.LockedUntil,
+		&user.CreatedAt, &user.UpdatedAt,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -161,4 +170,81 @@ func (r *UserRepository) UpdateIcon(userID int, iconURL string) (*models.User, e
 	}
 
 	return &user, nil
+}
+
+// LockoutResult contains the result of an atomic lockout operation
+type LockoutResult struct {
+	NewAttempts int
+	LockedUntil *time.Time
+}
+
+// IncrementFailedAttempts atomically increments the failed login attempts counter
+// and locks the account if max attempts is reached. Returns the new attempt count
+// and lock time (if locked).
+func (r *UserRepository) IncrementFailedAttempts(userID int, maxAttempts int, lockoutDuration time.Duration) (*LockoutResult, error) {
+	now := time.Now()
+	lockTime := now.Add(lockoutDuration)
+
+	// Atomic update with RETURNING to get the new values
+	// This prevents race conditions by doing everything in a single query
+	var newAttempts int
+	var lockedUntil *time.Time
+
+	err := r.db.QueryRow(`
+		UPDATE users 
+		SET failed_login_attempts = failed_login_attempts + 1,
+		    last_failed_login_at = $1,
+		    locked_until = CASE 
+		        WHEN failed_login_attempts + 1 >= $2 THEN $3
+		        ELSE locked_until
+		    END
+		WHERE id = $4
+		RETURNING failed_login_attempts, locked_until
+	`, now, maxAttempts, lockTime, userID).Scan(&newAttempts, &lockedUntil)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to increment failed login attempts: %w", err)
+	}
+
+	return &LockoutResult{
+		NewAttempts: newAttempts,
+		LockedUntil: lockedUntil,
+	}, nil
+}
+
+// ResetFailedAttempts resets the failed login attempts counter and unlocks the account
+func (r *UserRepository) ResetFailedAttempts(userID int) error {
+	_, err := r.db.Exec(`
+		UPDATE users 
+		SET failed_login_attempts = 0,
+		    last_failed_login_at = NULL,
+		    locked_until = NULL
+		WHERE id = $1
+	`, userID)
+	if err != nil {
+		return fmt.Errorf("failed to reset failed login attempts: %w", err)
+	}
+	return nil
+}
+
+// IsAccountLocked checks if the account is currently locked
+// Note: This method expects the user to exist. If the user is not found (sql.ErrNoRows),
+// it returns an error because this indicates a data inconsistency or race condition
+// (the user should have been verified to exist before calling this method).
+func (r *UserRepository) IsAccountLocked(userID int) (bool, *time.Time, error) {
+	var lockedUntil *time.Time
+	err := r.db.QueryRow(`
+		SELECT locked_until FROM users WHERE id = $1
+	`, userID).Scan(&lockedUntil)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return false, nil, fmt.Errorf("user not found (id=%d): possible data inconsistency", userID)
+		}
+		return false, nil, fmt.Errorf("failed to check account lock status: %w", err)
+	}
+
+	if lockedUntil != nil && lockedUntil.After(time.Now()) {
+		return true, lockedUntil, nil
+	}
+	return false, nil, nil
 }

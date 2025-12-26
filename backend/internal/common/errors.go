@@ -31,6 +31,7 @@ const (
 	ErrCodeTooManyRequests     = "TOO_MANY_REQUESTS"
 	ErrCodeInternalServer      = "INTERNAL_SERVER_ERROR"
 	ErrCodeServiceUnavailable  = "SERVICE_UNAVAILABLE"
+	ErrCodeAccountLocked       = "ACCOUNT_LOCKED"
 )
 
 // Standard error messages based on CSV specification

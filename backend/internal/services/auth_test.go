@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"myanimelogs/internal/models"
+	"myanimelogs/internal/repository"
 	"myanimelogs/internal/testutil"
 
 	"github.com/stretchr/testify/assert"
@@ -62,6 +63,27 @@ func (m *MockUserRepository) UpdateIcon(userID int, iconURL string) (*models.Use
 func (m *MockUserRepository) EmailExists(email string) (bool, error) {
 	args := m.Called(email)
 	return args.Bool(0), args.Error(1)
+}
+
+func (m *MockUserRepository) IncrementFailedAttempts(userID int, maxAttempts int, lockoutDuration time.Duration) (*repository.LockoutResult, error) {
+	args := m.Called(userID, maxAttempts, lockoutDuration)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*repository.LockoutResult), args.Error(1)
+}
+
+func (m *MockUserRepository) ResetFailedAttempts(userID int) error {
+	args := m.Called(userID)
+	return args.Error(0)
+}
+
+func (m *MockUserRepository) IsAccountLocked(userID int) (bool, *time.Time, error) {
+	args := m.Called(userID)
+	if args.Get(1) == nil {
+		return args.Bool(0), nil, args.Error(2)
+	}
+	return args.Bool(0), args.Get(1).(*time.Time), args.Error(2)
 }
 
 // MockSessionService implements SessionServiceInterface for testing
@@ -235,6 +257,8 @@ func TestAuthService_Login_Success(t *testing.T) {
 
 	// Setup mock expectations
 	mockRepo.On("GetByEmail", "test@example.com").Return(user, nil)
+	mockRepo.On("IsAccountLocked", 1).Return(false, nil, nil)
+	mockRepo.On("ResetFailedAttempts", 1).Return(nil)
 
 	// Mock session creation
 	mockSession := &models.Session{

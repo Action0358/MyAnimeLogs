@@ -10,7 +10,7 @@ import React, {
 } from 'react'
 import { useRouter } from 'next/navigation'
 import { storage } from '@/lib/utils'
-import { post, postInternal, ApiClientError, setUnauthorizedHandler, setRefreshTokenHandler } from '@/lib/api/client'
+import { postInternal, ApiClientError, setUnauthorizedHandler, setRefreshTokenHandler } from '@/lib/api/client'
 import { INACTIVITY_TIMEOUT, TOKEN_REFRESH_MARGIN, STORAGE_KEYS, LOGOUT_REDIRECT_PATHS, type LogoutReason } from '@/lib/constants'
 
 interface User {
@@ -140,7 +140,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const login = useCallback(
     async (email: string, password: string) => {
       try {
-        const data = await post<{ 
+        // postInternalを使用（ログインAPIは認証不要なので、401エラー時のリダイレクトを避ける）
+        const data = await postInternal<{ 
           access_token: string
           refresh_token: string
           expires_in: number
@@ -183,7 +184,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const register = useCallback(
     async (name: string, email: string, password: string) => {
       try {
-        const data = await post<{ access_token?: string; user: User }>(
+        // postInternalを使用（登録APIは認証不要なので、401エラー時のリダイレクトを避ける）
+        const data = await postInternal<{ access_token?: string; user: User }>(
           '/api/register',
           { name, email, password }
         )
