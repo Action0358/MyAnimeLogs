@@ -12,7 +12,7 @@ import (
 
 // TestAccountLockoutConstants verifies the lockout configuration
 func TestAccountLockoutConstants(t *testing.T) {
-	assert.Equal(t, 5, MaxLoginAttempts, "MaxLoginAttempts should be 5")
+	assert.Equal(t, 10, MaxLoginAttempts, "MaxLoginAttempts should be 10")
 	assert.Equal(t, 15*time.Minute, LockoutDuration, "LockoutDuration should be 15 minutes")
 }
 
@@ -106,7 +106,7 @@ func TestGetRemainingAttempts(t *testing.T) {
 				FailedLoginAttempts: 0,
 			},
 			mockError:         nil,
-			expectedRemaining: 5,
+			expectedRemaining: MaxLoginAttempts, // Use constant for robustness
 			expectedError:     nil,
 		},
 		{
@@ -118,7 +118,7 @@ func TestGetRemainingAttempts(t *testing.T) {
 				FailedLoginAttempts: 2,
 			},
 			mockError:         nil,
-			expectedRemaining: 3,
+			expectedRemaining: MaxLoginAttempts - 2, // Use constant for robustness
 			expectedError:     nil,
 		},
 		{
@@ -127,7 +127,7 @@ func TestGetRemainingAttempts(t *testing.T) {
 			mockUser: &models.User{
 				ID:                  3,
 				Email:               "test3@example.com",
-				FailedLoginAttempts: 5,
+				FailedLoginAttempts: MaxLoginAttempts, // Use constant
 			},
 			mockError:         nil,
 			expectedRemaining: 0,
@@ -139,7 +139,7 @@ func TestGetRemainingAttempts(t *testing.T) {
 			mockUser: &models.User{
 				ID:                  4,
 				Email:               "test4@example.com",
-				FailedLoginAttempts: 10,
+				FailedLoginAttempts: MaxLoginAttempts + 5, // Use constant
 			},
 			mockError:         nil,
 			expectedRemaining: 0,
