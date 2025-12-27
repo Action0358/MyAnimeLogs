@@ -106,7 +106,7 @@ func TestLockedAccountRejectsLogin(t *testing.T) {
 		Email:               "test@example.com",
 		Password:            string(hashedPassword),
 		Name:                "Test User",
-		FailedLoginAttempts: 5,
+		FailedLoginAttempts: MaxLoginAttempts, // Use constant for robustness
 		LockedUntil:         &lockTime,
 	}
 
@@ -186,7 +186,7 @@ func TestLockExpirationAllowsLogin(t *testing.T) {
 		Email:               "test@example.com",
 		Password:            string(hashedPassword),
 		Name:                "Test User",
-		FailedLoginAttempts: 5,
+		FailedLoginAttempts: MaxLoginAttempts, // Use constant for robustness
 		LockedUntil:         &expiredLockTime,
 	}
 
