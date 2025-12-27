@@ -165,7 +165,8 @@ Content-Type: {{contentType}}
 
 ### 14-2. ログイン失敗（ロックアウトテスト）
 # このリクエストを10回実行するとアカウントがロックされます
-# 10回目以降は403 FORBIDDENが返されます
+# 10回目の失敗時は401 UNAUTHORIZEDが返され、アカウントがロックされます
+# 11回目以降の試行では403 FORBIDDENが返されます
 POST {{baseUrl}}/api/login
 Content-Type: {{contentType}}
 
