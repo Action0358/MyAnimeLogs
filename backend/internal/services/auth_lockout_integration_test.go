@@ -73,16 +73,16 @@ func TestAccountLocksAfterMaxAttempts(t *testing.T) {
 	mockRepo.On("GetByEmail", "test@example.com").Return(mockUser, nil)
 	mockRepo.On("IsAccountLocked", 1).Return(false, (*time.Time)(nil), nil)
 
-	// This will be the 5th attempt - account should be locked
+	// This will be the 10th attempt - account should be locked
 	lockTime := time.Now().Add(LockoutDuration)
 	mockRepo.On("IncrementFailedAttempts", 1, MaxLoginAttempts, LockoutDuration).Return(&repository.LockoutResult{
-		NewAttempts: 5,
+		NewAttempts: 10,
 		LockedUntil: &lockTime,
 	}, nil)
 
 	service := NewAuthServiceWithDeps(mockRepo, nil, mockSessionService, "test-secret")
 
-	// Attempt login with wrong password (5th attempt)
+	// Attempt login with wrong password (10th attempt)
 	_, err := service.Login(models.UserLoginRequest{
 		Email:    "test@example.com",
 		Password: "wrongpassword",
@@ -106,7 +106,7 @@ func TestLockedAccountRejectsLogin(t *testing.T) {
 		Email:               "test@example.com",
 		Password:            string(hashedPassword),
 		Name:                "Test User",
-		FailedLoginAttempts: 5,
+		FailedLoginAttempts: MaxLoginAttempts, // Use constant for robustness
 		LockedUntil:         &lockTime,
 	}
 
@@ -186,7 +186,7 @@ func TestLockExpirationAllowsLogin(t *testing.T) {
 		Email:               "test@example.com",
 		Password:            string(hashedPassword),
 		Name:                "Test User",
-		FailedLoginAttempts: 5,
+		FailedLoginAttempts: MaxLoginAttempts, // Use constant for robustness
 		LockedUntil:         &expiredLockTime,
 	}
 

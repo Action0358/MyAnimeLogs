@@ -19,7 +19,7 @@ const (
 	AccessTokenLifetime = 15 * time.Minute
 
 	// Account lockout constants
-	MaxLoginAttempts = 5
+	MaxLoginAttempts = 10
 	LockoutDuration  = 15 * time.Minute
 )
 
