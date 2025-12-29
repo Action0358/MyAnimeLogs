@@ -23,7 +23,6 @@ export interface UseFavoritesResult {
   favorites: FavoriteAnime[]
   isLoading: boolean
   error: Error | null
-  addFavorite: (animeId: number, status: FavoriteStatus) => Promise<void>
   updateStatus: (animeId: number, status: FavoriteStatus) => Promise<void>
   removeFavorite: (animeId: number) => Promise<void>
   isFavorite: (animeId: number) => boolean
@@ -56,10 +55,6 @@ export const useFavorites = (statusFilter?: FavoriteStatus): UseFavoritesResult 
   
   const favorites: FavoriteAnime[] = (data?.data as FavoriteAnime[]) ?? []
   
-  const addFavorite = useCallback(async (animeId: number, status: FavoriteStatus) => {
-    await putMutation.mutateAsync({ animeId, data: { status } })
-  }, [putMutation])
-  
   const updateStatus = useCallback(async (animeId: number, status: FavoriteStatus) => {
     await putMutation.mutateAsync({ animeId, data: { status } })
   }, [putMutation])
@@ -81,7 +76,6 @@ export const useFavorites = (statusFilter?: FavoriteStatus): UseFavoritesResult 
     favorites,
     isLoading,
     error: error as Error | null,
-    addFavorite,
     updateStatus,
     removeFavorite,
     isFavorite,

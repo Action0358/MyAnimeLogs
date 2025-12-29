@@ -3,7 +3,6 @@
 import React from 'react'
 import { cn } from '@/lib/utils'
 import { FavoriteStatus } from '@/lib/api/generated/myanimelogs'
-import { STATUS_CONFIG } from './StatusSelector'
 
 export type TabKey = FavoriteStatus | 'all'
 
@@ -13,13 +12,21 @@ interface TabConfig {
   color?: string
 }
 
-const TABS: TabConfig[] = [
+export const TABS: TabConfig[] = [
   { key: 'all', label: 'すべて' },
   { key: 'watching', label: '視聴中', color: 'bg-blue-500' },
   { key: 'completed', label: '完了', color: 'bg-green-500' },
   { key: 'planned', label: '視聴予定', color: 'bg-yellow-500' },
   { key: 'dropped', label: '中断', color: 'bg-red-500' },
 ]
+
+export const TAB_LABELS: Record<TabKey, string> = {
+  all: 'すべて',
+  watching: '視聴中',
+  completed: '完了',
+  planned: '視聴予定',
+  dropped: '中断',
+}
 
 interface FavoriteTabsProps {
   activeTab: TabKey

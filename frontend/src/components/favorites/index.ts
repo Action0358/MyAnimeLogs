@@ -1,6 +1,6 @@
 export { FavoriteButton } from './FavoriteButton'
 export { StatusSelector, STATUS_CONFIG } from './StatusSelector'
-export { FavoriteTabs, type TabKey } from './FavoriteTabs'
+export { FavoriteTabs, TABS, TAB_LABELS, type TabKey } from './FavoriteTabs'
 export { FavoriteCard } from './FavoriteCard'
 export { ProgressBar } from './ProgressBar'
 export { EpisodeCheckbox } from './EpisodeCheckbox'

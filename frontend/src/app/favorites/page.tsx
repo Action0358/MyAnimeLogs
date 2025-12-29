@@ -1,45 +1,56 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useCallback } from 'react'
 import Link from 'next/link'
 import type { Route } from 'next'
 import { Container } from '@/components/layout'
 import { Button } from '@/components/ui/Button'
-import { FavoriteTabs, FavoriteCard, TabKey } from '@/components/favorites'
-import { useFavorites } from '@/hooks/useFavorites'
+import { FavoriteTabs, FavoriteCard, TabKey, TAB_LABELS } from '@/components/favorites'
+import { useFavorites, FavoriteAnime } from '@/hooks/useFavorites'
 import { FavoriteStatus } from '@/lib/api/generated/myanimelogs'
+
+// Helper to filter favorites with valid id
+const filterValidFavorites = (favorites: FavoriteAnime[]): (FavoriteAnime & { id: number })[] => {
+  return favorites.filter((anime): anime is FavoriteAnime & { id: number } => 
+    typeof anime.id === 'number'
+  )
+}
 
 const FavoritesPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabKey>('all')
   const { favorites, isLoading, error, updateStatus, removeFavorite } = useFavorites()
   const [updatingIds, setUpdatingIds] = useState<Set<number>>(new Set())
 
+  // Filter out favorites without valid id
+  const validFavorites = useMemo(() => filterValidFavorites(favorites), [favorites])
+
   const filteredFavorites = useMemo(() => {
-    if (activeTab === 'all') return favorites
-    return favorites.filter(anime => anime.user_favorite?.status === activeTab)
-  }, [favorites, activeTab])
+    if (activeTab === 'all') return validFavorites
+    return validFavorites.filter(anime => anime.user_favorite?.status === activeTab)
+  }, [validFavorites, activeTab])
 
   const counts = useMemo(() => {
     const result: Record<TabKey, number> = {
-      all: favorites.length,
+      all: validFavorites.length,
       watching: 0,
       completed: 0,
       planned: 0,
       dropped: 0,
     }
-    favorites.forEach(anime => {
+    validFavorites.forEach(anime => {
       const status = anime.user_favorite?.status
       if (status && status in result) {
         result[status as FavoriteStatus]++
       }
     })
     return result
-  }, [favorites])
+  }, [validFavorites])
 
-  const handleStatusChange = async (animeId: number, status: FavoriteStatus) => {
+  // Utility function to manage updating state
+  const withUpdatingState = useCallback(async (animeId: number, action: () => Promise<void>) => {
     setUpdatingIds(prev => new Set(prev).add(animeId))
     try {
-      await updateStatus(animeId, status)
+      await action()
     } finally {
       setUpdatingIds(prev => {
         const next = new Set(prev)
@@ -47,20 +58,15 @@ const FavoritesPage: React.FC = () => {
         return next
       })
     }
-  }
+  }, [])
 
-  const handleRemove = async (animeId: number) => {
-    setUpdatingIds(prev => new Set(prev).add(animeId))
-    try {
-      await removeFavorite(animeId)
-    } finally {
-      setUpdatingIds(prev => {
-        const next = new Set(prev)
-        next.delete(animeId)
-        return next
-      })
-    }
-  }
+  const handleStatusChange = useCallback(async (animeId: number, status: FavoriteStatus) => {
+    await withUpdatingState(animeId, () => updateStatus(animeId, status))
+  }, [withUpdatingState, updateStatus])
+
+  const handleRemove = useCallback(async (animeId: number) => {
+    await withUpdatingState(animeId, () => removeFavorite(animeId))
+  }, [withUpdatingState, removeFavorite])
 
   if (error) {
     return (
@@ -102,7 +108,7 @@ const FavoritesPage: React.FC = () => {
           <h2 className="text-xl font-semibold text-gray-700 mb-2">
             {activeTab === 'all'
               ? 'お気に入りがまだありません'
-              : `「${getTabLabel(activeTab)}」のアニメがありません`}
+              : `「${TAB_LABELS[activeTab]}」のアニメがありません`}
           </h2>
           <p className="text-gray-500 mb-6">
             気になるアニメを見つけたら、お気に入りに追加してみましょう
@@ -120,26 +126,15 @@ const FavoritesPage: React.FC = () => {
               key={anime.id}
               anime={anime}
               status={anime.user_favorite?.status || 'planned'}
-              onStatusChange={(status) => handleStatusChange(anime.id!, status)}
-              onRemove={() => handleRemove(anime.id!)}
-              isUpdating={updatingIds.has(anime.id!)}
+              onStatusChange={(status) => handleStatusChange(anime.id, status)}
+              onRemove={() => handleRemove(anime.id)}
+              isUpdating={updatingIds.has(anime.id)}
             />
           ))}
         </div>
       )}
     </Container>
   )
-}
-
-function getTabLabel(tab: TabKey): string {
-  const labels: Record<TabKey, string> = {
-    all: 'すべて',
-    watching: '視聴中',
-    completed: '完了',
-    planned: '視聴予定',
-    dropped: '中断',
-  }
-  return labels[tab]
 }
 
 export default FavoritesPage

@@ -1,8 +1,9 @@
 'use client'
 
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useCallback } from 'react'
 import { cn } from '@/lib/utils'
 import { FavoriteStatus } from '@/lib/api/generated/myanimelogs'
+import { useOnClickOutside } from '@/hooks/useOnClickOutside'
 
 export const STATUS_CONFIG = {
   watching: { label: '視聴中', color: 'bg-blue-500', textColor: 'text-blue-600', icon: '▶' },
@@ -29,15 +30,8 @@ export const StatusSelector: React.FC<StatusSelectorProps> = ({
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
+  const closeDropdown = useCallback(() => setIsOpen(false), [])
+  useOnClickOutside(dropdownRef, closeDropdown)
 
   const sizeStyles = {
     sm: 'text-xs px-2 py-1',

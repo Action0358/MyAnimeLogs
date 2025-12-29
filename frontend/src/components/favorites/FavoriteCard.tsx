@@ -9,7 +9,7 @@ import { FavoriteStatus, Anime } from '@/lib/api/generated/myanimelogs'
 import { StatusSelector, STATUS_CONFIG } from './StatusSelector'
 
 interface FavoriteCardProps {
-  anime: Anime
+  anime: Anime & { id: number } // id is required
   status: FavoriteStatus
   onStatusChange: (status: FavoriteStatus) => void
   onRemove: () => void
