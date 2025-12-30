@@ -60,7 +60,7 @@ const Header: React.FC = () => {
           {/* ロゴ・ブランド（デスクトップのみ表示） */}
           <Link href={"/" as Route} className="hidden md:flex items-center group flex-shrink-0">
             <img
-              src="/logo.svg"
+              src="/logo2.svg"
               alt="MyAnimeLogs"
               className={`h-10 sm:h-12 w-auto transition-transform duration-300 group-hover:scale-105 ${isHomePage ? 'brightness-0 invert' : ''}`}
             />
