@@ -69,3 +69,17 @@ export const TOKEN_EXPIRING_SOON_THRESHOLD = 2 * 60 * 1000 // 2分
  * この時間以内になると警告を表示
  */
 export const INACTIVITY_WARNING_THRESHOLD = 5 * 60 * 1000 // 5分
+
+// ========================
+// アセットパス
+// ========================
+
+/**
+ * ロゴ画像のパス
+ */
+export const LOGO_PATH = '/logo2.svg'
+
+/**
+ * ヒーローセクション用ロゴ画像のパス
+ */
+export const HERO_LOGO_PATH = '/logo.svg'
