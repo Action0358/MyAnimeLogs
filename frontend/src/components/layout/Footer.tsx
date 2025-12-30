@@ -6,7 +6,11 @@ import Container from './Container'
 import { SUB_LOGO_PATH } from '@/lib/constants'
 
 // フッターカラムヘッダーコンポーネント
-const FooterColumnHeader: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+interface FooterColumnHeaderProps {
+  children: React.ReactNode
+}
+
+const FooterColumnHeader = ({ children }: FooterColumnHeaderProps) => (
   <div className="h-10 flex items-center mb-4">
     {children}
   </div>
