@@ -13,9 +13,15 @@ const Footer: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
             {/* サイト情報 */}
             <div>
-              <h3 className="text-xl font-bold text-gray-900 mb-4">
-                MyAnimeLogs
-              </h3>
+              <div className="h-7 flex items-center mb-4">
+                <Link href={"/" as Route}>
+                  <img
+                    src="/logo2.svg"
+                    alt="MyAnimeLogs"
+                    className="h-10 w-auto"
+                  />
+                </Link>
+              </div>
               <p className="text-gray-600 mb-3">あなたの視聴記録がここに</p>
               <p className="text-sm text-gray-500">
                 アニメデータは{' '}
