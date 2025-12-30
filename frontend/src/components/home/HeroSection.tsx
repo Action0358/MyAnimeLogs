@@ -1,7 +1,9 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 import SearchContainer from './SearchContainer';
+import { LOGO_PATH } from '@/lib/constants';
 
 const HeroSection: React.FC = () => {
   return (
@@ -13,9 +15,11 @@ const HeroSection: React.FC = () => {
 
       {/* ロゴ */}
       <div className="mb-16 md:mb-20">
-        <img
-          src="/logo.svg"
+        <Image
+          src={LOGO_PATH}
           alt="MyAnimeLogs"
+          width={1792}
+          height={576}
           className="h-28 md:h-40 w-auto brightness-0 invert"
         />
       </div>

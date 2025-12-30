@@ -2,10 +2,12 @@
 
 import React, { useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import type { Route } from 'next'
 import { Menu } from 'lucide-react'
 import { cn, buildIconUrl } from '@/lib/utils'
+import { LOGO_PATH } from '@/lib/constants'
 import { Button } from '../ui/Button'
 import { useAuth } from '@/contexts/AuthContext'
 import { UserMenu } from './UserMenu'
@@ -59,9 +61,11 @@ const Header: React.FC = () => {
 
           {/* ロゴ・ブランド（デスクトップのみ表示） */}
           <Link href={"/" as Route} className="hidden md:flex items-center group flex-shrink-0">
-            <img
-              src="/logo.svg"
+            <Image
+              src={LOGO_PATH}
               alt="MyAnimeLogs"
+              width={1792}
+              height={576}
               className={`h-10 sm:h-12 w-auto transition-transform duration-300 group-hover:scale-105 ${isHomePage ? 'brightness-0 invert' : ''}`}
             />
           </Link>
