@@ -1,4 +1,5 @@
 module.exports = {
+  multipass: true,
   js2svg: {
     indent: 2,
     pretty: true,
@@ -15,5 +16,7 @@ module.exports = {
         },
       },
     },
+    // 属性をアルファベット順にソート
+    'sortAttrs',
   ],
 }
