@@ -3,7 +3,14 @@ import Link from 'next/link'
 import Image from 'next/image'
 import type { Route } from 'next'
 import Container from './Container'
-import { LOGO_PATH } from '@/lib/constants'
+import { SUB_LOGO_PATH } from '@/lib/constants'
+
+// フッターカラムヘッダーコンポーネント
+const FooterColumnHeader: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div className="h-10 flex items-center mb-4">
+    {children}
+  </div>
+)
 
 const Footer: React.FC = () => {
   const currentYear = new Date().getFullYear()
@@ -15,17 +22,17 @@ const Footer: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
             {/* サイト情報 */}
             <div>
-              <div className="h-10 flex items-center mb-4">
+              <FooterColumnHeader>
                 <Link href={"/" as Route}>
                   <Image
-                    src={LOGO_PATH}
+                    src={SUB_LOGO_PATH}
                     alt="MyAnimeLogs"
                     width={1792}
                     height={576}
                     className="h-10 w-auto"
                   />
                 </Link>
-              </div>
+              </FooterColumnHeader>
               <p className="text-gray-600 mb-3">あなたの視聴記録がここに</p>
               <p className="text-sm text-gray-500">
                 アニメデータは{' '}
@@ -43,11 +50,11 @@ const Footer: React.FC = () => {
 
             {/* サイトマップ */}
             <div>
-              <div className="h-10 flex items-center mb-4">
+              <FooterColumnHeader>
                 <h3 className="text-lg font-semibold text-gray-900">
                   サイトマップ
                 </h3>
-              </div>
+              </FooterColumnHeader>
               <ul className="space-y-2">
                 <li>
                   <Link
@@ -78,11 +85,11 @@ const Footer: React.FC = () => {
 
             {/* サポート */}
             <div>
-              <div className="h-10 flex items-center mb-4">
+              <FooterColumnHeader>
                 <h3 className="text-lg font-semibold text-gray-900">
                   サポート
                 </h3>
-              </div>
+              </FooterColumnHeader>
               <ul className="space-y-2">
                 <li>
                   <Link
