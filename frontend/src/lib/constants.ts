@@ -75,11 +75,11 @@ export const INACTIVITY_WARNING_THRESHOLD = 5 * 60 * 1000 // 5分
 // ========================
 
 /**
- * ロゴ画像のパス
- */
-export const LOGO_PATH = '/logo2.svg'
-
-/**
  * ヒーローセクション用ロゴ画像のパス
  */
 export const HERO_LOGO_PATH = '/logo.svg'
+
+/**
+ * ヘッダー・フッター用ロゴ画像のパス
+ */
+export const SUB_LOGO_PATH = '/logo2.svg'
