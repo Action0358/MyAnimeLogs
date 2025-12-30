@@ -3,7 +3,7 @@
 import React from 'react';
 import Image from 'next/image';
 import SearchContainer from './SearchContainer';
-import { LOGO_PATH } from '@/lib/constants';
+import { HERO_LOGO_PATH } from '@/lib/constants';
 
 const HeroSection: React.FC = () => {
   return (
@@ -16,7 +16,7 @@ const HeroSection: React.FC = () => {
       {/* ロゴ */}
       <div className="mb-16 md:mb-20">
         <Image
-          src={LOGO_PATH}
+          src={HERO_LOGO_PATH}
           alt="MyAnimeLogs"
           width={1792}
           height={576}
