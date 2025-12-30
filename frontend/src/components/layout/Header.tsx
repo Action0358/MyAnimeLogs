@@ -66,6 +66,7 @@ const Header: React.FC = () => {
               alt="MyAnimeLogs"
               width={1792}
               height={576}
+              priority
               className={`h-10 sm:h-12 w-auto transition-transform duration-300 group-hover:scale-105 ${isHomePage ? 'brightness-0 invert' : ''}`}
             />
           </Link>

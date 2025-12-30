@@ -20,6 +20,7 @@ const HeroSection: React.FC = () => {
           alt="MyAnimeLogs"
           width={930}
           height={470}
+          priority
           className="h-28 md:h-40 w-auto brightness-0 invert"
         />
       </div>
