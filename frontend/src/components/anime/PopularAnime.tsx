@@ -14,7 +14,7 @@ const PopularAnime: React.FC<PopularAnimeProps> = ({ className = '' }) => {
       title="人気アニメ"
       queryKey={['popularAnime']}
       queryFn={annictApi.getPopularAnime}
-      linkHref="/anime?sort=popular"
+      linkHref="/anime?sort=popularity"
       emptyMessage="人気アニメが見つかりませんでした"
       errorMessage="人気アニメの取得に失敗しました"
       icon="🎬"

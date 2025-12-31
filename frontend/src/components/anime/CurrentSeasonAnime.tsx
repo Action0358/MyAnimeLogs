@@ -16,7 +16,7 @@ const CurrentSeasonAnime: React.FC<CurrentSeasonAnimeProps> = ({
       title="今期アニメ"
       queryKey={['currentSeasonAnime']}
       queryFn={annictApi.getCurrentSeasonAnime}
-      linkHref="/anime"
+      linkHref="/anime?season=current"
       emptyMessage="今期アニメが見つかりませんでした"
       errorMessage="今期アニメの取得に失敗しました"
       icon="📺"
