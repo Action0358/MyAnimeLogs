@@ -7,7 +7,6 @@ import type { Episode } from '@/lib/api/generated/myanimelogs'
 export interface EpisodeListProps {
   episodes: Episode[]
   isLoading?: boolean
-  animeId: number
   onWatchStatusChange?: (episodeId: number, watched: boolean) => void
   className?: string
 }
@@ -25,7 +24,6 @@ const EpisodeSkeleton: React.FC = () => (
 export const EpisodeList: React.FC<EpisodeListProps> = ({
   episodes,
   isLoading = false,
-  animeId,
   onWatchStatusChange,
   className,
 }) => {

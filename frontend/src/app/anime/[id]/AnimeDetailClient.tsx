@@ -202,7 +202,6 @@ const AnimeDetailClient: React.FC = () => {
               <EpisodeList
                 episodes={episodes}
                 isLoading={isLoadingEpisodes}
-                animeId={animeId}
               />
             </div>
           </div>
