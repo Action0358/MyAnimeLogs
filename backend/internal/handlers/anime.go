@@ -421,3 +421,39 @@ func (h *AnimeHandler) GetSearchSuggestions(c *gin.Context) {
 		"suggestions": suggestions,
 	})
 }
+
+// GetCurrentSeasonAnimes 今期アニメ取得API
+func (h *AnimeHandler) GetCurrentSeasonAnimes(c *gin.Context) {
+	limitStr := c.DefaultQuery("limit", "12")
+	limit := utils.ParseLimitQuery(limitStr, 12, 50)
+
+	animes, err := h.animeService.GetCurrentSeasonAnimes(limit)
+	if err != nil {
+		h.logger.Error("Failed to get current season animes", "error", err)
+		h.response.InternalServerError(c, "今期アニメの取得に失敗しました")
+		return
+	}
+
+	h.response.Success(c, gin.H{
+		"animes": animes,
+		"total":  len(animes),
+	})
+}
+
+// GetPopularAnimes 人気アニメ取得API
+func (h *AnimeHandler) GetPopularAnimes(c *gin.Context) {
+	limitStr := c.DefaultQuery("limit", "12")
+	limit := utils.ParseLimitQuery(limitStr, 12, 50)
+
+	animes, err := h.animeService.GetPopularAnimes(limit)
+	if err != nil {
+		h.logger.Error("Failed to get popular animes", "error", err)
+		h.response.InternalServerError(c, "人気アニメの取得に失敗しました")
+		return
+	}
+
+	h.response.Success(c, gin.H{
+		"animes": animes,
+		"total":  len(animes),
+	})
+}

@@ -1,7 +1,7 @@
 'use client'
 
 import type React from 'react'
-import { annictApi } from '@/lib/api/annict'
+import { animeApi } from '@/lib/api/annict'
 import AnimeSection from './AnimeSection'
 
 interface CurrentSeasonAnimeProps {
@@ -15,7 +15,7 @@ const CurrentSeasonAnime: React.FC<CurrentSeasonAnimeProps> = ({
     <AnimeSection
       title="今期アニメ"
       queryKey={['currentSeasonAnime']}
-      queryFn={annictApi.getCurrentSeasonAnime}
+      queryFn={() => animeApi.getCurrentSeasonAnimes(12)}
       linkHref="/anime?season=current"
       emptyMessage="今期アニメが見つかりませんでした"
       errorMessage="今期アニメの取得に失敗しました"

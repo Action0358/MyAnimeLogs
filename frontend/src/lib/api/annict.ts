@@ -49,6 +49,27 @@ export interface AnnictWorkResponse {
   prev_page?: number;
 }
 
+// バックエンドDBから取得するアニメの型
+export interface DBAnime {
+  id: number;
+  title: string;
+  image_url?: string;
+  season?: string;
+  status?: string;
+  watchers_count: number;
+  mal_anime_id?: string;
+  annict_id?: number;
+  created_at: string;
+  updated_at: string;
+  cover_image_large?: string;
+  cover_image_medium?: string;
+}
+
+export interface DBAnimeResponse {
+  animes: DBAnime[];
+  total: number;
+}
+
 import { get, ApiClientError } from './client'
 
 export const annictApi = {
@@ -82,6 +103,33 @@ export const annictApi = {
     } catch (error) {
       if (error instanceof ApiClientError) {
         throw new Error('シーズンアニメの取得に失敗しました')
+      }
+      throw error
+    }
+  },
+}
+
+// バックエンドDBからアニメを取得するAPI
+export const animeApi = {
+  async getCurrentSeasonAnimes(limit?: number): Promise<DBAnimeResponse> {
+    try {
+      const params = limit ? `?limit=${limit}` : ''
+      return await get<DBAnimeResponse>(`/api/animes/current-season${params}`)
+    } catch (error) {
+      if (error instanceof ApiClientError) {
+        throw new Error('今期アニメの取得に失敗しました')
+      }
+      throw error
+    }
+  },
+
+  async getPopularAnimes(limit?: number): Promise<DBAnimeResponse> {
+    try {
+      const params = limit ? `?limit=${limit}` : ''
+      return await get<DBAnimeResponse>(`/api/animes/popular${params}`)
+    } catch (error) {
+      if (error instanceof ApiClientError) {
+        throw new Error('人気アニメの取得に失敗しました')
       }
       throw error
     }

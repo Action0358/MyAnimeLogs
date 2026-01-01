@@ -7,12 +7,13 @@ import { useQuery } from '@tanstack/react-query'
 import { Button } from '@/components/ui'
 import { AnimeCard } from './AnimeCard'
 import { formatSeason } from '@/utils/formatSeason'
-import type { AnnictWork } from '@/lib/api/annict'
+import type { DBAnime } from '@/lib/api/annict'
+import type { Anime, AnimeStatus } from '@/lib/api/generated/myanimelogs'
 
 interface AnimeSectionProps {
   title: string
   queryKey: string[]
-  queryFn: () => Promise<{ works: AnnictWork[] }>
+  queryFn: () => Promise<{ animes: DBAnime[]; total: number }>
   linkHref: string
   linkText?: string
   emptyMessage: string
@@ -20,27 +21,23 @@ interface AnimeSectionProps {
   className?: string
 }
 
-// AnnictWorkをAnimeCard用の型に変換
-const convertToAnimeCardFormat = (work: AnnictWork) => {
-  let season: string | undefined = undefined
-  
-  if (work.season_year && work.season_name) {
-    season = `${work.season_year}年${work.season_name}`
-  } else if (work.season_year) {
-    season = `${work.season_year}年`
-  } else if (work.season_name) {
-    season = work.season_name
+// DBAnimeをAnimeCard用の型に変換
+const convertToAnimeCardFormat = (anime: DBAnime): Anime & { id: number } => {
+  // statusをAnimeStatus型に変換
+  let status: AnimeStatus | undefined = undefined
+  if (anime.status === 'airing' || anime.status === 'finished') {
+    status = anime.status
   }
-  
+
   return {
-    id: work.id,
-    title: work.title,
+    id: anime.id,
+    title: anime.title,
     description: undefined,
-    image_url: work.images?.twitter?.bigger_avatar_url || work.images?.twitter?.original_avatar_url,
-    season: formatSeason(season),
-    status: undefined,
-    cover_image_large: work.cover_image_large,
-    cover_image_medium: work.cover_image_medium,
+    image_url: anime.image_url,
+    season: anime.season,
+    status,
+    cover_image_large: anime.cover_image_large,
+    cover_image_medium: anime.cover_image_medium,
   }
 }
 
@@ -72,7 +69,7 @@ const AnimeSection: React.FC<AnimeSectionProps> = ({
     staleTime: 1000 * 60 * 5, // 5分間キャッシュを有効
   })
 
-  const animes = data?.works ?? []
+  const animes = data?.animes ?? []
 
   if (isLoading) {
     return (

@@ -1,7 +1,7 @@
 'use client'
 
 import type React from 'react'
-import { annictApi } from '@/lib/api/annict'
+import { animeApi } from '@/lib/api/annict'
 import AnimeSection from './AnimeSection'
 
 interface PopularAnimeProps {
@@ -13,7 +13,7 @@ const PopularAnime: React.FC<PopularAnimeProps> = ({ className = '' }) => {
     <AnimeSection
       title="人気アニメ"
       queryKey={['popularAnime']}
-      queryFn={annictApi.getPopularAnime}
+      queryFn={() => animeApi.getPopularAnimes(12)}
       linkHref="/anime?sort=popularity"
       emptyMessage="人気アニメが見つかりませんでした"
       errorMessage="人気アニメの取得に失敗しました"

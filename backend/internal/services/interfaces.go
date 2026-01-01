@@ -58,6 +58,8 @@ type AnimeServiceInterface interface {
 	GetFilterOptions() (*models.FilterOptions, error)
 	GetPopularSearches(limit int) ([]string, error)
 	GetSearchSuggestions(query string, limit int) ([]string, error)
+	GetCurrentSeasonAnimes(limit int) ([]models.Anime, error)
+	GetPopularAnimes(limit int) ([]models.Anime, error)
 }
 
 // Ensure AnimeService implements AnimeServiceInterface
