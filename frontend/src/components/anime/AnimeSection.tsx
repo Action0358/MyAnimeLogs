@@ -1,79 +1,44 @@
 'use client'
 
 import type React from 'react'
-import { useState } from 'react'
 import Link from 'next/link'
 import type { Route } from 'next'
 import { useQuery } from '@tanstack/react-query'
 import { Button } from '@/components/ui'
-import type { AnnictWork } from '@/lib/api/annict'
+import { AnimeCard } from './AnimeCard'
+import { SkeletonCard } from './SkeletonCard'
+import type { DBAnime } from '@/lib/api/annict'
+import type { Anime, AnimeStatus } from '@/lib/api/generated/myanimelogs'
 
 interface AnimeSectionProps {
   title: string
   queryKey: string[]
-  queryFn: () => Promise<{ works: AnnictWork[] }>
+  queryFn: () => Promise<{ animes: DBAnime[]; total: number }>
   linkHref: string
   linkText?: string
   emptyMessage: string
   errorMessage: string
-  icon: string
-  gradientFrom: string
-  gradientTo: string
   className?: string
 }
 
-interface AnimeCardProps {
-  anime: AnnictWork
-  icon: string
-  gradientFrom: string
-  gradientTo: string
-}
+// DBAnimeをAnimeCard用の型に変換
+const convertToAnimeCardFormat = (anime: DBAnime): Anime & { id: number } => {
+  // statusをAnimeStatus型に変換
+  let status: AnimeStatus | undefined = undefined
+  if (anime.status === 'airing' || anime.status === 'finished') {
+    status = anime.status
+  }
 
-const AnimeCard: React.FC<AnimeCardProps> = ({
-  anime,
-  icon,
-  gradientFrom,
-  gradientTo,
-}) => {
-  const [imageError, setImageError] = useState(false)
-
-  // 画像URLの優先順位: Anilist > Twitter（セキュリティのためAnnict公式サイト画像は除外）
-  const imageUrl =
-    anime.cover_image_large ||
-    anime.cover_image_medium ||
-    anime.images?.twitter?.bigger_avatar_url ||
-    anime.images?.twitter?.original_avatar_url
-
-  const shouldShowImage = imageUrl && !imageError
-
-  return (
-    <div className="group cursor-pointer">
-      <div
-        className={`aspect-[3/4] bg-gradient-to-br ${gradientFrom} ${gradientTo} rounded-lg overflow-hidden mb-2 relative`}
-      >
-        {shouldShowImage ? (
-          <img
-            src={imageUrl}
-            alt={anime.title}
-            className="w-full h-full object-cover"
-            loading="lazy"
-            onError={() => setImageError(true)}
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <span className="text-4xl">{icon}</span>
-          </div>
-        )}
-        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200"></div>
-      </div>
-
-      <div className="space-y-1">
-        <h3 className="text-sm font-medium text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-2">
-          {anime.title}
-        </h3>
-      </div>
-    </div>
-  )
+  return {
+    id: anime.id,
+    title: anime.title,
+    description: undefined,
+    image_url: anime.image_url,
+    season: anime.season,
+    status,
+    cover_image_large: anime.cover_image_large,
+    cover_image_medium: anime.cover_image_medium,
+  }
 }
 
 const AnimeSection: React.FC<AnimeSectionProps> = ({
@@ -84,9 +49,6 @@ const AnimeSection: React.FC<AnimeSectionProps> = ({
   linkText = 'もっと見る',
   emptyMessage,
   errorMessage,
-  icon,
-  gradientFrom,
-  gradientTo,
   className = '',
 }) => {
   const { data, isLoading, error, refetch } = useQuery({
@@ -95,14 +57,18 @@ const AnimeSection: React.FC<AnimeSectionProps> = ({
     staleTime: 1000 * 60 * 5, // 5分間キャッシュを有効
   })
 
-  const animes = data?.works ?? []
+  const animes = data?.animes ?? []
 
   if (isLoading) {
     return (
       <div className={className}>
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <span className="ml-2 text-gray-600">読み込み中...</span>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
         </div>
       </div>
     )
@@ -111,6 +77,9 @@ const AnimeSection: React.FC<AnimeSectionProps> = ({
   if (error) {
     return (
       <div className={className}>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
+        </div>
         <div className="text-center py-12">
           <p className="text-red-600 mb-4">
             {error instanceof Error ? error.message : errorMessage}
@@ -139,10 +108,8 @@ const AnimeSection: React.FC<AnimeSectionProps> = ({
         {animes.slice(0, 6).map((anime) => (
           <AnimeCard
             key={anime.id}
-            anime={anime}
-            icon={icon}
-            gradientFrom={gradientFrom}
-            gradientTo={gradientTo}
+            anime={convertToAnimeCardFormat(anime)}
+            size="medium"
           />
         ))}
       </div>

@@ -89,6 +89,10 @@ func Setup(db *database.DB, cfg *config.Config, syncScheduler handlers.SyncSched
 		// フィルタールート
 		api.GET("/filters", animeHandler.GetFilterOptions)
 
+		// 今期アニメ・人気アニメルート（DBから取得）
+		api.GET("/animes/current-season", animeHandler.GetCurrentSeasonAnimes)
+		api.GET("/animes/popular", animeHandler.GetPopularAnimes)
+
 		// Annictルート
 		api.GET("/annict/works", annictHandler.GetWorksBySeason)
 		api.GET("/annict/popular-works", annictHandler.GetPopularWorks)

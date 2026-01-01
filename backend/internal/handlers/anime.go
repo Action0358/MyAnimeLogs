@@ -421,3 +421,33 @@ func (h *AnimeHandler) GetSearchSuggestions(c *gin.Context) {
 		"suggestions": suggestions,
 	})
 }
+
+// GetCurrentSeasonAnimes 今期アニメ取得API
+func (h *AnimeHandler) GetCurrentSeasonAnimes(c *gin.Context) {
+	h.getAnimesWithLimit(c, h.animeService.GetCurrentSeasonAnimes, "今期アニメ")
+}
+
+// GetPopularAnimes 人気アニメ取得API
+func (h *AnimeHandler) GetPopularAnimes(c *gin.Context) {
+	h.getAnimesWithLimit(c, h.animeService.GetPopularAnimes, "人気アニメ")
+}
+
+// getAnimesWithLimit is a helper method to handle anime list endpoints with limit parameter
+func (h *AnimeHandler) getAnimesWithLimit(c *gin.Context, fetchFunc func(int) ([]models.Anime, error), resourceName string) {
+	limitStr := c.DefaultQuery("limit", "12")
+	limit := utils.ParseLimitQuery(limitStr, 12, 50)
+
+	animes, err := fetchFunc(limit)
+	if err != nil {
+		h.logger.Error("Failed to get "+resourceName, "error", err)
+		h.response.InternalServerError(c, resourceName+"の取得に失敗しました")
+		return
+	}
+
+	h.response.Success(c, gin.H{
+		"animes": animes,
+		// NOTE: totalは現在のレスポンスに含まれる件数（limit適用後）
+		// DBの総件数が必要な場合は別途COUNT(*)クエリが必要
+		"total": len(animes),
+	})
+}

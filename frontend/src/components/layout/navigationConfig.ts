@@ -11,6 +11,10 @@ export const NAV_ITEMS: NavItem[] = [
     requiresScroll: true,
   },
   {
+    label: 'アニメ一覧',
+    href: '/anime',
+  },
+  {
     label: '検索',
     href: '/search',
   },
