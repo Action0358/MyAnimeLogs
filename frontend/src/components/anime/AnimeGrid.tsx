@@ -3,6 +3,7 @@
 import React from 'react'
 import { cn } from '@/lib/utils'
 import { AnimeCard } from './AnimeCard'
+import { SkeletonCard } from './SkeletonCard'
 import type { Anime } from '@/lib/api/generated/myanimelogs'
 
 export interface AnimeGridProps {
@@ -20,17 +21,6 @@ export interface AnimeGridProps {
   cardSize?: 'small' | 'medium' | 'large'
   className?: string
 }
-
-const SkeletonCard: React.FC = () => (
-  <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden animate-pulse">
-    <div className="aspect-[3/4] bg-gray-200" />
-    <div className="p-3 h-[100px] flex flex-col">
-      <div className="h-4 bg-gray-200 rounded w-full mb-1" />
-      <div className="h-4 bg-gray-200 rounded w-3/4 mb-2" />
-      <div className="h-3 bg-gray-200 rounded w-1/2 mt-auto" />
-    </div>
-  </div>
-)
 
 export const AnimeGrid: React.FC<AnimeGridProps> = ({
   animes,

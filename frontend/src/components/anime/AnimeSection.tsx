@@ -6,7 +6,7 @@ import type { Route } from 'next'
 import { useQuery } from '@tanstack/react-query'
 import { Button } from '@/components/ui'
 import { AnimeCard } from './AnimeCard'
-import { formatSeason } from '@/utils/formatSeason'
+import { SkeletonCard } from './SkeletonCard'
 import type { DBAnime } from '@/lib/api/annict'
 import type { Anime, AnimeStatus } from '@/lib/api/generated/myanimelogs'
 
@@ -40,18 +40,6 @@ const convertToAnimeCardFormat = (anime: DBAnime): Anime & { id: number } => {
     cover_image_medium: anime.cover_image_medium,
   }
 }
-
-// スケルトンカード
-const SkeletonCard: React.FC = () => (
-  <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden animate-pulse">
-    <div className="aspect-[3/4] bg-gray-200" />
-    <div className="p-3 h-[100px] flex flex-col">
-      <div className="h-4 bg-gray-200 rounded w-full mb-1" />
-      <div className="h-4 bg-gray-200 rounded w-3/4 mb-2" />
-      <div className="h-3 bg-gray-200 rounded w-1/2 mt-auto" />
-    </div>
-  </div>
-)
 
 const AnimeSection: React.FC<AnimeSectionProps> = ({
   title,

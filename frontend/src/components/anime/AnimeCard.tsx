@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import type { Route } from 'next'
 import { cn } from '@/lib/utils'
 import { formatSeason } from '@/utils/formatSeason'
@@ -70,13 +71,13 @@ export const AnimeCard: React.FC<AnimeCardProps> = ({
     >
       <div className={cn('relative bg-gray-100', config.aspectRatio)}>
         {imageUrl && !imageError ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <Image
             src={imageUrl}
             alt={anime.title || 'アニメ画像'}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            fill
+            sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 16vw"
+            className="object-cover group-hover:scale-105 transition-transform duration-300"
             onError={() => setImageError(true)}
-            loading="lazy"
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-100 to-purple-100">

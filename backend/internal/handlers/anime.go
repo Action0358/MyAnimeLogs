@@ -446,6 +446,8 @@ func (h *AnimeHandler) getAnimesWithLimit(c *gin.Context, fetchFunc func(int) ([
 
 	h.response.Success(c, gin.H{
 		"animes": animes,
-		"total":  len(animes),
+		// NOTE: totalは現在のレスポンスに含まれる件数（limit適用後）
+		// DBの総件数が必要な場合は別途COUNT(*)クエリが必要
+		"total": len(animes),
 	})
 }
