@@ -12,7 +12,6 @@ function AnimeListContent() {
   const router = useRouter()
 
   const currentPage = Number(searchParams.get('page')) || 1
-  const sort = searchParams.get('sort') || undefined
 
   const { animes, isLoading, totalPages, total, setPage } = useAnimes({
     pageSize: 24,

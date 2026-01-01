@@ -24,6 +24,7 @@ function SearchContent() {
       keyword: filters.keyword,
       season: filters.season,
       status: filters.status,
+      genre: filters.genre,
     },
     pageSize: 24,
     initialPage: currentPage,

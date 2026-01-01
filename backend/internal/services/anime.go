@@ -28,34 +28,17 @@ func (s *AnimeService) GetCurrentSeasonAnimes(limit int) ([]models.Anime, error)
 	}
 
 	// Get current season string (e.g., "2026-winter")
-	currentSeason := getCurrentSeasonString()
+	currentSeason := getSeasonStringFromTime(time.Now())
 
-	rows, err := s.db.Query(`
-		SELECT id, title, image_url, season, status, mal_anime_id, annict_id, created_at, updated_at, watchers_count
+	return s.getAnimesByQuery(
+		`SELECT id, title, image_url, season, status, mal_anime_id, annict_id, created_at, updated_at, watchers_count
 		FROM animes
 		WHERE season = $1
 		ORDER BY watchers_count DESC NULLS LAST, title
-		LIMIT $2
-	`, currentSeason, limit)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get current season animes: %w", err)
-	}
-	defer rows.Close()
-
-	animes := []models.Anime{}
-	for rows.Next() {
-		var anime models.Anime
-		err := rows.Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount)
-		if err != nil {
-			continue
-		}
-		animes = append(animes, anime)
-	}
-
-	// Enrich with cover images from AniList
-	s.enrichAnimesWithCoverImages(animes)
-
-	return animes, nil
+		LIMIT $2`,
+		[]interface{}{currentSeason, limit},
+		"current season animes",
+	)
 }
 
 // GetPopularAnimes returns popular animes from the database (sorted by watchers_count)
@@ -64,15 +47,22 @@ func (s *AnimeService) GetPopularAnimes(limit int) ([]models.Anime, error) {
 		limit = 12
 	}
 
-	rows, err := s.db.Query(`
-		SELECT id, title, image_url, season, status, mal_anime_id, annict_id, created_at, updated_at, watchers_count
+	return s.getAnimesByQuery(
+		`SELECT id, title, image_url, season, status, mal_anime_id, annict_id, created_at, updated_at, watchers_count
 		FROM animes
 		WHERE watchers_count > 0
 		ORDER BY watchers_count DESC, title
-		LIMIT $1
-	`, limit)
+		LIMIT $1`,
+		[]interface{}{limit},
+		"popular animes",
+	)
+}
+
+// getAnimesByQuery is a helper function to execute anime queries with proper error handling
+func (s *AnimeService) getAnimesByQuery(query string, args []interface{}, queryName string) ([]models.Anime, error) {
+	rows, err := s.db.Query(query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get popular animes: %w", err)
+		return nil, fmt.Errorf("failed to get %s: %w", queryName, err)
 	}
 	defer rows.Close()
 
@@ -81,9 +71,15 @@ func (s *AnimeService) GetPopularAnimes(limit int) ([]models.Anime, error) {
 		var anime models.Anime
 		err := rows.Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount)
 		if err != nil {
+			s.logger.Warn("Failed to scan anime row", "query", queryName, "error", err)
 			continue
 		}
 		animes = append(animes, anime)
+	}
+
+	if err := rows.Err(); err != nil {
+		s.logger.Error("Error iterating anime rows", "query", queryName, "error", err)
+		return nil, fmt.Errorf("error iterating %s: %w", queryName, err)
 	}
 
 	// Enrich with cover images from AniList
@@ -92,11 +88,11 @@ func (s *AnimeService) GetPopularAnimes(limit int) ([]models.Anime, error) {
 	return animes, nil
 }
 
-// getCurrentSeasonString returns the current season in format "YYYY-season"
-func getCurrentSeasonString() string {
-	now := time.Now()
-	year := now.Year()
-	month := now.Month()
+// getSeasonStringFromTime returns the season string in format "YYYY-season" for a given time
+// This function accepts time.Time as a parameter to improve testability
+func getSeasonStringFromTime(t time.Time) string {
+	year := t.Year()
+	month := t.Month()
 
 	var season string
 	switch {
@@ -111,6 +107,11 @@ func getCurrentSeasonString() string {
 	}
 
 	return fmt.Sprintf("%d-%s", year, season)
+}
+
+// getCurrentSeasonString returns the current season string (wrapper for backward compatibility)
+func getCurrentSeasonString() string {
+	return getSeasonStringFromTime(time.Now())
 }
 
 type AnimeService struct {

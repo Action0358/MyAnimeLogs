@@ -12,7 +12,8 @@ import { cn } from '@/lib/utils'
 
 const AnimeDetailPage: React.FC = () => {
   const params = useParams()
-  const animeId = Number(params.id)
+  const animeId = typeof params.id === 'string' ? parseInt(params.id, 10) : NaN
+  const isValidAnimeId = !isNaN(animeId) && animeId > 0
   const [imageError, setImageError] = useState(false)
 
   const {
@@ -25,7 +26,7 @@ const AnimeDetailPage: React.FC = () => {
       const response = await getAnimesId(animeId)
       return response.data
     },
-    enabled: !!animeId,
+    enabled: isValidAnimeId,
   })
 
   const {
@@ -37,7 +38,7 @@ const AnimeDetailPage: React.FC = () => {
       const response = await getAnimesIdEpisodes(animeId)
       return response.data
     },
-    enabled: !!animeId,
+    enabled: isValidAnimeId,
   })
 
   if (isLoadingAnime) {

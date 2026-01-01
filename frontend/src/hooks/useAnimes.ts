@@ -8,6 +8,7 @@ export interface SearchFilters {
   keyword?: string
   season?: string
   status?: 'airing' | 'finished'
+  genre?: string
 }
 
 export interface SortOption {
@@ -46,10 +47,11 @@ export const useAnimes = (options: UseAnimesOptions = {}): UseAnimesResult => {
       keyword: filters.keyword || undefined,
       season: filters.season || undefined,
       status: filters.status || undefined,
+      genre: filters.genre || undefined,
       page: currentPage,
       per_page: pageSize,
     }),
-    [filters.keyword, filters.season, filters.status, currentPage, pageSize]
+    [filters.keyword, filters.season, filters.status, filters.genre, currentPage, pageSize]
   )
 
   const { data, isLoading, error, refetch } = useQuery({
