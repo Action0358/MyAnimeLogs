@@ -43,8 +43,23 @@ export interface User {
   id?: number;
   name?: string;
   email?: string;
-  description?: string;
-  icon?: string;
+  /**
+   * @maxLength 10000
+   * @nullable
+   */
+  description?: string | null;
+  /** @nullable */
+  icon?: string | null;
+  /**
+   * @maxLength 300
+   * @nullable
+   */
+  favorite_anime?: string | null;
+  /**
+   * @maxLength 500
+   * @nullable
+   */
+  sns_link?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -78,7 +93,14 @@ export interface Episode {
   anime_id?: number;
   title?: string;
   episode_number?: number;
+  /**
+   * エピソードの視聴時間（分）
+   * @nullable
+   */
+  duration_minutes?: number | null;
   viewed?: boolean;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export type FavoriteStatus = typeof FavoriteStatus[keyof typeof FavoriteStatus];
@@ -135,6 +157,89 @@ export interface SearchResultAnime {
   genre?: string[];
 }
 
+/**
+ * @nullable
+ */
+export type AnnictWorkImagesFacebook = {
+  og_image_url?: string;
+} | null;
+
+/**
+ * @nullable
+ */
+export type AnnictWorkImagesTwitter = {
+  mini_avatar_url?: string;
+  normal_avatar_url?: string;
+  bigger_avatar_url?: string;
+  original_avatar_url?: string;
+  image_url?: string;
+} | null;
+
+/**
+ * Annict API画像情報
+ * @nullable
+ */
+export type AnnictWorkImages = {
+  recommended_url?: string;
+  /** @nullable */
+  facebook?: AnnictWorkImagesFacebook;
+  /** @nullable */
+  twitter?: AnnictWorkImagesTwitter;
+} | null;
+
+export interface AnnictWork {
+  /** Annict作品ID */
+  id?: number;
+  /** 作品タイトル */
+  title?: string;
+  /** 作品タイトル（かな） */
+  title_kana?: string;
+  /** 作品タイトル（英語） */
+  title_en?: string;
+  /** メディアタイプコード */
+  media?: string;
+  /** メディアタイプ表示名 */
+  media_text?: string;
+  /** シーズン名 */
+  season_name?: string;
+  /** 放送年 */
+  season_year?: number;
+  /** 放送開始日 */
+  released_on?: string;
+  /** 放送開始日（概算） */
+  released_on_about?: string;
+  /** 公式サイトURL */
+  official_site_url?: string;
+  /** Wikipedia URL */
+  wikipedia_url?: string;
+  /** Twitter ユーザー名 */
+  twitter_username?: string;
+  /** Twitter ハッシュタグ */
+  twitter_hashtag?: string;
+  /**
+   * MyAnimeList ID（nullの場合あり）
+   * @nullable
+   */
+  mal_anime_id?: string | null;
+  /**
+   * Annict API画像情報
+   * @nullable
+   */
+  images?: AnnictWorkImages;
+  /** エピソード数 */
+  episodes_count?: number;
+  /** 視聴者数 */
+  watchers_count?: number;
+  /** レビュー数 */
+  reviews_count?: number;
+  /** エピソード情報なしフラグ */
+  no_episodes?: boolean;
+  /** AniList APIから取得した大サイズカバー画像URL */
+  cover_image_large?: string;
+  /** AniList APIから取得した中サイズカバー画像URL */
+  cover_image_medium?: string;
+}
+
 export type PostRegisterBody = {
   /**
    * @minLength 1
@@ -163,9 +268,37 @@ export type PostLogin200 = {
 };
 
 export type PutUsersMeBody = {
+  /**
+   * @minLength 1
+   * @maxLength 100
+   */
   name?: string;
+  /** @maxLength 10000 */
   description?: string;
-  icon?: string;
+  /** @maxLength 300 */
+  favorite_anime?: string;
+  /** @maxLength 500 */
+  sns_link?: string;
+};
+
+export type PutUsersMe200 = {
+  message?: string;
+  user?: User;
+};
+
+export type PostUsersMeIconBody = {
+  /** アップロードする画像ファイル（JPEG, PNG, GIF, WebP） */
+  icon: Blob;
+};
+
+export type PostUsersMeIcon200 = {
+  message?: string;
+  user?: User;
+};
+
+export type DeleteUsersMeIcon200 = {
+  message?: string;
+  user?: User;
 };
 
 export type GetUsersMeExportParams = {
@@ -195,6 +328,10 @@ export type GetAnimesParams = {
 keyword?: string;
 season?: string;
 status?: GetAnimesStatus;
+/**
+ * ジャンルで絞り込み
+ */
+genre?: string;
 page?: number;
 per_page?: number;
 };
@@ -338,6 +475,387 @@ export type GetSearchAnimes200 = {
   meta?: GetSearchAnimes200Meta;
 };
 
+export type GetSearchAdvancedParams = {
+/**
+ * 検索クエリ
+ */
+q?: string;
+/**
+ * ジャンル絞り込み（複数指定可）
+ */
+genres?: string[];
+/**
+ * 放送年絞り込み
+ */
+year?: number;
+/**
+ * シーズン絞り込み
+ */
+season?: GetSearchAdvancedSeason;
+/**
+ * 最低評価
+ * @minimum 1
+ * @maximum 5
+ */
+min_rating?: number;
+/**
+ * 最高評価
+ * @minimum 1
+ * @maximum 5
+ */
+max_rating?: number;
+/**
+ * 放送状態
+ */
+status?: GetSearchAdvancedStatus;
+/**
+ * ユーザーの視聴ステータス（認証時のみ）
+ */
+user_status?: GetSearchAdvancedUserStatus;
+/**
+ * ソート条件
+ */
+sort?: GetSearchAdvancedSort;
+/**
+ * ソート順
+ */
+order?: GetSearchAdvancedOrder;
+page?: number;
+per_page?: number;
+};
+
+export type GetSearchAdvancedSeason = typeof GetSearchAdvancedSeason[keyof typeof GetSearchAdvancedSeason];
+
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const GetSearchAdvancedSeason = {
+  spring: 'spring',
+  summer: 'summer',
+  autumn: 'autumn',
+  winter: 'winter',
+} as const;
+
+export type GetSearchAdvancedStatus = typeof GetSearchAdvancedStatus[keyof typeof GetSearchAdvancedStatus];
+
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const GetSearchAdvancedStatus = {
+  airing: 'airing',
+  finished: 'finished',
+} as const;
+
+export type GetSearchAdvancedUserStatus = typeof GetSearchAdvancedUserStatus[keyof typeof GetSearchAdvancedUserStatus];
+
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const GetSearchAdvancedUserStatus = {
+  watching: 'watching',
+  completed: 'completed',
+  planned: 'planned',
+  dropped: 'dropped',
+} as const;
+
+export type GetSearchAdvancedSort = typeof GetSearchAdvancedSort[keyof typeof GetSearchAdvancedSort];
+
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const GetSearchAdvancedSort = {
+  title: 'title',
+  rating: 'rating',
+  year: 'year',
+  popularity: 'popularity',
+  updated: 'updated',
+} as const;
+
+export type GetSearchAdvancedOrder = typeof GetSearchAdvancedOrder[keyof typeof GetSearchAdvancedOrder];
+
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const GetSearchAdvancedOrder = {
+  asc: 'asc',
+  desc: 'desc',
+} as const;
+
+export type GetSearchAdvanced200Meta = {
+  total_pages?: number;
+  current_page?: number;
+  per_page?: number;
+  total?: number;
+};
+
+export type GetSearchAdvanced200 = {
+  data?: SearchResultAnime[];
+  meta?: GetSearchAdvanced200Meta;
+};
+
+export type GetSearchSuggestionsParams = {
+/**
+ * 検索クエリ
+ */
+q: string;
+/**
+ * 取得件数
+ */
+limit?: number;
+};
+
+export type GetSearchSuggestions200 = {
+  suggestions?: string[];
+};
+
+export type GetSearchPopularParams = {
+/**
+ * 取得件数
+ */
+limit?: number;
+};
+
+export type GetSearchPopular200 = {
+  popular_searches?: string[];
+};
+
+export type GetFilters200GenresItem = {
+  name?: string;
+  count?: number;
+};
+
+export type GetFilters200SeasonsItem = typeof GetFilters200SeasonsItem[keyof typeof GetFilters200SeasonsItem];
+
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const GetFilters200SeasonsItem = {
+  spring: 'spring',
+  summer: 'summer',
+  autumn: 'autumn',
+  winter: 'winter',
+} as const;
+
+export type GetFilters200Ratings = {
+  min?: number;
+  max?: number;
+  average?: number;
+  count?: number;
+};
+
+export type GetFilters200 = {
+  genres?: GetFilters200GenresItem[];
+  years?: number[];
+  seasons?: GetFilters200SeasonsItem[];
+  ratings?: GetFilters200Ratings;
+};
+
+export type GetAnnictWorksParams = {
+/**
+ * シーズン（例：2025-autumn）
+ */
+season?: string;
+};
+
+export type GetAnnictWorks200 = {
+  works?: AnnictWork[];
+  total_count?: number;
+};
+
+export type GetAnnictPopularWorks200 = {
+  works?: AnnictWork[];
+  total_count?: number;
+};
+
+export type GetAnnictTest200 = {
+  status?: string;
+  message?: string;
+};
+
+export type GetAnnictTest500 = {
+  status?: string;
+  error?: string;
+};
+
+export type PostAdminSyncSeasonParams = {
+/**
+ * シーズン（例：2025-autumn）
+ */
+season?: string;
+};
+
+export type PostAdminSyncSeason200 = {
+  message?: string;
+  synced_count?: number;
+};
+
+export type PostAdminSyncPopular200 = {
+  message?: string;
+  synced_count?: number;
+};
+
+export type GetAdminErrorsMetrics200ErrorsByType = {[key: string]: number};
+
+export type GetAdminErrorsMetrics200 = {
+  total_errors?: number;
+  error_rate?: number;
+  errors_by_type?: GetAdminErrorsMetrics200ErrorsByType;
+};
+
+export type GetAdminErrorsTopParams = {
+limit?: number;
+sort?: GetAdminErrorsTopSort;
+};
+
+export type GetAdminErrorsTopSort = typeof GetAdminErrorsTopSort[keyof typeof GetAdminErrorsTopSort];
+
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const GetAdminErrorsTopSort = {
+  count: 'count',
+  rate: 'rate',
+} as const;
+
+export type GetAdminErrorsTop200Item = {
+  error_code?: string;
+  count?: number;
+  rate?: number;
+};
+
+export type PostAdminErrorsReset200 = {
+  message?: string;
+};
+
+export type PostAdminSyncEpisodeDurationsBody = {
+  /** 同期対象のアニメID（未指定の場合は全アニメ） */
+  anime_id?: number;
+};
+
+export type PostAdminSyncEpisodeDurations200 = {
+  /** 処理対象のアニメ数 */
+  total_animes?: number;
+  /** 成功した同期数 */
+  success_count?: number;
+  /** 失敗した同期数 */
+  failure_count?: number;
+  /** スキップされた同期数 */
+  skipped_count?: number;
+  /** エラーメッセージのリスト */
+  errors?: string[];
+};
+
+export type PostAdminCreateEpisodes200 = {
+  /** 成功したアニメ数 */
+  success_count?: number;
+  /** 失敗したアニメ数 */
+  failure_count?: number;
+  /** 処理結果メッセージ */
+  message?: string;
+};
+
+export type PostAdminEnrichEpisodeTitlesBody = {
+  /** 更新対象のアニメID（省略時は全アニメ） */
+  anime_id?: number;
+};
+
+export type PostAdminEnrichEpisodeTitles200 = {
+  /** 成功したアニメ数 */
+  success_count?: number;
+  /** 失敗したアニメ数 */
+  failure_count?: number;
+  /** エラーメッセージのリスト */
+  errors?: string[];
+  /** 処理結果メッセージ */
+  message?: string;
+};
+
+export type PostAdminSyncGenres200 = {
+  /** 成功したアニメ数 */
+  success_count?: number;
+  /** 失敗したアニメ数 */
+  failure_count?: number;
+  /** エラーメッセージのリスト */
+  errors?: string[];
+  /** 処理結果メッセージ */
+  message?: string;
+};
+
+export type GetAdminEpisodeSyncStatusParams = {
+/**
+ * 確認対象のアニメID
+ */
+anime_id: number;
+};
+
+export type GetAdminEpisodeSyncStatus200 = {
+  /** アニメID */
+  anime_id?: number;
+  /** アニメタイトル */
+  anime_title?: string;
+  /**
+   * Annict ID
+   * @nullable
+   */
+  annict_id?: number | null;
+  /** 総エピソード数 */
+  total_episodes?: number;
+  /** デフォルトタイトル（第X話）の数 */
+  default_titles?: number;
+  /** カスタムタイトルの数 */
+  custom_titles?: number;
+  /** 同期率（%） */
+  sync_percentage?: number;
+  /** 同期が必要かどうか */
+  need_sync?: boolean;
+  /** サンプルエピソード（最大5件） */
+  sample_episodes?: string[];
+};
+
+export type GetAdminSyncStatus200 = {
+  /** 最後の同期時刻 */
+  last_sync_time?: string;
+  /** 次回の同期時刻 */
+  next_sync_time?: string;
+  /** 最後の同期にかかった時間 */
+  last_sync_duration?: string;
+  /** 最後の同期が成功したか */
+  last_sync_success?: boolean;
+  /** 最後の同期で処理したアニメ数 */
+  last_sync_count?: number;
+  /** 最後の同期で発生したエラー */
+  last_sync_errors?: string[];
+  /** 今日の同期実行回数 */
+  total_syncs_today?: number;
+  /** 現在同期中かどうか */
+  is_running?: boolean;
+  /** スケジューラーが有効かどうか */
+  enabled?: boolean;
+  /** 現在のシーズン */
+  current_season?: string;
+  /** 前シーズン */
+  previous_season?: string;
+};
+
+export type GetHealth200 = {
+  status?: string;
+  timestamp?: string;
+};
+
+export type GetHealthDetailed200ChecksDatabase = {
+  status?: string;
+  latency?: number;
+};
+
+export type GetHealthDetailed200ChecksExternalApi = {
+  status?: string;
+  latency?: number;
+};
+
+export type GetHealthDetailed200Checks = {
+  database?: GetHealthDetailed200ChecksDatabase;
+  external_api?: GetHealthDetailed200ChecksExternalApi;
+};
+
+export type GetHealthDetailed200 = {
+  status?: string;
+  checks?: GetHealthDetailed200Checks;
+  timestamp?: string;
+};
+
 /**
  * @summary 新規ユーザー作成
  */
@@ -416,7 +934,7 @@ export const postLogin = (
 
 
 
-export const getPostLoginMutationOptions = <TError = AxiosError<Error>,
+export const getPostLoginMutationOptions = <TError = AxiosError<Error | Error>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postLogin>>, TError,{data: PostLoginBody}, TContext>, axios?: AxiosRequestConfig}
 ): UseMutationOptions<Awaited<ReturnType<typeof postLogin>>, TError,{data: PostLoginBody}, TContext> => {
 
@@ -443,12 +961,12 @@ const {mutation: mutationOptions, axios: axiosOptions} = options ?
 
     export type PostLoginMutationResult = NonNullable<Awaited<ReturnType<typeof postLogin>>>
     export type PostLoginMutationBody = PostLoginBody
-    export type PostLoginMutationError = AxiosError<Error>
+    export type PostLoginMutationError = AxiosError<Error | Error>
 
     /**
  * @summary 認証トークン発行
  */
-export const usePostLogin = <TError = AxiosError<Error>,
+export const usePostLogin = <TError = AxiosError<Error | Error>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postLogin>>, TError,{data: PostLoginBody}, TContext>, axios?: AxiosRequestConfig}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof postLogin>>,
@@ -553,7 +1071,7 @@ export function useGetUsersMe<TData = Awaited<ReturnType<typeof getUsersMe>>, TE
  */
 export const putUsersMe = (
     putUsersMeBody: PutUsersMeBody, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<User>> => {
+ ): Promise<AxiosResponse<PutUsersMe200>> => {
     
     
     return axios.put(
@@ -564,7 +1082,7 @@ export const putUsersMe = (
 
 
 
-export const getPutUsersMeMutationOptions = <TError = AxiosError<unknown>,
+export const getPutUsersMeMutationOptions = <TError = AxiosError<Error | Error>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putUsersMe>>, TError,{data: PutUsersMeBody}, TContext>, axios?: AxiosRequestConfig}
 ): UseMutationOptions<Awaited<ReturnType<typeof putUsersMe>>, TError,{data: PutUsersMeBody}, TContext> => {
 
@@ -591,12 +1109,12 @@ const {mutation: mutationOptions, axios: axiosOptions} = options ?
 
     export type PutUsersMeMutationResult = NonNullable<Awaited<ReturnType<typeof putUsersMe>>>
     export type PutUsersMeMutationBody = PutUsersMeBody
-    export type PutUsersMeMutationError = AxiosError<unknown>
+    export type PutUsersMeMutationError = AxiosError<Error | Error>
 
     /**
  * @summary マイページ情報を更新
  */
-export const usePutUsersMe = <TError = AxiosError<unknown>,
+export const usePutUsersMe = <TError = AxiosError<Error | Error>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putUsersMe>>, TError,{data: PutUsersMeBody}, TContext>, axios?: AxiosRequestConfig}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof putUsersMe>>,
@@ -606,6 +1124,131 @@ export const usePutUsersMe = <TError = AxiosError<unknown>,
       > => {
 
       const mutationOptions = getPutUsersMeMutationOptions(options);
+
+      return useMutation(mutationOptions , queryClient);
+    }
+    
+/**
+ * @summary プロフィール画像をアップロード
+ */
+export const postUsersMeIcon = (
+    postUsersMeIconBody: PostUsersMeIconBody, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<PostUsersMeIcon200>> => {
+    
+    const formData = new FormData();
+formData.append(`icon`, postUsersMeIconBody.icon)
+
+    return axios.post(
+      `/users/me/icon`,
+      formData,options
+    );
+  }
+
+
+
+export const getPostUsersMeIconMutationOptions = <TError = AxiosError<Error | Error | Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postUsersMeIcon>>, TError,{data: PostUsersMeIconBody}, TContext>, axios?: AxiosRequestConfig}
+): UseMutationOptions<Awaited<ReturnType<typeof postUsersMeIcon>>, TError,{data: PostUsersMeIconBody}, TContext> => {
+
+const mutationKey = ['postUsersMeIcon'];
+const {mutation: mutationOptions, axios: axiosOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, axios: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postUsersMeIcon>>, {data: PostUsersMeIconBody}> = (props) => {
+          const {data} = props ?? {};
+
+          return  postUsersMeIcon(data,axiosOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostUsersMeIconMutationResult = NonNullable<Awaited<ReturnType<typeof postUsersMeIcon>>>
+    export type PostUsersMeIconMutationBody = PostUsersMeIconBody
+    export type PostUsersMeIconMutationError = AxiosError<Error | Error | Error>
+
+    /**
+ * @summary プロフィール画像をアップロード
+ */
+export const usePostUsersMeIcon = <TError = AxiosError<Error | Error | Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postUsersMeIcon>>, TError,{data: PostUsersMeIconBody}, TContext>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof postUsersMeIcon>>,
+        TError,
+        {data: PostUsersMeIconBody},
+        TContext
+      > => {
+
+      const mutationOptions = getPostUsersMeIconMutationOptions(options);
+
+      return useMutation(mutationOptions , queryClient);
+    }
+    
+/**
+ * @summary プロフィール画像を削除
+ */
+export const deleteUsersMeIcon = (
+     options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<DeleteUsersMeIcon200>> => {
+    
+    
+    return axios.delete(
+      `/users/me/icon`,options
+    );
+  }
+
+
+
+export const getDeleteUsersMeIconMutationOptions = <TError = AxiosError<Error | Error | Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteUsersMeIcon>>, TError,void, TContext>, axios?: AxiosRequestConfig}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteUsersMeIcon>>, TError,void, TContext> => {
+
+const mutationKey = ['deleteUsersMeIcon'];
+const {mutation: mutationOptions, axios: axiosOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, axios: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteUsersMeIcon>>, void> = () => {
+          
+
+          return  deleteUsersMeIcon(axiosOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteUsersMeIconMutationResult = NonNullable<Awaited<ReturnType<typeof deleteUsersMeIcon>>>
+    
+    export type DeleteUsersMeIconMutationError = AxiosError<Error | Error | Error>
+
+    /**
+ * @summary プロフィール画像を削除
+ */
+export const useDeleteUsersMeIcon = <TError = AxiosError<Error | Error | Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteUsersMeIcon>>, TError,void, TContext>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof deleteUsersMeIcon>>,
+        TError,
+        void,
+        TContext
+      > => {
+
+      const mutationOptions = getDeleteUsersMeIconMutationOptions(options);
 
       return useMutation(mutationOptions , queryClient);
     }
@@ -1618,7 +2261,7 @@ export function useGetUsersMeWatchlist<TData = Awaited<ReturnType<typeof getUser
 
 
 /**
- * @summary 高度なアニメ検索
+ * @summary 基本的なアニメ検索
  */
 export const getSearchAnimes = (
     params?: GetSearchAnimesParams, options?: AxiosRequestConfig
@@ -1685,7 +2328,7 @@ export function useGetSearchAnimes<TData = Awaited<ReturnType<typeof getSearchAn
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 /**
- * @summary 高度なアニメ検索
+ * @summary 基本的なアニメ検索
  */
 
 export function useGetSearchAnimes<TData = Awaited<ReturnType<typeof getSearchAnimes>>, TError = AxiosError<unknown>>(
@@ -1694,6 +2337,1575 @@ export function useGetSearchAnimes<TData = Awaited<ReturnType<typeof getSearchAn
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
 
   const queryOptions = getGetSearchAnimesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions , queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * @summary 高度なアニメ検索
+ */
+export const getSearchAdvanced = (
+    params?: GetSearchAdvancedParams, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<GetSearchAdvanced200>> => {
+    
+    
+    return axios.get(
+      `/search/advanced`,{
+    ...options,
+        params: {...params, ...options?.params},}
+    );
+  }
+
+
+export const getGetSearchAdvancedQueryKey = (params?: GetSearchAdvancedParams,) => {
+    return [`/search/advanced`, ...(params ? [params]: [])] as const;
+    }
+
+    
+export const getGetSearchAdvancedQueryOptions = <TData = Awaited<ReturnType<typeof getSearchAdvanced>>, TError = AxiosError<unknown>>(params?: GetSearchAdvancedParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSearchAdvanced>>, TError, TData>>, axios?: AxiosRequestConfig}
+) => {
+
+const {query: queryOptions, axios: axiosOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSearchAdvancedQueryKey(params);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSearchAdvanced>>> = ({ signal }) => getSearchAdvanced(params, { signal, ...axiosOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSearchAdvanced>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetSearchAdvancedQueryResult = NonNullable<Awaited<ReturnType<typeof getSearchAdvanced>>>
+export type GetSearchAdvancedQueryError = AxiosError<unknown>
+
+
+export function useGetSearchAdvanced<TData = Awaited<ReturnType<typeof getSearchAdvanced>>, TError = AxiosError<unknown>>(
+ params: undefined |  GetSearchAdvancedParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSearchAdvanced>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getSearchAdvanced>>,
+          TError,
+          Awaited<ReturnType<typeof getSearchAdvanced>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetSearchAdvanced<TData = Awaited<ReturnType<typeof getSearchAdvanced>>, TError = AxiosError<unknown>>(
+ params?: GetSearchAdvancedParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSearchAdvanced>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getSearchAdvanced>>,
+          TError,
+          Awaited<ReturnType<typeof getSearchAdvanced>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetSearchAdvanced<TData = Awaited<ReturnType<typeof getSearchAdvanced>>, TError = AxiosError<unknown>>(
+ params?: GetSearchAdvancedParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSearchAdvanced>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+/**
+ * @summary 高度なアニメ検索
+ */
+
+export function useGetSearchAdvanced<TData = Awaited<ReturnType<typeof getSearchAdvanced>>, TError = AxiosError<unknown>>(
+ params?: GetSearchAdvancedParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSearchAdvanced>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
+
+  const queryOptions = getGetSearchAdvancedQueryOptions(params,options)
+
+  const query = useQuery(queryOptions , queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * @summary 検索候補を取得
+ */
+export const getSearchSuggestions = (
+    params: GetSearchSuggestionsParams, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<GetSearchSuggestions200>> => {
+    
+    
+    return axios.get(
+      `/search/suggestions`,{
+    ...options,
+        params: {...params, ...options?.params},}
+    );
+  }
+
+
+export const getGetSearchSuggestionsQueryKey = (params?: GetSearchSuggestionsParams,) => {
+    return [`/search/suggestions`, ...(params ? [params]: [])] as const;
+    }
+
+    
+export const getGetSearchSuggestionsQueryOptions = <TData = Awaited<ReturnType<typeof getSearchSuggestions>>, TError = AxiosError<unknown>>(params: GetSearchSuggestionsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSearchSuggestions>>, TError, TData>>, axios?: AxiosRequestConfig}
+) => {
+
+const {query: queryOptions, axios: axiosOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSearchSuggestionsQueryKey(params);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSearchSuggestions>>> = ({ signal }) => getSearchSuggestions(params, { signal, ...axiosOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSearchSuggestions>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetSearchSuggestionsQueryResult = NonNullable<Awaited<ReturnType<typeof getSearchSuggestions>>>
+export type GetSearchSuggestionsQueryError = AxiosError<unknown>
+
+
+export function useGetSearchSuggestions<TData = Awaited<ReturnType<typeof getSearchSuggestions>>, TError = AxiosError<unknown>>(
+ params: GetSearchSuggestionsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSearchSuggestions>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getSearchSuggestions>>,
+          TError,
+          Awaited<ReturnType<typeof getSearchSuggestions>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetSearchSuggestions<TData = Awaited<ReturnType<typeof getSearchSuggestions>>, TError = AxiosError<unknown>>(
+ params: GetSearchSuggestionsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSearchSuggestions>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getSearchSuggestions>>,
+          TError,
+          Awaited<ReturnType<typeof getSearchSuggestions>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetSearchSuggestions<TData = Awaited<ReturnType<typeof getSearchSuggestions>>, TError = AxiosError<unknown>>(
+ params: GetSearchSuggestionsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSearchSuggestions>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+/**
+ * @summary 検索候補を取得
+ */
+
+export function useGetSearchSuggestions<TData = Awaited<ReturnType<typeof getSearchSuggestions>>, TError = AxiosError<unknown>>(
+ params: GetSearchSuggestionsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSearchSuggestions>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
+
+  const queryOptions = getGetSearchSuggestionsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions , queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * @summary 人気検索キーワードを取得
+ */
+export const getSearchPopular = (
+    params?: GetSearchPopularParams, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<GetSearchPopular200>> => {
+    
+    
+    return axios.get(
+      `/search/popular`,{
+    ...options,
+        params: {...params, ...options?.params},}
+    );
+  }
+
+
+export const getGetSearchPopularQueryKey = (params?: GetSearchPopularParams,) => {
+    return [`/search/popular`, ...(params ? [params]: [])] as const;
+    }
+
+    
+export const getGetSearchPopularQueryOptions = <TData = Awaited<ReturnType<typeof getSearchPopular>>, TError = AxiosError<unknown>>(params?: GetSearchPopularParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSearchPopular>>, TError, TData>>, axios?: AxiosRequestConfig}
+) => {
+
+const {query: queryOptions, axios: axiosOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSearchPopularQueryKey(params);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSearchPopular>>> = ({ signal }) => getSearchPopular(params, { signal, ...axiosOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSearchPopular>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetSearchPopularQueryResult = NonNullable<Awaited<ReturnType<typeof getSearchPopular>>>
+export type GetSearchPopularQueryError = AxiosError<unknown>
+
+
+export function useGetSearchPopular<TData = Awaited<ReturnType<typeof getSearchPopular>>, TError = AxiosError<unknown>>(
+ params: undefined |  GetSearchPopularParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSearchPopular>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getSearchPopular>>,
+          TError,
+          Awaited<ReturnType<typeof getSearchPopular>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetSearchPopular<TData = Awaited<ReturnType<typeof getSearchPopular>>, TError = AxiosError<unknown>>(
+ params?: GetSearchPopularParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSearchPopular>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getSearchPopular>>,
+          TError,
+          Awaited<ReturnType<typeof getSearchPopular>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetSearchPopular<TData = Awaited<ReturnType<typeof getSearchPopular>>, TError = AxiosError<unknown>>(
+ params?: GetSearchPopularParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSearchPopular>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+/**
+ * @summary 人気検索キーワードを取得
+ */
+
+export function useGetSearchPopular<TData = Awaited<ReturnType<typeof getSearchPopular>>, TError = AxiosError<unknown>>(
+ params?: GetSearchPopularParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSearchPopular>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
+
+  const queryOptions = getGetSearchPopularQueryOptions(params,options)
+
+  const query = useQuery(queryOptions , queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * 検索フィルターに使用可能なジャンル、年、シーズン、評価情報を取得
+ * @summary フィルター情報を取得
+ */
+export const getFilters = (
+     options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<GetFilters200>> => {
+    
+    
+    return axios.get(
+      `/filters`,options
+    );
+  }
+
+
+export const getGetFiltersQueryKey = () => {
+    return [`/filters`] as const;
+    }
+
+    
+export const getGetFiltersQueryOptions = <TData = Awaited<ReturnType<typeof getFilters>>, TError = AxiosError<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getFilters>>, TError, TData>>, axios?: AxiosRequestConfig}
+) => {
+
+const {query: queryOptions, axios: axiosOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetFiltersQueryKey();
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getFilters>>> = ({ signal }) => getFilters({ signal, ...axiosOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getFilters>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetFiltersQueryResult = NonNullable<Awaited<ReturnType<typeof getFilters>>>
+export type GetFiltersQueryError = AxiosError<unknown>
+
+
+export function useGetFilters<TData = Awaited<ReturnType<typeof getFilters>>, TError = AxiosError<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getFilters>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getFilters>>,
+          TError,
+          Awaited<ReturnType<typeof getFilters>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetFilters<TData = Awaited<ReturnType<typeof getFilters>>, TError = AxiosError<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getFilters>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getFilters>>,
+          TError,
+          Awaited<ReturnType<typeof getFilters>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetFilters<TData = Awaited<ReturnType<typeof getFilters>>, TError = AxiosError<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getFilters>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+/**
+ * @summary フィルター情報を取得
+ */
+
+export function useGetFilters<TData = Awaited<ReturnType<typeof getFilters>>, TError = AxiosError<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getFilters>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
+
+  const queryOptions = getGetFiltersQueryOptions(options)
+
+  const query = useQuery(queryOptions , queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * @summary Annict APIからアニメ作品を取得
+ */
+export const getAnnictWorks = (
+    params?: GetAnnictWorksParams, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<GetAnnictWorks200>> => {
+    
+    
+    return axios.get(
+      `/annict/works`,{
+    ...options,
+        params: {...params, ...options?.params},}
+    );
+  }
+
+
+export const getGetAnnictWorksQueryKey = (params?: GetAnnictWorksParams,) => {
+    return [`/annict/works`, ...(params ? [params]: [])] as const;
+    }
+
+    
+export const getGetAnnictWorksQueryOptions = <TData = Awaited<ReturnType<typeof getAnnictWorks>>, TError = AxiosError<unknown>>(params?: GetAnnictWorksParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAnnictWorks>>, TError, TData>>, axios?: AxiosRequestConfig}
+) => {
+
+const {query: queryOptions, axios: axiosOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAnnictWorksQueryKey(params);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAnnictWorks>>> = ({ signal }) => getAnnictWorks(params, { signal, ...axiosOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAnnictWorks>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetAnnictWorksQueryResult = NonNullable<Awaited<ReturnType<typeof getAnnictWorks>>>
+export type GetAnnictWorksQueryError = AxiosError<unknown>
+
+
+export function useGetAnnictWorks<TData = Awaited<ReturnType<typeof getAnnictWorks>>, TError = AxiosError<unknown>>(
+ params: undefined |  GetAnnictWorksParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAnnictWorks>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAnnictWorks>>,
+          TError,
+          Awaited<ReturnType<typeof getAnnictWorks>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetAnnictWorks<TData = Awaited<ReturnType<typeof getAnnictWorks>>, TError = AxiosError<unknown>>(
+ params?: GetAnnictWorksParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAnnictWorks>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAnnictWorks>>,
+          TError,
+          Awaited<ReturnType<typeof getAnnictWorks>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetAnnictWorks<TData = Awaited<ReturnType<typeof getAnnictWorks>>, TError = AxiosError<unknown>>(
+ params?: GetAnnictWorksParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAnnictWorks>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+/**
+ * @summary Annict APIからアニメ作品を取得
+ */
+
+export function useGetAnnictWorks<TData = Awaited<ReturnType<typeof getAnnictWorks>>, TError = AxiosError<unknown>>(
+ params?: GetAnnictWorksParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAnnictWorks>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
+
+  const queryOptions = getGetAnnictWorksQueryOptions(params,options)
+
+  const query = useQuery(queryOptions , queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * @summary Annict APIから人気アニメ作品を取得
+ */
+export const getAnnictPopularWorks = (
+     options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<GetAnnictPopularWorks200>> => {
+    
+    
+    return axios.get(
+      `/annict/popular-works`,options
+    );
+  }
+
+
+export const getGetAnnictPopularWorksQueryKey = () => {
+    return [`/annict/popular-works`] as const;
+    }
+
+    
+export const getGetAnnictPopularWorksQueryOptions = <TData = Awaited<ReturnType<typeof getAnnictPopularWorks>>, TError = AxiosError<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAnnictPopularWorks>>, TError, TData>>, axios?: AxiosRequestConfig}
+) => {
+
+const {query: queryOptions, axios: axiosOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAnnictPopularWorksQueryKey();
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAnnictPopularWorks>>> = ({ signal }) => getAnnictPopularWorks({ signal, ...axiosOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAnnictPopularWorks>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetAnnictPopularWorksQueryResult = NonNullable<Awaited<ReturnType<typeof getAnnictPopularWorks>>>
+export type GetAnnictPopularWorksQueryError = AxiosError<unknown>
+
+
+export function useGetAnnictPopularWorks<TData = Awaited<ReturnType<typeof getAnnictPopularWorks>>, TError = AxiosError<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAnnictPopularWorks>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAnnictPopularWorks>>,
+          TError,
+          Awaited<ReturnType<typeof getAnnictPopularWorks>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetAnnictPopularWorks<TData = Awaited<ReturnType<typeof getAnnictPopularWorks>>, TError = AxiosError<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAnnictPopularWorks>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAnnictPopularWorks>>,
+          TError,
+          Awaited<ReturnType<typeof getAnnictPopularWorks>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetAnnictPopularWorks<TData = Awaited<ReturnType<typeof getAnnictPopularWorks>>, TError = AxiosError<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAnnictPopularWorks>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+/**
+ * @summary Annict APIから人気アニメ作品を取得
+ */
+
+export function useGetAnnictPopularWorks<TData = Awaited<ReturnType<typeof getAnnictPopularWorks>>, TError = AxiosError<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAnnictPopularWorks>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
+
+  const queryOptions = getGetAnnictPopularWorksQueryOptions(options)
+
+  const query = useQuery(queryOptions , queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * Annict APIへの接続をテストします。開発環境でのみ利用可能です。
+ * @summary Annict API接続テスト（開発環境のみ）
+ */
+export const getAnnictTest = (
+     options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<GetAnnictTest200>> => {
+    
+    
+    return axios.get(
+      `/annict/test`,options
+    );
+  }
+
+
+export const getGetAnnictTestQueryKey = () => {
+    return [`/annict/test`] as const;
+    }
+
+    
+export const getGetAnnictTestQueryOptions = <TData = Awaited<ReturnType<typeof getAnnictTest>>, TError = AxiosError<GetAnnictTest500>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAnnictTest>>, TError, TData>>, axios?: AxiosRequestConfig}
+) => {
+
+const {query: queryOptions, axios: axiosOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAnnictTestQueryKey();
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAnnictTest>>> = ({ signal }) => getAnnictTest({ signal, ...axiosOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAnnictTest>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetAnnictTestQueryResult = NonNullable<Awaited<ReturnType<typeof getAnnictTest>>>
+export type GetAnnictTestQueryError = AxiosError<GetAnnictTest500>
+
+
+export function useGetAnnictTest<TData = Awaited<ReturnType<typeof getAnnictTest>>, TError = AxiosError<GetAnnictTest500>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAnnictTest>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAnnictTest>>,
+          TError,
+          Awaited<ReturnType<typeof getAnnictTest>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetAnnictTest<TData = Awaited<ReturnType<typeof getAnnictTest>>, TError = AxiosError<GetAnnictTest500>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAnnictTest>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAnnictTest>>,
+          TError,
+          Awaited<ReturnType<typeof getAnnictTest>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetAnnictTest<TData = Awaited<ReturnType<typeof getAnnictTest>>, TError = AxiosError<GetAnnictTest500>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAnnictTest>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+/**
+ * @summary Annict API接続テスト（開発環境のみ）
+ */
+
+export function useGetAnnictTest<TData = Awaited<ReturnType<typeof getAnnictTest>>, TError = AxiosError<GetAnnictTest500>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAnnictTest>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
+
+  const queryOptions = getGetAnnictTestQueryOptions(options)
+
+  const query = useQuery(queryOptions , queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * @summary シーズンアニメをデータベースに同期
+ */
+export const postAdminSyncSeason = (
+    params?: PostAdminSyncSeasonParams, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<PostAdminSyncSeason200>> => {
+    
+    
+    return axios.post(
+      `/admin/sync/season`,undefined,{
+    ...options,
+        params: {...params, ...options?.params},}
+    );
+  }
+
+
+
+export const getPostAdminSyncSeasonMutationOptions = <TError = AxiosError<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAdminSyncSeason>>, TError,{params?: PostAdminSyncSeasonParams}, TContext>, axios?: AxiosRequestConfig}
+): UseMutationOptions<Awaited<ReturnType<typeof postAdminSyncSeason>>, TError,{params?: PostAdminSyncSeasonParams}, TContext> => {
+
+const mutationKey = ['postAdminSyncSeason'];
+const {mutation: mutationOptions, axios: axiosOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, axios: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postAdminSyncSeason>>, {params?: PostAdminSyncSeasonParams}> = (props) => {
+          const {params} = props ?? {};
+
+          return  postAdminSyncSeason(params,axiosOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostAdminSyncSeasonMutationResult = NonNullable<Awaited<ReturnType<typeof postAdminSyncSeason>>>
+    
+    export type PostAdminSyncSeasonMutationError = AxiosError<Error>
+
+    /**
+ * @summary シーズンアニメをデータベースに同期
+ */
+export const usePostAdminSyncSeason = <TError = AxiosError<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAdminSyncSeason>>, TError,{params?: PostAdminSyncSeasonParams}, TContext>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof postAdminSyncSeason>>,
+        TError,
+        {params?: PostAdminSyncSeasonParams},
+        TContext
+      > => {
+
+      const mutationOptions = getPostAdminSyncSeasonMutationOptions(options);
+
+      return useMutation(mutationOptions , queryClient);
+    }
+    
+/**
+ * @summary 人気アニメをデータベースに同期
+ */
+export const postAdminSyncPopular = (
+     options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<PostAdminSyncPopular200>> => {
+    
+    
+    return axios.post(
+      `/admin/sync/popular`,undefined,options
+    );
+  }
+
+
+
+export const getPostAdminSyncPopularMutationOptions = <TError = AxiosError<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAdminSyncPopular>>, TError,void, TContext>, axios?: AxiosRequestConfig}
+): UseMutationOptions<Awaited<ReturnType<typeof postAdminSyncPopular>>, TError,void, TContext> => {
+
+const mutationKey = ['postAdminSyncPopular'];
+const {mutation: mutationOptions, axios: axiosOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, axios: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postAdminSyncPopular>>, void> = () => {
+          
+
+          return  postAdminSyncPopular(axiosOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostAdminSyncPopularMutationResult = NonNullable<Awaited<ReturnType<typeof postAdminSyncPopular>>>
+    
+    export type PostAdminSyncPopularMutationError = AxiosError<Error>
+
+    /**
+ * @summary 人気アニメをデータベースに同期
+ */
+export const usePostAdminSyncPopular = <TError = AxiosError<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAdminSyncPopular>>, TError,void, TContext>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof postAdminSyncPopular>>,
+        TError,
+        void,
+        TContext
+      > => {
+
+      const mutationOptions = getPostAdminSyncPopularMutationOptions(options);
+
+      return useMutation(mutationOptions , queryClient);
+    }
+    
+/**
+ * @summary エラーメトリクスを取得
+ */
+export const getAdminErrorsMetrics = (
+     options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<GetAdminErrorsMetrics200>> => {
+    
+    
+    return axios.get(
+      `/admin/errors/metrics`,options
+    );
+  }
+
+
+export const getGetAdminErrorsMetricsQueryKey = () => {
+    return [`/admin/errors/metrics`] as const;
+    }
+
+    
+export const getGetAdminErrorsMetricsQueryOptions = <TData = Awaited<ReturnType<typeof getAdminErrorsMetrics>>, TError = AxiosError<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminErrorsMetrics>>, TError, TData>>, axios?: AxiosRequestConfig}
+) => {
+
+const {query: queryOptions, axios: axiosOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdminErrorsMetricsQueryKey();
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminErrorsMetrics>>> = ({ signal }) => getAdminErrorsMetrics({ signal, ...axiosOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdminErrorsMetrics>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetAdminErrorsMetricsQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminErrorsMetrics>>>
+export type GetAdminErrorsMetricsQueryError = AxiosError<unknown>
+
+
+export function useGetAdminErrorsMetrics<TData = Awaited<ReturnType<typeof getAdminErrorsMetrics>>, TError = AxiosError<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminErrorsMetrics>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAdminErrorsMetrics>>,
+          TError,
+          Awaited<ReturnType<typeof getAdminErrorsMetrics>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetAdminErrorsMetrics<TData = Awaited<ReturnType<typeof getAdminErrorsMetrics>>, TError = AxiosError<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminErrorsMetrics>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAdminErrorsMetrics>>,
+          TError,
+          Awaited<ReturnType<typeof getAdminErrorsMetrics>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetAdminErrorsMetrics<TData = Awaited<ReturnType<typeof getAdminErrorsMetrics>>, TError = AxiosError<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminErrorsMetrics>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+/**
+ * @summary エラーメトリクスを取得
+ */
+
+export function useGetAdminErrorsMetrics<TData = Awaited<ReturnType<typeof getAdminErrorsMetrics>>, TError = AxiosError<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminErrorsMetrics>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
+
+  const queryOptions = getGetAdminErrorsMetricsQueryOptions(options)
+
+  const query = useQuery(queryOptions , queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * @summary トップエラーを取得
+ */
+export const getAdminErrorsTop = (
+    params?: GetAdminErrorsTopParams, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<GetAdminErrorsTop200Item[]>> => {
+    
+    
+    return axios.get(
+      `/admin/errors/top`,{
+    ...options,
+        params: {...params, ...options?.params},}
+    );
+  }
+
+
+export const getGetAdminErrorsTopQueryKey = (params?: GetAdminErrorsTopParams,) => {
+    return [`/admin/errors/top`, ...(params ? [params]: [])] as const;
+    }
+
+    
+export const getGetAdminErrorsTopQueryOptions = <TData = Awaited<ReturnType<typeof getAdminErrorsTop>>, TError = AxiosError<unknown>>(params?: GetAdminErrorsTopParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminErrorsTop>>, TError, TData>>, axios?: AxiosRequestConfig}
+) => {
+
+const {query: queryOptions, axios: axiosOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdminErrorsTopQueryKey(params);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminErrorsTop>>> = ({ signal }) => getAdminErrorsTop(params, { signal, ...axiosOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdminErrorsTop>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetAdminErrorsTopQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminErrorsTop>>>
+export type GetAdminErrorsTopQueryError = AxiosError<unknown>
+
+
+export function useGetAdminErrorsTop<TData = Awaited<ReturnType<typeof getAdminErrorsTop>>, TError = AxiosError<unknown>>(
+ params: undefined |  GetAdminErrorsTopParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminErrorsTop>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAdminErrorsTop>>,
+          TError,
+          Awaited<ReturnType<typeof getAdminErrorsTop>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetAdminErrorsTop<TData = Awaited<ReturnType<typeof getAdminErrorsTop>>, TError = AxiosError<unknown>>(
+ params?: GetAdminErrorsTopParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminErrorsTop>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAdminErrorsTop>>,
+          TError,
+          Awaited<ReturnType<typeof getAdminErrorsTop>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetAdminErrorsTop<TData = Awaited<ReturnType<typeof getAdminErrorsTop>>, TError = AxiosError<unknown>>(
+ params?: GetAdminErrorsTopParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminErrorsTop>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+/**
+ * @summary トップエラーを取得
+ */
+
+export function useGetAdminErrorsTop<TData = Awaited<ReturnType<typeof getAdminErrorsTop>>, TError = AxiosError<unknown>>(
+ params?: GetAdminErrorsTopParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminErrorsTop>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
+
+  const queryOptions = getGetAdminErrorsTopQueryOptions(params,options)
+
+  const query = useQuery(queryOptions , queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * @summary エラーメトリクスをリセット
+ */
+export const postAdminErrorsReset = (
+     options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<PostAdminErrorsReset200>> => {
+    
+    
+    return axios.post(
+      `/admin/errors/reset`,undefined,options
+    );
+  }
+
+
+
+export const getPostAdminErrorsResetMutationOptions = <TError = AxiosError<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAdminErrorsReset>>, TError,void, TContext>, axios?: AxiosRequestConfig}
+): UseMutationOptions<Awaited<ReturnType<typeof postAdminErrorsReset>>, TError,void, TContext> => {
+
+const mutationKey = ['postAdminErrorsReset'];
+const {mutation: mutationOptions, axios: axiosOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, axios: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postAdminErrorsReset>>, void> = () => {
+          
+
+          return  postAdminErrorsReset(axiosOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostAdminErrorsResetMutationResult = NonNullable<Awaited<ReturnType<typeof postAdminErrorsReset>>>
+    
+    export type PostAdminErrorsResetMutationError = AxiosError<unknown>
+
+    /**
+ * @summary エラーメトリクスをリセット
+ */
+export const usePostAdminErrorsReset = <TError = AxiosError<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAdminErrorsReset>>, TError,void, TContext>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof postAdminErrorsReset>>,
+        TError,
+        void,
+        TContext
+      > => {
+
+      const mutationOptions = getPostAdminErrorsResetMutationOptions(options);
+
+      return useMutation(mutationOptions , queryClient);
+    }
+    
+/**
+ * Jikan APIからエピソードの視聴時間を取得してデータベースに保存します
+ * @summary エピソード視聴時間をJikan APIから同期
+ */
+export const postAdminSyncEpisodeDurations = (
+    postAdminSyncEpisodeDurationsBody?: PostAdminSyncEpisodeDurationsBody, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<PostAdminSyncEpisodeDurations200>> => {
+    
+    
+    return axios.post(
+      `/admin/sync/episode-durations`,
+      postAdminSyncEpisodeDurationsBody,options
+    );
+  }
+
+
+
+export const getPostAdminSyncEpisodeDurationsMutationOptions = <TError = AxiosError<Error | Error | Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAdminSyncEpisodeDurations>>, TError,{data: PostAdminSyncEpisodeDurationsBody}, TContext>, axios?: AxiosRequestConfig}
+): UseMutationOptions<Awaited<ReturnType<typeof postAdminSyncEpisodeDurations>>, TError,{data: PostAdminSyncEpisodeDurationsBody}, TContext> => {
+
+const mutationKey = ['postAdminSyncEpisodeDurations'];
+const {mutation: mutationOptions, axios: axiosOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, axios: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postAdminSyncEpisodeDurations>>, {data: PostAdminSyncEpisodeDurationsBody}> = (props) => {
+          const {data} = props ?? {};
+
+          return  postAdminSyncEpisodeDurations(data,axiosOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostAdminSyncEpisodeDurationsMutationResult = NonNullable<Awaited<ReturnType<typeof postAdminSyncEpisodeDurations>>>
+    export type PostAdminSyncEpisodeDurationsMutationBody = PostAdminSyncEpisodeDurationsBody
+    export type PostAdminSyncEpisodeDurationsMutationError = AxiosError<Error | Error | Error>
+
+    /**
+ * @summary エピソード視聴時間をJikan APIから同期
+ */
+export const usePostAdminSyncEpisodeDurations = <TError = AxiosError<Error | Error | Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAdminSyncEpisodeDurations>>, TError,{data: PostAdminSyncEpisodeDurationsBody}, TContext>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof postAdminSyncEpisodeDurations>>,
+        TError,
+        {data: PostAdminSyncEpisodeDurationsBody},
+        TContext
+      > => {
+
+      const mutationOptions = getPostAdminSyncEpisodeDurationsMutationOptions(options);
+
+      return useMutation(mutationOptions , queryClient);
+    }
+    
+/**
+ * エピソードが存在しないアニメに対して、episodes_countに基づいてエピソードレコードを自動作成します
+ * @summary エピソードを一括作成
+ */
+export const postAdminCreateEpisodes = (
+     options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<PostAdminCreateEpisodes200>> => {
+    
+    
+    return axios.post(
+      `/admin/create-episodes`,undefined,options
+    );
+  }
+
+
+
+export const getPostAdminCreateEpisodesMutationOptions = <TError = AxiosError<Error | Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAdminCreateEpisodes>>, TError,void, TContext>, axios?: AxiosRequestConfig}
+): UseMutationOptions<Awaited<ReturnType<typeof postAdminCreateEpisodes>>, TError,void, TContext> => {
+
+const mutationKey = ['postAdminCreateEpisodes'];
+const {mutation: mutationOptions, axios: axiosOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, axios: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postAdminCreateEpisodes>>, void> = () => {
+          
+
+          return  postAdminCreateEpisodes(axiosOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostAdminCreateEpisodesMutationResult = NonNullable<Awaited<ReturnType<typeof postAdminCreateEpisodes>>>
+    
+    export type PostAdminCreateEpisodesMutationError = AxiosError<Error | Error>
+
+    /**
+ * @summary エピソードを一括作成
+ */
+export const usePostAdminCreateEpisodes = <TError = AxiosError<Error | Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAdminCreateEpisodes>>, TError,void, TContext>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof postAdminCreateEpisodes>>,
+        TError,
+        void,
+        TContext
+      > => {
+
+      const mutationOptions = getPostAdminCreateEpisodesMutationOptions(options);
+
+      return useMutation(mutationOptions , queryClient);
+    }
+    
+/**
+ * Annict APIから実際のエピソードタイトルを取得してデータベースを更新します。anime_idを指定しない場合は全アニメを処理します。
+ * @summary エピソードタイトルをAnnict APIから取得
+ */
+export const postAdminEnrichEpisodeTitles = (
+    postAdminEnrichEpisodeTitlesBody: PostAdminEnrichEpisodeTitlesBody, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<PostAdminEnrichEpisodeTitles200>> => {
+    
+    
+    return axios.post(
+      `/admin/enrich/episode-titles`,
+      postAdminEnrichEpisodeTitlesBody,options
+    );
+  }
+
+
+
+export const getPostAdminEnrichEpisodeTitlesMutationOptions = <TError = AxiosError<Error | Error | Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAdminEnrichEpisodeTitles>>, TError,{data: PostAdminEnrichEpisodeTitlesBody}, TContext>, axios?: AxiosRequestConfig}
+): UseMutationOptions<Awaited<ReturnType<typeof postAdminEnrichEpisodeTitles>>, TError,{data: PostAdminEnrichEpisodeTitlesBody}, TContext> => {
+
+const mutationKey = ['postAdminEnrichEpisodeTitles'];
+const {mutation: mutationOptions, axios: axiosOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, axios: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postAdminEnrichEpisodeTitles>>, {data: PostAdminEnrichEpisodeTitlesBody}> = (props) => {
+          const {data} = props ?? {};
+
+          return  postAdminEnrichEpisodeTitles(data,axiosOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostAdminEnrichEpisodeTitlesMutationResult = NonNullable<Awaited<ReturnType<typeof postAdminEnrichEpisodeTitles>>>
+    export type PostAdminEnrichEpisodeTitlesMutationBody = PostAdminEnrichEpisodeTitlesBody
+    export type PostAdminEnrichEpisodeTitlesMutationError = AxiosError<Error | Error | Error>
+
+    /**
+ * @summary エピソードタイトルをAnnict APIから取得
+ */
+export const usePostAdminEnrichEpisodeTitles = <TError = AxiosError<Error | Error | Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAdminEnrichEpisodeTitles>>, TError,{data: PostAdminEnrichEpisodeTitlesBody}, TContext>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof postAdminEnrichEpisodeTitles>>,
+        TError,
+        {data: PostAdminEnrichEpisodeTitlesBody},
+        TContext
+      > => {
+
+      const mutationOptions = getPostAdminEnrichEpisodeTitlesMutationOptions(options);
+
+      return useMutation(mutationOptions , queryClient);
+    }
+    
+/**
+ * AniList APIからジャンル情報を取得してデータベースに保存します。MAL IDが設定されている全アニメを処理します。
+ * @summary アニメジャンル情報をAniList APIから同期
+ */
+export const postAdminSyncGenres = (
+     options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<PostAdminSyncGenres200>> => {
+    
+    
+    return axios.post(
+      `/admin/sync/genres`,undefined,options
+    );
+  }
+
+
+
+export const getPostAdminSyncGenresMutationOptions = <TError = AxiosError<Error | Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAdminSyncGenres>>, TError,void, TContext>, axios?: AxiosRequestConfig}
+): UseMutationOptions<Awaited<ReturnType<typeof postAdminSyncGenres>>, TError,void, TContext> => {
+
+const mutationKey = ['postAdminSyncGenres'];
+const {mutation: mutationOptions, axios: axiosOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, axios: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postAdminSyncGenres>>, void> = () => {
+          
+
+          return  postAdminSyncGenres(axiosOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PostAdminSyncGenresMutationResult = NonNullable<Awaited<ReturnType<typeof postAdminSyncGenres>>>
+    
+    export type PostAdminSyncGenresMutationError = AxiosError<Error | Error>
+
+    /**
+ * @summary アニメジャンル情報をAniList APIから同期
+ */
+export const usePostAdminSyncGenres = <TError = AxiosError<Error | Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAdminSyncGenres>>, TError,void, TContext>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof postAdminSyncGenres>>,
+        TError,
+        void,
+        TContext
+      > => {
+
+      const mutationOptions = getPostAdminSyncGenresMutationOptions(options);
+
+      return useMutation(mutationOptions , queryClient);
+    }
+    
+/**
+ * 特定のアニメのエピソード同期状況を取得します
+ * @summary エピソード同期ステータスを取得
+ */
+export const getAdminEpisodeSyncStatus = (
+    params: GetAdminEpisodeSyncStatusParams, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<GetAdminEpisodeSyncStatus200>> => {
+    
+    
+    return axios.get(
+      `/admin/episode-sync-status`,{
+    ...options,
+        params: {...params, ...options?.params},}
+    );
+  }
+
+
+export const getGetAdminEpisodeSyncStatusQueryKey = (params?: GetAdminEpisodeSyncStatusParams,) => {
+    return [`/admin/episode-sync-status`, ...(params ? [params]: [])] as const;
+    }
+
+    
+export const getGetAdminEpisodeSyncStatusQueryOptions = <TData = Awaited<ReturnType<typeof getAdminEpisodeSyncStatus>>, TError = AxiosError<Error | Error | Error>>(params: GetAdminEpisodeSyncStatusParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminEpisodeSyncStatus>>, TError, TData>>, axios?: AxiosRequestConfig}
+) => {
+
+const {query: queryOptions, axios: axiosOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdminEpisodeSyncStatusQueryKey(params);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminEpisodeSyncStatus>>> = ({ signal }) => getAdminEpisodeSyncStatus(params, { signal, ...axiosOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdminEpisodeSyncStatus>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetAdminEpisodeSyncStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminEpisodeSyncStatus>>>
+export type GetAdminEpisodeSyncStatusQueryError = AxiosError<Error | Error | Error>
+
+
+export function useGetAdminEpisodeSyncStatus<TData = Awaited<ReturnType<typeof getAdminEpisodeSyncStatus>>, TError = AxiosError<Error | Error | Error>>(
+ params: GetAdminEpisodeSyncStatusParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminEpisodeSyncStatus>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAdminEpisodeSyncStatus>>,
+          TError,
+          Awaited<ReturnType<typeof getAdminEpisodeSyncStatus>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetAdminEpisodeSyncStatus<TData = Awaited<ReturnType<typeof getAdminEpisodeSyncStatus>>, TError = AxiosError<Error | Error | Error>>(
+ params: GetAdminEpisodeSyncStatusParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminEpisodeSyncStatus>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAdminEpisodeSyncStatus>>,
+          TError,
+          Awaited<ReturnType<typeof getAdminEpisodeSyncStatus>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetAdminEpisodeSyncStatus<TData = Awaited<ReturnType<typeof getAdminEpisodeSyncStatus>>, TError = AxiosError<Error | Error | Error>>(
+ params: GetAdminEpisodeSyncStatusParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminEpisodeSyncStatus>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+/**
+ * @summary エピソード同期ステータスを取得
+ */
+
+export function useGetAdminEpisodeSyncStatus<TData = Awaited<ReturnType<typeof getAdminEpisodeSyncStatus>>, TError = AxiosError<Error | Error | Error>>(
+ params: GetAdminEpisodeSyncStatusParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminEpisodeSyncStatus>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
+
+  const queryOptions = getGetAdminEpisodeSyncStatusQueryOptions(params,options)
+
+  const query = useQuery(queryOptions , queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * アニメ同期スケジューラーの現在のステータスを取得します
+ * @summary 同期ステータスを取得
+ */
+export const getAdminSyncStatus = (
+     options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<GetAdminSyncStatus200>> => {
+    
+    
+    return axios.get(
+      `/admin/sync/status`,options
+    );
+  }
+
+
+export const getGetAdminSyncStatusQueryKey = () => {
+    return [`/admin/sync/status`] as const;
+    }
+
+    
+export const getGetAdminSyncStatusQueryOptions = <TData = Awaited<ReturnType<typeof getAdminSyncStatus>>, TError = AxiosError<Error | Error>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminSyncStatus>>, TError, TData>>, axios?: AxiosRequestConfig}
+) => {
+
+const {query: queryOptions, axios: axiosOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAdminSyncStatusQueryKey();
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminSyncStatus>>> = ({ signal }) => getAdminSyncStatus({ signal, ...axiosOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdminSyncStatus>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetAdminSyncStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminSyncStatus>>>
+export type GetAdminSyncStatusQueryError = AxiosError<Error | Error>
+
+
+export function useGetAdminSyncStatus<TData = Awaited<ReturnType<typeof getAdminSyncStatus>>, TError = AxiosError<Error | Error>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminSyncStatus>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAdminSyncStatus>>,
+          TError,
+          Awaited<ReturnType<typeof getAdminSyncStatus>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetAdminSyncStatus<TData = Awaited<ReturnType<typeof getAdminSyncStatus>>, TError = AxiosError<Error | Error>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminSyncStatus>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAdminSyncStatus>>,
+          TError,
+          Awaited<ReturnType<typeof getAdminSyncStatus>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetAdminSyncStatus<TData = Awaited<ReturnType<typeof getAdminSyncStatus>>, TError = AxiosError<Error | Error>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminSyncStatus>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+/**
+ * @summary 同期ステータスを取得
+ */
+
+export function useGetAdminSyncStatus<TData = Awaited<ReturnType<typeof getAdminSyncStatus>>, TError = AxiosError<Error | Error>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminSyncStatus>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
+
+  const queryOptions = getGetAdminSyncStatusQueryOptions(options)
+
+  const query = useQuery(queryOptions , queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * @summary ヘルスチェック
+ */
+export const getHealth = (
+     options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<GetHealth200>> => {
+    
+    
+    return axios.get(
+      `/health`,options
+    );
+  }
+
+
+export const getGetHealthQueryKey = () => {
+    return [`/health`] as const;
+    }
+
+    
+export const getGetHealthQueryOptions = <TData = Awaited<ReturnType<typeof getHealth>>, TError = AxiosError<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHealth>>, TError, TData>>, axios?: AxiosRequestConfig}
+) => {
+
+const {query: queryOptions, axios: axiosOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetHealthQueryKey();
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getHealth>>> = ({ signal }) => getHealth({ signal, ...axiosOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getHealth>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetHealthQueryResult = NonNullable<Awaited<ReturnType<typeof getHealth>>>
+export type GetHealthQueryError = AxiosError<unknown>
+
+
+export function useGetHealth<TData = Awaited<ReturnType<typeof getHealth>>, TError = AxiosError<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHealth>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getHealth>>,
+          TError,
+          Awaited<ReturnType<typeof getHealth>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetHealth<TData = Awaited<ReturnType<typeof getHealth>>, TError = AxiosError<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHealth>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getHealth>>,
+          TError,
+          Awaited<ReturnType<typeof getHealth>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetHealth<TData = Awaited<ReturnType<typeof getHealth>>, TError = AxiosError<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHealth>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+/**
+ * @summary ヘルスチェック
+ */
+
+export function useGetHealth<TData = Awaited<ReturnType<typeof getHealth>>, TError = AxiosError<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHealth>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
+
+  const queryOptions = getGetHealthQueryOptions(options)
+
+  const query = useQuery(queryOptions , queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * @summary 詳細ヘルスチェック
+ */
+export const getHealthDetailed = (
+     options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<GetHealthDetailed200>> => {
+    
+    
+    return axios.get(
+      `/health/detailed`,options
+    );
+  }
+
+
+export const getGetHealthDetailedQueryKey = () => {
+    return [`/health/detailed`] as const;
+    }
+
+    
+export const getGetHealthDetailedQueryOptions = <TData = Awaited<ReturnType<typeof getHealthDetailed>>, TError = AxiosError<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHealthDetailed>>, TError, TData>>, axios?: AxiosRequestConfig}
+) => {
+
+const {query: queryOptions, axios: axiosOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetHealthDetailedQueryKey();
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getHealthDetailed>>> = ({ signal }) => getHealthDetailed({ signal, ...axiosOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getHealthDetailed>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetHealthDetailedQueryResult = NonNullable<Awaited<ReturnType<typeof getHealthDetailed>>>
+export type GetHealthDetailedQueryError = AxiosError<unknown>
+
+
+export function useGetHealthDetailed<TData = Awaited<ReturnType<typeof getHealthDetailed>>, TError = AxiosError<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHealthDetailed>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getHealthDetailed>>,
+          TError,
+          Awaited<ReturnType<typeof getHealthDetailed>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetHealthDetailed<TData = Awaited<ReturnType<typeof getHealthDetailed>>, TError = AxiosError<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHealthDetailed>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getHealthDetailed>>,
+          TError,
+          Awaited<ReturnType<typeof getHealthDetailed>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetHealthDetailed<TData = Awaited<ReturnType<typeof getHealthDetailed>>, TError = AxiosError<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHealthDetailed>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+/**
+ * @summary 詳細ヘルスチェック
+ */
+
+export function useGetHealthDetailed<TData = Awaited<ReturnType<typeof getHealthDetailed>>, TError = AxiosError<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHealthDetailed>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
+
+  const queryOptions = getGetHealthDetailedQueryOptions(options)
 
   const query = useQuery(queryOptions , queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
 
