@@ -108,12 +108,6 @@ export const AnimeCard: React.FC<AnimeCardProps> = ({
             'overflow-hidden display-[-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]',
             config.titleClass
           )}
-          style={{
-            display: '-webkit-box',
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: 'vertical',
-            overflow: 'hidden',
-          }}
         >
           {anime.title}
         </h3>

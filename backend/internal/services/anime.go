@@ -109,11 +109,6 @@ func getSeasonStringFromTime(t time.Time) string {
 	return fmt.Sprintf("%d-%s", year, season)
 }
 
-// getCurrentSeasonString returns the current season string (wrapper for backward compatibility)
-func getCurrentSeasonString() string {
-	return getSeasonStringFromTime(time.Now())
-}
-
 type AnimeService struct {
 	db            *database.DB
 	logger        *common.Logger
