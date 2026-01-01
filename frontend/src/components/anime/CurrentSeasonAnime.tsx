@@ -19,9 +19,6 @@ const CurrentSeasonAnime: React.FC<CurrentSeasonAnimeProps> = ({
       linkHref="/anime?season=current"
       emptyMessage="今期アニメが見つかりませんでした"
       errorMessage="今期アニメの取得に失敗しました"
-      icon="📺"
-      gradientFrom="from-blue-100"
-      gradientTo="to-purple-100"
       className={className}
     />
   )

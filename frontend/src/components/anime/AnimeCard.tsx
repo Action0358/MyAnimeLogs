@@ -4,6 +4,7 @@ import React, { useState } from 'react'
 import Link from 'next/link'
 import type { Route } from 'next'
 import { cn } from '@/lib/utils'
+import { formatSeason } from '@/utils/formatSeason'
 import type { Anime } from '@/lib/api/generated/myanimelogs'
 
 export interface AnimeCardProps {
@@ -20,16 +21,19 @@ const sizeConfig = {
     aspectRatio: 'aspect-[3/4]',
     titleClass: 'text-xs',
     padding: 'p-2',
+    contentHeight: 'h-[80px]',
   },
   medium: {
     aspectRatio: 'aspect-[3/4]',
     titleClass: 'text-sm',
     padding: 'p-3',
+    contentHeight: 'h-[100px]',
   },
   large: {
     aspectRatio: 'aspect-[3/4]',
     titleClass: 'text-base',
     padding: 'p-4',
+    contentHeight: 'h-[116px]',
   },
 }
 
@@ -97,17 +101,24 @@ export const AnimeCard: React.FC<AnimeCardProps> = ({
         )}
       </div>
 
-      <div className={config.padding}>
+      <div className={cn(config.padding, config.contentHeight, 'flex flex-col')}>
         <h3
           className={cn(
-            'font-medium text-gray-900 line-clamp-2 group-hover:text-blue-600 transition-colors',
+            'font-medium text-gray-900 group-hover:text-blue-600 transition-colors',
+            'overflow-hidden display-[-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]',
             config.titleClass
           )}
+          style={{
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+          }}
         >
           {anime.title}
         </h3>
         {anime.season && (
-          <p className="text-xs text-gray-500 mt-1">{anime.season}</p>
+          <p className="text-xs text-gray-500 mt-auto">{formatSeason(anime.season)}</p>
         )}
       </div>
     </div>
