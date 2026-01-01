@@ -3,7 +3,6 @@
 import React, { useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import Image from 'next/image'
 import { useQuery } from '@tanstack/react-query'
 import { Container } from '@/components/layout'
 import { Button } from '@/components/ui'
@@ -128,14 +127,15 @@ const AnimeDetailClient: React.FC = () => {
             <div className="sticky top-8">
               <div className="relative aspect-[3/4] bg-gray-100 rounded-lg overflow-hidden shadow-lg">
                 {imageUrl && !imageError ? (
-                  <Image
+                  // 外部画像URLは様々なドメインから取得されるため、next/imageではなくimgタグを使用
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
                     src={imageUrl}
                     alt={anime.title || 'アニメ画像'}
-                    fill
-                    sizes="(max-width: 1024px) 100vw, 320px"
-                    className="object-cover"
+                    width={320}
+                    height={427}
+                    className="w-full h-full object-cover"
                     onError={() => setImageError(true)}
-                    priority
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-100 to-purple-100">
