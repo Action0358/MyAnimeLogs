@@ -321,6 +321,11 @@ paths:
           schema:
             type: string
             enum: ["airing", "finished"]
+        - name: genre
+          in: query
+          schema:
+            type: string
+          description: ジャンルで絞り込み
         - name: page
           in: query
           schema:
