@@ -178,3 +178,29 @@ func (m *MockAnimeService) GetRecentlyWatched(userID, limit int) ([]models.Watch
 	}
 	return result, args.Error(1)
 }
+
+// GetCurrentSeasonAnimes mocks the GetCurrentSeasonAnimes method
+func (m *MockAnimeService) GetCurrentSeasonAnimes(limit int) ([]models.Anime, error) {
+	args := m.Called(limit)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	result, ok := args.Get(0).([]models.Anime)
+	if !ok {
+		panic("mock: GetCurrentSeasonAnimes return value is not []models.Anime")
+	}
+	return result, args.Error(1)
+}
+
+// GetPopularAnimes mocks the GetPopularAnimes method
+func (m *MockAnimeService) GetPopularAnimes(limit int) ([]models.Anime, error) {
+	args := m.Called(limit)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	result, ok := args.Get(0).([]models.Anime)
+	if !ok {
+		panic("mock: GetPopularAnimes return value is not []models.Anime")
+	}
+	return result, args.Error(1)
+}
