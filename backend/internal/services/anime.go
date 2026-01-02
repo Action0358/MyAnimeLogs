@@ -110,20 +110,60 @@ func getSeasonStringFromTime(t time.Time) string {
 }
 
 type AnimeService struct {
-	db            *database.DB
-	logger        *common.Logger
-	anilistClient *AniListClient
-	jikanClient   *JikanClient
-	annictClient  *AnnictClient
+	db               *database.DB
+	logger           *common.Logger
+	anilistClient    *AniListClient
+	jikanClient      *JikanClient
+	annictClient     *AnnictClient
+	imageUpdateQueue chan func() // 画像更新用ワーカープールのキュー
 }
 
 func NewAnimeService(db *database.DB, logger *common.Logger, annictClient *AnnictClient) *AnimeService {
-	return &AnimeService{
-		db:            db,
-		logger:        logger,
-		anilistClient: NewAniListClient(),
-		jikanClient:   NewJikanClient(logger),
-		annictClient:  annictClient,
+	s := &AnimeService{
+		db:               db,
+		logger:           logger,
+		anilistClient:    NewAniListClient(),
+		jikanClient:      NewJikanClient(logger),
+		annictClient:     annictClient,
+		imageUpdateQueue: make(chan func(), constants.ImageUpdateQueueSize),
+	}
+
+	// ワーカープールを起動
+	s.startImageUpdateWorkers()
+
+	return s
+}
+
+// startImageUpdateWorkers - 画像更新用ワーカープールを起動
+// 高負荷時のgoroutine爆発を防ぐため、固定数のワーカーでタスクを処理
+func (s *AnimeService) startImageUpdateWorkers() {
+	for i := 0; i < constants.ImageUpdateWorkerPoolSize; i++ {
+		go func() {
+			for task := range s.imageUpdateQueue {
+				// パニックからの復帰（アプリケーション全体のクラッシュを防止）
+				func() {
+					defer func() {
+						if r := recover(); r != nil {
+							s.logger.Error("Panic recovered in image update worker",
+								"panic", r)
+						}
+					}()
+					task()
+				}()
+			}
+		}()
+	}
+}
+
+// enqueueImageUpdate - 画像更新タスクをキューに追加
+// キューが満杯の場合はタスクをドロップ（ノンブロッキング）
+func (s *AnimeService) enqueueImageUpdate(task func()) {
+	select {
+	case s.imageUpdateQueue <- task:
+		// タスクをキューに追加成功
+	default:
+		// キューが満杯の場合はドロップ（次回リクエスト時に再試行される）
+		s.logger.Debug("Image update queue is full, task dropped")
 	}
 }
 
@@ -1101,16 +1141,21 @@ func (s *AnimeService) enrichAnimeWithCoverImage(anime *models.Anime) {
 
 	var coverImage *CoverImage
 
+	// MAL IDの有効性を一度だけチェック（DRY原則）
+	hasMalID := anime.MalAnimeID != nil && *anime.MalAnimeID != ""
+
 	// レイヤー1: データベースキャッシュをチェック（MAL IDがある場合）
-	if anime.MalAnimeID != nil && *anime.MalAnimeID != "" {
+	if hasMalID {
 		var large, medium string
+		// キャッシュTTLをGoで計算してパラメータとして渡す（ポータビリティ向上）
+		cacheCutoff := time.Now().Add(-constants.CoverImageCacheTTL)
 		cacheErr := s.db.QueryRowContext(ctx, `
 			SELECT cover_image_large, cover_image_medium
 			FROM animes 
 			WHERE mal_anime_id = $1 
 			AND cover_image_large IS NOT NULL
-			AND cover_image_updated_at > NOW() - INTERVAL '7 days'
-		`, *anime.MalAnimeID).Scan(&large, &medium)
+			AND cover_image_updated_at > $2
+		`, *anime.MalAnimeID, cacheCutoff).Scan(&large, &medium)
 
 		if cacheErr == nil && large != "" {
 			// DBキャッシュから取得成功
@@ -1126,11 +1171,8 @@ func (s *AnimeService) enrichAnimeWithCoverImage(anime *models.Anime) {
 				"mal_anime_id", *anime.MalAnimeID,
 				"anime_title", anime.Title)
 		}
-	}
 
-	// レイヤー2: AniList APIから取得
-	// MAL IDがある場合は、まずMAL IDで検索
-	if anime.MalAnimeID != nil && *anime.MalAnimeID != "" {
+		// レイヤー2: AniList APIから取得（MAL IDで検索）
 		var apiErr error
 		coverImage, apiErr = s.anilistClient.GetCoverImageByMALId(ctx, *anime.MalAnimeID)
 		if apiErr != nil {
@@ -1159,19 +1201,13 @@ func (s *AnimeService) enrichAnimeWithCoverImage(anime *models.Anime) {
 		anime.CoverImageLarge = coverImage.Large
 		anime.CoverImageMedium = coverImage.Medium
 
-		// DBに保存（MAL IDがある場合のみ）- バックグラウンドで非同期実行
-		if anime.MalAnimeID != nil && *anime.MalAnimeID != "" {
-			go func(ctx context.Context, malID string, large, medium string) {
-				// パニックからの復帰（アプリケーション全体のクラッシュを防止）
-				defer func() {
-					if r := recover(); r != nil {
-						s.logger.Error("Panic recovered in cover image save goroutine",
-							"panic", r,
-							"mal_anime_id", malID)
-					}
-				}()
-
-				_, saveErr := s.db.ExecContext(ctx, `
+		// DBに保存（MAL IDがある場合のみ）- ワーカープールで非同期実行
+		if hasMalID {
+			malID := *anime.MalAnimeID
+			large := coverImage.Large
+			medium := coverImage.Medium
+			s.enqueueImageUpdate(func() {
+				_, saveErr := s.db.ExecContext(context.Background(), `
 					UPDATE animes 
 					SET cover_image_large = $1,
 						cover_image_medium = $2,
@@ -1183,7 +1219,7 @@ func (s *AnimeService) enrichAnimeWithCoverImage(anime *models.Anime) {
 						"error", saveErr,
 						"mal_anime_id", malID)
 				}
-			}(context.Background(), *anime.MalAnimeID, coverImage.Large, coverImage.Medium)
+			})
 		}
 	}
 }
