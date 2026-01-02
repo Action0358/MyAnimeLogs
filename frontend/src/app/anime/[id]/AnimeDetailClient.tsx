@@ -163,8 +163,6 @@ const AnimeDetailClient: React.FC = () => {
                   <img
                     src={imageUrl}
                     alt={anime.title || 'アニメ画像'}
-                    width={320}
-                    height={427}
                     className="w-full h-full object-cover"
                     onError={() => setImageError(true)}
                   />

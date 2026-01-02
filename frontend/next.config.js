@@ -154,8 +154,8 @@ const buildConfig = () => {
               "default-src 'self'",
               "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
               "style-src 'self' 'unsafe-inline'",
-              // 画像ソースを信頼できるドメインに限定（開発環境ではlocalhostも許可）
-              "img-src 'self' data: blob: http://localhost:8080 http://localhost:3000 https://*.anilist.co https://cdn.myanimelist.net https://*.twimg.com https://i.imgur.com https://imgur.com https://avatars.githubusercontent.com https://github.com https://raw.githubusercontent.com https://*.gravatar.com https://*.cloudinary.com https://myanimelogs-staging.fly.dev https://myanimelogs-production.fly.dev",
+              // 画像ソース: 開発環境ではlocalhostも許可、任意のHTTPS画像を許可（アニメ画像は様々なドメインから取得されるため）
+              "img-src 'self' data: blob: http://localhost:8080 http://localhost:3000 https:",
               "font-src 'self'",
               "connect-src 'self' http://localhost:8080 http://localhost:3000 ws://localhost:3000 ws://localhost:3001",
               "frame-ancestors 'none'",
