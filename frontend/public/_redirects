@@ -1,5 +1,4 @@
 # Cloudflare Pages SPA Fallback
-# 動的ルート（/anime/[id]など）へのアクセスを index.html にフォールバック
-# これにより、クライアントサイドルーティングが正しく動作する
+# 動的ルート（/anime/[id]など）へのアクセスをフォールバックページにリライト
 
-/anime/*  /anime/_/index.html  200
+/anime/:id  /anime/_/index.html  200!
