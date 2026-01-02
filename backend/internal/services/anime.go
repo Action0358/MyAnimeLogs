@@ -1094,19 +1094,48 @@ func (s *AnimeService) GetSearchSuggestions(query string, limit int) ([]string, 
 }
 
 // enrichAnimeWithCoverImage - AniListから画像を取得してアニメ情報を拡張
+// DBキャッシュを優先し、キャッシュがない場合のみAPIを呼び出す
 func (s *AnimeService) enrichAnimeWithCoverImage(anime *models.Anime) {
 	// Use background context for image enrichment
 	ctx := context.Background()
 
 	var coverImage *CoverImage
-	var err error
 
+	// レイヤー1: データベースキャッシュをチェック（MAL IDがある場合）
+	if anime.MalAnimeID != nil && *anime.MalAnimeID != "" {
+		var large, medium string
+		cacheErr := s.db.QueryRowContext(ctx, `
+			SELECT cover_image_large, cover_image_medium
+			FROM animes 
+			WHERE mal_anime_id = $1 
+			AND cover_image_large IS NOT NULL
+			AND cover_image_updated_at > NOW() - INTERVAL '7 days'
+		`, *anime.MalAnimeID).Scan(&large, &medium)
+
+		if cacheErr == nil && large != "" {
+			// DBキャッシュから取得成功
+			anime.CoverImageLarge = large
+			anime.CoverImageMedium = medium
+			return
+		}
+
+		// キャッシュミス以外のDBエラーは警告としてログ出力
+		if cacheErr != nil && cacheErr != sql.ErrNoRows {
+			s.logger.Warn("Failed to query cover image cache from DB",
+				"error", cacheErr,
+				"mal_anime_id", *anime.MalAnimeID,
+				"anime_title", anime.Title)
+		}
+	}
+
+	// レイヤー2: AniList APIから取得
 	// MAL IDがある場合は、まずMAL IDで検索
 	if anime.MalAnimeID != nil && *anime.MalAnimeID != "" {
-		coverImage, err = s.anilistClient.GetCoverImageByMALId(ctx, *anime.MalAnimeID)
-		if err != nil {
+		var apiErr error
+		coverImage, apiErr = s.anilistClient.GetCoverImageByMALId(ctx, *anime.MalAnimeID)
+		if apiErr != nil {
 			s.logger.Debug("Failed to get cover image by MAL ID, trying title fallback",
-				"error", err,
+				"error", apiErr,
 				"mal_anime_id", *anime.MalAnimeID,
 				"anime_title", anime.Title)
 		}
@@ -1114,11 +1143,12 @@ func (s *AnimeService) enrichAnimeWithCoverImage(anime *models.Anime) {
 
 	// MAL IDがないか、MAL IDでの取得に失敗した場合は、タイトルで検索（フォールバック）
 	if coverImage == nil && anime.Title != "" {
-		coverImage, err = s.anilistClient.GetCoverImageByTitle(ctx, anime.Title)
-		if err != nil {
+		var titleErr error
+		coverImage, titleErr = s.anilistClient.GetCoverImageByTitle(ctx, anime.Title)
+		if titleErr != nil {
 			// フォールバックも失敗した場合は、Annictの画像を使用
 			s.logger.Debug("Failed to get cover image by title",
-				"error", err,
+				"error", titleErr,
 				"anime_title", anime.Title)
 			return
 		}
@@ -1128,6 +1158,33 @@ func (s *AnimeService) enrichAnimeWithCoverImage(anime *models.Anime) {
 	if coverImage != nil {
 		anime.CoverImageLarge = coverImage.Large
 		anime.CoverImageMedium = coverImage.Medium
+
+		// DBに保存（MAL IDがある場合のみ）- バックグラウンドで非同期実行
+		if anime.MalAnimeID != nil && *anime.MalAnimeID != "" {
+			go func(ctx context.Context, malID string, large, medium string) {
+				// パニックからの復帰（アプリケーション全体のクラッシュを防止）
+				defer func() {
+					if r := recover(); r != nil {
+						s.logger.Error("Panic recovered in cover image save goroutine",
+							"panic", r,
+							"mal_anime_id", malID)
+					}
+				}()
+
+				_, saveErr := s.db.ExecContext(ctx, `
+					UPDATE animes 
+					SET cover_image_large = $1,
+						cover_image_medium = $2,
+						cover_image_updated_at = NOW()
+					WHERE mal_anime_id = $3
+				`, large, medium, malID)
+				if saveErr != nil {
+					s.logger.Warn("Failed to save cover image to DB",
+						"error", saveErr,
+						"mal_anime_id", malID)
+				}
+			}(context.Background(), *anime.MalAnimeID, coverImage.Large, coverImage.Medium)
+		}
 	}
 }
 
