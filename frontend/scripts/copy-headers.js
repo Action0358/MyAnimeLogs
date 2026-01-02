@@ -43,3 +43,18 @@ try {
   console.error(`エラー: ファイルのコピーに失敗しました: ${error.message}`);
   process.exit(1);
 }
+
+// SPAフォールバック用: /anime/_/index.html を 404.html としてコピー
+// Cloudflare Pagesは存在しないパスに対して404.htmlを返すため、
+// これによりクライアントサイドルーティングが動作する
+const animeFallbackSource = path.join(__dirname, '..', 'out', 'anime', '_', 'index.html');
+const fallback404Dest = path.join(__dirname, '..', 'out', '404.html');
+
+if (fs.existsSync(animeFallbackSource)) {
+  try {
+    fs.copyFileSync(animeFallbackSource, fallback404Dest);
+    console.log(`✓ anime/_/index.html を 404.html としてコピーしました（SPAフォールバック用）`);
+  } catch (error) {
+    console.warn(`警告: 404.htmlのコピーに失敗しました: ${error.message}`);
+  }
+}

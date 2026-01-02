@@ -1,4 +1,0 @@
-# Cloudflare Pages SPA Fallback
-# 動的ルート（/anime/[id]など）へのアクセスをフォールバックページにリライト
-
-/anime/:id  /anime/_/index.html  200!
