@@ -7,5 +7,7 @@
     "strict": false,
     "noEmit": true,
     "skipLibCheck": true
-  }
+  },
+  "include": ["**/*.js"],
+  "exclude": []
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
@@ -13,9 +13,22 @@ import { cn } from '@/lib/utils'
 const AnimeDetailClient: React.FC = () => {
   const params = useParams()
   const [imageError, setImageError] = useState(false)
+  const [animeId, setAnimeId] = useState<number>(NaN)
   
-  // URLパラメータからIDを取得（クライアントサイドで動的に取得）
-  const animeId = typeof params.id === 'string' ? parseInt(params.id, 10) : NaN
+  // URLから実際のIDを取得（Cloudflare Pages Functionsによるリライト対応）
+  useEffect(() => {
+    // params.idが'_'の場合はフォールバックページなので、URLから実際のIDを取得
+    if (params.id === '_') {
+      const pathParts = window.location.pathname.split('/')
+      const idFromUrl = pathParts[pathParts.indexOf('anime') + 1]
+      if (idFromUrl && idFromUrl !== '_') {
+        setAnimeId(parseInt(idFromUrl, 10))
+      }
+    } else if (typeof params.id === 'string') {
+      setAnimeId(parseInt(params.id, 10))
+    }
+  }, [params.id])
+  
   const isValidAnimeId = !isNaN(animeId) && animeId > 0
 
   const {
@@ -42,6 +55,24 @@ const AnimeDetailClient: React.FC = () => {
     },
     enabled: isValidAnimeId,
   })
+
+  // IDがまだ取得できていない場合はローディング表示
+  if (isNaN(animeId)) {
+    return (
+      <Container className="py-12">
+        <div className="animate-pulse">
+          <div className="flex flex-col md:flex-row gap-8">
+            <div className="w-full md:w-80 aspect-[3/4] bg-gray-200 rounded-lg" />
+            <div className="flex-1 space-y-4">
+              <div className="h-8 bg-gray-200 rounded w-3/4" />
+              <div className="h-4 bg-gray-200 rounded w-1/4" />
+              <div className="h-24 bg-gray-200 rounded" />
+            </div>
+          </div>
+        </div>
+      </Container>
+    )
+  }
 
   if (!isValidAnimeId) {
     return (
