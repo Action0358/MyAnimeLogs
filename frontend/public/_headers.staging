@@ -8,4 +8,5 @@
   Permissions-Policy: geolocation=(), microphone=(), camera=()
   # ステージング環境のAPIドメインを設定
   # Note: 'unsafe-inline'を使用（Cloudflare Accessとの互換性のため）
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.anilist.co https://cdn.myanimelist.net https://*.twimg.com https://i.imgur.com https://imgur.com https://avatars.githubusercontent.com https://github.com https://raw.githubusercontent.com https://*.gravatar.com https://*.cloudinary.com https://myanimelogs-staging.fly.dev; font-src 'self'; connect-src 'self' https://myanimelogs-staging.fly.dev https://cloudflareinsights.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self';
+  # img-srcにhttps:を追加して、任意のHTTPS画像を許可（アニメ画像は様々なドメインから取得されるため）
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self'; connect-src 'self' https://myanimelogs-staging.fly.dev https://cloudflareinsights.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self';
