@@ -23,3 +23,22 @@ const (
 	// 安全マージンを考慮して700msに設定（約85リクエスト/分）
 	AniListAPIRateLimitDelay = 700 * time.Millisecond
 )
+
+// キャッシュ関連の定数
+const (
+	// CoverImageCacheTTL - カバー画像キャッシュの有効期限
+	// 7日間キャッシュを保持し、期限切れ後はAPIから再取得
+	CoverImageCacheTTL = 7 * 24 * time.Hour
+
+	// ImageUpdateWorkerPoolSize - 画像更新用ワーカープールのサイズ
+	// 高負荷時のgoroutine爆発を防ぐため、同時実行数を制限
+	ImageUpdateWorkerPoolSize = 10
+
+	// ImageUpdateQueueSize - 画像更新キューのバッファサイズ
+	// キューが満杯の場合、新しいタスクはドロップされる
+	ImageUpdateQueueSize = 100
+
+	// ImageUpdateDBTimeout - 画像更新のDB操作タイムアウト
+	// DBが応答しない場合にワーカーがハングするのを防ぐ
+	ImageUpdateDBTimeout = 10 * time.Second
+)
