@@ -37,4 +37,8 @@ const (
 	// ImageUpdateQueueSize - 画像更新キューのバッファサイズ
 	// キューが満杯の場合、新しいタスクはドロップされる
 	ImageUpdateQueueSize = 100
+
+	// ImageUpdateDBTimeout - 画像更新のDB操作タイムアウト
+	// DBが応答しない場合にワーカーがハングするのを防ぐ
+	ImageUpdateDBTimeout = 10 * time.Second
 )

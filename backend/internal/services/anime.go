@@ -167,6 +167,14 @@ func (s *AnimeService) enqueueImageUpdate(task func()) {
 	}
 }
 
+// Close - AnimeServiceのリソースを解放
+// ワーカープールを graceful にシャットダウンし、goroutineリークを防止
+func (s *AnimeService) Close() {
+	if s.imageUpdateQueue != nil {
+		close(s.imageUpdateQueue)
+	}
+}
+
 // GetEpisodeSyncStatus returns the sync status for a specific anime's episodes
 func (s *AnimeService) GetEpisodeSyncStatus(animeID int) (*models.EpisodeSyncStatus, error) {
 	// Get anime info and episode statistics in a single query
@@ -1207,7 +1215,11 @@ func (s *AnimeService) enrichAnimeWithCoverImage(anime *models.Anime) {
 			large := coverImage.Large
 			medium := coverImage.Medium
 			s.enqueueImageUpdate(func() {
-				_, saveErr := s.db.ExecContext(context.Background(), `
+				// タイムアウト付きcontextでDBハングを防止
+				ctx, cancel := context.WithTimeout(context.Background(), constants.ImageUpdateDBTimeout)
+				defer cancel()
+
+				_, saveErr := s.db.ExecContext(ctx, `
 					UPDATE animes 
 					SET cover_image_large = $1,
 						cover_image_medium = $2,
