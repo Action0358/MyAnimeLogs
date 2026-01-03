@@ -1,5 +1,6 @@
 // Cloudflare Pages Function for SPA fallback
 // /anime/:id へのリクエストを /anime/_/index.html にリライト（200ステータス）
+// 注意: [id].js は単一セグメント必須のため、/anime/ へのリクエストはマッチしない
 
 export async function onRequest(context) {
   const url = new URL(context.request.url);
