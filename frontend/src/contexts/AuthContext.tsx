@@ -278,13 +278,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
     let inactivityTimer: ReturnType<typeof setTimeout>
 
+    // タイムアウト時のコールバック（共通化）
+    const handleInactivity = () => {
+      console.log('⏱️ Inactivity timeout - logging out')
+      logout('timeout')
+    }
+
     const resetTimer = () => {
       lastActivityRef.current = Date.now()
       clearTimeout(inactivityTimer)
-      inactivityTimer = setTimeout(() => {
-        console.log('⏱️ Inactivity timeout - logging out')
-        logout('timeout')
-      }, INACTIVITY_TIMEOUT)
+      inactivityTimer = setTimeout(handleInactivity, INACTIVITY_TIMEOUT)
+    }
+
+    // ページ可視性変更時のハンドラー（モバイル対応）
+    // モバイルブラウザではバックグラウンド時にsetTimeoutが停止するため、
+    // フォアグラウンド復帰時に経過時間をチェックする
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        const elapsed = Date.now() - lastActivityRef.current
+        if (elapsed >= INACTIVITY_TIMEOUT) {
+          console.log('⏱️ Inactivity timeout detected after returning from background')
+          logout('timeout')
+        } else {
+          // タイムアウトまでの残り時間でタイマーを再設定
+          clearTimeout(inactivityTimer)
+          inactivityTimer = setTimeout(handleInactivity, INACTIVITY_TIMEOUT - elapsed)
+        }
+      }
     }
 
     // ユーザーの操作を監視
@@ -292,6 +312,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     events.forEach(event => {
       document.addEventListener(event, resetTimer)
     })
+    document.addEventListener('visibilitychange', handleVisibilityChange)
 
     resetTimer()
 
@@ -300,6 +321,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       events.forEach(event => {
         document.removeEventListener(event, resetTimer)
       })
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
   }, [user, logout])
 
