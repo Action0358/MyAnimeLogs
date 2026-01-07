@@ -47,7 +47,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [refreshToken, setRefreshToken] = useState<string | null>(null)
   const [tokenExpiresAt, setTokenExpiresAt] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const lastActivityRef = useRef<number>(Date.now())
+  // localStorageから読み込み、なければ現在時刻（タブ間で共有）
+  const getLastActivityFromStorage = useCallback((): number => {
+    const stored = storage.getUnsafe<number>(STORAGE_KEYS.LAST_ACTIVITY_TIMESTAMP)
+    return stored ?? Date.now()
+  }, [])
+  const lastActivityRef = useRef<number>(getLastActivityFromStorage())
   const router = useRouter()
 
   // 認証情報をクリアするヘルパー関数
@@ -60,6 +65,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     storage.remove(STORAGE_KEYS.REFRESH_TOKEN)
     storage.remove(STORAGE_KEYS.USER)
     storage.remove(STORAGE_KEYS.TOKEN_EXPIRES_AT)
+    storage.remove(STORAGE_KEYS.LAST_ACTIVITY_TIMESTAMP)
     
     if (redirectToLogin) {
       router.push('/login?reason=unauthorized')
@@ -285,7 +291,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
 
     const resetTimer = () => {
-      lastActivityRef.current = Date.now()
+      const now = Date.now()
+      lastActivityRef.current = now
+      // タブ間で共有するためlocalStorageに保存
+      storage.set(STORAGE_KEYS.LAST_ACTIVITY_TIMESTAMP, now)
       clearTimeout(inactivityTimer)
       inactivityTimer = setTimeout(handleInactivity, INACTIVITY_TIMEOUT)
     }
@@ -295,7 +304,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     // フォアグラウンド復帰時に経過時間をチェックする
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        const elapsed = Date.now() - lastActivityRef.current
+        // localStorageから最新のアクティビティ時刻を取得（他タブの操作を考慮）
+        const lastActivity = getLastActivityFromStorage()
+        lastActivityRef.current = lastActivity
+        const elapsed = Date.now() - lastActivity
         if (elapsed >= INACTIVITY_TIMEOUT) {
           console.log('⏱️ Inactivity timeout detected after returning from background')
           logout('timeout')
@@ -307,12 +319,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       }
     }
 
+    // 他のタブからのlocalStorage変更を検知
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === STORAGE_KEYS.LAST_ACTIVITY_TIMESTAMP && event.newValue) {
+        const newTimestamp = parseInt(event.newValue, 10)
+        if (!isNaN(newTimestamp)) {
+          lastActivityRef.current = newTimestamp
+          // タイマーをリセット
+          clearTimeout(inactivityTimer)
+          const elapsed = Date.now() - newTimestamp
+          if (elapsed < INACTIVITY_TIMEOUT) {
+            inactivityTimer = setTimeout(handleInactivity, INACTIVITY_TIMEOUT - elapsed)
+          }
+        }
+      }
+    }
+
     // ユーザーの操作を監視
     const events = ['mousedown', 'keydown', 'scroll', 'touchstart']
     events.forEach(event => {
       document.addEventListener(event, resetTimer)
     })
     document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('storage', handleStorageChange)
 
     resetTimer()
 
@@ -322,6 +351,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         document.removeEventListener(event, resetTimer)
       })
       document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('storage', handleStorageChange)
     }
   }, [user, logout])
 
