@@ -52,6 +52,7 @@ export const STORAGE_KEYS = {
   REFRESH_TOKEN: 'refresh_token',
   USER: 'user_data',
   TOKEN_EXPIRES_AT: 'token_expires_at',
+  LAST_ACTIVITY_TIMESTAMP: 'last_activity_timestamp',
 } as const
 
 // ========================

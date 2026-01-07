@@ -28,20 +28,20 @@ export const storage = {
    * localStorageから値を取得（エラーをスローする）
    * @throws {Error} パースエラーや不正なデータの場合
    */
-  getUnsafe: (key: string) => {
+  getUnsafe: <T = any>(key: string): T | null => {
     if (typeof window === 'undefined') return null;
     const item = localStorage.getItem(key);
     if (!item) return null;
-    return JSON.parse(item); // エラーをスローする可能性がある
+    return JSON.parse(item) as T; // エラーをスローする可能性がある
   },
 
   /**
    * localStorageから値を取得（エラーを捕捉してnullを返す）
    */
-  get: (key: string) => {
+  get: <T = any>(key: string): T | null => {
     if (typeof window === 'undefined') return null;
     try {
-      return storage.getUnsafe(key);
+      return storage.getUnsafe<T>(key);
     } catch (error) {
       console.error(`Failed to get item from localStorage with key "${key}":`, error);
       return null;
