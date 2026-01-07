@@ -49,7 +49,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isLoading, setIsLoading] = useState(true)
   // localStorageから読み込み、なければ現在時刻（タブ間で共有）
   const getLastActivityFromStorage = useCallback((): number => {
-    const stored = storage.getUnsafe<number>(STORAGE_KEYS.LAST_ACTIVITY_TIMESTAMP)
+    const stored = storage.get<number>(STORAGE_KEYS.LAST_ACTIVITY_TIMESTAMP)
     return stored ?? Date.now()
   }, [])
   const lastActivityRef = useRef<number>(getLastActivityFromStorage())
@@ -74,7 +74,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // トークンリフレッシュ関数（API呼び出しに専念）
   const refreshAccessToken = useCallback(async (): Promise<string | null> => {
-    const storedRefreshToken = storage.getUnsafe(STORAGE_KEYS.REFRESH_TOKEN)
+    const storedRefreshToken = storage.get<string>(STORAGE_KEYS.REFRESH_TOKEN)
     if (!storedRefreshToken) {
       console.warn('⚠️ No refresh token available')
       throw new Error('No refresh token available')
@@ -113,10 +113,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     const initAuth = async () => {
       try {
-        const storedToken = storage.getUnsafe(STORAGE_KEYS.TOKEN)
-        const storedRefreshToken = storage.getUnsafe(STORAGE_KEYS.REFRESH_TOKEN)
-        const storedUser = storage.getUnsafe(STORAGE_KEYS.USER)
-        const storedExpiresAt = storage.getUnsafe(STORAGE_KEYS.TOKEN_EXPIRES_AT)
+        const storedToken = storage.get<string>(STORAGE_KEYS.TOKEN)
+        const storedRefreshToken = storage.get<string>(STORAGE_KEYS.REFRESH_TOKEN)
+        const storedUser = storage.get<User>(STORAGE_KEYS.USER)
+        const storedExpiresAt = storage.get<number>(STORAGE_KEYS.TOKEN_EXPIRES_AT)
 
         if (storedRefreshToken && storedUser) {
           setRefreshToken(storedRefreshToken)
@@ -224,7 +224,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const logout = useCallback(async (reason: LogoutReason = 'manual') => {
     try {
-      const storedRefreshToken = storage.getUnsafe(STORAGE_KEYS.REFRESH_TOKEN)
+      const storedRefreshToken = storage.get<string>(STORAGE_KEYS.REFRESH_TOKEN)
       if (storedRefreshToken) {
         // バックエンドにログアウトを通知（postInternalを使用）
         await postInternal('/api/logout', { refresh_token: storedRefreshToken })
@@ -322,15 +322,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     // 他のタブからのlocalStorage変更を検知
     const handleStorageChange = (event: StorageEvent) => {
       if (event.key === STORAGE_KEYS.LAST_ACTIVITY_TIMESTAMP && event.newValue) {
-        const newTimestamp = parseInt(event.newValue, 10)
-        if (!isNaN(newTimestamp)) {
-          lastActivityRef.current = newTimestamp
-          // タイマーをリセット
+        try {
+          const parsed = JSON.parse(event.newValue)
+          if (typeof parsed !== 'number') return
+          
+          lastActivityRef.current = parsed
           clearTimeout(inactivityTimer)
-          const elapsed = Date.now() - newTimestamp
-          if (elapsed < INACTIVITY_TIMEOUT) {
+          const elapsed = Date.now() - parsed
+          if (elapsed >= INACTIVITY_TIMEOUT) {
+            handleInactivity()
+          } else {
             inactivityTimer = setTimeout(handleInactivity, INACTIVITY_TIMEOUT - elapsed)
           }
+        } catch {
+          // パースエラーは無視
         }
       }
     }
