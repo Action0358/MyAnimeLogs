@@ -6,8 +6,10 @@
     "lib": ["ES2020"],
     "strict": false,
     "noEmit": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "allowJs": true,
+    "checkJs": false
   },
-  "include": ["**/*.js"],
+  "include": ["./**/*.js"],
   "exclude": []
 }

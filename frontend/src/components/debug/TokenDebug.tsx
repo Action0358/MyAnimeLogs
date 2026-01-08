@@ -1,7 +1,7 @@
 'use client'
 
 import { useAuth } from '@/contexts/AuthContext'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { storage } from '@/lib/utils'
 import { 
   STORAGE_KEYS, 
@@ -19,7 +19,7 @@ export function TokenDebug() {
   useEffect(() => {
     // localStorageから有効期限を取得
     const updateExpiresAt = () => {
-      const expiresAt = storage.get<number>(STORAGE_KEYS.TOKEN_EXPIRES_AT)
+      const expiresAt = storage.getNumber(STORAGE_KEYS.TOKEN_EXPIRES_AT)
       setTokenExpiresAt(expiresAt)
     }
 
