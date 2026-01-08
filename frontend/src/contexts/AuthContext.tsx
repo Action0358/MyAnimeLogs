@@ -6,7 +6,6 @@ import React, {
   useState,
   useEffect,
   useCallback,
-  useRef,
 } from 'react'
 import { useRouter } from 'next/navigation'
 import { storage } from '@/lib/utils'
@@ -22,6 +21,17 @@ interface User {
   favorite_anime?: string
   sns_link?: string
   created_at?: string
+}
+
+// Userオブジェクトの型ガード
+const isUser = (value: unknown): value is User => {
+  if (typeof value !== 'object' || value === null) return false
+  const obj = value as Record<string, unknown>
+  return (
+    typeof obj.id === 'number' &&
+    typeof obj.name === 'string' &&
+    typeof obj.email === 'string'
+  )
 }
 
 interface AuthContextType {
@@ -47,13 +57,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [refreshToken, setRefreshToken] = useState<string | null>(null)
   const [tokenExpiresAt, setTokenExpiresAt] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  // localStorageから読み込み、なければ現在時刻（タブ間で共有）
-  const getLastActivityFromStorage = useCallback((): number => {
-    const stored = storage.get<number>(STORAGE_KEYS.LAST_ACTIVITY_TIMESTAMP)
-    return stored ?? Date.now()
-  }, [])
-  const lastActivityRef = useRef<number>(getLastActivityFromStorage())
+  const [lastActivityTime, setLastActivityTime] = useState<number>(() => {
+    // 初期値はlocalStorageから読み込み、なければ現在時刻
+    if (typeof window === 'undefined') return Date.now()
+    return storage.getNumber(STORAGE_KEYS.LAST_ACTIVITY_TIMESTAMP) ?? Date.now()
+  })
   const router = useRouter()
+
+  // localStorageから最終アクティビティ時刻を取得
+  const getLastActivityFromStorage = useCallback((): number => {
+    return storage.getNumber(STORAGE_KEYS.LAST_ACTIVITY_TIMESTAMP) ?? Date.now()
+  }, [])
 
   // 認証情報をクリアするヘルパー関数
   const clearAuthData = useCallback((redirectToLogin = true) => {
@@ -74,7 +88,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // トークンリフレッシュ関数（API呼び出しに専念）
   const refreshAccessToken = useCallback(async (): Promise<string | null> => {
-    const storedRefreshToken = storage.get<string>(STORAGE_KEYS.REFRESH_TOKEN)
+    const storedRefreshToken = storage.getString(STORAGE_KEYS.REFRESH_TOKEN)
     if (!storedRefreshToken) {
       console.warn('⚠️ No refresh token available')
       throw new Error('No refresh token available')
@@ -113,10 +127,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     const initAuth = async () => {
       try {
-        const storedToken = storage.get<string>(STORAGE_KEYS.TOKEN)
-        const storedRefreshToken = storage.get<string>(STORAGE_KEYS.REFRESH_TOKEN)
-        const storedUser = storage.get<User>(STORAGE_KEYS.USER)
-        const storedExpiresAt = storage.get<number>(STORAGE_KEYS.TOKEN_EXPIRES_AT)
+        const storedToken = storage.getString(STORAGE_KEYS.TOKEN)
+        const storedRefreshToken = storage.getString(STORAGE_KEYS.REFRESH_TOKEN)
+        const storedUser = storage.getObject(STORAGE_KEYS.USER, isUser)
+        const storedExpiresAt = storage.getNumber(STORAGE_KEYS.TOKEN_EXPIRES_AT)
 
         if (storedRefreshToken && storedUser) {
           setRefreshToken(storedRefreshToken)
@@ -224,7 +238,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const logout = useCallback(async (reason: LogoutReason = 'manual') => {
     try {
-      const storedRefreshToken = storage.get<string>(STORAGE_KEYS.REFRESH_TOKEN)
+      const storedRefreshToken = storage.getString(STORAGE_KEYS.REFRESH_TOKEN)
       if (storedRefreshToken) {
         // バックエンドにログアウトを通知（postInternalを使用）
         await postInternal('/api/logout', { refresh_token: storedRefreshToken })
@@ -292,7 +306,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
     const resetTimer = () => {
       const now = Date.now()
-      lastActivityRef.current = now
+      setLastActivityTime(now)
       // タブ間で共有するためlocalStorageに保存
       storage.set(STORAGE_KEYS.LAST_ACTIVITY_TIMESTAMP, now)
       clearTimeout(inactivityTimer)
@@ -306,7 +320,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       if (document.visibilityState === 'visible') {
         // localStorageから最新のアクティビティ時刻を取得（他タブの操作を考慮）
         const lastActivity = getLastActivityFromStorage()
-        lastActivityRef.current = lastActivity
+        setLastActivityTime(lastActivity)
         const elapsed = Date.now() - lastActivity
         if (elapsed >= INACTIVITY_TIMEOUT) {
           console.log('⏱️ Inactivity timeout detected after returning from background')
@@ -340,7 +354,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           const parsed = JSON.parse(event.newValue)
           if (typeof parsed !== 'number') return
           
-          lastActivityRef.current = parsed
+          setLastActivityTime(parsed)
           clearTimeout(inactivityTimer)
           const elapsed = Date.now() - parsed
           if (elapsed >= INACTIVITY_TIMEOUT) {
@@ -392,7 +406,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     isLoading,
     isAuthenticated: !!user && !!token,
     refreshAccessToken,
-    lastActivityTime: lastActivityRef.current,
+    lastActivityTime,
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

@@ -25,30 +25,47 @@ export const getErrorMessage = (error: unknown): string => {
 // ローカルストレージ操作
 export const storage = {
   /**
-   * localStorageから値を取得（エラーをスローする）
-   * @throws {Error} パースエラーや不正なデータの場合
-   */
-  getUnsafe: <T = unknown>(key: string): T | null => {
-    if (typeof window === 'undefined') return null;
-    const item = localStorage.getItem(key);
-    if (!item) return null;
-    return JSON.parse(item) as T; // エラーをスローする可能性がある
-  },
-
-  /**
    * localStorageから値を取得（エラーを捕捉してnullを返す）
+   * 注意: 型安全性が必要な場合はgetString, getNumber, getObjectを使用してください
    */
-  get: <T = unknown>(key: string): T | null => {
+  get: (key: string): unknown => {
     if (typeof window === 'undefined') return null;
     try {
-      return storage.getUnsafe<T>(key);
+      const item = localStorage.getItem(key);
+      if (!item) return null;
+      return JSON.parse(item);
     } catch (error) {
       console.error(`Failed to get item from localStorage with key "${key}":`, error);
       return null;
     }
   },
 
-  set: (key: string, value: any) => {
+  /**
+   * localStorageから文字列を取得（型検証付き）
+   */
+  getString: (key: string): string | null => {
+    const value = storage.get(key);
+    return typeof value === 'string' ? value : null;
+  },
+
+  /**
+   * localStorageから数値を取得（型検証付き）
+   */
+  getNumber: (key: string): number | null => {
+    const value = storage.get(key);
+    return typeof value === 'number' && !isNaN(value) ? value : null;
+  },
+
+  /**
+   * localStorageからオブジェクトを取得（型検証付き）
+   * @param validator オブジェクトの型を検証する関数
+   */
+  getObject: <T>(key: string, validator: (value: unknown) => value is T): T | null => {
+    const value = storage.get(key);
+    return validator(value) ? value : null;
+  },
+
+  set: (key: string, value: unknown) => {
     if (typeof window === 'undefined') return;
     try {
       localStorage.setItem(key, JSON.stringify(value));
