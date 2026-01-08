@@ -19,12 +19,8 @@ export function TokenDebug() {
   useEffect(() => {
     // localStorageから有効期限を取得
     const updateExpiresAt = () => {
-      try {
-        const expiresAt = storage.getUnsafe(STORAGE_KEYS.TOKEN_EXPIRES_AT)
-        setTokenExpiresAt(expiresAt)
-      } catch {
-        setTokenExpiresAt(null)
-      }
+      const expiresAt = storage.get<number>(STORAGE_KEYS.TOKEN_EXPIRES_AT)
+      setTokenExpiresAt(expiresAt)
     }
 
     // 初回取得

@@ -47,7 +47,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [refreshToken, setRefreshToken] = useState<string | null>(null)
   const [tokenExpiresAt, setTokenExpiresAt] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const lastActivityRef = useRef<number>(Date.now())
+  // localStorageから読み込み、なければ現在時刻（タブ間で共有）
+  const getLastActivityFromStorage = useCallback((): number => {
+    const stored = storage.get<number>(STORAGE_KEYS.LAST_ACTIVITY_TIMESTAMP)
+    return stored ?? Date.now()
+  }, [])
+  const lastActivityRef = useRef<number>(getLastActivityFromStorage())
   const router = useRouter()
 
   // 認証情報をクリアするヘルパー関数
@@ -60,6 +65,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     storage.remove(STORAGE_KEYS.REFRESH_TOKEN)
     storage.remove(STORAGE_KEYS.USER)
     storage.remove(STORAGE_KEYS.TOKEN_EXPIRES_AT)
+    storage.remove(STORAGE_KEYS.LAST_ACTIVITY_TIMESTAMP)
     
     if (redirectToLogin) {
       router.push('/login?reason=unauthorized')
@@ -68,7 +74,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // トークンリフレッシュ関数（API呼び出しに専念）
   const refreshAccessToken = useCallback(async (): Promise<string | null> => {
-    const storedRefreshToken = storage.getUnsafe(STORAGE_KEYS.REFRESH_TOKEN)
+    const storedRefreshToken = storage.get<string>(STORAGE_KEYS.REFRESH_TOKEN)
     if (!storedRefreshToken) {
       console.warn('⚠️ No refresh token available')
       throw new Error('No refresh token available')
@@ -107,10 +113,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     const initAuth = async () => {
       try {
-        const storedToken = storage.getUnsafe(STORAGE_KEYS.TOKEN)
-        const storedRefreshToken = storage.getUnsafe(STORAGE_KEYS.REFRESH_TOKEN)
-        const storedUser = storage.getUnsafe(STORAGE_KEYS.USER)
-        const storedExpiresAt = storage.getUnsafe(STORAGE_KEYS.TOKEN_EXPIRES_AT)
+        const storedToken = storage.get<string>(STORAGE_KEYS.TOKEN)
+        const storedRefreshToken = storage.get<string>(STORAGE_KEYS.REFRESH_TOKEN)
+        const storedUser = storage.get<User>(STORAGE_KEYS.USER)
+        const storedExpiresAt = storage.get<number>(STORAGE_KEYS.TOKEN_EXPIRES_AT)
 
         if (storedRefreshToken && storedUser) {
           setRefreshToken(storedRefreshToken)
@@ -218,7 +224,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const logout = useCallback(async (reason: LogoutReason = 'manual') => {
     try {
-      const storedRefreshToken = storage.getUnsafe(STORAGE_KEYS.REFRESH_TOKEN)
+      const storedRefreshToken = storage.get<string>(STORAGE_KEYS.REFRESH_TOKEN)
       if (storedRefreshToken) {
         // バックエンドにログアウトを通知（postInternalを使用）
         await postInternal('/api/logout', { refresh_token: storedRefreshToken })
@@ -285,7 +291,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
 
     const resetTimer = () => {
-      lastActivityRef.current = Date.now()
+      const now = Date.now()
+      lastActivityRef.current = now
+      // タブ間で共有するためlocalStorageに保存
+      storage.set(STORAGE_KEYS.LAST_ACTIVITY_TIMESTAMP, now)
       clearTimeout(inactivityTimer)
       inactivityTimer = setTimeout(handleInactivity, INACTIVITY_TIMEOUT)
     }
@@ -295,7 +304,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     // フォアグラウンド復帰時に経過時間をチェックする
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        const elapsed = Date.now() - lastActivityRef.current
+        // localStorageから最新のアクティビティ時刻を取得（他タブの操作を考慮）
+        const lastActivity = getLastActivityFromStorage()
+        lastActivityRef.current = lastActivity
+        const elapsed = Date.now() - lastActivity
         if (elapsed >= INACTIVITY_TIMEOUT) {
           console.log('⏱️ Inactivity timeout detected after returning from background')
           logout('timeout')
@@ -307,12 +319,54 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       }
     }
 
+    // モバイルブラウザ向け: pageshow/focusイベントでの復帰検知
+    // visibilitychangeが発火しないケースをカバー
+    const handlePageShow = (event: PageTransitionEvent) => {
+      // bfcache（戻る/進むキャッシュ）からの復帰時
+      if (event.persisted) {
+        handleVisibilityChange()
+      }
+    }
+
+    const handleFocus = () => {
+      // ウィンドウがフォーカスを得た時（アプリ切り替え後など）
+      handleVisibilityChange()
+    }
+
+    // 他のタブからのlocalStorage変更を検知
+    const handleStorageChange = (event: StorageEvent) => {
+      if (event.key === STORAGE_KEYS.LAST_ACTIVITY_TIMESTAMP && event.newValue) {
+        try {
+          const parsed = JSON.parse(event.newValue)
+          if (typeof parsed !== 'number') return
+          
+          lastActivityRef.current = parsed
+          clearTimeout(inactivityTimer)
+          const elapsed = Date.now() - parsed
+          if (elapsed >= INACTIVITY_TIMEOUT) {
+            handleInactivity()
+          } else {
+            inactivityTimer = setTimeout(handleInactivity, INACTIVITY_TIMEOUT - elapsed)
+          }
+        } catch {
+          // パースエラーは無視
+        }
+      }
+    }
+
     // ユーザーの操作を監視
-    const events = ['mousedown', 'keydown', 'scroll', 'touchstart']
+    // PC: mousedown, keydown, scroll
+    // モバイル: touchstart, touchend, touchmove（スワイプ・スクロール操作）
+    const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'touchend', 'touchmove']
     events.forEach(event => {
-      document.addEventListener(event, resetTimer)
+      // touchmoveはパフォーマンスのためpassiveで登録
+      const options = event === 'touchmove' ? { passive: true } : undefined
+      document.addEventListener(event, resetTimer, options)
     })
     document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('storage', handleStorageChange)
+    window.addEventListener('pageshow', handlePageShow)
+    window.addEventListener('focus', handleFocus)
 
     resetTimer()
 
@@ -322,8 +376,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         document.removeEventListener(event, resetTimer)
       })
       document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('storage', handleStorageChange)
+      window.removeEventListener('pageshow', handlePageShow)
+      window.removeEventListener('focus', handleFocus)
     }
-  }, [user, logout])
+  }, [user, logout, getLastActivityFromStorage])
 
   const value = {
     user,
