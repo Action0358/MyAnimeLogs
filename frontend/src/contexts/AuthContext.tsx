@@ -319,6 +319,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       }
     }
 
+    // モバイルブラウザ向け: pageshow/focusイベントでの復帰検知
+    // visibilitychangeが発火しないケースをカバー
+    const handlePageShow = (event: PageTransitionEvent) => {
+      // bfcache（戻る/進むキャッシュ）からの復帰時
+      if (event.persisted) {
+        handleVisibilityChange()
+      }
+    }
+
+    const handleFocus = () => {
+      // ウィンドウがフォーカスを得た時（アプリ切り替え後など）
+      handleVisibilityChange()
+    }
+
     // 他のタブからのlocalStorage変更を検知
     const handleStorageChange = (event: StorageEvent) => {
       if (event.key === STORAGE_KEYS.LAST_ACTIVITY_TIMESTAMP && event.newValue) {
@@ -341,12 +355,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
 
     // ユーザーの操作を監視
-    const events = ['mousedown', 'keydown', 'scroll', 'touchstart']
+    // PC: mousedown, keydown, scroll
+    // モバイル: touchstart, touchend, touchmove（スワイプ・スクロール操作）
+    const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'touchend', 'touchmove']
     events.forEach(event => {
-      document.addEventListener(event, resetTimer)
+      // touchmoveはパフォーマンスのためpassiveで登録
+      const options = event === 'touchmove' ? { passive: true } : undefined
+      document.addEventListener(event, resetTimer, options)
     })
     document.addEventListener('visibilitychange', handleVisibilityChange)
     window.addEventListener('storage', handleStorageChange)
+    window.addEventListener('pageshow', handlePageShow)
+    window.addEventListener('focus', handleFocus)
 
     resetTimer()
 
@@ -357,8 +377,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       })
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('storage', handleStorageChange)
+      window.removeEventListener('pageshow', handlePageShow)
+      window.removeEventListener('focus', handleFocus)
     }
-  }, [user, logout])
+  }, [user, logout, getLastActivityFromStorage])
 
   const value = {
     user,

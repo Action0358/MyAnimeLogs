@@ -28,7 +28,7 @@ export const storage = {
    * localStorageから値を取得（エラーをスローする）
    * @throws {Error} パースエラーや不正なデータの場合
    */
-  getUnsafe: <T = any>(key: string): T | null => {
+  getUnsafe: <T = unknown>(key: string): T | null => {
     if (typeof window === 'undefined') return null;
     const item = localStorage.getItem(key);
     if (!item) return null;
@@ -38,7 +38,7 @@ export const storage = {
   /**
    * localStorageから値を取得（エラーを捕捉してnullを返す）
    */
-  get: <T = any>(key: string): T | null => {
+  get: <T = unknown>(key: string): T | null => {
     if (typeof window === 'undefined') return null;
     try {
       return storage.getUnsafe<T>(key);
