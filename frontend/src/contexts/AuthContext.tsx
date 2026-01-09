@@ -133,6 +133,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         const storedExpiresAt = storage.getNumber(STORAGE_KEYS.TOKEN_EXPIRES_AT)
 
         if (storedRefreshToken && storedUser) {
+          // 非アクティブタイムアウトのチェック（スマホでアプリ再起動時など）
+          const lastActivity = storage.getNumber(STORAGE_KEYS.LAST_ACTIVITY_TIMESTAMP)
+          if (lastActivity) {
+            const elapsed = Date.now() - lastActivity
+            if (elapsed >= INACTIVITY_TIMEOUT) {
+              console.log('⏱️ Inactivity timeout detected on init - clearing auth')
+              clearAuthData(false)
+              router.push('/login?reason=timeout')
+              return
+            }
+          }
+
           setRefreshToken(storedRefreshToken)
           setUser(storedUser)
 
@@ -155,7 +167,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
 
     initAuth()
-  }, [refreshAccessToken, clearAuthData])
+  }, [refreshAccessToken, clearAuthData, router])
 
   const login = useCallback(
     async (email: string, password: string) => {
