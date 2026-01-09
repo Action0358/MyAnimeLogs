@@ -57,17 +57,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [refreshToken, setRefreshToken] = useState<string | null>(null)
   const [tokenExpiresAt, setTokenExpiresAt] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [lastActivityTime, setLastActivityTime] = useState<number>(() => {
-    // 初期値はlocalStorageから読み込み、なければ現在時刻
-    if (typeof window === 'undefined') return Date.now()
-    return storage.getNumber(STORAGE_KEYS.LAST_ACTIVITY_TIMESTAMP) ?? Date.now()
-  })
+  // SSR/クライアント間でhydrationエラーを避けるため、初期値は0で統一
+  const [lastActivityTime, setLastActivityTime] = useState<number>(0)
   const router = useRouter()
 
   // localStorageから最終アクティビティ時刻を取得
   const getLastActivityFromStorage = useCallback((): number => {
     return storage.getNumber(STORAGE_KEYS.LAST_ACTIVITY_TIMESTAMP) ?? Date.now()
   }, [])
+
+  // クライアントサイドでlocalStorageから最終アクティビティ時刻を読み込む
+  useEffect(() => {
+    setLastActivityTime(getLastActivityFromStorage())
+  }, [getLastActivityFromStorage])
 
   // 認証情報をクリアするヘルパー関数
   const clearAuthData = useCallback((redirectToLogin = true) => {
