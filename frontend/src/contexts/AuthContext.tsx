@@ -6,6 +6,7 @@ import React, {
   useState,
   useEffect,
   useCallback,
+  useRef,
 } from 'react'
 import { useRouter } from 'next/navigation'
 import { storage } from '@/lib/utils'
@@ -68,6 +69,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const getLastActivityFromStorage = useCallback((): number => {
     return storage.getNumber(STORAGE_KEYS.LAST_ACTIVITY_TIMESTAMP) ?? Date.now()
   }, [])
+
+  // logoutをrefで保持（useEffectの依存配列から外すため）
+  const logoutRef = useRef<(reason?: LogoutReason) => Promise<void>>()
 
   // 認証情報をクリアするヘルパー関数
   const clearAuthData = useCallback((redirectToLogin = true) => {
@@ -258,6 +262,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, [router, clearAuthData])
 
+  // logoutRefを常に最新のlogout関数で更新
+  useEffect(() => {
+    logoutRef.current = logout
+  }, [logout])
+
   const updateUser = useCallback((userData: User) => {
     setUser(userData)
     storage.set(STORAGE_KEYS.USER, userData)
@@ -301,7 +310,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     // タイムアウト時のコールバック（共通化）
     const handleInactivity = () => {
       console.log('⏱️ Inactivity timeout - logging out')
-      logout('timeout')
+      logoutRef.current?.('timeout')
     }
 
     const resetTimer = () => {
@@ -324,7 +333,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         const elapsed = Date.now() - lastActivity
         if (elapsed >= INACTIVITY_TIMEOUT) {
           console.log('⏱️ Inactivity timeout detected after returning from background')
-          logout('timeout')
+          logoutRef.current?.('timeout')
         } else {
           // タイムアウトまでの残り時間でタイマーを再設定
           clearTimeout(inactivityTimer)
@@ -394,7 +403,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       window.removeEventListener('pageshow', handlePageShow)
       window.removeEventListener('focus', handleFocus)
     }
-  }, [user, logout, getLastActivityFromStorage])
+  }, [user, getLastActivityFromStorage]) // logoutはrefで参照するため依存配列から除外
 
   const value = {
     user,
