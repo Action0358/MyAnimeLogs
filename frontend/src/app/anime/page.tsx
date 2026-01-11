@@ -13,9 +13,10 @@ function AnimeListContent() {
 
   const currentPage = Number(searchParams.get('page')) || 1
 
-  const { animes, isLoading, totalPages, total, setPage } = useAnimes({
+  const { animes, isLoading, totalPages, total, setPage, isFetching } = useAnimes({
     pageSize: 24,
     initialPage: currentPage,
+    prefetchNextPage: true,
   })
 
   const handlePageChange = useCallback(
@@ -34,7 +35,12 @@ function AnimeListContent() {
       <div className="max-w-7xl mx-auto">
         {/* ヘッダー */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">アニメ一覧</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-3xl font-bold text-gray-900">アニメ一覧</h1>
+            {isFetching && !isLoading && (
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+            )}
+          </div>
           <p className="text-gray-600">
             {total > 0 ? `${total}件のアニメ` : 'アニメを読み込み中...'}
           </p>

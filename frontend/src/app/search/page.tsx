@@ -19,7 +19,7 @@ function SearchContent() {
 
   const currentPage = Number(searchParams.get('page')) || 1
 
-  const { animes, isLoading, totalPages, total, setPage } = useAnimes({
+  const { animes, isLoading, totalPages, total, setPage, isFetching } = useAnimes({
     filters: {
       keyword: filters.keyword,
       season: filters.season,
@@ -28,6 +28,7 @@ function SearchContent() {
     },
     pageSize: 24,
     initialPage: currentPage,
+    prefetchNextPage: true,
   })
 
   const handleSearch = useCallback(
@@ -128,13 +129,16 @@ function SearchContent() {
 
             {/* ツールバー */}
             <div className="flex items-center justify-between mb-6">
-              <div className="text-sm text-gray-600">
+              <div className="flex items-center gap-2 text-sm text-gray-600">
                 {total > 0 ? (
                   <span>
                     {total}件のアニメが見つかりました
                   </span>
                 ) : (
                   !isLoading && <span>検索結果がありません</span>
+                )}
+                {isFetching && !isLoading && (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                 )}
               </div>
               <SortDropdown

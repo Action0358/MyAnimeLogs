@@ -54,7 +54,8 @@ const AnimeSection: React.FC<AnimeSectionProps> = ({
   const { data, isLoading, error, refetch } = useQuery({
     queryKey,
     queryFn,
-    staleTime: 1000 * 60 * 5, // 5分間キャッシュを有効
+    staleTime: 1000 * 60 * 15, // 15分間キャッシュを有効（バックエンドと同期）
+    gcTime: 1000 * 60 * 30, // 30分間ガベージコレクション猶予
   })
 
   const animes = data?.animes ?? []
