@@ -30,7 +30,18 @@ func (s *AnimeService) GetCurrentSeasonAnimes(limit int) ([]models.Anime, error)
 	// Get current season string (e.g., "2026-winter")
 	currentSeason := getSeasonStringFromTime(time.Now())
 
-	return s.getAnimesByQuery(
+	// キャッシュキーを生成
+	cacheKey := fmt.Sprintf("%s%s:%d", constants.CacheKeyCurrentSeason, currentSeason, limit)
+
+	// キャッシュから取得を試みる
+	var cachedAnimes []models.Anime
+	if found, err := s.cache.Get(cacheKey, &cachedAnimes); found && err == nil {
+		s.logger.Debug("Cache hit for current season animes", "season", currentSeason, "limit", limit)
+		return cachedAnimes, nil
+	}
+
+	// DBから取得
+	animes, err := s.getAnimesByQuery(
 		`SELECT id, title, image_url, season, status, mal_anime_id, annict_id, created_at, updated_at, watchers_count,
 		        COALESCE(cover_image_large, '') as cover_image_large,
 		        COALESCE(cover_image_medium, '') as cover_image_medium
@@ -41,6 +52,16 @@ func (s *AnimeService) GetCurrentSeasonAnimes(limit int) ([]models.Anime, error)
 		[]interface{}{currentSeason, limit},
 		"current season animes",
 	)
+	if err != nil {
+		return nil, err
+	}
+
+	// キャッシュに保存
+	if cacheErr := s.cache.SetWithTTL(cacheKey, animes, constants.CurrentSeasonAnimeCacheTTL); cacheErr != nil {
+		s.logger.Warn("Failed to cache current season animes", "error", cacheErr)
+	}
+
+	return animes, nil
 }
 
 // GetPopularAnimes returns popular animes from the database (sorted by watchers_count)
@@ -49,7 +70,18 @@ func (s *AnimeService) GetPopularAnimes(limit int) ([]models.Anime, error) {
 		limit = 12
 	}
 
-	return s.getAnimesByQuery(
+	// キャッシュキーを生成
+	cacheKey := fmt.Sprintf("%s%d", constants.CacheKeyPopular, limit)
+
+	// キャッシュから取得を試みる
+	var cachedAnimes []models.Anime
+	if found, err := s.cache.Get(cacheKey, &cachedAnimes); found && err == nil {
+		s.logger.Debug("Cache hit for popular animes", "limit", limit)
+		return cachedAnimes, nil
+	}
+
+	// DBから取得
+	animes, err := s.getAnimesByQuery(
 		`SELECT id, title, image_url, season, status, mal_anime_id, annict_id, created_at, updated_at, watchers_count,
 		        COALESCE(cover_image_large, '') as cover_image_large,
 		        COALESCE(cover_image_medium, '') as cover_image_medium
@@ -60,6 +92,16 @@ func (s *AnimeService) GetPopularAnimes(limit int) ([]models.Anime, error) {
 		[]interface{}{limit},
 		"popular animes",
 	)
+	if err != nil {
+		return nil, err
+	}
+
+	// キャッシュに保存
+	if cacheErr := s.cache.SetWithTTL(cacheKey, animes, constants.PopularAnimeCacheTTL); cacheErr != nil {
+		s.logger.Warn("Failed to cache popular animes", "error", cacheErr)
+	}
+
+	return animes, nil
 }
 
 // getAnimesByQuery is a helper function to execute anime queries with proper error handling
@@ -119,10 +161,18 @@ type AnimeService struct {
 	anilistClient    *AniListClient
 	jikanClient      *JikanClient
 	annictClient     *AnnictClient
-	imageUpdateQueue chan func() // 画像更新用ワーカープールのキュー
+	imageUpdateQueue chan func()  // 画像更新用ワーカープールのキュー
+	cache            *MemoryCache // レスポンスキャッシュ
 }
 
 func NewAnimeService(db *database.DB, logger *common.Logger, annictClient *AnnictClient) *AnimeService {
+	// キャッシュを初期化
+	cacheConfig := CacheConfig{
+		DefaultTTL:      constants.SearchResultCacheTTL,
+		CleanupInterval: constants.CacheCleanupInterval,
+		MaxItems:        constants.CacheMaxItems,
+	}
+
 	s := &AnimeService{
 		db:               db,
 		logger:           logger,
@@ -130,6 +180,7 @@ func NewAnimeService(db *database.DB, logger *common.Logger, annictClient *Annic
 		jikanClient:      NewJikanClient(logger),
 		annictClient:     annictClient,
 		imageUpdateQueue: make(chan func(), constants.ImageUpdateQueueSize),
+		cache:            NewMemoryCache(cacheConfig),
 	}
 
 	// ワーカープールを起動
@@ -176,6 +227,9 @@ func (s *AnimeService) enqueueImageUpdate(task func()) {
 func (s *AnimeService) Close() {
 	if s.imageUpdateQueue != nil {
 		close(s.imageUpdateQueue)
+	}
+	if s.cache != nil {
+		s.cache.Close()
 	}
 }
 
@@ -991,6 +1045,13 @@ func (s *AnimeService) enrichAnimesWithUserData(animes []models.AnimeWithUserDat
 
 // GetFilterOptions - フィルター情報を取得
 func (s *AnimeService) GetFilterOptions() (*models.FilterOptions, error) {
+	// キャッシュから取得を試みる
+	var cachedOptions models.FilterOptions
+	if found, err := s.cache.Get(constants.CacheKeyFilterOptions, &cachedOptions); found && err == nil {
+		s.logger.Debug("Cache hit for filter options")
+		return &cachedOptions, nil
+	}
+
 	filterOptions := &models.FilterOptions{
 		Genres:  []models.GenreInfo{},
 		Years:   []int{},
@@ -1107,6 +1168,11 @@ func (s *AnimeService) GetFilterOptions() (*models.FilterOptions, error) {
 		// デフォルト値はすでに設定済み
 	} else {
 		filterOptions.Ratings = ratingStats
+	}
+
+	// キャッシュに保存
+	if cacheErr := s.cache.SetWithTTL(constants.CacheKeyFilterOptions, filterOptions, constants.FilterOptionsCacheTTL); cacheErr != nil {
+		s.logger.Warn("Failed to cache filter options", "error", cacheErr)
 	}
 
 	return filterOptions, nil
