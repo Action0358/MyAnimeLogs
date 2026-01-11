@@ -163,22 +163,30 @@ func (c *MemoryCache) evictOne() {
 func (c *MemoryCache) Get(key string, dest any) (bool, error) {
 	c.mu.Lock()
 	item, exists := c.items[key]
-	if exists && !item.IsExpired() {
-		// LRU: アクセス時刻を更新
-		item.LastAccessed = time.Now()
-	}
-	c.mu.Unlock()
 
+	// 存在確認と有効期限チェックをロック内でアトミックに実行
 	if !exists {
+		c.mu.Unlock()
 		return false, nil
 	}
 
 	if item.IsExpired() {
-		c.Delete(key)
+		// 期限切れアイテムをロック内で削除
+		delete(c.items, key)
+		c.mu.Unlock()
 		return false, nil
 	}
 
-	if err := json.Unmarshal(item.Value, dest); err != nil {
+	// LRU: アクセス時刻を更新
+	item.LastAccessed = time.Now()
+
+	// 値のコピーを作成（ロック内で）
+	valueCopy := make([]byte, len(item.Value))
+	copy(valueCopy, item.Value)
+	c.mu.Unlock()
+
+	// ロック解放後にデコード（コピーした値を使用）
+	if err := json.Unmarshal(valueCopy, dest); err != nil {
 		return false, err
 	}
 
