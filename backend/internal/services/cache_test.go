@@ -258,15 +258,89 @@ func TestMemoryCache_ComplexTypes(t *testing.T) {
 func TestCacheItem_IsExpired(t *testing.T) {
 	// Not expired
 	item := &CacheItem{
-		Value:      []byte("test"),
-		Expiration: time.Now().Add(1 * time.Hour),
+		Value:        []byte("test"),
+		Expiration:   time.Now().Add(1 * time.Hour),
+		LastAccessed: time.Now(),
 	}
 	assert.False(t, item.IsExpired())
 
 	// Expired
 	item = &CacheItem{
-		Value:      []byte("test"),
-		Expiration: time.Now().Add(-1 * time.Hour),
+		Value:        []byte("test"),
+		Expiration:   time.Now().Add(-1 * time.Hour),
+		LastAccessed: time.Now(),
 	}
 	assert.True(t, item.IsExpired())
+}
+
+func TestMemoryCache_LRUEviction(t *testing.T) {
+	config := CacheConfig{
+		DefaultTTL:      1 * time.Minute,
+		CleanupInterval: 1 * time.Minute,
+		MaxItems:        3,
+	}
+	cache := NewMemoryCache(config)
+	defer cache.Close()
+
+	// Add 3 items
+	err := cache.Set("key1", "value1")
+	require.NoError(t, err)
+	time.Sleep(10 * time.Millisecond)
+
+	err = cache.Set("key2", "value2")
+	require.NoError(t, err)
+	time.Sleep(10 * time.Millisecond)
+
+	err = cache.Set("key3", "value3")
+	require.NoError(t, err)
+	time.Sleep(10 * time.Millisecond)
+
+	// Access key1 to make it recently used
+	var result string
+	found, err := cache.Get("key1", &result)
+	require.NoError(t, err)
+	assert.True(t, found)
+	time.Sleep(10 * time.Millisecond)
+
+	// Add key4, should evict key2 (least recently used)
+	err = cache.Set("key4", "value4")
+	require.NoError(t, err)
+
+	// key1 should still exist (was accessed recently)
+	found, _ = cache.Get("key1", &result)
+	assert.True(t, found, "key1 should still exist after LRU eviction")
+
+	// key4 should exist (just added)
+	found, _ = cache.Get("key4", &result)
+	assert.True(t, found, "key4 should exist")
+
+	// key3 should still exist (added after key2)
+	found, _ = cache.Get("key3", &result)
+	assert.True(t, found, "key3 should still exist")
+
+	// key2 should be evicted (least recently used)
+	found, _ = cache.Get("key2", &result)
+	assert.False(t, found, "key2 should be evicted as LRU")
+}
+
+func TestMemoryCache_CloseAtomic(t *testing.T) {
+	config := CacheConfig{
+		DefaultTTL:      1 * time.Minute,
+		CleanupInterval: 1 * time.Minute,
+		MaxItems:        100,
+	}
+	cache := NewMemoryCache(config)
+
+	// Add some items
+	err := cache.Set("key1", "value1")
+	require.NoError(t, err)
+	err = cache.Set("key2", "value2")
+	require.NoError(t, err)
+
+	// Close should atomically stop cleanup and clear items
+	cache.Close()
+
+	// After close, cache should be empty
+	stats := cache.Stats()
+	assert.Equal(t, 0, stats.ItemCount)
 }

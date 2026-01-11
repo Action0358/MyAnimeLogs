@@ -6,10 +6,11 @@ import (
 	"time"
 )
 
-// CacheItem represents a cached item with expiration
+// CacheItem represents a cached item with expiration and LRU tracking
 type CacheItem struct {
-	Value      []byte
-	Expiration time.Time
+	Value        []byte
+	Expiration   time.Time
+	LastAccessed time.Time // LRU eviction用のアクセス時刻
 }
 
 // IsExpired checks if the cache item has expired
@@ -17,7 +18,7 @@ func (c *CacheItem) IsExpired() bool {
 	return time.Now().After(c.Expiration)
 }
 
-// MemoryCache is a simple in-memory cache with TTL support
+// MemoryCache is a simple in-memory cache with TTL and LRU support
 type MemoryCache struct {
 	items map[string]*CacheItem
 	mu    sync.RWMutex
@@ -101,12 +102,12 @@ func (c *MemoryCache) deleteExpired() {
 }
 
 // Set stores a value in the cache with the default TTL
-func (c *MemoryCache) Set(key string, value interface{}) error {
+func (c *MemoryCache) Set(key string, value any) error {
 	return c.SetWithTTL(key, value, c.defaultTTL)
 }
 
 // SetWithTTL stores a value in the cache with a custom TTL
-func (c *MemoryCache) SetWithTTL(key string, value interface{}, ttl time.Duration) error {
+func (c *MemoryCache) SetWithTTL(key string, value any, ttl time.Duration) error {
 	data, err := json.Marshal(value)
 	if err != nil {
 		return err
@@ -115,20 +116,22 @@ func (c *MemoryCache) SetWithTTL(key string, value interface{}, ttl time.Duratio
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// Check if we need to evict items (simple eviction: expired item first, then a random one)
+	// Check if we need to evict items (LRU eviction: expired item first, then least recently used)
 	if len(c.items) >= c.maxItems {
 		c.evictOne()
 	}
 
+	now := time.Now()
 	c.items[key] = &CacheItem{
-		Value:      data,
-		Expiration: time.Now().Add(ttl),
+		Value:        data,
+		Expiration:   now.Add(ttl),
+		LastAccessed: now,
 	}
 
 	return nil
 }
 
-// evictOne removes one item from the cache (must be called with lock held)
+// evictOne removes one item from the cache using LRU policy (must be called with lock held)
 func (c *MemoryCache) evictOne() {
 	// First, try to remove an expired item
 	for key, item := range c.items {
@@ -138,18 +141,33 @@ func (c *MemoryCache) evictOne() {
 		}
 	}
 
-	// If no expired items, remove the first item (simple eviction)
-	for key := range c.items {
-		delete(c.items, key)
-		return
+	// If no expired items, remove the least recently used item (LRU)
+	var oldestKey string
+	var oldestTime time.Time
+	first := true
+
+	for key, item := range c.items {
+		if first || item.LastAccessed.Before(oldestTime) {
+			oldestKey = key
+			oldestTime = item.LastAccessed
+			first = false
+		}
+	}
+
+	if oldestKey != "" {
+		delete(c.items, oldestKey)
 	}
 }
 
-// Get retrieves a value from the cache
-func (c *MemoryCache) Get(key string, dest interface{}) (bool, error) {
-	c.mu.RLock()
+// Get retrieves a value from the cache and updates last accessed time for LRU
+func (c *MemoryCache) Get(key string, dest any) (bool, error) {
+	c.mu.Lock()
 	item, exists := c.items[key]
-	c.mu.RUnlock()
+	if exists && !item.IsExpired() {
+		// LRU: アクセス時刻を更新
+		item.LastAccessed = time.Now()
+	}
+	c.mu.Unlock()
 
 	if !exists {
 		return false, nil
@@ -193,15 +211,17 @@ func (c *MemoryCache) Clear() {
 	c.items = make(map[string]*CacheItem)
 }
 
-// Close stops the cleanup goroutine and clears the cache
+// Close stops the cleanup goroutine and clears the cache atomically
 func (c *MemoryCache) Close() {
 	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if c.cleanupRunning {
 		close(c.stopCleanup)
 		c.cleanupRunning = false
 	}
-	c.mu.Unlock()
-	c.Clear()
+	// クリア処理も同じロック内で実行してレースコンディションを防止
+	c.items = make(map[string]*CacheItem)
 }
 
 // Stats returns cache statistics
