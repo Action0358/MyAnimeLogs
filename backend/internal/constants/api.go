@@ -42,3 +42,37 @@ const (
 	// DBが応答しない場合にワーカーがハングするのを防ぐ
 	ImageUpdateDBTimeout = 10 * time.Second
 )
+
+// APIレスポンスキャッシュ関連の定数
+const (
+	// CurrentSeasonAnimeCacheTTL - 今期アニメキャッシュの有効期限
+	// 頻繁に更新されないため、30分キャッシュ
+	CurrentSeasonAnimeCacheTTL = 30 * time.Minute
+
+	// PopularAnimeCacheTTL - 人気アニメキャッシュの有効期限
+	// 頻繁に更新されないため、30分キャッシュ
+	PopularAnimeCacheTTL = 30 * time.Minute
+
+	// FilterOptionsCacheTTL - フィルターオプションキャッシュの有効期限
+	// ジャンル・年・シーズン一覧は1時間キャッシュ
+	FilterOptionsCacheTTL = 1 * time.Hour
+
+	// SearchResultCacheTTL - 検索結果キャッシュの有効期限
+	// 検索結果は10分キャッシュ
+	SearchResultCacheTTL = 10 * time.Minute
+
+	// CacheCleanupInterval - キャッシュクリーンアップ間隔
+	CacheCleanupInterval = 5 * time.Minute
+
+	// CacheMaxItems - キャッシュの最大アイテム数
+	CacheMaxItems = 1000
+)
+
+// キャッシュキープレフィックス
+const (
+	CacheKeyCurrentSeason = "current_season:"
+	CacheKeyPopular       = "popular:"
+	CacheKeyFilterOptions = "filter_options"
+	CacheKeySearch        = "search:"
+	CacheKeyAdvSearch     = "adv_search:"
+)
