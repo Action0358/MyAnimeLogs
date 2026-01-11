@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useCallback, useMemo } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useState, useCallback, useMemo, useEffect } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getAnimes, type GetAnimesParams, type Anime } from '@/lib/api/generated/myanimelogs'
 
 export interface SearchFilters {
@@ -22,6 +22,7 @@ export interface UseAnimesOptions {
   pageSize?: number
   enabled?: boolean
   initialPage?: number
+  prefetchNextPage?: boolean
 }
 
 export interface UseAnimesResult {
@@ -36,11 +37,23 @@ export interface UseAnimesResult {
   nextPage: () => void
   prevPage: () => void
   refetch: () => void
+  isFetching: boolean
 }
 
+// キャッシュ時間の定数（バックエンドと同期）
+const STALE_TIME = 1000 * 60 * 15 // 15分間キャッシュ
+const GC_TIME = 1000 * 60 * 30 // 30分間ガベージコレクション猶予
+
 export const useAnimes = (options: UseAnimesOptions = {}): UseAnimesResult => {
-  const { filters = {}, pageSize = 20, enabled = true, initialPage = 1 } = options
+  const { 
+    filters = {}, 
+    pageSize = 20, 
+    enabled = true, 
+    initialPage = 1,
+    prefetchNextPage = true 
+  } = options
   const [currentPage, setCurrentPage] = useState(initialPage)
+  const queryClient = useQueryClient()
 
   const queryParams: GetAnimesParams = useMemo(
     () => ({
@@ -54,7 +67,7 @@ export const useAnimes = (options: UseAnimesOptions = {}): UseAnimesResult => {
     [filters.keyword, filters.season, filters.status, filters.genre, currentPage, pageSize]
   )
 
-  const { data, isLoading, error, refetch } = useQuery({
+  const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['animes', queryParams],
     queryFn: async () => {
       try {
@@ -66,7 +79,8 @@ export const useAnimes = (options: UseAnimesOptions = {}): UseAnimesResult => {
       }
     },
     enabled,
-    staleTime: 1000 * 60 * 5, // 5分間キャッシュ
+    staleTime: STALE_TIME,
+    gcTime: GC_TIME,
   })
 
   const animes = useMemo(() => {
@@ -76,6 +90,25 @@ export const useAnimes = (options: UseAnimesOptions = {}): UseAnimesResult => {
   const totalPages = data?.meta?.total_pages || 1
   const total = data?.meta?.total || 0
   const hasMore = currentPage < totalPages
+
+  // 次ページをプリフェッチ
+  useEffect(() => {
+    if (prefetchNextPage && hasMore && !isLoading) {
+      const nextPageParams: GetAnimesParams = {
+        ...queryParams,
+        page: currentPage + 1,
+      }
+      
+      queryClient.prefetchQuery({
+        queryKey: ['animes', nextPageParams],
+        queryFn: async () => {
+          const response = await getAnimes(nextPageParams)
+          return response.data
+        },
+        staleTime: STALE_TIME,
+      })
+    }
+  }, [queryClient, queryParams, currentPage, hasMore, isLoading, prefetchNextPage])
 
   const setPage = useCallback((page: number) => {
     if (page >= 1 && page <= totalPages) {
@@ -107,6 +140,7 @@ export const useAnimes = (options: UseAnimesOptions = {}): UseAnimesResult => {
     nextPage,
     prevPage,
     refetch,
+    isFetching,
   }
 }
 

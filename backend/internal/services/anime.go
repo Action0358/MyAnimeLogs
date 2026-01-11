@@ -30,8 +30,21 @@ func (s *AnimeService) GetCurrentSeasonAnimes(limit int) ([]models.Anime, error)
 	// Get current season string (e.g., "2026-winter")
 	currentSeason := getSeasonStringFromTime(time.Now())
 
-	return s.getAnimesByQuery(
-		`SELECT id, title, image_url, season, status, mal_anime_id, annict_id, created_at, updated_at, watchers_count
+	// キャッシュキーを生成
+	cacheKey := fmt.Sprintf("%s%s:%d", constants.CacheKeyCurrentSeason, currentSeason, limit)
+
+	// キャッシュから取得を試みる
+	var cachedAnimes []models.Anime
+	if found, err := s.cache.Get(cacheKey, &cachedAnimes); found && err == nil {
+		s.logger.Debug("Cache hit for current season animes", "season", currentSeason, "limit", limit)
+		return cachedAnimes, nil
+	}
+
+	// DBから取得
+	animes, err := s.getAnimesByQuery(
+		`SELECT id, title, image_url, season, status, mal_anime_id, annict_id, created_at, updated_at, watchers_count,
+		        COALESCE(cover_image_large, '') as cover_image_large,
+		        COALESCE(cover_image_medium, '') as cover_image_medium
 		FROM animes
 		WHERE season = $1
 		ORDER BY watchers_count DESC NULLS LAST, title
@@ -39,6 +52,16 @@ func (s *AnimeService) GetCurrentSeasonAnimes(limit int) ([]models.Anime, error)
 		[]interface{}{currentSeason, limit},
 		"current season animes",
 	)
+	if err != nil {
+		return nil, err
+	}
+
+	// キャッシュに保存
+	if cacheErr := s.cache.SetWithTTL(cacheKey, animes, constants.CurrentSeasonAnimeCacheTTL); cacheErr != nil {
+		s.logger.Warn("Failed to cache current season animes", "error", cacheErr)
+	}
+
+	return animes, nil
 }
 
 // GetPopularAnimes returns popular animes from the database (sorted by watchers_count)
@@ -47,8 +70,21 @@ func (s *AnimeService) GetPopularAnimes(limit int) ([]models.Anime, error) {
 		limit = 12
 	}
 
-	return s.getAnimesByQuery(
-		`SELECT id, title, image_url, season, status, mal_anime_id, annict_id, created_at, updated_at, watchers_count
+	// キャッシュキーを生成
+	cacheKey := fmt.Sprintf("%s%d", constants.CacheKeyPopular, limit)
+
+	// キャッシュから取得を試みる
+	var cachedAnimes []models.Anime
+	if found, err := s.cache.Get(cacheKey, &cachedAnimes); found && err == nil {
+		s.logger.Debug("Cache hit for popular animes", "limit", limit)
+		return cachedAnimes, nil
+	}
+
+	// DBから取得
+	animes, err := s.getAnimesByQuery(
+		`SELECT id, title, image_url, season, status, mal_anime_id, annict_id, created_at, updated_at, watchers_count,
+		        COALESCE(cover_image_large, '') as cover_image_large,
+		        COALESCE(cover_image_medium, '') as cover_image_medium
 		FROM animes
 		WHERE watchers_count > 0
 		ORDER BY watchers_count DESC, title
@@ -56,6 +92,16 @@ func (s *AnimeService) GetPopularAnimes(limit int) ([]models.Anime, error) {
 		[]interface{}{limit},
 		"popular animes",
 	)
+	if err != nil {
+		return nil, err
+	}
+
+	// キャッシュに保存
+	if cacheErr := s.cache.SetWithTTL(cacheKey, animes, constants.PopularAnimeCacheTTL); cacheErr != nil {
+		s.logger.Warn("Failed to cache popular animes", "error", cacheErr)
+	}
+
+	return animes, nil
 }
 
 // getAnimesByQuery is a helper function to execute anime queries with proper error handling
@@ -69,7 +115,7 @@ func (s *AnimeService) getAnimesByQuery(query string, args []interface{}, queryN
 	animes := []models.Anime{}
 	for rows.Next() {
 		var anime models.Anime
-		err := rows.Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount)
+		err := rows.Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount, &anime.CoverImageLarge, &anime.CoverImageMedium)
 		if err != nil {
 			s.logger.Warn("Failed to scan anime row", "query", queryName, "error", err)
 			continue
@@ -82,8 +128,8 @@ func (s *AnimeService) getAnimesByQuery(query string, args []interface{}, queryN
 		return nil, fmt.Errorf("error iterating %s: %w", queryName, err)
 	}
 
-	// Enrich with cover images from AniList
-	s.enrichAnimesWithCoverImages(animes)
+	// DBキャッシュがないアニメのみ外部APIから画像を取得
+	s.enrichAnimesWithCoverImagesIfNeeded(animes)
 
 	return animes, nil
 }
@@ -115,10 +161,18 @@ type AnimeService struct {
 	anilistClient    *AniListClient
 	jikanClient      *JikanClient
 	annictClient     *AnnictClient
-	imageUpdateQueue chan func() // 画像更新用ワーカープールのキュー
+	imageUpdateQueue chan func()  // 画像更新用ワーカープールのキュー
+	cache            *MemoryCache // レスポンスキャッシュ
 }
 
 func NewAnimeService(db *database.DB, logger *common.Logger, annictClient *AnnictClient) *AnimeService {
+	// キャッシュを初期化
+	cacheConfig := CacheConfig{
+		DefaultTTL:      constants.SearchResultCacheTTL,
+		CleanupInterval: constants.CacheCleanupInterval,
+		MaxItems:        constants.CacheMaxItems,
+	}
+
 	s := &AnimeService{
 		db:               db,
 		logger:           logger,
@@ -126,6 +180,7 @@ func NewAnimeService(db *database.DB, logger *common.Logger, annictClient *Annic
 		jikanClient:      NewJikanClient(logger),
 		annictClient:     annictClient,
 		imageUpdateQueue: make(chan func(), constants.ImageUpdateQueueSize),
+		cache:            NewMemoryCache(cacheConfig),
 	}
 
 	// ワーカープールを起動
@@ -172,6 +227,9 @@ func (s *AnimeService) enqueueImageUpdate(task func()) {
 func (s *AnimeService) Close() {
 	if s.imageUpdateQueue != nil {
 		close(s.imageUpdateQueue)
+	}
+	if s.cache != nil {
+		s.cache.Close()
 	}
 }
 
@@ -310,7 +368,9 @@ func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int
 
 	// Get animes
 	query := fmt.Sprintf(`
-		SELECT id, title, image_url, season, status, mal_anime_id, annict_id, created_at, updated_at, watchers_count
+		SELECT id, title, image_url, season, status, mal_anime_id, annict_id, created_at, updated_at, watchers_count,
+		       COALESCE(cover_image_large, '') as cover_image_large,
+		       COALESCE(cover_image_medium, '') as cover_image_medium
 		FROM animes %s %s
 		LIMIT $%d OFFSET $%d
 	`, whereClause, orderBy, argIndex, argIndex+1)
@@ -326,34 +386,22 @@ func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int
 	animes := []models.AnimeWithUserData{}
 	for rows.Next() {
 		var anime models.Anime
-		err := rows.Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount)
+		err := rows.Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount, &anime.CoverImageLarge, &anime.CoverImageMedium)
 		if err != nil {
 			continue
 		}
 
 		animeWithData := models.AnimeWithUserData{Anime: anime}
-
-		// Add user data if authenticated
-		if userID != nil {
-			// Get user favorite status
-			var favorite models.UserFavorite
-			err := s.db.QueryRow(`
-				SELECT id, user_id, anime_id, status, created_at, updated_at
-				FROM user_favorites WHERE user_id = $1 AND anime_id = $2
-			`, *userID, anime.ID).Scan(&favorite.ID, &favorite.UserID, &favorite.AnimeID, &favorite.Status, &favorite.CreatedAt, &favorite.UpdatedAt)
-			if err == nil {
-				animeWithData.UserFavorite = &favorite
-			}
-
-			// Calculate watch progress
-			animeWithData.WatchProgress = s.calculateWatchProgress(*userID, anime.ID)
-		}
-
 		animes = append(animes, animeWithData)
 	}
 
-	// AniListから画像を並列で取得
-	s.enrichAnimesWithUserDataCoverImages(animes)
+	// ユーザーデータを一括取得（N+1クエリ解消）
+	if userID != nil {
+		s.enrichAnimesWithUserData(animes, *userID)
+	}
+
+	// DBキャッシュがないアニメのみ外部APIから画像を取得
+	s.enrichAnimesWithUserDataCoverImagesIfNeeded(animes)
 
 	// 検索ログを記録
 	s.logBasicSearch(params, userID, total)
@@ -392,9 +440,11 @@ func (s *AnimeService) AdvancedSearchAnimes(params models.AdvancedSearchParams, 
 
 	// Get animes
 	query := fmt.Sprintf(`
-		SELECT a.id, a.title, a.image_url, a.season, a.status, a.mal_anime_id, a.annict_id, a.created_at, a.updated_at, a.watchers_count
+		SELECT a.id, a.title, a.image_url, a.season, a.status, a.mal_anime_id, a.annict_id, a.created_at, a.updated_at, a.watchers_count,
+		       COALESCE(a.cover_image_large, '') as cover_image_large,
+		       COALESCE(a.cover_image_medium, '') as cover_image_medium
 		%s %s
-		GROUP BY a.id, a.title, a.image_url, a.season, a.status, a.mal_anime_id, a.annict_id, a.created_at, a.updated_at, a.watchers_count
+		GROUP BY a.id, a.title, a.image_url, a.season, a.status, a.mal_anime_id, a.annict_id, a.created_at, a.updated_at, a.watchers_count, a.cover_image_large, a.cover_image_medium
 		%s
 		LIMIT $%d OFFSET $%d
 	`, baseQuery, whereClause, orderBy, argIndex, argIndex+1)
@@ -410,34 +460,22 @@ func (s *AnimeService) AdvancedSearchAnimes(params models.AdvancedSearchParams, 
 	animes := []models.AnimeWithUserData{}
 	for rows.Next() {
 		var anime models.Anime
-		err := rows.Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount)
+		err := rows.Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount, &anime.CoverImageLarge, &anime.CoverImageMedium)
 		if err != nil {
 			continue
 		}
 
 		animeWithData := models.AnimeWithUserData{Anime: anime}
-
-		// Add user data if authenticated
-		if userID != nil {
-			// Get user favorite status
-			var favorite models.UserFavorite
-			err := s.db.QueryRow(`
-				SELECT id, user_id, anime_id, status, created_at, updated_at
-				FROM user_favorites WHERE user_id = $1 AND anime_id = $2
-			`, *userID, anime.ID).Scan(&favorite.ID, &favorite.UserID, &favorite.AnimeID, &favorite.Status, &favorite.CreatedAt, &favorite.UpdatedAt)
-			if err == nil {
-				animeWithData.UserFavorite = &favorite
-			}
-
-			// Calculate watch progress
-			animeWithData.WatchProgress = s.calculateWatchProgress(*userID, anime.ID)
-		}
-
 		animes = append(animes, animeWithData)
 	}
 
-	// AniListから画像を並列で取得
-	s.enrichAnimesWithUserDataCoverImages(animes)
+	// ユーザーデータを一括取得（N+1クエリ解消）
+	if userID != nil {
+		s.enrichAnimesWithUserData(animes, *userID)
+	}
+
+	// DBキャッシュがないアニメのみ外部APIから画像を取得
+	s.enrichAnimesWithUserDataCoverImagesIfNeeded(animes)
 
 	// 検索ログを記録
 	s.logAdvancedSearch(params, userID, total)
@@ -455,9 +493,11 @@ func (s *AnimeService) AdvancedSearchAnimes(params models.AdvancedSearchParams, 
 func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWithUserData, error) {
 	var anime models.Anime
 	err := s.db.QueryRow(`
-		SELECT id, title, image_url, season, status, mal_anime_id, annict_id, created_at, updated_at, watchers_count
+		SELECT id, title, image_url, season, status, mal_anime_id, annict_id, created_at, updated_at, watchers_count,
+		       COALESCE(cover_image_large, '') as cover_image_large,
+		       COALESCE(cover_image_medium, '') as cover_image_medium
 		FROM animes WHERE id = $1
-	`, animeID).Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount)
+	`, animeID).Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount, &anime.CoverImageLarge, &anime.CoverImageMedium)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrAnimeNotFound
@@ -465,8 +505,10 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 		return nil, fmt.Errorf("failed to get anime: %w", err)
 	}
 
-	// AniListから画像を取得
-	s.enrichAnimeWithCoverImage(&anime)
+	// DBキャッシュがない場合のみAniListから画像を取得
+	if anime.CoverImageLarge == "" {
+		s.enrichAnimeWithCoverImage(&anime)
+	}
 
 	animeWithData := &models.AnimeWithUserData{Anime: anime}
 
@@ -655,6 +697,8 @@ func (s *AnimeService) GetUserFavorites(userID int, status string) ([]models.Ani
 
 	query := fmt.Sprintf(`
 		SELECT a.id, a.title, a.image_url, a.season, a.status, a.mal_anime_id, a.created_at, a.updated_at, a.watchers_count,
+		       COALESCE(a.cover_image_large, '') as cover_image_large,
+		       COALESCE(a.cover_image_medium, '') as cover_image_medium,
 		       uf.id, uf.user_id, uf.anime_id, uf.status, uf.created_at, uf.updated_at
 		FROM animes a
 		JOIN user_favorites uf ON a.id = uf.anime_id
@@ -674,6 +718,7 @@ func (s *AnimeService) GetUserFavorites(userID int, status string) ([]models.Ani
 		var favorite models.UserFavorite
 		err := rows.Scan(
 			&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount,
+			&anime.CoverImageLarge, &anime.CoverImageMedium,
 			&favorite.ID, &favorite.UserID, &favorite.AnimeID, &favorite.Status, &favorite.CreatedAt, &favorite.UpdatedAt,
 		)
 		if err != nil {
@@ -691,8 +736,8 @@ func (s *AnimeService) GetUserFavorites(userID int, status string) ([]models.Ani
 		favorites = append(favorites, animeWithData)
 	}
 
-	// AniListから画像を並列で取得
-	s.enrichAnimesWithUserDataCoverImages(favorites)
+	// DBキャッシュがないアニメのみ外部APIから画像を取得
+	s.enrichAnimesWithUserDataCoverImagesIfNeeded(favorites)
 
 	return favorites, nil
 }
@@ -865,8 +910,156 @@ func (s *AnimeService) calculateWatchProgress(userID, animeID int) float64 {
 	return float64(watchedEpisodes) / float64(totalEpisodes) * 100.0
 }
 
+// batchGetUserFavorites - 複数アニメのお気に入り情報を一括取得（N+1クエリ解消）
+func (s *AnimeService) batchGetUserFavorites(userID int, animeIDs []int) (map[int]*models.UserFavorite, error) {
+	if len(animeIDs) == 0 {
+		return make(map[int]*models.UserFavorite), nil
+	}
+
+	// プレースホルダーを動的に生成
+	placeholders := make([]string, len(animeIDs))
+	args := make([]interface{}, len(animeIDs)+1)
+	args[0] = userID
+	for i, id := range animeIDs {
+		placeholders[i] = fmt.Sprintf("$%d", i+2)
+		args[i+1] = id
+	}
+
+	query := fmt.Sprintf(`
+		SELECT id, user_id, anime_id, status, created_at, updated_at
+		FROM user_favorites
+		WHERE user_id = $1 AND anime_id IN (%s)
+	`, strings.Join(placeholders, ","))
+
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to batch get user favorites: %w", err)
+	}
+	defer rows.Close()
+
+	favorites := make(map[int]*models.UserFavorite)
+	for rows.Next() {
+		var fav models.UserFavorite
+		if err := rows.Scan(&fav.ID, &fav.UserID, &fav.AnimeID, &fav.Status, &fav.CreatedAt, &fav.UpdatedAt); err != nil {
+			s.logger.Warn("Failed to scan user favorite", "error", err)
+			continue
+		}
+		favorites[fav.AnimeID] = &fav
+	}
+
+	return favorites, nil
+}
+
+// batchCalculateWatchProgress - 複数アニメの視聴進捗を一括計算（N+1クエリ解消）
+func (s *AnimeService) batchCalculateWatchProgress(userID int, animeIDs []int) (map[int]float64, error) {
+	if len(animeIDs) == 0 {
+		return make(map[int]float64), nil
+	}
+
+	// プレースホルダーを動的に生成
+	placeholders := make([]string, len(animeIDs))
+	args := make([]interface{}, len(animeIDs)+1)
+	args[0] = userID
+	for i, id := range animeIDs {
+		placeholders[i] = fmt.Sprintf("$%d", i+2)
+		args[i+1] = id
+	}
+
+	// 1つのクエリで全アニメの視聴進捗を計算
+	query := fmt.Sprintf(`
+		SELECT 
+			e.anime_id,
+			COUNT(e.id) as total_episodes,
+			COUNT(CASE WHEN ws.viewed = true THEN 1 END) as watched_episodes
+		FROM episodes e
+		LEFT JOIN watch_statuses ws ON e.id = ws.episode_id AND ws.user_id = $1
+		WHERE e.anime_id IN (%s)
+		GROUP BY e.anime_id
+	`, strings.Join(placeholders, ","))
+
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to batch calculate watch progress: %w", err)
+	}
+	defer rows.Close()
+
+	progress := make(map[int]float64)
+	for rows.Next() {
+		var animeID, totalEpisodes, watchedEpisodes int
+		if err := rows.Scan(&animeID, &totalEpisodes, &watchedEpisodes); err != nil {
+			s.logger.Warn("Failed to scan watch progress", "error", err)
+			continue
+		}
+		if totalEpisodes > 0 {
+			progress[animeID] = float64(watchedEpisodes) / float64(totalEpisodes) * 100.0
+		} else {
+			progress[animeID] = 0.0
+		}
+	}
+
+	// animeIDsに含まれるがエピソードがないアニメは0%として設定
+	for _, id := range animeIDs {
+		if _, exists := progress[id]; !exists {
+			progress[id] = 0.0
+		}
+	}
+
+	return progress, nil
+}
+
+// enrichAnimesWithUserData - アニメリストにユーザーデータを一括追加（N+1クエリ解消版）
+// 注意: この関数はユーザーデータ取得に失敗してもエラーを返さず、警告ログのみ出力します。
+// これは意図的な設計で、ユーザーデータ（お気に入り・視聴進捗）が取得できなくても
+// アニメ一覧自体は表示できるようにするためです。クライアント側では、
+// UserFavoriteやWatchProgressがnilまたは0の場合を適切にハンドリングしてください。
+func (s *AnimeService) enrichAnimesWithUserData(animes []models.AnimeWithUserData, userID int) {
+	if len(animes) == 0 {
+		return
+	}
+
+	// アニメIDのリストを作成
+	animeIDs := make([]int, len(animes))
+	for i, anime := range animes {
+		animeIDs[i] = anime.ID
+	}
+
+	// お気に入り情報を一括取得
+	// エラー時は空のmapを使用し、処理を続行（グレースフルデグラデーション）
+	favorites, err := s.batchGetUserFavorites(userID, animeIDs)
+	if err != nil {
+		s.logger.Warn("Failed to batch get user favorites", "error", err)
+		favorites = make(map[int]*models.UserFavorite)
+	}
+
+	// 視聴進捗を一括計算
+	// エラー時は空のmapを使用し、処理を続行（グレースフルデグラデーション）
+	progress, err := s.batchCalculateWatchProgress(userID, animeIDs)
+	if err != nil {
+		s.logger.Warn("Failed to batch calculate watch progress", "error", err)
+		progress = make(map[int]float64)
+	}
+
+	// 各アニメにユーザーデータを設定
+	for i := range animes {
+		animeID := animes[i].ID
+		if fav, ok := favorites[animeID]; ok {
+			animes[i].UserFavorite = fav
+		}
+		if prog, ok := progress[animeID]; ok {
+			animes[i].WatchProgress = prog
+		}
+	}
+}
+
 // GetFilterOptions - フィルター情報を取得
 func (s *AnimeService) GetFilterOptions() (*models.FilterOptions, error) {
+	// キャッシュから取得を試みる
+	var cachedOptions models.FilterOptions
+	if found, err := s.cache.Get(constants.CacheKeyFilterOptions, &cachedOptions); found && err == nil {
+		s.logger.Debug("Cache hit for filter options")
+		return &cachedOptions, nil
+	}
+
 	filterOptions := &models.FilterOptions{
 		Genres:  []models.GenreInfo{},
 		Years:   []int{},
@@ -983,6 +1176,11 @@ func (s *AnimeService) GetFilterOptions() (*models.FilterOptions, error) {
 		// デフォルト値はすでに設定済み
 	} else {
 		filterOptions.Ratings = ratingStats
+	}
+
+	// キャッシュに保存
+	if cacheErr := s.cache.SetWithTTL(constants.CacheKeyFilterOptions, filterOptions, constants.FilterOptionsCacheTTL); cacheErr != nil {
+		s.logger.Warn("Failed to cache filter options", "error", cacheErr)
 	}
 
 	return filterOptions, nil
@@ -1253,6 +1451,37 @@ func (s *AnimeService) enrichAnimesWithCoverImages(animes []models.Anime) {
 	wg.Wait()
 }
 
+// enrichAnimesWithCoverImagesIfNeeded - DBキャッシュがないアニメのみ画像を取得（最適化版）
+// DBから既に画像が取得されている場合はAPIコールをスキップ
+func (s *AnimeService) enrichAnimesWithCoverImagesIfNeeded(animes []models.Anime) {
+	var wg sync.WaitGroup
+	var needEnrichCount int
+
+	// 画像が必要なアニメのみ処理
+	for i := range animes {
+		// DBキャッシュがある場合はスキップ
+		if animes[i].CoverImageLarge != "" {
+			continue
+		}
+
+		needEnrichCount++
+		wg.Add(1)
+		go func(index int) {
+			defer wg.Done()
+			s.enrichAnimeWithCoverImage(&animes[index])
+		}(i)
+	}
+
+	if needEnrichCount > 0 {
+		s.logger.Debug("Enriching animes with cover images",
+			"total", len(animes),
+			"need_enrich", needEnrichCount,
+			"cached", len(animes)-needEnrichCount)
+	}
+
+	wg.Wait()
+}
+
 // enrichAnimesWithUserDataCoverImages - AnimeWithUserDataのスライスに画像を追加（並列処理）
 func (s *AnimeService) enrichAnimesWithUserDataCoverImages(animes []models.AnimeWithUserData) {
 	var wg sync.WaitGroup
@@ -1267,6 +1496,35 @@ func (s *AnimeService) enrichAnimesWithUserDataCoverImages(animes []models.Anime
 	}
 
 	// すべてのゴルーチンが完了するまで待機
+	wg.Wait()
+}
+
+// enrichAnimesWithUserDataCoverImagesIfNeeded - DBキャッシュがないアニメのみ画像を取得（最適化版）
+func (s *AnimeService) enrichAnimesWithUserDataCoverImagesIfNeeded(animes []models.AnimeWithUserData) {
+	var wg sync.WaitGroup
+	var needEnrichCount int
+
+	for i := range animes {
+		// DBキャッシュがある場合はスキップ
+		if animes[i].CoverImageLarge != "" {
+			continue
+		}
+
+		needEnrichCount++
+		wg.Add(1)
+		go func(index int) {
+			defer wg.Done()
+			s.enrichAnimeWithCoverImage(&animes[index].Anime)
+		}(i)
+	}
+
+	if needEnrichCount > 0 {
+		s.logger.Debug("Enriching animes with user data cover images",
+			"total", len(animes),
+			"need_enrich", needEnrichCount,
+			"cached", len(animes)-needEnrichCount)
+	}
+
 	wg.Wait()
 }
 
