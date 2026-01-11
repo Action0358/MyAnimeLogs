@@ -1008,6 +1008,10 @@ func (s *AnimeService) batchCalculateWatchProgress(userID int, animeIDs []int) (
 }
 
 // enrichAnimesWithUserData - アニメリストにユーザーデータを一括追加（N+1クエリ解消版）
+// 注意: この関数はユーザーデータ取得に失敗してもエラーを返さず、警告ログのみ出力します。
+// これは意図的な設計で、ユーザーデータ（お気に入り・視聴進捗）が取得できなくても
+// アニメ一覧自体は表示できるようにするためです。クライアント側では、
+// UserFavoriteやWatchProgressがnilまたは0の場合を適切にハンドリングしてください。
 func (s *AnimeService) enrichAnimesWithUserData(animes []models.AnimeWithUserData, userID int) {
 	if len(animes) == 0 {
 		return
@@ -1020,15 +1024,19 @@ func (s *AnimeService) enrichAnimesWithUserData(animes []models.AnimeWithUserDat
 	}
 
 	// お気に入り情報を一括取得
+	// エラー時は空のmapを使用し、処理を続行（グレースフルデグラデーション）
 	favorites, err := s.batchGetUserFavorites(userID, animeIDs)
 	if err != nil {
 		s.logger.Warn("Failed to batch get user favorites", "error", err)
+		favorites = make(map[int]*models.UserFavorite)
 	}
 
 	// 視聴進捗を一括計算
+	// エラー時は空のmapを使用し、処理を続行（グレースフルデグラデーション）
 	progress, err := s.batchCalculateWatchProgress(userID, animeIDs)
 	if err != nil {
 		s.logger.Warn("Failed to batch calculate watch progress", "error", err)
+		progress = make(map[int]float64)
 	}
 
 	// 各アニメにユーザーデータを設定

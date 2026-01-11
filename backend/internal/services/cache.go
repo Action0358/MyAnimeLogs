@@ -64,22 +64,24 @@ func NewMemoryCache(config CacheConfig) *MemoryCache {
 // startCleanup starts the background cleanup goroutine
 func (c *MemoryCache) startCleanup(interval time.Duration) {
 	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	if c.cleanupRunning {
-		c.mu.Unlock()
 		return
 	}
 	c.cleanupRunning = true
-	c.mu.Unlock()
 
+	// tickerの初期化とgoroutine起動をロック内で行い、データレースを防止
 	c.cleanupTicker = time.NewTicker(interval)
+	ticker := c.cleanupTicker // ローカル変数にコピーしてgoroutine内で安全に使用
 
 	go func() {
 		for {
 			select {
-			case <-c.cleanupTicker.C:
+			case <-ticker.C:
 				c.deleteExpired()
 			case <-c.stopCleanup:
-				c.cleanupTicker.Stop()
+				ticker.Stop()
 				return
 			}
 		}
@@ -113,7 +115,7 @@ func (c *MemoryCache) SetWithTTL(key string, value interface{}, ttl time.Duratio
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// Check if we need to evict items (simple LRU-like behavior: delete oldest expired first)
+	// Check if we need to evict items (simple eviction: expired item first, then a random one)
 	if len(c.items) >= c.maxItems {
 		c.evictOne()
 	}
