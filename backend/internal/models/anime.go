@@ -16,9 +16,9 @@ type Anime struct {
 	CreatedAt     time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at" db:"updated_at"`
 
-	// AniList から取得する画像（DBに保存しない、リアルタイム取得）
-	CoverImageLarge  string `json:"cover_image_large,omitempty" db:"-"`
-	CoverImageMedium string `json:"cover_image_medium,omitempty" db:"-"`
+	// AniList から取得する画像（DBにキャッシュ）
+	CoverImageLarge  string `json:"cover_image_large,omitempty" db:"cover_image_large"`
+	CoverImageMedium string `json:"cover_image_medium,omitempty" db:"cover_image_medium"`
 }
 
 type AnimeWithUserData struct {
