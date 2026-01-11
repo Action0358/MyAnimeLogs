@@ -4,7 +4,6 @@
 -- インデックスを削除
 DROP INDEX IF EXISTS idx_animes_title_tsvector;
 DROP INDEX IF EXISTS idx_animes_title_trgm;
-DROP INDEX IF EXISTS idx_animes_description_trgm;
 DROP INDEX IF EXISTS idx_animes_season_watchers;
 DROP INDEX IF EXISTS idx_animes_watchers_count;
 DROP INDEX IF EXISTS idx_user_favorites_user_anime;
