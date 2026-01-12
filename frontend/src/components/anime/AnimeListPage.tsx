@@ -6,6 +6,7 @@ import { Container } from '@/components/layout'
 import { AnimeGrid } from '@/components/anime'
 import { Pagination } from '@/components/ui'
 import type { DBAnime, DBAnimeResponse } from '@/lib/api/annict'
+import { toAnimeStatus } from '@/lib/constants'
 
 // キャッシュ時間の定数（バックエンドと同期）
 const STALE_TIME = 1000 * 60 * 15 // 15分
@@ -90,7 +91,7 @@ export const AnimeListPage: React.FC<AnimeListPageProps> = ({
             title: anime.title,
             image_url: anime.image_url,
             season: anime.season,
-            status: anime.status as 'airing' | 'finished' | undefined,
+            status: toAnimeStatus(anime.status),
             cover_image_large: anime.cover_image_large,
             cover_image_medium: anime.cover_image_medium,
           }))}

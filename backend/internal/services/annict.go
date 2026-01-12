@@ -151,12 +151,14 @@ func (c *AnnictClient) FetchPopularWorks() (*models.AnnictWorkResponse, error) {
 
 // FetchPopularWorksWithLimit fetches popular works with pagination to get up to the specified limit
 // This function makes multiple API calls to fetch more than the default per_page limit
+// Returns partial data with error if API fails mid-pagination
 func (c *AnnictClient) FetchPopularWorksWithLimit(limit int) (*models.AnnictWorkResponse, error) {
 	if limit <= 0 {
 		limit = constants.AnnictAPIPerPage // デフォルト
 	}
 
 	var allWorks []models.AnnictWork
+	var partialErr error
 	page := 1
 	perPage := constants.AnnictAPIPerPage // Annict APIの1ページあたりの最大件数
 
@@ -168,7 +170,7 @@ func (c *AnnictClient) FetchPopularWorksWithLimit(limit int) (*models.AnnictWork
 
 		response, err := c.makeRequest(params)
 		if err != nil {
-			// 部分的なデータがある場合はそれを返す
+			// 部分的なデータがある場合はデータとエラーの両方を返す
 			if len(allWorks) > 0 {
 				if c.logger != nil {
 					c.logger.Warn("Partial data returned due to API error",
@@ -176,6 +178,7 @@ func (c *AnnictClient) FetchPopularWorksWithLimit(limit int) (*models.AnnictWork
 						"fetched", len(allWorks),
 						"error", err)
 				}
+				partialErr = fmt.Errorf("partial data: fetched %d items before error: %w", len(allWorks), err)
 				break
 			}
 			return nil, err
@@ -209,7 +212,7 @@ func (c *AnnictClient) FetchPopularWorksWithLimit(limit int) (*models.AnnictWork
 	return &models.AnnictWorkResponse{
 		Works:      allWorks,
 		TotalCount: len(allWorks),
-	}, nil
+	}, partialErr
 }
 
 func (c *AnnictClient) TestConnection() error {

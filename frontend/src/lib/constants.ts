@@ -84,3 +84,39 @@ export const HERO_LOGO_PATH = '/logo.svg'
  * ヘッダー・フッター用ロゴ画像のパス
  */
 export const SUB_LOGO_PATH = '/logo2.svg'
+
+// ========================
+// アニメ関連の定数
+// ========================
+
+/**
+ * 人気アニメの取得上限
+ * バックエンドのconstants.PopularAnimeLimitと同期
+ */
+export const POPULAR_ANIME_LIMIT = 100
+
+/**
+ * 今期アニメの取得上限
+ * バックエンドのconstants.PopularAnimeLimitと同期
+ */
+export const CURRENT_SEASON_ANIME_LIMIT = 100
+
+/**
+ * アニメのステータス型
+ */
+export type AnimeStatus = 'airing' | 'finished'
+
+/**
+ * 有効なアニメステータスかどうかを判定する型ガード関数
+ */
+export const isValidAnimeStatus = (status: unknown): status is AnimeStatus => {
+  return status === 'airing' || status === 'finished'
+}
+
+/**
+ * ステータス文字列を安全にAnimeStatus型に変換
+ * 無効な値の場合はundefinedを返す
+ */
+export const toAnimeStatus = (status: unknown): AnimeStatus | undefined => {
+  return isValidAnimeStatus(status) ? status : undefined
+}

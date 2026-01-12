@@ -435,7 +435,7 @@ func (h *AnimeHandler) GetPopularAnimes(c *gin.Context) {
 // getAnimesWithLimit is a helper method to handle anime list endpoints with limit parameter
 func (h *AnimeHandler) getAnimesWithLimit(c *gin.Context, fetchFunc func(int) ([]models.Anime, error), resourceName string) {
 	limitStr := c.DefaultQuery("limit", "12")
-	limit := utils.ParseLimitQuery(limitStr, 12, 100) // 上限を100に変更（今期・人気アニメ専用ページ対応）
+	limit := utils.ParseLimitQuery(limitStr, 12, constants.PopularAnimeLimit) // 今期・人気アニメ専用ページ対応
 
 	animes, err := fetchFunc(limit)
 	if err != nil {
