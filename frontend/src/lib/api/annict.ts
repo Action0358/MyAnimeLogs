@@ -114,7 +114,7 @@ export const animeApi = {
   async getCurrentSeasonAnimes(limit?: number): Promise<DBAnimeResponse> {
     try {
       const params = limit ? `?limit=${limit}` : ''
-      return await get<DBAnimeResponse>(`/api/animes/current-season${params}`)
+      return await get<DBAnimeResponse>(`/api/animes/current${params}`)
     } catch (error) {
       if (error instanceof ApiClientError) {
         throw new Error('今期アニメの取得に失敗しました')

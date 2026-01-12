@@ -1,89 +1,23 @@
 'use client'
 
-import React, { Suspense, useCallback } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
-import { Container } from '@/components/layout'
-import { AnimeGrid } from '@/components/anime'
-import { Pagination } from '@/components/ui'
-import { useAnimes } from '@/hooks/useAnimes'
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 
-function AnimeListContent() {
-  const searchParams = useSearchParams()
+// 旧アニメ一覧ページ → 今期アニメページへリダイレクト
+// SEO・ブックマーク対応のため、完全削除ではなくリダイレクト
+export default function AnimeListPage() {
   const router = useRouter()
 
-  const currentPage = Number(searchParams.get('page')) || 1
-
-  const { animes, isLoading, totalPages, total, setPage, isFetching } = useAnimes({
-    pageSize: 24,
-    initialPage: currentPage,
-    prefetchNextPage: true,
-  })
-
-  const handlePageChange = useCallback(
-    (page: number) => {
-      setPage(page)
-      const params = new URLSearchParams(searchParams.toString())
-      params.set('page', String(page))
-      router.push(`/anime?${params.toString()}`)
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-    },
-    [setPage, searchParams, router]
-  )
+  useEffect(() => {
+    router.replace('/anime/current')
+  }, [router])
 
   return (
-    <Container className="py-8">
-      <div className="max-w-7xl mx-auto">
-        {/* ヘッダー */}
-        <div className="mb-8">
-          <div className="flex items-center gap-2">
-            <h1 className="text-3xl font-bold text-gray-900">アニメ一覧</h1>
-            {isFetching && !isLoading && (
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
-            )}
-          </div>
-          <p className="text-gray-600">
-            {total > 0 ? `${total}件のアニメ` : 'アニメを読み込み中...'}
-          </p>
-        </div>
-
-        {/* アニメグリッド */}
-        <AnimeGrid
-          animes={animes}
-          isLoading={isLoading}
-          emptyMessage="アニメが見つかりませんでした"
-          columns={{ mobile: 2, tablet: 3, desktop: 4, wide: 6 }}
-        />
-
-        {/* ページネーション */}
-        {totalPages > 1 && (
-          <div className="mt-8">
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={handlePageChange}
-            />
-          </div>
-        )}
+    <div className="flex items-center justify-center min-h-screen">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+        <p className="mt-4 text-gray-600">リダイレクト中...</p>
       </div>
-    </Container>
+    </div>
   )
 }
-
-const AnimeListPage: React.FC = () => {
-  return (
-    <Suspense
-      fallback={
-        <Container className="py-12">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">読み込み中...</p>
-          </div>
-        </Container>
-      }
-    >
-      <AnimeListContent />
-    </Suspense>
-  )
-}
-
-export default AnimeListPage
