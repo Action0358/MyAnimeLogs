@@ -8,9 +8,9 @@ import { Pagination } from '@/components/ui'
 import type { DBAnime, DBAnimeResponse } from '@/lib/api/annict'
 import { toAnimeStatus } from '@/lib/constants'
 
-// キャッシュ時間の定数（バックエンドと同期）
-const STALE_TIME = 1000 * 60 * 15 // 15分
-const GC_TIME = 1000 * 60 * 30 // 30分
+// キャッシュ時間の定数（バックエンドのCurrentSeasonAnimeCacheTTL/PopularAnimeCacheTTLと同期）
+const STALE_TIME = 1000 * 60 * 30 // 30分
+const GC_TIME = 1000 * 60 * 60 // 60分
 
 // 1ページあたりの表示件数
 const PAGE_SIZE = 24
