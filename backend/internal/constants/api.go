@@ -76,3 +76,13 @@ const (
 	CacheKeySearch        = "search:"
 	CacheKeyAdvSearch     = "adv_search:"
 )
+
+// Annict API関連の定数
+const (
+	// PopularAnimeLimit - 人気アニメの取得上限
+	// パフォーマンスとユーザー体験のバランスを考慮してTop100に制限
+	PopularAnimeLimit = 100
+
+	// AnnictAPIPerPage - Annict APIの1ページあたりの取得件数
+	AnnictAPIPerPage = 50
+)

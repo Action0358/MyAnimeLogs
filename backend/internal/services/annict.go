@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"myanimelogs/internal/common"
+	"myanimelogs/internal/constants"
 	"myanimelogs/internal/database"
 	"myanimelogs/internal/models"
 	"net/http"
@@ -146,6 +147,86 @@ func (c *AnnictClient) FetchPopularWorks() (*models.AnnictWorkResponse, error) {
 	params.Add("sort_watchers_count", defaultSortOrder)
 	params.Add("per_page", defaultPerPage)
 	return c.makeRequest(params)
+}
+
+// FetchPopularWorksWithLimit fetches popular works with pagination to get up to the specified limit
+// This function makes multiple API calls to fetch more than the default per_page limit
+// Returns partial data with error if API fails mid-pagination
+// Maximum pages is limited to prevent excessive API calls
+func (c *AnnictClient) FetchPopularWorksWithLimit(limit int) (*models.AnnictWorkResponse, error) {
+	if limit <= 0 {
+		limit = constants.AnnictAPIPerPage // デフォルト
+	}
+
+	// 上限を超えるlimitが指定された場合は制限
+	if limit > constants.PopularAnimeLimit {
+		limit = constants.PopularAnimeLimit
+	}
+
+	var allWorks []models.AnnictWork
+	var partialErr error
+	page := 1
+	perPage := constants.AnnictAPIPerPage                   // Annict APIの1ページあたりの最大件数
+	maxPages := (constants.PopularAnimeLimit / perPage) + 1 // 最大ページ数（レート制限対策）
+
+	for len(allWorks) < limit && page <= maxPages {
+		params := url.Values{}
+		params.Add("sort_watchers_count", defaultSortOrder)
+		params.Add("per_page", fmt.Sprintf("%d", perPage))
+		params.Add("page", fmt.Sprintf("%d", page))
+
+		response, err := c.makeRequest(params)
+		if err != nil {
+			// 部分的なデータがある場合はデータとエラーの両方を返す
+			if len(allWorks) > 0 {
+				if c.logger != nil {
+					c.logger.Warn("Partial data returned due to API error",
+						"page", page,
+						"fetched", len(allWorks),
+						"error", err)
+				}
+				partialErr = fmt.Errorf("partial data: fetched %d items before error: %w", len(allWorks), err)
+				break
+			}
+			return nil, err
+		}
+
+		if len(response.Works) == 0 {
+			break // これ以上データがない
+		}
+
+		allWorks = append(allWorks, response.Works...)
+
+		// 次のページがない場合は終了
+		if response.NextPage == nil {
+			break
+		}
+
+		page++
+	}
+
+	// 最大ページ数に達した場合の警告
+	if page > maxPages && c.logger != nil {
+		c.logger.Warn("Reached maximum page limit for popular works",
+			"maxPages", maxPages,
+			"fetched", len(allWorks))
+	}
+
+	// 指定された上限を超えた場合は切り詰める
+	if len(allWorks) > limit {
+		allWorks = allWorks[:limit]
+	}
+
+	if c.logger != nil {
+		c.logger.Info("Fetched popular works from Annict",
+			"total", len(allWorks),
+			"limit", limit)
+	}
+
+	return &models.AnnictWorkResponse{
+		Works:      allWorks,
+		TotalCount: len(allWorks),
+	}, partialErr
 }
 
 func (c *AnnictClient) TestConnection() error {
@@ -327,8 +408,9 @@ func (c *AnnictClient) FetchAndSyncWorksBySeason(season string) ([]models.Anime,
 }
 
 // FetchAndSyncPopularWorks fetches popular works from Annict and syncs to database
+// Uses PopularAnimeLimit (100) to fetch top popular anime
 func (c *AnnictClient) FetchAndSyncPopularWorks() ([]models.Anime, error) {
-	response, err := c.FetchPopularWorks()
+	response, err := c.FetchPopularWorksWithLimit(constants.PopularAnimeLimit)
 	if err != nil {
 		return nil, err
 	}
