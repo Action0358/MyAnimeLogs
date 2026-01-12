@@ -1,10 +1,9 @@
 'use client'
 
 import React, { useEffect, useRef } from 'react'
-import { usePathname } from 'next/navigation'
 import { NavLink } from './NavLink'
 import { X } from 'lucide-react'
-import { NAV_ITEMS, scrollToCurrentSeason } from './navigationConfig'
+import { NAV_ITEMS } from './navigationConfig'
 
 interface MobileNavProps {
   isOpen: boolean
@@ -12,17 +11,7 @@ interface MobileNavProps {
 }
 
 export const MobileNav: React.FC<MobileNavProps> = ({ isOpen, onClose }) => {
-  const pathname = usePathname()
-  const isHomePage = pathname === '/'
   const menuRef = useRef<HTMLDivElement>(null)
-
-  const handleNavClick = (item: typeof NAV_ITEMS[0]) => (e: React.MouseEvent) => {
-    if (item.requiresScroll && isHomePage) {
-      e.preventDefault()
-      scrollToCurrentSeason()
-    }
-    onClose()
-  }
 
   // メニュー外クリックで閉じる
   useEffect(() => {
@@ -107,7 +96,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({ isOpen, onClose }) => {
               <li key={item.href}>
                 <NavLink
                   href={item.href}
-                  onClick={handleNavClick(item)}
+                  onClick={onClose}
                   className="block pl-5 pr-4 py-3 hover:bg-gray-50 rounded-none"
                 >
                   {item.label}

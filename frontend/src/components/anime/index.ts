@@ -1,6 +1,7 @@
 export { default as AnimeSection } from './AnimeSection';
 export { default as CurrentSeasonAnime } from './CurrentSeasonAnime';
 export { default as PopularAnime } from './PopularAnime';
+export { default as AnimeListPage } from './AnimeListPage';
 export { AnimeCard } from './AnimeCard';
 export { AnimeGrid } from './AnimeGrid';
 export { EpisodeList } from './EpisodeList';
