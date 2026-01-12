@@ -153,12 +153,12 @@ func (c *AnnictClient) FetchPopularWorks() (*models.AnnictWorkResponse, error) {
 // This function makes multiple API calls to fetch more than the default per_page limit
 func (c *AnnictClient) FetchPopularWorksWithLimit(limit int) (*models.AnnictWorkResponse, error) {
 	if limit <= 0 {
-		limit = 50 // デフォルト
+		limit = constants.AnnictAPIPerPage // デフォルト
 	}
 
 	var allWorks []models.AnnictWork
 	page := 1
-	perPage := 50 // Annict APIの1ページあたりの最大件数
+	perPage := constants.AnnictAPIPerPage // Annict APIの1ページあたりの最大件数
 
 	for len(allWorks) < limit {
 		params := url.Values{}
