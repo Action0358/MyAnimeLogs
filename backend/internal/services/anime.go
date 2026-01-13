@@ -316,6 +316,7 @@ func buildKeywordSearchClause(keyword string, argIndex int, tableAlias string) (
 	}
 
 	likePattern := "%" + keyword + "%"
+	// $argIndex: FTS用のkeyword, $argIndex+1: ILIKE用のlikePattern（3つのカラムで共有）
 	clause := fmt.Sprintf(`
 		(to_tsvector('simple', COALESCE(%stitle, '') || ' ' || COALESCE(%stitle_kana, '') || ' ' || COALESCE(%stitle_en, '')) @@ plainto_tsquery('simple', $%d)
 		 OR %stitle ILIKE $%d 
@@ -323,11 +324,11 @@ func buildKeywordSearchClause(keyword string, argIndex int, tableAlias string) (
 		 OR %stitle_en ILIKE $%d)
 	`, tableAlias, tableAlias, tableAlias, argIndex,
 		tableAlias, argIndex+1,
-		tableAlias, argIndex+2,
-		tableAlias, argIndex+3)
+		tableAlias, argIndex+1,
+		tableAlias, argIndex+1)
 
-	args := []interface{}{keyword, likePattern, likePattern, likePattern}
-	return clause, args, argIndex + 4
+	args := []interface{}{keyword, likePattern}
+	return clause, args, argIndex + 2
 }
 
 func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int) (*models.PaginatedResponse, error) {
