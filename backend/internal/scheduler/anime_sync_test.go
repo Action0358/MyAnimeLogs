@@ -241,13 +241,14 @@ func TestSyncStatusTracker_StatusFields(t *testing.T) {
 func TestSchedulerWithNilLogger(t *testing.T) {
 	client := newTestAnnictClient()
 	animeService := newTestAnimeService()
-	scheduler, err := NewAnimeSyncScheduler(client, animeService, nil, true, 3, 0)
+	// enabled=false でテストして、実際の同期が開始されないようにする
+	scheduler, err := NewAnimeSyncScheduler(client, animeService, nil, false, 3, 0)
 
 	assert.NoError(t, err)
 	// Should not panic - logger is initialized in constructor
 	assert.NotNil(t, scheduler.logger)
 
-	// Start and Stop should not panic
+	// Start and Stop should not panic (enabled=false なので同期は開始されない)
 	scheduler.Start()
 	scheduler.Stop()
 }
