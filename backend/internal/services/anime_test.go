@@ -307,7 +307,7 @@ func TestAnimeService_BuildWhereClause(t *testing.T) {
 				Query: "進撃",
 			},
 			userID:       nil,
-			expectedArgs: 2, // query, query (LIKE用)
+			expectedArgs: 2, // query (FTS用), likePattern (ILIKE用、3カラムで共有)
 			shouldContain: []string{
 				"to_tsvector",
 				"plainto_tsquery",

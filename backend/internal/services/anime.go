@@ -307,19 +307,42 @@ func (s *AnimeService) GetEpisodeSyncStatus(animeID int) (*models.EpisodeSyncSta
 	}, nil
 }
 
+// buildKeywordSearchClause - キーワード検索用のWHERE句を構築するヘルパー関数
+// tableAlias: テーブルエイリアス（例: "a." または ""）
+// 戻り値: WHERE句の条件文字列、引数スライス、次の引数インデックス
+func buildKeywordSearchClause(keyword string, argIndex int, tableAlias string) (string, []interface{}, int) {
+	if keyword == "" {
+		return "", nil, argIndex
+	}
+
+	likePattern := "%" + keyword + "%"
+	// $argIndex: FTS用のkeyword, $argIndex+1: ILIKE用のlikePattern（3つのカラムで共有）
+	clause := fmt.Sprintf(`
+		(to_tsvector('simple', COALESCE(%stitle, '') || ' ' || COALESCE(%stitle_kana, '') || ' ' || COALESCE(%stitle_en, '')) @@ plainto_tsquery('simple', $%d)
+		 OR %stitle ILIKE $%d 
+		 OR %stitle_kana ILIKE $%d 
+		 OR %stitle_en ILIKE $%d)
+	`, tableAlias, tableAlias, tableAlias, argIndex,
+		tableAlias, argIndex+1,
+		tableAlias, argIndex+1,
+		tableAlias, argIndex+1)
+
+	args := []interface{}{keyword, likePattern}
+	return clause, args, argIndex + 2
+}
+
 func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int) (*models.PaginatedResponse, error) {
 	// Build WHERE clause
 	whereClauses := []string{}
 	args := []interface{}{}
 	argIndex := 1
 
+	// キーワード検索（ヘルパー関数を使用）
 	if params.Keyword != "" {
-		whereClauses = append(whereClauses, fmt.Sprintf(`
-			(to_tsvector('simple', COALESCE(title, '') || ' ' || COALESCE(description, '')) @@ plainto_tsquery('simple', $%d)
-			 OR title ILIKE $%d OR description ILIKE $%d)
-		`, argIndex, argIndex+1, argIndex+1))
-		args = append(args, params.Keyword, "%"+params.Keyword+"%")
-		argIndex += 2
+		clause, keywordArgs, newArgIndex := buildKeywordSearchClause(params.Keyword, argIndex, "")
+		whereClauses = append(whereClauses, clause)
+		args = append(args, keywordArgs...)
+		argIndex = newArgIndex
 	}
 
 	if params.Season != "" {
@@ -1310,10 +1333,11 @@ func (s *AnimeService) GetSearchSuggestions(query string, limit int) ([]string, 
 		limit = 10
 	}
 
+	// title, title_kana, title_en のいずれかにマッチするタイトルを取得
 	rows, err := s.db.Query(`
 		SELECT title
 		FROM animes
-		WHERE title ILIKE $1
+		WHERE (title ILIKE $1 OR title_kana ILIKE $1 OR title_en ILIKE $1)
 		  AND TRIM(title) <> ''
 		GROUP BY title
 		ORDER BY MAX(watchers_count) DESC NULLS LAST, title
@@ -1588,14 +1612,12 @@ func (s *AnimeService) buildWhereClause(params models.AdvancedSearchParams, user
 	args := []interface{}{}
 	argIndex := 1
 
-	// 全文検索（日本語対応のためFTSとILIKEを併用）
+	// キーワード検索（ヘルパー関数を使用、テーブルエイリアス "a." を指定）
 	if params.Query != "" {
-		whereClauses = append(whereClauses, fmt.Sprintf(`
-			(to_tsvector('simple', COALESCE(a.title, '') || ' ' || COALESCE(a.description, '')) @@ plainto_tsquery('simple', $%d)
-			 OR a.title ILIKE $%d OR a.description ILIKE $%d)
-		`, argIndex, argIndex+1, argIndex+1))
-		args = append(args, params.Query, "%"+params.Query+"%")
-		argIndex += 2
+		clause, keywordArgs, newArgIndex := buildKeywordSearchClause(params.Query, argIndex, "a.")
+		whereClauses = append(whereClauses, clause)
+		args = append(args, keywordArgs...)
+		argIndex = newArgIndex
 	}
 
 	// ジャンル検索（複数対応）
