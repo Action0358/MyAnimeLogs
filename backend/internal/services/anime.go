@@ -314,12 +314,16 @@ func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int
 	argIndex := 1
 
 	if params.Keyword != "" {
+		// ILIKE検索用のパターン
+		likePattern := "%" + params.Keyword + "%"
 		whereClauses = append(whereClauses, fmt.Sprintf(`
-			(to_tsvector('simple', COALESCE(title, '') || ' ' || COALESCE(description, '')) @@ plainto_tsquery('simple', $%d)
-			 OR title ILIKE $%d OR description ILIKE $%d)
-		`, argIndex, argIndex+1, argIndex+1))
-		args = append(args, params.Keyword, "%"+params.Keyword+"%")
-		argIndex += 2
+			(to_tsvector('simple', COALESCE(title, '') || ' ' || COALESCE(title_kana, '') || ' ' || COALESCE(title_en, '')) @@ plainto_tsquery('simple', $%d)
+			 OR title ILIKE $%d 
+			 OR title_kana ILIKE $%d 
+			 OR title_en ILIKE $%d)
+		`, argIndex, argIndex+1, argIndex+2, argIndex+3))
+		args = append(args, params.Keyword, likePattern, likePattern, likePattern)
+		argIndex += 4
 	}
 
 	if params.Season != "" {
@@ -1310,10 +1314,11 @@ func (s *AnimeService) GetSearchSuggestions(query string, limit int) ([]string, 
 		limit = 10
 	}
 
+	// title, title_kana, title_en のいずれかにマッチするタイトルを取得
 	rows, err := s.db.Query(`
 		SELECT title
 		FROM animes
-		WHERE title ILIKE $1
+		WHERE (title ILIKE $1 OR title_kana ILIKE $1 OR title_en ILIKE $1)
 		  AND TRIM(title) <> ''
 		GROUP BY title
 		ORDER BY MAX(watchers_count) DESC NULLS LAST, title
@@ -1588,14 +1593,18 @@ func (s *AnimeService) buildWhereClause(params models.AdvancedSearchParams, user
 	args := []interface{}{}
 	argIndex := 1
 
-	// 全文検索（日本語対応のためFTSとILIKEを併用）
+	// 全文検索（日本語対応のためFTSとILIKEを併用、title_kana・title_enも検索対象に追加）
 	if params.Query != "" {
+		// ILIKE検索用のパターン
+		likePattern := "%" + params.Query + "%"
 		whereClauses = append(whereClauses, fmt.Sprintf(`
-			(to_tsvector('simple', COALESCE(a.title, '') || ' ' || COALESCE(a.description, '')) @@ plainto_tsquery('simple', $%d)
-			 OR a.title ILIKE $%d OR a.description ILIKE $%d)
-		`, argIndex, argIndex+1, argIndex+1))
-		args = append(args, params.Query, "%"+params.Query+"%")
-		argIndex += 2
+			(to_tsvector('simple', COALESCE(a.title, '') || ' ' || COALESCE(a.title_kana, '') || ' ' || COALESCE(a.title_en, '')) @@ plainto_tsquery('simple', $%d)
+			 OR a.title ILIKE $%d 
+			 OR a.title_kana ILIKE $%d 
+			 OR a.title_en ILIKE $%d)
+		`, argIndex, argIndex+1, argIndex+2, argIndex+3))
+		args = append(args, params.Query, likePattern, likePattern, likePattern)
+		argIndex += 4
 	}
 
 	// ジャンル検索（複数対応）
