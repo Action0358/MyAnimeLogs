@@ -307,7 +307,7 @@ func TestAnimeService_BuildWhereClause(t *testing.T) {
 				Query: "進撃",
 			},
 			userID:       nil,
-			expectedArgs: 2, // query, query (LIKE用)
+			expectedArgs: 4, // query, likePattern x 3 (title, title_kana, title_en)
 			shouldContain: []string{
 				"to_tsvector",
 				"plainto_tsquery",
@@ -393,7 +393,7 @@ func TestAnimeService_BuildWhereClause(t *testing.T) {
 				UserStatus: "watching",
 			},
 			userID:       func() *int { id := 123; return &id }(),
-			expectedArgs: 8, // query(2) + year + season + genre + minRating + user_id + userStatus
+			expectedArgs: 10, // query(4) + year + season + genre + minRating + user_id + userStatus
 			shouldContain: []string{
 				"to_tsvector",
 				"a.season LIKE",
