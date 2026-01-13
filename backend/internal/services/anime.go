@@ -307,23 +307,41 @@ func (s *AnimeService) GetEpisodeSyncStatus(animeID int) (*models.EpisodeSyncSta
 	}, nil
 }
 
+// buildKeywordSearchClause - キーワード検索用のWHERE句を構築するヘルパー関数
+// tableAlias: テーブルエイリアス（例: "a." または ""）
+// 戻り値: WHERE句の条件文字列、引数スライス、次の引数インデックス
+func buildKeywordSearchClause(keyword string, argIndex int, tableAlias string) (string, []interface{}, int) {
+	if keyword == "" {
+		return "", nil, argIndex
+	}
+
+	likePattern := "%" + keyword + "%"
+	clause := fmt.Sprintf(`
+		(to_tsvector('simple', COALESCE(%stitle, '') || ' ' || COALESCE(%stitle_kana, '') || ' ' || COALESCE(%stitle_en, '')) @@ plainto_tsquery('simple', $%d)
+		 OR %stitle ILIKE $%d 
+		 OR %stitle_kana ILIKE $%d 
+		 OR %stitle_en ILIKE $%d)
+	`, tableAlias, tableAlias, tableAlias, argIndex,
+		tableAlias, argIndex+1,
+		tableAlias, argIndex+2,
+		tableAlias, argIndex+3)
+
+	args := []interface{}{keyword, likePattern, likePattern, likePattern}
+	return clause, args, argIndex + 4
+}
+
 func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int) (*models.PaginatedResponse, error) {
 	// Build WHERE clause
 	whereClauses := []string{}
 	args := []interface{}{}
 	argIndex := 1
 
+	// キーワード検索（ヘルパー関数を使用）
 	if params.Keyword != "" {
-		// ILIKE検索用のパターン
-		likePattern := "%" + params.Keyword + "%"
-		whereClauses = append(whereClauses, fmt.Sprintf(`
-			(to_tsvector('simple', COALESCE(title, '') || ' ' || COALESCE(title_kana, '') || ' ' || COALESCE(title_en, '')) @@ plainto_tsquery('simple', $%d)
-			 OR title ILIKE $%d 
-			 OR title_kana ILIKE $%d 
-			 OR title_en ILIKE $%d)
-		`, argIndex, argIndex+1, argIndex+2, argIndex+3))
-		args = append(args, params.Keyword, likePattern, likePattern, likePattern)
-		argIndex += 4
+		clause, keywordArgs, newArgIndex := buildKeywordSearchClause(params.Keyword, argIndex, "")
+		whereClauses = append(whereClauses, clause)
+		args = append(args, keywordArgs...)
+		argIndex = newArgIndex
 	}
 
 	if params.Season != "" {
@@ -1593,18 +1611,12 @@ func (s *AnimeService) buildWhereClause(params models.AdvancedSearchParams, user
 	args := []interface{}{}
 	argIndex := 1
 
-	// 全文検索（日本語対応のためFTSとILIKEを併用、title_kana・title_enも検索対象に追加）
+	// キーワード検索（ヘルパー関数を使用、テーブルエイリアス "a." を指定）
 	if params.Query != "" {
-		// ILIKE検索用のパターン
-		likePattern := "%" + params.Query + "%"
-		whereClauses = append(whereClauses, fmt.Sprintf(`
-			(to_tsvector('simple', COALESCE(a.title, '') || ' ' || COALESCE(a.title_kana, '') || ' ' || COALESCE(a.title_en, '')) @@ plainto_tsquery('simple', $%d)
-			 OR a.title ILIKE $%d 
-			 OR a.title_kana ILIKE $%d 
-			 OR a.title_en ILIKE $%d)
-		`, argIndex, argIndex+1, argIndex+2, argIndex+3))
-		args = append(args, params.Query, likePattern, likePattern, likePattern)
-		argIndex += 4
+		clause, keywordArgs, newArgIndex := buildKeywordSearchClause(params.Query, argIndex, "a.")
+		whereClauses = append(whereClauses, clause)
+		args = append(args, keywordArgs...)
+		argIndex = newArgIndex
 	}
 
 	// ジャンル検索（複数対応）
