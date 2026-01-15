@@ -291,7 +291,6 @@ func (s *AnimeSyncScheduler) Stop() {
 }
 
 // syncAllSeasons syncs all seasons from syncStartYear-spring to current season
-// 1979年は初代ガンダム放送開始年であり、日本アニメの黄金期の起点
 // nextSyncTime is the time of the next scheduled sync (not 24 hours from now)
 func (s *AnimeSyncScheduler) syncAllSeasons(nextSyncTime time.Time) {
 	s.logger.Info("Starting initial full sync of all seasons")
@@ -305,7 +304,6 @@ func (s *AnimeSyncScheduler) syncAllSeasons(nextSyncTime time.Time) {
 	currentSeason := getSeasonForTime(startTime)
 
 	// Generate all seasons from syncStartYear-spring to current
-	// 1979年は初代ガンダム放送開始年であり、日本アニメの黄金期の起点
 	seasons := generateAllSeasons(syncStartYear, currentYear, currentSeason)
 
 	totalAnimeCount := 0
