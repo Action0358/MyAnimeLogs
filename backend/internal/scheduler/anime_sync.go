@@ -286,7 +286,8 @@ func (s *AnimeSyncScheduler) Stop() {
 	s.logger.Info("Stopping anime sync scheduler")
 }
 
-// syncAllSeasons syncs all seasons from 2014-spring to current season
+// syncAllSeasons syncs all seasons from 1979-spring to current season
+// 1979年は初代ガンダム放送開始年であり、日本アニメの黄金期の起点
 // nextSyncTime is the time of the next scheduled sync (not 24 hours from now)
 func (s *AnimeSyncScheduler) syncAllSeasons(nextSyncTime time.Time) {
 	s.logger.Info("Starting initial full sync of all seasons")
@@ -299,8 +300,9 @@ func (s *AnimeSyncScheduler) syncAllSeasons(nextSyncTime time.Time) {
 	currentYear := startTime.Year()
 	currentSeason := getSeasonForTime(startTime)
 
-	// Generate all seasons from 2014-spring to current
-	seasons := generateAllSeasons(2014, currentYear, currentSeason)
+	// Generate all seasons from 1979-spring to current
+	// 1979年は初代ガンダム放送開始年であり、日本アニメの黄金期の起点
+	seasons := generateAllSeasons(1979, currentYear, currentSeason)
 
 	totalAnimeCount := 0
 	var errors []string
@@ -515,7 +517,7 @@ func getPreviousSeasonForTime(t time.Time) string {
 }
 
 // generateAllSeasons generates all season strings from startYear-spring to endSeason
-// For startYear=2014, it starts from 2014-spring (skipping 2014-winter)
+// For startYear=1979, it starts from 1979-spring (skipping 1979-winter)
 func generateAllSeasons(startYear, endYear int, endSeason string) []string {
 	var result []string
 
