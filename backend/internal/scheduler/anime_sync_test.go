@@ -424,3 +424,99 @@ func TestSyncLockWithDefer(t *testing.T) {
 
 	scheduler.releaseSyncLock()
 }
+
+// TestGenerateAllSeasons tests the generateAllSeasons function
+func TestGenerateAllSeasons(t *testing.T) {
+	tests := []struct {
+		name      string
+		startYear int
+		endYear   int
+		endSeason string
+		expected  []string
+	}{
+		{
+			name:      "Single year - spring to autumn",
+			startYear: 2024,
+			endYear:   2024,
+			endSeason: "2024-autumn",
+			expected:  []string{"2024-spring", "2024-summer", "2024-autumn"},
+		},
+		{
+			name:      "Single year - spring to summer",
+			startYear: 2024,
+			endYear:   2024,
+			endSeason: "2024-summer",
+			expected:  []string{"2024-spring", "2024-summer"},
+		},
+		{
+			name:      "Single year - spring only",
+			startYear: 2024,
+			endYear:   2024,
+			endSeason: "2024-spring",
+			expected:  []string{"2024-spring"},
+		},
+		{
+			name:      "Edge case - endSeason is winter of startYear (before effective start)",
+			startYear: 2024,
+			endYear:   2024,
+			endSeason: "2024-winter",
+			expected:  nil,
+		},
+		{
+			name:      "Cross year - 2024 spring to 2025 winter",
+			startYear: 2024,
+			endYear:   2025,
+			endSeason: "2025-winter",
+			expected:  []string{"2024-spring", "2024-summer", "2024-autumn", "2025-winter"},
+		},
+		{
+			name:      "Multiple years - 1979 to 1980 autumn",
+			startYear: 1979,
+			endYear:   1980,
+			endSeason: "1980-autumn",
+			expected: []string{
+				"1979-spring", "1979-summer", "1979-autumn",
+				"1980-winter", "1980-spring", "1980-summer", "1980-autumn",
+			},
+		},
+		{
+			name:      "Edge case - endSeason before startYear",
+			startYear: 2024,
+			endYear:   2024,
+			endSeason: "2023-autumn",
+			expected:  nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := generateAllSeasons(tt.startYear, tt.endYear, tt.endSeason)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// TestIsSeasonBefore tests the isSeasonBefore helper function
+func TestIsSeasonBefore(t *testing.T) {
+	tests := []struct {
+		name     string
+		season1  string
+		season2  string
+		expected bool
+	}{
+		{"Same season", "2024-spring", "2024-spring", false},
+		{"Earlier year", "2023-autumn", "2024-spring", true},
+		{"Later year", "2025-winter", "2024-autumn", false},
+		{"Same year - winter before spring", "2024-winter", "2024-spring", true},
+		{"Same year - spring before summer", "2024-spring", "2024-summer", true},
+		{"Same year - summer before autumn", "2024-summer", "2024-autumn", true},
+		{"Same year - autumn after summer", "2024-autumn", "2024-summer", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isSeasonBefore(tt.season1, tt.season2)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}

@@ -520,12 +520,22 @@ func getPreviousSeasonForTime(t time.Time) string {
 
 // generateAllSeasons generates all season strings from startYear-spring to endSeason
 // For startYear=1979, it starts from 1979-spring (skipping 1979-winter)
+// Returns empty slice if endSeason is before the effective start season (startYear-spring)
 func generateAllSeasons(startYear, endYear int, endSeason string) []string {
 	var result []string
 
+	// Effective start season is spring of startYear (winter is skipped)
+	effectiveStartSeason := fmt.Sprintf("%d-spring", startYear)
+
+	// Check if endSeason is before effective start season
+	// This handles cases like generateAllSeasons(2024, 2024, "2024-winter")
+	if isSeasonBefore(endSeason, effectiveStartSeason) {
+		return result
+	}
+
 	for year := startYear; year <= endYear; year++ {
 		for _, season := range seasonOrder {
-			// Skip winter of the start year (e.g., 2014-winter)
+			// Skip winter of the start year (e.g., 1979-winter)
 			if year == startYear && season == "winter" {
 				continue
 			}
@@ -541,4 +551,21 @@ func generateAllSeasons(startYear, endYear int, endSeason string) []string {
 	}
 
 	return result
+}
+
+// isSeasonBefore returns true if season1 is chronologically before season2
+func isSeasonBefore(season1, season2 string) bool {
+	var year1, year2 int
+	var seasonName1, seasonName2 string
+
+	fmt.Sscanf(season1, "%d-%s", &year1, &seasonName1)
+	fmt.Sscanf(season2, "%d-%s", &year2, &seasonName2)
+
+	if year1 != year2 {
+		return year1 < year2
+	}
+
+	// Compare season order within the same year
+	seasonIndex := map[string]int{"winter": 0, "spring": 1, "summer": 2, "autumn": 3}
+	return seasonIndex[seasonName1] < seasonIndex[seasonName2]
 }
