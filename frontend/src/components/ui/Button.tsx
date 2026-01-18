@@ -3,7 +3,7 @@ import { Slot } from '@radix-ui/react-slot'
 import { cn } from '@/lib/utils'
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'ghost-on-dark' | 'primary-on-dark'
+  variant?: 'primary' | 'secondary' | 'outline' | 'outline-gray' | 'ghost' | 'ghost-on-dark' | 'primary-on-dark'
   size?: 'sm' | 'md' | 'lg'
   isLoading?: boolean
   asChild?: boolean
@@ -30,6 +30,8 @@ export const Button: React.FC<ButtonProps> = ({
       'bg-gray-600 text-white hover:bg-gray-700 active:bg-gray-800 focus:ring-gray-500',
     outline:
       'border-2 border-blue-600 text-blue-600 hover:bg-blue-50 active:bg-blue-100 focus:ring-blue-500',
+    'outline-gray':
+      'border border-gray-300 text-gray-700 bg-transparent hover:bg-gray-50 active:bg-gray-100 focus:ring-gray-500',
     ghost:
       'text-gray-700 hover:bg-gray-100 active:bg-gray-200 focus:ring-gray-500',
     'ghost-on-dark':

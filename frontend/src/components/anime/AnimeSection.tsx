@@ -98,10 +98,10 @@ const AnimeSection: React.FC<AnimeSectionProps> = ({
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
         <Button
-          variant="outline"
+          variant="outline-gray"
           size="sm"
           asChild
-          className="font-bold border-gray-300 text-gray-700 hover:bg-gray-50 active:bg-gray-100"
+          className="font-bold"
         >
           <Link href={linkHref as Route}>
             {linkText}
