@@ -1,10 +1,12 @@
 import React from 'react'
+import { Slot } from '@radix-ui/react-slot'
 import { cn } from '@/lib/utils'
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'ghost-on-dark' | 'primary-on-dark'
   size?: 'sm' | 'md' | 'lg'
   isLoading?: boolean
+  asChild?: boolean
   children: React.ReactNode
 }
 
@@ -12,6 +14,7 @@ export const Button: React.FC<ButtonProps> = ({
   variant = 'primary',
   size = 'md',
   isLoading = false,
+  asChild = false,
   disabled,
   className,
   children,
@@ -41,8 +44,10 @@ export const Button: React.FC<ButtonProps> = ({
     lg: 'h-12 px-8 text-lg',
   }
 
+  const Comp = asChild ? Slot : 'button'
+
   return (
-    <button
+    <Comp
       className={cn(baseStyles, variantStyles[variant], sizeStyles[size], className)}
       disabled={disabled || isLoading}
       {...props}
@@ -74,6 +79,6 @@ export const Button: React.FC<ButtonProps> = ({
       ) : (
         children
       )}
-    </button>
+    </Comp>
   )
 }
