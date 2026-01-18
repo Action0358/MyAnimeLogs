@@ -120,8 +120,8 @@ const Header: React.FC = () => {
                   variant={isHomePage ? 'ghost-on-dark' : 'ghost'}
                   size="sm"
                   className={cn(
-                    'text-xs px-2 py-1.5',
-                    'md:text-base md:font-bold md:px-3 md:py-2'
+                    'text-xs px-2 py-1.5 font-bold',
+                    'md:text-base md:px-3 md:py-2'
                   )}
                 >
                   ログイン
@@ -132,8 +132,8 @@ const Header: React.FC = () => {
                   variant={isHomePage ? 'primary-on-dark' : 'primary'}
                   size="sm"
                   className={cn(
-                    'text-xs px-2 py-1.5',
-                    'md:text-base md:font-bold md:px-3 md:py-2'
+                    'text-xs px-2 py-1.5 font-bold',
+                    'md:text-base md:px-3 md:py-2'
                   )}
                 >
                   新規登録
