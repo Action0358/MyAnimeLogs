@@ -99,7 +99,7 @@ const AnimeSection: React.FC<AnimeSectionProps> = ({
         <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
         <Link
           href={linkHref as Route}
-          className="inline-flex items-center justify-center h-8 px-3 text-sm font-medium rounded-md border border-gray-300 bg-transparent text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors"
+          className="inline-flex items-center justify-center h-8 px-3 text-sm font-bold rounded-md border border-gray-300 bg-transparent text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors"
         >
           {linkText}
         </Link>
