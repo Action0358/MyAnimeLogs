@@ -107,7 +107,7 @@ export const AnimeCard: React.FC<AnimeCardProps> = ({
         <h3
           className={cn(
             'font-medium text-gray-900 group-hover:text-blue-600 transition-colors',
-            'overflow-hidden display-[-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]',
+            'line-clamp-2',
             config.titleClass
           )}
         >
