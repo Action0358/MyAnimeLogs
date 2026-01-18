@@ -57,11 +57,11 @@ const SearchInputArea: React.FC<SearchInputAreaProps> = ({ activeTab }) => {
             onChange={(e) => setKeyword(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="作品名"
-            className="flex-1 px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
+            className="flex-1 px-4 py-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 placeholder:font-bold"
           />
           <button
             onClick={handleSearch}
-            className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium flex items-center justify-center gap-2 w-full md:w-auto"
+            className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-bold flex items-center justify-center gap-2 w-full md:w-auto"
           >
             <span>検索</span>
           </button>
@@ -86,7 +86,7 @@ const SearchInputArea: React.FC<SearchInputAreaProps> = ({ activeTab }) => {
           <button
             onClick={handleSearch}
             disabled={!season}
-            className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium flex items-center justify-center gap-2 w-full md:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-bold flex items-center justify-center gap-2 w-full md:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <span>検索</span>
           </button>
@@ -102,7 +102,7 @@ const SearchInputArea: React.FC<SearchInputAreaProps> = ({ activeTab }) => {
                 key={genre}
                 onClick={() => handleGenreToggle(genre)}
                 className={`
-                  px-4 py-2 rounded-md text-sm font-medium transition-colors
+                  px-4 py-2 rounded-md text-sm font-bold transition-colors
                   ${
                     selectedGenres.includes(genre)
                       ? 'bg-blue-600 text-white'
@@ -117,7 +117,7 @@ const SearchInputArea: React.FC<SearchInputAreaProps> = ({ activeTab }) => {
           <button
             onClick={handleSearch}
             disabled={selectedGenres.length === 0}
-            className="w-full px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-bold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <span>検索</span>
           </button>

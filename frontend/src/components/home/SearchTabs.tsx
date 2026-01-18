@@ -22,7 +22,7 @@ const SearchTabs: React.FC<SearchTabsProps> = ({ activeTab, onTabChange }) => {
           key={tab.id}
           onClick={() => onTabChange(tab.id)}
           className={`
-            px-4 py-2 rounded-md text-sm md:text-base font-medium transition-colors
+            px-4 py-2 rounded-md text-sm md:text-base font-bold transition-colors
             ${
               activeTab === tab.id
                 ? 'bg-blue-600 text-white'
