@@ -43,6 +43,7 @@ func (s *AnimeService) GetCurrentSeasonAnimes(limit int) ([]models.Anime, error)
 	// DBから取得
 	animes, err := s.getAnimesByQuery(
 		`SELECT id, title, image_url, season, status, mal_anime_id, annict_id, created_at, updated_at, watchers_count,
+		        COALESCE(cover_image_extra_large, '') as cover_image_extra_large,
 		        COALESCE(cover_image_large, '') as cover_image_large,
 		        COALESCE(cover_image_medium, '') as cover_image_medium
 		FROM animes
@@ -83,6 +84,7 @@ func (s *AnimeService) GetPopularAnimes(limit int) ([]models.Anime, error) {
 	// DBから取得
 	animes, err := s.getAnimesByQuery(
 		`SELECT id, title, image_url, season, status, mal_anime_id, annict_id, created_at, updated_at, watchers_count,
+		        COALESCE(cover_image_extra_large, '') as cover_image_extra_large,
 		        COALESCE(cover_image_large, '') as cover_image_large,
 		        COALESCE(cover_image_medium, '') as cover_image_medium
 		FROM animes
@@ -115,7 +117,7 @@ func (s *AnimeService) getAnimesByQuery(query string, args []interface{}, queryN
 	animes := []models.Anime{}
 	for rows.Next() {
 		var anime models.Anime
-		err := rows.Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount, &anime.CoverImageLarge, &anime.CoverImageMedium)
+		err := rows.Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount, &anime.CoverImageExtraLarge, &anime.CoverImageLarge, &anime.CoverImageMedium)
 		if err != nil {
 			s.logger.Warn("Failed to scan anime row", "query", queryName, "error", err)
 			continue
@@ -392,6 +394,7 @@ func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int
 	// Get animes
 	query := fmt.Sprintf(`
 		SELECT id, title, image_url, season, status, mal_anime_id, annict_id, created_at, updated_at, watchers_count,
+		       COALESCE(cover_image_extra_large, '') as cover_image_extra_large,
 		       COALESCE(cover_image_large, '') as cover_image_large,
 		       COALESCE(cover_image_medium, '') as cover_image_medium
 		FROM animes %s %s
@@ -409,7 +412,7 @@ func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int
 	animes := []models.AnimeWithUserData{}
 	for rows.Next() {
 		var anime models.Anime
-		err := rows.Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount, &anime.CoverImageLarge, &anime.CoverImageMedium)
+		err := rows.Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount, &anime.CoverImageExtraLarge, &anime.CoverImageLarge, &anime.CoverImageMedium)
 		if err != nil {
 			continue
 		}
@@ -464,10 +467,11 @@ func (s *AnimeService) AdvancedSearchAnimes(params models.AdvancedSearchParams, 
 	// Get animes
 	query := fmt.Sprintf(`
 		SELECT a.id, a.title, a.image_url, a.season, a.status, a.mal_anime_id, a.annict_id, a.created_at, a.updated_at, a.watchers_count,
+		       COALESCE(a.cover_image_extra_large, '') as cover_image_extra_large,
 		       COALESCE(a.cover_image_large, '') as cover_image_large,
 		       COALESCE(a.cover_image_medium, '') as cover_image_medium
 		%s %s
-		GROUP BY a.id, a.title, a.image_url, a.season, a.status, a.mal_anime_id, a.annict_id, a.created_at, a.updated_at, a.watchers_count, a.cover_image_large, a.cover_image_medium
+		GROUP BY a.id, a.title, a.image_url, a.season, a.status, a.mal_anime_id, a.annict_id, a.created_at, a.updated_at, a.watchers_count, a.cover_image_extra_large, a.cover_image_large, a.cover_image_medium
 		%s
 		LIMIT $%d OFFSET $%d
 	`, baseQuery, whereClause, orderBy, argIndex, argIndex+1)
@@ -483,7 +487,7 @@ func (s *AnimeService) AdvancedSearchAnimes(params models.AdvancedSearchParams, 
 	animes := []models.AnimeWithUserData{}
 	for rows.Next() {
 		var anime models.Anime
-		err := rows.Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount, &anime.CoverImageLarge, &anime.CoverImageMedium)
+		err := rows.Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount, &anime.CoverImageExtraLarge, &anime.CoverImageLarge, &anime.CoverImageMedium)
 		if err != nil {
 			continue
 		}
@@ -517,10 +521,11 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 	var anime models.Anime
 	err := s.db.QueryRow(`
 		SELECT id, title, image_url, season, status, mal_anime_id, annict_id, created_at, updated_at, watchers_count,
+		       COALESCE(cover_image_extra_large, '') as cover_image_extra_large,
 		       COALESCE(cover_image_large, '') as cover_image_large,
 		       COALESCE(cover_image_medium, '') as cover_image_medium
 		FROM animes WHERE id = $1
-	`, animeID).Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount, &anime.CoverImageLarge, &anime.CoverImageMedium)
+	`, animeID).Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount, &anime.CoverImageExtraLarge, &anime.CoverImageLarge, &anime.CoverImageMedium)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrAnimeNotFound
@@ -528,8 +533,8 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 		return nil, fmt.Errorf("failed to get anime: %w", err)
 	}
 
-	// DBキャッシュがない場合のみAniListから画像を取得
-	if anime.CoverImageLarge == "" {
+	// DBキャッシュがない場合、またはextraLargeがない場合はAniListから画像を取得
+	if anime.CoverImageExtraLarge == "" || anime.CoverImageLarge == "" {
 		s.enrichAnimeWithCoverImage(&anime)
 	}
 
@@ -720,6 +725,7 @@ func (s *AnimeService) GetUserFavorites(userID int, status string) ([]models.Ani
 
 	query := fmt.Sprintf(`
 		SELECT a.id, a.title, a.image_url, a.season, a.status, a.mal_anime_id, a.created_at, a.updated_at, a.watchers_count,
+		       COALESCE(a.cover_image_extra_large, '') as cover_image_extra_large,
 		       COALESCE(a.cover_image_large, '') as cover_image_large,
 		       COALESCE(a.cover_image_medium, '') as cover_image_medium,
 		       uf.id, uf.user_id, uf.anime_id, uf.status, uf.created_at, uf.updated_at
@@ -741,7 +747,7 @@ func (s *AnimeService) GetUserFavorites(userID int, status string) ([]models.Ani
 		var favorite models.UserFavorite
 		err := rows.Scan(
 			&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount,
-			&anime.CoverImageLarge, &anime.CoverImageMedium,
+			&anime.CoverImageExtraLarge, &anime.CoverImageLarge, &anime.CoverImageMedium,
 			&favorite.ID, &favorite.UserID, &favorite.AnimeID, &favorite.Status, &favorite.CreatedAt, &favorite.UpdatedAt,
 		)
 		if err != nil {
@@ -1376,19 +1382,20 @@ func (s *AnimeService) enrichAnimeWithCoverImage(anime *models.Anime) {
 
 	// レイヤー1: データベースキャッシュをチェック（MAL IDがある場合）
 	if hasMalID {
-		var large, medium string
+		var extraLarge, large, medium string
 		// キャッシュTTLをGoで計算してパラメータとして渡す（ポータビリティ向上）
 		cacheCutoff := time.Now().Add(-constants.CoverImageCacheTTL)
 		cacheErr := s.db.QueryRowContext(ctx, `
-			SELECT cover_image_large, cover_image_medium
+			SELECT COALESCE(cover_image_extra_large, ''), cover_image_large, cover_image_medium
 			FROM animes 
 			WHERE mal_anime_id = $1 
 			AND cover_image_large IS NOT NULL
 			AND cover_image_updated_at > $2
-		`, *anime.MalAnimeID, cacheCutoff).Scan(&large, &medium)
+		`, *anime.MalAnimeID, cacheCutoff).Scan(&extraLarge, &large, &medium)
 
 		if cacheErr == nil && large != "" {
 			// DBキャッシュから取得成功
+			anime.CoverImageExtraLarge = extraLarge
 			anime.CoverImageLarge = large
 			anime.CoverImageMedium = medium
 			return
@@ -1428,12 +1435,14 @@ func (s *AnimeService) enrichAnimeWithCoverImage(anime *models.Anime) {
 
 	// 画像URLを設定
 	if coverImage != nil {
+		anime.CoverImageExtraLarge = coverImage.ExtraLarge
 		anime.CoverImageLarge = coverImage.Large
 		anime.CoverImageMedium = coverImage.Medium
 
 		// DBに保存（MAL IDがある場合のみ）- ワーカープールで非同期実行
 		if hasMalID {
 			malID := *anime.MalAnimeID
+			extraLarge := coverImage.ExtraLarge
 			large := coverImage.Large
 			medium := coverImage.Medium
 			s.enqueueImageUpdate(func() {
@@ -1443,11 +1452,12 @@ func (s *AnimeService) enrichAnimeWithCoverImage(anime *models.Anime) {
 
 				_, saveErr := s.db.ExecContext(ctx, `
 					UPDATE animes 
-					SET cover_image_large = $1,
-						cover_image_medium = $2,
+					SET cover_image_extra_large = $1,
+						cover_image_large = $2,
+						cover_image_medium = $3,
 						cover_image_updated_at = NOW()
-					WHERE mal_anime_id = $3
-				`, large, medium, malID)
+					WHERE mal_anime_id = $4
+				`, extraLarge, large, medium, malID)
 				if saveErr != nil {
 					s.logger.Warn("Failed to save cover image to DB",
 						"error", saveErr,
@@ -1484,7 +1494,7 @@ func (s *AnimeService) enrichAnimesWithCoverImagesIfNeeded(animes []models.Anime
 	// 画像が必要なアニメのみ処理
 	for i := range animes {
 		// DBキャッシュがある場合はスキップ
-		if animes[i].CoverImageLarge != "" {
+		if animes[i].CoverImageExtraLarge != "" || animes[i].CoverImageLarge != "" {
 			continue
 		}
 
@@ -1530,7 +1540,7 @@ func (s *AnimeService) enrichAnimesWithUserDataCoverImagesIfNeeded(animes []mode
 
 	for i := range animes {
 		// DBキャッシュがある場合はスキップ
-		if animes[i].CoverImageLarge != "" {
+		if animes[i].CoverImageExtraLarge != "" || animes[i].CoverImageLarge != "" {
 			continue
 		}
 

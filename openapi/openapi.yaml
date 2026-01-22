@@ -1575,6 +1575,10 @@ components:
         status:
           type: string
           enum: ["airing", "finished"]
+        cover_image_extra_large:
+          type: string
+          format: uri
+          description: AniList API から取得した最高画質のカバー画像URL（extraLargeサイズ）
         cover_image_large:
           type: string
           format: uri
@@ -1791,6 +1795,10 @@ components:
         no_episodes:
           type: boolean
           description: エピソード情報なしフラグ
+        cover_image_extra_large:
+          type: string
+          format: uri
+          description: AniList APIから取得した最高画質カバー画像URL（extraLargeサイズ）
         cover_image_large:
           type: string
           format: uri
