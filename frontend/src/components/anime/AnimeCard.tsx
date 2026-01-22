@@ -47,6 +47,7 @@ export const AnimeCard: React.FC<AnimeCardProps> = ({
   const config = sizeConfig[size]
 
   const imageUrl =
+    anime.cover_image_extra_large ||
     anime.cover_image_large ||
     anime.cover_image_medium ||
     anime.image_url

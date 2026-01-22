@@ -306,22 +306,23 @@ func (h *AnnictHandler) fetchCoverImage(work *models.AnnictWork, cacheKey string
 
 	// レイヤー2: データベースをチェック（高速: 5-10ms）
 	if h.annictService.DB != nil {
-		var large, medium string
+		var extraLarge, large, medium string
 		var updatedAt *time.Time
 
 		err := h.annictService.DB.QueryRow(`
-			SELECT cover_image_large, cover_image_medium, cover_image_updated_at
+			SELECT COALESCE(cover_image_extra_large, ''), cover_image_large, cover_image_medium, cover_image_updated_at
 			FROM animes 
 			WHERE mal_anime_id = $1 
 			AND cover_image_large IS NOT NULL
 			AND cover_image_updated_at > NOW() - INTERVAL '7 days'
-		`, cacheKey).Scan(&large, &medium, &updatedAt)
+		`, cacheKey).Scan(&extraLarge, &large, &medium, &updatedAt)
 
 		if err == nil && large != "" {
 			// データベースから取得成功
 			coverImage = &services.CoverImage{
-				Large:  large,
-				Medium: medium,
+				ExtraLarge: extraLarge,
+				Large:      large,
+				Medium:     medium,
 			}
 
 			// インメモリキャッシュに保存（次回さらに高速化）
@@ -397,11 +398,12 @@ func (h *AnnictHandler) saveCoverImageToDB(ctx context.Context, malAnimeID strin
 		// UPDATEのみ実行（アニメがデータベースに存在する場合のみ）
 		result, err := h.annictService.DB.ExecContext(ctx, `
 			UPDATE animes 
-			SET cover_image_large = $1,
-				cover_image_medium = $2,
+			SET cover_image_extra_large = $1,
+				cover_image_large = $2,
+				cover_image_medium = $3,
 				cover_image_updated_at = NOW()
-			WHERE mal_anime_id = $3
-		`, coverImage.Large, coverImage.Medium, malAnimeID)
+			WHERE mal_anime_id = $4
+		`, coverImage.ExtraLarge, coverImage.Large, coverImage.Medium, malAnimeID)
 
 		if err != nil {
 			h.logger.Error("Failed to save cover image to DB", "mal_anime_id", malAnimeID, "error", err)
@@ -424,12 +426,8 @@ func (h *AnnictHandler) saveCoverImageToDB(ctx context.Context, malAnimeID strin
 // applyCoverImage - 画像をworksに適用
 func (h *AnnictHandler) applyCoverImage(work *models.AnnictWork, image *services.CoverImage) {
 	if image != nil {
-		// ExtraLargeがあればそれを使用、なければLargeを使用
-		if image.ExtraLarge != "" {
-			work.CoverImageLarge = image.ExtraLarge
-		} else {
-			work.CoverImageLarge = image.Large
-		}
+		work.CoverImageExtraLarge = image.ExtraLarge
+		work.CoverImageLarge = image.Large
 		work.CoverImageMedium = image.Medium
 	}
 }
