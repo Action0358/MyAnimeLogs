@@ -17,8 +17,9 @@ type Anime struct {
 	UpdatedAt     time.Time `json:"updated_at" db:"updated_at"`
 
 	// AniList から取得する画像（DBにキャッシュ）
-	CoverImageLarge  string `json:"cover_image_large,omitempty" db:"cover_image_large"`
-	CoverImageMedium string `json:"cover_image_medium,omitempty" db:"cover_image_medium"`
+	CoverImageExtraLarge string `json:"cover_image_extra_large,omitempty" db:"cover_image_extra_large"`
+	CoverImageLarge      string `json:"cover_image_large,omitempty" db:"cover_image_large"`
+	CoverImageMedium     string `json:"cover_image_medium,omitempty" db:"cover_image_medium"`
 }
 
 type AnimeWithUserData struct {
