@@ -80,6 +80,8 @@ export interface Anime {
   image_url?: string;
   season?: string;
   status?: AnimeStatus;
+  /** AniList API から取得した最高画質のカバー画像URL（extraLargeサイズ） */
+  cover_image_extra_large?: string;
   /** AniList API から取得した大サイズのカバー画像URL */
   cover_image_large?: string;
   /** AniList API から取得した中サイズのカバー画像URL */
@@ -234,6 +236,8 @@ export interface AnnictWork {
   reviews_count?: number;
   /** エピソード情報なしフラグ */
   no_episodes?: boolean;
+  /** AniList APIから取得した最高画質カバー画像URL（extraLargeサイズ） */
+  cover_image_extra_large?: string;
   /** AniList APIから取得した大サイズカバー画像URL */
   cover_image_large?: string;
   /** AniList APIから取得した中サイズカバー画像URL */

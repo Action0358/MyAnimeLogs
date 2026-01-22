@@ -22,8 +22,9 @@ type AnnictWork struct {
 	ReviewsCount    int               `json:"reviews_count"`
 	NoEpisodes      bool              `json:"no_episodes"`
 	// Anilist API から取得した画像（リアルタイム取得）
-	CoverImageLarge  string `json:"cover_image_large,omitempty"`
-	CoverImageMedium string `json:"cover_image_medium,omitempty"`
+	CoverImageExtraLarge string `json:"cover_image_extra_large,omitempty"`
+	CoverImageLarge      string `json:"cover_image_large,omitempty"`
+	CoverImageMedium     string `json:"cover_image_medium,omitempty"`
 }
 
 // AnnictWorkImages represents the images object in Annict API response

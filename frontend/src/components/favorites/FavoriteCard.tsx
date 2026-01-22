@@ -23,7 +23,7 @@ export const FavoriteCard: React.FC<FavoriteCardProps> = ({
   onRemove,
   isUpdating = false,
 }) => {
-  const imageUrl = anime.cover_image_large || anime.cover_image_medium || anime.image_url || '/placeholder-anime.png'
+  const imageUrl = anime.cover_image_extra_large || anime.cover_image_large || anime.cover_image_medium || anime.image_url || '/placeholder-anime.png'
 
   return (
     <div className={cn(
