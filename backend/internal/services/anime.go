@@ -2698,56 +2698,86 @@ func (s *AnimeService) SyncCoverImagesForAllAnimes() (int, int, []string, error)
 
 	s.logger.Info("Starting cover image sync", "total_animes", len(animesToSync))
 
-	successCount := 0
-	failureCount := 0
-	var errors []string
+	// 結果を集約するための構造体
+	type syncResult struct {
+		success bool
+		errMsg  string
+	}
 
-	// AniListのレート制限を考慮して順次処理（90リクエスト/分）
+	results := make(chan syncResult, len(animesToSync))
 	ctx := context.Background()
+
+	// ワーカープールで並列処理（AniListClientの内部レートリミッターが制御）
+	var wg sync.WaitGroup
+	semaphore := make(chan struct{}, constants.CoverImageSyncWorkerPoolSize)
+
 	for i, anime := range animesToSync {
 		// 進捗ログ（100件ごと）
 		if (i+1)%100 == 0 {
 			s.logger.Info("Cover image sync progress",
-				"processed", i+1,
-				"total", len(animesToSync),
-				"success", successCount,
-				"failure", failureCount)
+				"queued", i+1,
+				"total", len(animesToSync))
 		}
 
-		// AniListから画像を取得
-		coverImage, apiErr := s.anilistClient.GetCoverImageByMALId(ctx, anime.MalID)
-		if apiErr != nil {
-			// MAL IDで取得失敗した場合、タイトルでフォールバック
-			coverImage, apiErr = s.anilistClient.GetCoverImageByTitle(ctx, anime.Title)
-		}
+		wg.Add(1)
+		go func(anime animeToSync) {
+			defer wg.Done()
+			semaphore <- struct{}{}        // セマフォ取得
+			defer func() { <-semaphore }() // セマフォ解放
 
-		if apiErr != nil || coverImage == nil {
-			failureCount++
-			if len(errors) < 50 { // エラーログの上限
-				errors = append(errors, fmt.Sprintf("anime_id=%d (%s): failed to get cover image", anime.ID, anime.Title))
+			// AniListから画像を取得
+			coverImage, apiErr := s.anilistClient.GetCoverImageByMALId(ctx, anime.MalID)
+			if apiErr != nil {
+				// MAL IDで取得失敗した場合、タイトルでフォールバック
+				coverImage, apiErr = s.anilistClient.GetCoverImageByTitle(ctx, anime.Title)
 			}
-			continue
-		}
 
-		// DBに保存
-		_, saveErr := s.db.Exec(`
-			UPDATE animes 
-			SET cover_image_extra_large = $1,
-				cover_image_large = $2,
-				cover_image_medium = $3,
-				cover_image_updated_at = NOW()
-			WHERE id = $4
-		`, coverImage.ExtraLarge, coverImage.Large, coverImage.Medium, anime.ID)
-
-		if saveErr != nil {
-			failureCount++
-			if len(errors) < 50 {
-				errors = append(errors, fmt.Sprintf("anime_id=%d (%s): failed to save to DB: %v", anime.ID, anime.Title, saveErr))
+			if apiErr != nil || coverImage == nil {
+				errMsg := fmt.Sprintf("anime_id=%d (%s): failed to get cover image: %v", anime.ID, anime.Title, apiErr)
+				results <- syncResult{success: false, errMsg: errMsg}
+				return
 			}
-			continue
-		}
 
-		successCount++
+			// DBに保存
+			_, saveErr := s.db.Exec(`
+				UPDATE animes 
+				SET cover_image_extra_large = $1,
+					cover_image_large = $2,
+					cover_image_medium = $3,
+					cover_image_updated_at = NOW()
+				WHERE id = $4
+			`, coverImage.ExtraLarge, coverImage.Large, coverImage.Medium, anime.ID)
+
+			if saveErr != nil {
+				errMsg := fmt.Sprintf("anime_id=%d (%s): failed to save to DB: %v", anime.ID, anime.Title, saveErr)
+				results <- syncResult{success: false, errMsg: errMsg}
+				return
+			}
+
+			results <- syncResult{success: true}
+		}(anime)
+	}
+
+	// 全ワーカーの完了を待ってからチャネルを閉じる
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	// 結果を集計
+	successCount := 0
+	failureCount := 0
+	var errors []string
+
+	for result := range results {
+		if result.success {
+			successCount++
+		} else {
+			failureCount++
+			if len(errors) < constants.BatchSyncMaxErrors {
+				errors = append(errors, result.errMsg)
+			}
+		}
 	}
 
 	s.logger.Info("Cover image sync completed",
