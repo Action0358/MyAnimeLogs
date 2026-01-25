@@ -344,8 +344,10 @@ func (s *AnimeService) generateSearchCacheKey(params models.AnimeSearchParams) s
 func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int) (*models.PaginatedResponse, error) {
 	// 未認証ユーザーの場合のみキャッシュを使用
 	// （認証ユーザーはお気に入り・視聴進捗などユーザー固有データがあるため）
-	if userID == nil {
-		cacheKey := s.generateSearchCacheKey(params)
+	canUseCache := userID == nil
+	cacheKey := s.generateSearchCacheKey(params)
+
+	if canUseCache {
 		var cachedResponse models.PaginatedResponse
 		if found, err := s.cache.Get(cacheKey, &cachedResponse); found && err == nil {
 			s.logger.Debug("Cache hit for search", "keyword", params.Keyword, "page", params.Page)
@@ -461,8 +463,7 @@ func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int
 	}
 
 	// 未認証ユーザーの検索結果をキャッシュ
-	if userID == nil {
-		cacheKey := s.generateSearchCacheKey(params)
+	if canUseCache {
 		if cacheErr := s.cache.SetWithTTL(cacheKey, response, constants.SearchResultCacheTTL); cacheErr != nil {
 			s.logger.Warn("Failed to cache search results", "error", cacheErr)
 		}
@@ -2727,8 +2728,9 @@ func (s *AnimeService) SyncCoverImagesForAllAnimes() (int, int, []string, error)
 
 			// AniListから画像を取得
 			coverImage, apiErr := s.anilistClient.GetCoverImageByMALId(ctx, anime.MalID)
-			if apiErr != nil {
-				// MAL IDで取得失敗した場合、タイトルでフォールバック
+
+			// MAL IDで取得失敗またはnot foundの場合、タイトルでフォールバック
+			if apiErr != nil || coverImage == nil {
 				coverImage, apiErr = s.anilistClient.GetCoverImageByTitle(ctx, anime.Title)
 			}
 
