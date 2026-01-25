@@ -333,7 +333,28 @@ func buildKeywordSearchClause(keyword string, argIndex int, tableAlias string) (
 	return clause, args, argIndex + 2
 }
 
+// generateSearchCacheKey - 検索パラメータからキャッシュキーを生成
+func (s *AnimeService) generateSearchCacheKey(params models.AnimeSearchParams) string {
+	return fmt.Sprintf("%skw:%s:s:%s:st:%s:g:%s:so:%s:p:%d:pp:%d",
+		constants.CacheKeySearch,
+		params.Keyword, params.Season, params.Status, params.Genre, params.Sort,
+		params.Page, params.PerPage)
+}
+
 func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int) (*models.PaginatedResponse, error) {
+	// 未認証ユーザーの場合のみキャッシュを使用
+	// （認証ユーザーはお気に入り・視聴進捗などユーザー固有データがあるため）
+	canUseCache := userID == nil
+	cacheKey := s.generateSearchCacheKey(params)
+
+	if canUseCache {
+		var cachedResponse models.PaginatedResponse
+		if found, err := s.cache.Get(cacheKey, &cachedResponse); found && err == nil {
+			s.logger.Debug("Cache hit for search", "keyword", params.Keyword, "page", params.Page)
+			return &cachedResponse, nil
+		}
+	}
+
 	// Build WHERE clause
 	whereClauses := []string{}
 	args := []interface{}{}
@@ -432,20 +453,51 @@ func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int
 	// 検索ログを記録
 	s.logBasicSearch(params, userID, total)
 
-	return &models.PaginatedResponse{
+	response := &models.PaginatedResponse{
 		Data: animes,
 		Meta: models.PaginationMeta{
 			TotalPages:  totalPages,
 			CurrentPage: params.Page,
 			Total:       total,
 		},
-	}, nil
+	}
+
+	// 未認証ユーザーの検索結果をキャッシュ
+	if canUseCache {
+		if cacheErr := s.cache.SetWithTTL(cacheKey, response, constants.SearchResultCacheTTL); cacheErr != nil {
+			s.logger.Warn("Failed to cache search results", "error", cacheErr)
+		}
+	}
+
+	return response, nil
+}
+
+// generateAdvancedSearchCacheKey - 高度検索パラメータからキャッシュキーを生成
+func (s *AnimeService) generateAdvancedSearchCacheKey(params models.AdvancedSearchParams) string {
+	genresKey := strings.Join(params.Genres, ",")
+	return fmt.Sprintf("%sq:%s:g:%s:y:%d:s:%s:mr:%v:xr:%v:st:%s:so:%s:o:%s:p:%d:pp:%d",
+		constants.CacheKeyAdvSearch,
+		params.Query, genresKey, params.Year, params.Season,
+		params.MinRating, params.MaxRating, params.Status,
+		params.Sort, params.Order, params.Page, params.PerPage)
 }
 
 // AdvancedSearchAnimes - 高度検索機能
 func (s *AnimeService) AdvancedSearchAnimes(params models.AdvancedSearchParams, userID *int) (*models.PaginatedResponse, error) {
 	// Set defaults
 	s.setSearchDefaults(&params)
+
+	// 未認証ユーザーかつUserStatusフィルターなしの場合のみキャッシュを使用
+	// （UserStatusはユーザー固有のフィルターのため）
+	canUseCache := userID == nil && params.UserStatus == ""
+	if canUseCache {
+		cacheKey := s.generateAdvancedSearchCacheKey(params)
+		var cachedResponse models.PaginatedResponse
+		if found, err := s.cache.Get(cacheKey, &cachedResponse); found && err == nil {
+			s.logger.Debug("Cache hit for advanced search", "query", params.Query, "page", params.Page)
+			return &cachedResponse, nil
+		}
+	}
 
 	// Build query components
 	baseQuery := s.buildBaseQuery(params, userID)
@@ -507,14 +559,24 @@ func (s *AnimeService) AdvancedSearchAnimes(params models.AdvancedSearchParams, 
 	// 検索ログを記録
 	s.logAdvancedSearch(params, userID, total)
 
-	return &models.PaginatedResponse{
+	response := &models.PaginatedResponse{
 		Data: animes,
 		Meta: models.PaginationMeta{
 			TotalPages:  totalPages,
 			CurrentPage: params.Page,
 			Total:       total,
 		},
-	}, nil
+	}
+
+	// 未認証ユーザーの検索結果をキャッシュ
+	if canUseCache {
+		cacheKey := s.generateAdvancedSearchCacheKey(params)
+		if cacheErr := s.cache.SetWithTTL(cacheKey, response, constants.SearchResultCacheTTL); cacheErr != nil {
+			s.logger.Warn("Failed to cache advanced search results", "error", cacheErr)
+		}
+	}
+
+	return response, nil
 }
 
 func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWithUserData, error) {
@@ -2594,4 +2656,136 @@ func (s *AnimeService) syncEpisodeDetailsForAnime(animeID int, malAnimeID string
 		"total_episodes", len(episodes))
 
 	return nil
+}
+
+// SyncCoverImagesForAllAnimes - 全アニメのカバー画像をAniListから事前取得してDBにキャッシュ
+// スケジューラーから呼び出され、画像未取得のアニメに対してバッチ処理を行う
+// 戻り値: 成功数, 失敗数, エラーメッセージリスト, エラー
+func (s *AnimeService) SyncCoverImagesForAllAnimes() (int, int, []string, error) {
+	// 画像未取得のアニメを取得（MAL IDがあるもののみ）
+	rows, err := s.db.Query(`
+		SELECT id, title, mal_anime_id
+		FROM animes
+		WHERE mal_anime_id IS NOT NULL
+		  AND mal_anime_id != ''
+		  AND (cover_image_large IS NULL OR cover_image_large = '')
+		ORDER BY watchers_count DESC NULLS LAST
+	`)
+	if err != nil {
+		return 0, 0, nil, fmt.Errorf("failed to query animes without cover images: %w", err)
+	}
+	defer rows.Close()
+
+	type animeToSync struct {
+		ID    int
+		Title string
+		MalID string
+	}
+
+	var animesToSync []animeToSync
+	for rows.Next() {
+		var a animeToSync
+		if err := rows.Scan(&a.ID, &a.Title, &a.MalID); err != nil {
+			s.logger.Warn("Failed to scan anime for cover image sync", "error", err)
+			continue
+		}
+		animesToSync = append(animesToSync, a)
+	}
+
+	if len(animesToSync) == 0 {
+		s.logger.Info("No animes need cover image sync")
+		return 0, 0, nil, nil
+	}
+
+	s.logger.Info("Starting cover image sync", "total_animes", len(animesToSync))
+
+	// 結果を集約するための構造体
+	type syncResult struct {
+		success bool
+		errMsg  string
+	}
+
+	results := make(chan syncResult, len(animesToSync))
+	ctx := context.Background()
+
+	// ワーカープールで並列処理（AniListClientの内部レートリミッターが制御）
+	var wg sync.WaitGroup
+	semaphore := make(chan struct{}, constants.CoverImageSyncWorkerPoolSize)
+
+	for i, anime := range animesToSync {
+		// 進捗ログ（100件ごと）
+		if (i+1)%100 == 0 {
+			s.logger.Info("Cover image sync progress",
+				"queued", i+1,
+				"total", len(animesToSync))
+		}
+
+		wg.Add(1)
+		go func(anime animeToSync) {
+			defer wg.Done()
+			semaphore <- struct{}{}        // セマフォ取得
+			defer func() { <-semaphore }() // セマフォ解放
+
+			// AniListから画像を取得
+			coverImage, apiErr := s.anilistClient.GetCoverImageByMALId(ctx, anime.MalID)
+
+			// MAL IDで取得失敗またはnot foundの場合、タイトルでフォールバック
+			if apiErr != nil || coverImage == nil {
+				coverImage, apiErr = s.anilistClient.GetCoverImageByTitle(ctx, anime.Title)
+			}
+
+			if apiErr != nil || coverImage == nil {
+				errMsg := fmt.Sprintf("anime_id=%d (%s): failed to get cover image: %v", anime.ID, anime.Title, apiErr)
+				results <- syncResult{success: false, errMsg: errMsg}
+				return
+			}
+
+			// DBに保存
+			_, saveErr := s.db.Exec(`
+				UPDATE animes 
+				SET cover_image_extra_large = $1,
+					cover_image_large = $2,
+					cover_image_medium = $3,
+					cover_image_updated_at = NOW()
+				WHERE id = $4
+			`, coverImage.ExtraLarge, coverImage.Large, coverImage.Medium, anime.ID)
+
+			if saveErr != nil {
+				errMsg := fmt.Sprintf("anime_id=%d (%s): failed to save to DB: %v", anime.ID, anime.Title, saveErr)
+				results <- syncResult{success: false, errMsg: errMsg}
+				return
+			}
+
+			results <- syncResult{success: true}
+		}(anime)
+	}
+
+	// 全ワーカーの完了を待ってからチャネルを閉じる
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	// 結果を集計
+	successCount := 0
+	failureCount := 0
+	var errors []string
+
+	for result := range results {
+		if result.success {
+			successCount++
+		} else {
+			failureCount++
+			if len(errors) < constants.BatchSyncMaxErrors {
+				errors = append(errors, result.errMsg)
+			}
+		}
+	}
+
+	s.logger.Info("Cover image sync completed",
+		"success", successCount,
+		"failure", failureCount,
+		"total", len(animesToSync))
+
+	return successCount, failureCount, errors, nil
 }
