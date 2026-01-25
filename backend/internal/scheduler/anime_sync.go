@@ -61,7 +61,7 @@ func (s *AnimeSyncScheduler) executeSyncOperation(errors []string, operation syn
 	return errors
 }
 
-// syncGenresAndEpisodeDetails performs genre and episode details synchronization
+// syncGenresAndEpisodeDetails performs genre, episode details, and cover image synchronization
 // Returns error messages if any errors occur
 func (s *AnimeSyncScheduler) syncGenresAndEpisodeDetails() []string {
 	var errors []string
@@ -71,6 +71,9 @@ func (s *AnimeSyncScheduler) syncGenresAndEpisodeDetails() []string {
 
 	// Sync episode details (air_date and duration) from Jikan API
 	errors = s.executeSyncOperation(errors, s.animeService.SyncEpisodeDetailsForAllAnimes, "episode details (air_date and duration) from Jikan API")
+
+	// Sync cover images from AniList API
+	errors = s.executeSyncOperation(errors, s.animeService.SyncCoverImagesForAllAnimes, "cover images from AniList API")
 
 	return errors
 }
@@ -143,6 +146,7 @@ type AnimeService interface {
 	EnrichEpisodesWithTitles(animeID *int) (int, int, []string, error)
 	SyncGenresForAllAnimes() (int, int, []string, error)
 	SyncEpisodeDetailsForAllAnimes() (int, int, []string, error)
+	SyncCoverImagesForAllAnimes() (int, int, []string, error)
 }
 
 // AnimeSyncScheduler handles scheduled anime synchronization

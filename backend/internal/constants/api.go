@@ -86,3 +86,14 @@ const (
 	// AnnictAPIPerPage - Annict APIの1ページあたりの取得件数
 	AnnictAPIPerPage = 50
 )
+
+// バッチ処理関連の定数
+const (
+	// BatchSyncMaxErrors - バッチ同期処理で収集するエラーメッセージの上限
+	// ログの肥大化を防ぎつつ、デバッグに必要な情報を保持
+	BatchSyncMaxErrors = 50
+
+	// CoverImageSyncWorkerPoolSize - カバー画像同期用ワーカープールのサイズ
+	// AniListのレートリミッターと連携して並列処理を行う
+	CoverImageSyncWorkerPoolSize = 5
+)
