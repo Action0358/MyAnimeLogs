@@ -45,6 +45,10 @@ func (m *mockAnimeService) SyncEpisodeDetailsForAllAnimes() (int, int, []string,
 	return 0, 0, nil, nil
 }
 
+func (m *mockAnimeService) SyncCoverImagesForAllAnimes() (int, int, []string, error) {
+	return 0, 0, nil, nil
+}
+
 func newTestAnimeService() AnimeService {
 	return &mockAnimeService{}
 }
@@ -297,6 +301,13 @@ func (m *mockAnimeServiceWithDelay) SyncGenresForAllAnimes() (int, int, []string
 }
 
 func (m *mockAnimeServiceWithDelay) SyncEpisodeDetailsForAllAnimes() (int, int, []string, error) {
+	if m.syncDelay > 0 {
+		time.Sleep(m.syncDelay)
+	}
+	return 10, 0, nil, nil
+}
+
+func (m *mockAnimeServiceWithDelay) SyncCoverImagesForAllAnimes() (int, int, []string, error) {
 	if m.syncDelay > 0 {
 		time.Sleep(m.syncDelay)
 	}
