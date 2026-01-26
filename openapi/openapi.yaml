@@ -844,6 +844,98 @@ paths:
                     items:
                       type: string
                     example: ["進撃の巨人", "鬼滅の刃", "呪術廻戦"]
+  /search/history:
+    get:
+      summary: 検索履歴を取得
+      description: ログインユーザーの検索履歴を取得
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 50
+          description: 取得件数（最大50件）
+      responses:
+        "200":
+          description: 検索履歴一覧
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  history:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SearchLog"
+                  total:
+                    type: integer
+        "401":
+          description: 認証が必要です
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    delete:
+      summary: 検索履歴を全件削除
+      description: ログインユーザーの検索履歴を全て削除
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: 検索履歴を削除しました
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "検索履歴を削除しました"
+        "401":
+          description: 認証が必要です
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /search/history/{id}:
+    delete:
+      summary: 検索履歴を個別削除
+      description: 指定した検索履歴を削除
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: 検索履歴ID
+      responses:
+        "200":
+          description: 検索履歴を削除しました
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "検索履歴を削除しました"
+        "401":
+          description: 認証が必要です
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: 検索履歴が見つかりません
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /filters:
     get:
       summary: フィルター情報を取得
@@ -1807,3 +1899,34 @@ components:
           type: string
           format: uri
           description: AniList APIから取得した中サイズカバー画像URL
+    SearchLog:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: 検索ログID
+        user_id:
+          type: integer
+          nullable: true
+          description: ユーザーID
+        query:
+          type: string
+          description: 検索クエリ
+          example: "進撃の巨人"
+        filters:
+          type: string
+          description: 検索フィルター（JSON文字列）
+          example: '{"genre":"action","season":"2025-winter"}'
+        result_count:
+          type: integer
+          description: 検索結果件数
+          example: 15
+        clicked_anime_id:
+          type: integer
+          nullable: true
+          description: クリックしたアニメID
+        searched_at:
+          type: string
+          format: date-time
+          description: 検索日時
+          example: "2025-01-15T12:30:00Z"

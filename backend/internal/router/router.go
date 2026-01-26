@@ -149,6 +149,11 @@ func Setup(db *database.DB, cfg *config.Config, syncScheduler handlers.SyncSched
 			// 視聴履歴とウォッチリスト
 			protected.GET("/users/me/recently-watched", animeHandler.GetRecentlyWatched)
 			protected.GET("/users/me/watchlist", animeHandler.GetWatchlist)
+
+			// 検索履歴
+			protected.GET("/search/history", animeHandler.GetSearchHistory)
+			protected.DELETE("/search/history", animeHandler.DeleteSearchHistory)
+			protected.DELETE("/search/history/:id", animeHandler.DeleteSearchHistoryItem)
 		}
 	}
 

@@ -451,3 +451,77 @@ func (h *AnimeHandler) getAnimesWithLimit(c *gin.Context, fetchFunc func(int) ([
 		"total": len(animes),
 	})
 }
+
+// GetSearchHistory 検索履歴取得API
+func (h *AnimeHandler) GetSearchHistory(c *gin.Context) {
+	userID, err := h.validator.GetUserIDFromContext(c)
+	if err != nil {
+		h.response.UnauthorizedError(c, "認証が必要です")
+		return
+	}
+
+	limitStr := c.DefaultQuery("limit", "20")
+	limit := utils.ParseLimitQuery(limitStr, constants.SearchHistoryDefaultLimit, constants.SearchHistoryMaxItems)
+
+	history, err := h.animeService.GetSearchHistory(userID, limit)
+	if err != nil {
+		h.logger.Error("Failed to get search history", "error", err, "user_id", userID)
+		h.response.InternalServerError(c, "検索履歴の取得に失敗しました")
+		return
+	}
+
+	h.response.Success(c, gin.H{
+		"history": history,
+		"total":   len(history),
+	})
+}
+
+// DeleteSearchHistory 検索履歴削除API（全件）
+func (h *AnimeHandler) DeleteSearchHistory(c *gin.Context) {
+	userID, err := h.validator.GetUserIDFromContext(c)
+	if err != nil {
+		h.response.UnauthorizedError(c, "認証が必要です")
+		return
+	}
+
+	err = h.animeService.DeleteSearchHistory(userID)
+	if err != nil {
+		h.logger.Error("Failed to delete search history", "error", err, "user_id", userID)
+		h.response.InternalServerError(c, "検索履歴の削除に失敗しました")
+		return
+	}
+
+	h.response.Success(c, gin.H{
+		"message": "検索履歴を削除しました",
+	})
+}
+
+// DeleteSearchHistoryItem 検索履歴削除API（個別）
+func (h *AnimeHandler) DeleteSearchHistoryItem(c *gin.Context) {
+	userID, err := h.validator.GetUserIDFromContext(c)
+	if err != nil {
+		h.response.UnauthorizedError(c, "認証が必要です")
+		return
+	}
+
+	logID, err := h.validator.ParseIDParam(c, "id")
+	if err != nil {
+		h.response.ValidationError(c, "無効な履歴IDです")
+		return
+	}
+
+	err = h.animeService.DeleteSearchHistoryItem(userID, logID)
+	if err != nil {
+		if err == services.ErrSearchHistoryNotFound {
+			h.response.NotFoundError(c, "検索履歴が見つかりません")
+			return
+		}
+		h.logger.Error("Failed to delete search history item", "error", err, "user_id", userID, "log_id", logID)
+		h.response.InternalServerError(c, "検索履歴の削除に失敗しました")
+		return
+	}
+
+	h.response.Success(c, gin.H{
+		"message": "検索履歴を削除しました",
+	})
+}
