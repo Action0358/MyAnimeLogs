@@ -512,7 +512,7 @@ func (h *AnimeHandler) DeleteSearchHistoryItem(c *gin.Context) {
 
 	err = h.animeService.DeleteSearchHistoryItem(userID, logID)
 	if err != nil {
-		if err.Error() == "search history item not found" {
+		if err == services.ErrSearchHistoryNotFound {
 			h.response.NotFoundError(c, "検索履歴が見つかりません")
 			return
 		}

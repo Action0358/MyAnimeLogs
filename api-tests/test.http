@@ -1277,6 +1277,7 @@ GET {{baseUrl}}/api/animes/popular?limit=50
 ### ===== 検索履歴API =====
 
 ### 156. 検索履歴取得（デフォルト20件）
+# @name getSearchHistory
 GET {{baseUrl}}/api/search/history
 Authorization: Bearer {{login.response.body.access_token}}
 
@@ -1289,8 +1290,9 @@ GET {{baseUrl}}/api/search/history?limit=50
 Authorization: Bearer {{login.response.body.access_token}}
 
 ### 159. 検索履歴削除（個別）
-# 注意: 実際のlog_idはtest #156のレスポンスから取得してください
-DELETE {{baseUrl}}/api/search/history/1
+# 動的値取得: test #156のレスポンスから最初の履歴IDを自動取得
+# 注意: 履歴が空の場合はエラーになります。先に検索を実行してください。
+DELETE {{baseUrl}}/api/search/history/{{getSearchHistory.response.body.history[0].id}}
 Authorization: Bearer {{login.response.body.access_token}}
 
 ### 160. 検索履歴削除（全件）
