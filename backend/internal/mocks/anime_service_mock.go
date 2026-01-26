@@ -204,3 +204,28 @@ func (m *MockAnimeService) GetPopularAnimes(limit int) ([]models.Anime, error) {
 	}
 	return result, args.Error(1)
 }
+
+// GetSearchHistory mocks the GetSearchHistory method
+func (m *MockAnimeService) GetSearchHistory(userID int, limit int) ([]models.SearchLog, error) {
+	args := m.Called(userID, limit)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	result, ok := args.Get(0).([]models.SearchLog)
+	if !ok {
+		panic("mock: GetSearchHistory return value is not []models.SearchLog")
+	}
+	return result, args.Error(1)
+}
+
+// DeleteSearchHistory mocks the DeleteSearchHistory method
+func (m *MockAnimeService) DeleteSearchHistory(userID int) error {
+	args := m.Called(userID)
+	return args.Error(0)
+}
+
+// DeleteSearchHistoryItem mocks the DeleteSearchHistoryItem method
+func (m *MockAnimeService) DeleteSearchHistoryItem(userID int, logID int) error {
+	args := m.Called(userID, logID)
+	return args.Error(0)
+}

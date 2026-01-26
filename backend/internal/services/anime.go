@@ -2789,3 +2789,96 @@ func (s *AnimeService) SyncCoverImagesForAllAnimes() (int, int, []string, error)
 
 	return successCount, failureCount, errors, nil
 }
+
+// GetSearchHistory - ユーザーの検索履歴を取得
+func (s *AnimeService) GetSearchHistory(userID int, limit int) ([]models.SearchLog, error) {
+	if limit <= 0 {
+		limit = constants.SearchHistoryDefaultLimit
+	}
+	if limit > constants.SearchHistoryMaxItems {
+		limit = constants.SearchHistoryMaxItems
+	}
+
+	rows, err := s.db.Query(`
+		SELECT id, user_id, query, COALESCE(filters, '{}') as filters, result_count, clicked_anime_id, searched_at
+		FROM search_logs
+		WHERE user_id = $1
+		ORDER BY searched_at DESC
+		LIMIT $2
+	`, userID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get search history: %w", err)
+	}
+	defer rows.Close()
+
+	history := []models.SearchLog{}
+	for rows.Next() {
+		var log models.SearchLog
+		err := rows.Scan(&log.ID, &log.UserID, &log.Query, &log.Filters, &log.ResultCount, &log.ClickedID, &log.SearchedAt)
+		if err != nil {
+			s.logger.Warn("Failed to scan search log row", "error", err)
+			continue
+		}
+		history = append(history, log)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating search history: %w", err)
+	}
+
+	return history, nil
+}
+
+// DeleteSearchHistory - ユーザーの検索履歴を削除
+func (s *AnimeService) DeleteSearchHistory(userID int) error {
+	_, err := s.db.Exec(`
+		DELETE FROM search_logs
+		WHERE user_id = $1
+	`, userID)
+	if err != nil {
+		return fmt.Errorf("failed to delete search history: %w", err)
+	}
+
+	return nil
+}
+
+// DeleteSearchHistoryItem - 特定の検索履歴を削除
+func (s *AnimeService) DeleteSearchHistoryItem(userID int, logID int) error {
+	result, err := s.db.Exec(`
+		DELETE FROM search_logs
+		WHERE id = $1 AND user_id = $2
+	`, logID, userID)
+	if err != nil {
+		return fmt.Errorf("failed to delete search history item: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("search history item not found")
+	}
+
+	return nil
+}
+
+// CleanupOldSearchHistory - 古い検索履歴を削除（最新N件を残す）
+func (s *AnimeService) CleanupOldSearchHistory(userID int) error {
+	_, err := s.db.Exec(`
+		DELETE FROM search_logs
+		WHERE user_id = $1
+		AND id NOT IN (
+			SELECT id FROM search_logs
+			WHERE user_id = $1
+			ORDER BY searched_at DESC
+			LIMIT $2
+		)
+	`, userID, constants.SearchHistoryMaxItems)
+	if err != nil {
+		return fmt.Errorf("failed to cleanup old search history: %w", err)
+	}
+
+	return nil
+}
