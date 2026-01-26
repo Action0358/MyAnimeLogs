@@ -1258,3 +1258,170 @@ Authorization: Bearer {{tokenExpiryCheck.response.body.access_token}}
 
 
 
+
+
+### ===== 今期アニメ・人気アニメAPI（DBから取得） =====
+
+### 152. 今期アニメ取得（デフォルト12件）
+GET {{baseUrl}}/api/animes/current
+
+### 153. 今期アニメ取得（件数指定）
+GET {{baseUrl}}/api/animes/current?limit=24
+
+### 154. 人気アニメ取得（デフォルト12件）
+GET {{baseUrl}}/api/animes/popular
+
+### 155. 人気アニメ取得（件数指定）
+GET {{baseUrl}}/api/animes/popular?limit=50
+
+### ===== 検索履歴API =====
+
+### 156. 検索履歴取得（デフォルト20件）
+# @name getSearchHistory
+GET {{baseUrl}}/api/search/history
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 157. 検索履歴取得（件数指定）
+GET {{baseUrl}}/api/search/history?limit=10
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 158. 検索履歴取得（最大50件）
+GET {{baseUrl}}/api/search/history?limit=50
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 159. 検索履歴削除（個別）
+# 動的値取得: test #156のレスポンスから最初の履歴IDを自動取得
+# 注意: 履歴が空の場合はエラーになります。先に検索を実行してください。
+DELETE {{baseUrl}}/api/search/history/{{getSearchHistory.response.body.history[0].id}}
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 160. 検索履歴削除（全件）
+DELETE {{baseUrl}}/api/search/history
+Authorization: Bearer {{login.response.body.access_token}}
+
+### ===== 検索履歴エラーケーステスト =====
+
+### 161. 検索履歴取得（認証なし）
+# エラー: 401 Unauthorized
+GET {{baseUrl}}/api/search/history
+
+### 162. 検索履歴削除（認証なし）
+# エラー: 401 Unauthorized
+DELETE {{baseUrl}}/api/search/history
+
+### 163. 存在しない検索履歴を削除
+# エラー: 404 Not Found
+DELETE {{baseUrl}}/api/search/history/99999
+Authorization: Bearer {{login.response.body.access_token}}
+
+### ===== キャッシュ検証テスト =====
+#
+# キャッシュの動作を確認するテスト
+# 2回目のリクエストはキャッシュから返されるため高速になります
+# バックエンドのログで "Cache hit" メッセージを確認してください
+
+### 164. 検索キャッシュテスト（1回目 - キャッシュなし）
+# レスポンス時間を確認
+GET {{baseUrl}}/api/search/animes?keyword=進撃
+
+### 165. 検索キャッシュテスト（2回目 - キャッシュあり）
+# 同じリクエストを再度実行 - 高速になるはず
+# ログに "Cache hit for search" が出力される
+GET {{baseUrl}}/api/search/animes?keyword=進撃
+
+### 166. 高度検索キャッシュテスト（1回目）
+GET {{baseUrl}}/api/search/advanced?q=アニメ&genre=アクション
+
+### 167. 高度検索キャッシュテスト（2回目）
+# ログに "Cache hit for advanced search" が出力される
+GET {{baseUrl}}/api/search/advanced?q=アニメ&genre=アクション
+
+### 168. 今期アニメキャッシュテスト（1回目）
+GET {{baseUrl}}/api/animes/current?limit=12
+
+### 169. 今期アニメキャッシュテスト（2回目）
+# ログに "Cache hit for current season animes" が出力される
+GET {{baseUrl}}/api/animes/current?limit=12
+
+### 170. 人気アニメキャッシュテスト（1回目）
+GET {{baseUrl}}/api/animes/popular?limit=12
+
+### 171. 人気アニメキャッシュテスト（2回目）
+# ログに "Cache hit for popular animes" が出力される
+GET {{baseUrl}}/api/animes/popular?limit=12
+
+### 172. フィルター情報キャッシュテスト（1回目）
+GET {{baseUrl}}/api/filters
+
+### 173. フィルター情報キャッシュテスト（2回目）
+# ログに "Cache hit for filter options" が出力される
+GET {{baseUrl}}/api/filters
+
+### ===== 同期ステータスAPI =====
+
+### 174. 同期ステータス取得
+GET {{baseUrl}}/api/admin/sync/status
+Authorization: Bearer {{login.response.body.access_token}}
+
+### ===== 検索履歴統合テストシナリオ =====
+
+### 175. シナリオ1: 検索実行 → 履歴確認
+# 1. 検索を実行（履歴が記録される）
+GET {{baseUrl}}/api/search/animes?keyword=鬼滅
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 176. シナリオ2: 検索履歴を確認
+# 先ほどの検索が履歴に記録されているか確認
+GET {{baseUrl}}/api/search/history
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 177. シナリオ3: 高度検索実行
+GET {{baseUrl}}/api/search/advanced?q=呪術&genre=アクション
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 178. シナリオ4: 検索履歴を再確認
+# 高度検索も履歴に記録されているか確認
+GET {{baseUrl}}/api/search/history
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 179. シナリオ5: 検索履歴をクリア
+DELETE {{baseUrl}}/api/search/history
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 180. シナリオ6: 履歴がクリアされたことを確認
+GET {{baseUrl}}/api/search/history
+Authorization: Bearer {{login.response.body.access_token}}
+
+### ===== 注意事項 =====
+#
+# キャッシュ検証テストについて:
+#
+# 1. キャッシュの有効期限
+#    - 検索結果: 10分
+#    - 今期アニメ: 30分
+#    - 人気アニメ: 30分
+#    - フィルター情報: 1時間
+#
+# 2. キャッシュヒットの確認方法
+#    - バックエンドのログで "Cache hit" メッセージを確認
+#    - 2回目のリクエストのレスポンス時間が短くなることを確認
+#
+# 3. キャッシュの注意点
+#    - 認証ユーザーの検索結果はキャッシュされません（ユーザー固有データがあるため）
+#    - 未認証ユーザーの検索結果のみキャッシュされます
+#
+# 検索履歴について:
+#
+# 1. 履歴の保存
+#    - 検索実行時に自動的に記録されます
+#    - 認証ユーザーのみ履歴が保存されます
+#
+# 2. 履歴の制限
+#    - 最大50件まで保存されます
+#    - 古い履歴は自動的に削除されます
+#
+# 3. 履歴の内容
+#    - 検索クエリ
+#    - フィルター条件（JSON形式）
+#    - 検索結果件数
+#    - 検索日時
