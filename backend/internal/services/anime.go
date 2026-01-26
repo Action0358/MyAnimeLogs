@@ -17,8 +17,9 @@ import (
 )
 
 var (
-	ErrAnimeNotFound   = errors.New("anime not found")
-	ErrEpisodeNotFound = errors.New("episode not found")
+	ErrAnimeNotFound         = errors.New("anime not found")
+	ErrEpisodeNotFound       = errors.New("episode not found")
+	ErrSearchHistoryNotFound = errors.New("search history item not found")
 )
 
 // GetCurrentSeasonAnimes returns animes for the current season from the database
@@ -2858,22 +2859,24 @@ func (s *AnimeService) DeleteSearchHistoryItem(userID int, logID int) error {
 	}
 
 	if rowsAffected == 0 {
-		return fmt.Errorf("search history item not found")
+		return ErrSearchHistoryNotFound
 	}
 
 	return nil
 }
 
 // CleanupOldSearchHistory - 古い検索履歴を削除（最新N件を残す）
+// ROW_NUMBER()ウィンドウ関数を使用して効率的に削除
 func (s *AnimeService) CleanupOldSearchHistory(userID int) error {
 	_, err := s.db.Exec(`
 		DELETE FROM search_logs
-		WHERE user_id = $1
-		AND id NOT IN (
-			SELECT id FROM search_logs
-			WHERE user_id = $1
-			ORDER BY searched_at DESC
-			LIMIT $2
+		WHERE id IN (
+			SELECT id FROM (
+				SELECT id, ROW_NUMBER() OVER (ORDER BY searched_at DESC) as rn
+				FROM search_logs
+				WHERE user_id = $1
+			) ranked
+			WHERE rn > $2
 		)
 	`, userID, constants.SearchHistoryMaxItems)
 	if err != nil {
