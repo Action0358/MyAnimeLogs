@@ -97,3 +97,12 @@ const (
 	// AniListのレートリミッターと連携して並列処理を行う
 	CoverImageSyncWorkerPoolSize = 5
 )
+
+// 検索履歴関連の定数
+const (
+	// SearchHistoryMaxItems - ユーザーごとの検索履歴の最大保持件数
+	SearchHistoryMaxItems = 50
+
+	// SearchHistoryDefaultLimit - 検索履歴取得時のデフォルト件数
+	SearchHistoryDefaultLimit = 20
+)
