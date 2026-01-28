@@ -111,6 +111,9 @@ func Setup(db *database.DB, cfg *config.Config, syncScheduler handlers.SyncSched
 			admin.GET("/sync/status", adminHandler.GetSyncStatus)
 			admin.GET("/episode-sync-status", adminHandler.GetEpisodeSyncStatus)
 
+			// キャッシュ管理
+			admin.POST("/cache/clear", adminHandler.ClearCache)
+
 			// エラー監視
 			admin.GET("/errors/metrics", monitoringHandler.GetErrorMetrics)
 			admin.GET("/errors/top", monitoringHandler.GetTopErrors)
