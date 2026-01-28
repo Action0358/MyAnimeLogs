@@ -88,27 +88,29 @@ func (r *RedisCache) Delete(ctx context.Context, key string) error {
 }
 
 // DeleteByPrefix removes all keys matching the prefix
+// Keys are collected first, then deleted in a single DEL command to reduce network overhead
 func (r *RedisCache) DeleteByPrefix(ctx context.Context, prefix string) error {
+	var keys []string
 	iter := r.client.Scan(ctx, 0, prefix+"*", 0).Iterator()
 	for iter.Next(ctx) {
-		if err := r.client.Del(ctx, iter.Val()).Err(); err != nil {
-			r.logger.Warn("Failed to delete key", "key", iter.Val(), "error", err)
-		}
+		keys = append(keys, iter.Val())
 	}
 	if err := iter.Err(); err != nil {
 		return fmt.Errorf("failed to scan keys: %w", err)
 	}
+
+	// Delete all keys in a single command if any were found
+	if len(keys) > 0 {
+		if err := r.client.Del(ctx, keys...).Err(); err != nil {
+			return fmt.Errorf("failed to delete keys: %w", err)
+		}
+		r.logger.Debug("Deleted keys by prefix", "prefix", prefix, "count", len(keys))
+	}
+
 	return nil
 }
 
 // Close closes the Redis connection
 func (r *RedisCache) Close() error {
 	return r.client.Close()
-}
-
-// IsAvailable checks if Redis is available
-func (r *RedisCache) IsAvailable() bool {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	return r.client.Ping(ctx).Err() == nil
 }

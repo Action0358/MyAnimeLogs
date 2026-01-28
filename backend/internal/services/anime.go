@@ -250,42 +250,56 @@ func (s *AnimeService) Close() {
 
 // ClearAnimeCache - アニメ関連のキャッシュをクリア
 // データ同期後に呼び出して、最新データを反映させる
+// メモリキャッシュとRedisキャッシュを並行してクリアする
 func (s *AnimeService) ClearAnimeCache() {
 	s.logger.Info("Clearing anime cache after data sync")
 
-	// メモリキャッシュをクリア
+	var wg sync.WaitGroup
+
+	// メモリキャッシュをクリア（goroutine）
 	if s.cache != nil {
-		// フィルター情報
-		s.cache.Delete(constants.CacheKeyFilterOptions)
-		// 人気検索（プレフィックスで削除）
-		s.cache.DeleteByPrefix(constants.CacheKeyPopularSearches)
-		// 今期アニメ
-		s.cache.DeleteByPrefix(constants.CacheKeyCurrentSeason)
-		// 人気アニメ
-		s.cache.DeleteByPrefix(constants.CacheKeyPopular)
-		// 検索結果
-		s.cache.DeleteByPrefix(constants.CacheKeySearch)
-		s.cache.DeleteByPrefix(constants.CacheKeyAdvSearch)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			// フィルター情報
+			s.cache.Delete(constants.CacheKeyFilterOptions)
+			// 人気検索（プレフィックスで削除）
+			s.cache.DeleteByPrefix(constants.CacheKeyPopularSearches)
+			// 今期アニメ
+			s.cache.DeleteByPrefix(constants.CacheKeyCurrentSeason)
+			// 人気アニメ
+			s.cache.DeleteByPrefix(constants.CacheKeyPopular)
+			// 検索結果
+			s.cache.DeleteByPrefix(constants.CacheKeySearch)
+			s.cache.DeleteByPrefix(constants.CacheKeyAdvSearch)
 
-		s.logger.Debug("Memory cache cleared")
+			s.logger.Debug("Memory cache cleared")
+		}()
 	}
 
-	// Redisキャッシュをクリア
+	// Redisキャッシュをクリア（goroutine）
 	if s.redisCache != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
 
-		// フィルター情報
-		if err := s.redisCache.Delete(ctx, constants.CacheKeyFilterOptions); err != nil {
-			s.logger.Warn("Failed to clear filter options from Redis", "error", err)
-		}
-		// 人気検索
-		if err := s.redisCache.DeleteByPrefix(ctx, constants.CacheKeyPopularSearches); err != nil {
-			s.logger.Warn("Failed to clear popular searches from Redis", "error", err)
-		}
+			// フィルター情報
+			if err := s.redisCache.Delete(ctx, constants.CacheKeyFilterOptions); err != nil {
+				s.logger.Warn("Failed to clear filter options from Redis", "error", err)
+			}
+			// 人気検索
+			if err := s.redisCache.DeleteByPrefix(ctx, constants.CacheKeyPopularSearches); err != nil {
+				s.logger.Warn("Failed to clear popular searches from Redis", "error", err)
+			}
 
-		s.logger.Debug("Redis cache cleared")
+			s.logger.Debug("Redis cache cleared")
+		}()
 	}
+
+	// 両方の完了を待つ
+	wg.Wait()
 
 	s.logger.Info("Anime cache cleared successfully")
 }
