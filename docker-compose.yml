@@ -29,6 +29,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      redis:
+        condition: service_healthy
     command: sh -c "go run scripts/migrate.go && air -c .air.toml"
 
   postgres:
@@ -47,6 +49,20 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
 
+  redis:
+    image: redis:7-alpine
+    container_name: myanimelogs_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: redis-server --appendonly yes
+
   pgadmin:
     image: dpage/pgadmin4
     container_name: myanimelogs_pgadmin
@@ -62,3 +78,4 @@ services:
 volumes:
   postgres_data:
   pgadmin_data:
+  redis_data:

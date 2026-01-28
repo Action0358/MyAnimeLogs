@@ -70,11 +70,19 @@ const (
 
 // キャッシュキープレフィックス
 const (
-	CacheKeyCurrentSeason = "current_season:"
-	CacheKeyPopular       = "popular:"
-	CacheKeyFilterOptions = "filter_options"
-	CacheKeySearch        = "search:"
-	CacheKeyAdvSearch     = "adv_search:"
+	CacheKeyCurrentSeason   = "current_season:"
+	CacheKeyPopular         = "popular:"
+	CacheKeyFilterOptions   = "filter_options"
+	CacheKeySearch          = "search:"
+	CacheKeyAdvSearch       = "adv_search:"
+	CacheKeyPopularSearches = "popular_searches:"
+)
+
+// 人気検索キャッシュ関連の定数
+const (
+	// PopularSearchesCacheTTL - 人気検索キャッシュの有効期限
+	// 10分キャッシュ（頻繁に変わらないが、新しい検索トレンドを反映）
+	PopularSearchesCacheTTL = 10 * time.Minute
 )
 
 // Annict API関連の定数
