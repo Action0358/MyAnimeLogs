@@ -19,6 +19,7 @@ type AdminAnimeService interface {
 	EnrichEpisodesWithTitles(animeID *int) (int, int, []string, error)
 	GetEpisodeSyncStatus(animeID int) (*models.EpisodeSyncStatus, error)
 	SyncGenresForAllAnimes() (int, int, []string, error)
+	ClearAnimeCache() // キャッシュクリア
 }
 
 // SyncScheduler defines the interface for sync scheduler
@@ -256,4 +257,16 @@ func (h *AdminHandler) SyncGenresForAllAnimes(c *gin.Context) {
 		"failure_count", failureCount)
 
 	c.JSON(http.StatusOK, response)
+}
+
+// ClearCache clears all anime-related caches
+// POST /api/admin/cache/clear
+func (h *AdminHandler) ClearCache(c *gin.Context) {
+	h.logger.Info("Clearing anime cache via admin API")
+
+	h.animeService.ClearAnimeCache()
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Cache cleared successfully",
+	})
 }

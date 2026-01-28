@@ -507,6 +507,16 @@ Authorization: Bearer {{login.response.body.access_token}}
 POST {{baseUrl}}/api/admin/errors/reset
 Authorization: Bearer {{login.response.body.access_token}}
 
+### 57-1. キャッシュクリア（管理者）
+# アニメ関連のキャッシュ（フィルター情報、人気検索、今期アニメ等）をクリア
+# データ同期後に手動でキャッシュを更新したい場合に使用
+POST {{baseUrl}}/api/admin/cache/clear
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 57-2. キャッシュクリア（認証なし）
+# エラー: 401 Unauthorized
+POST {{baseUrl}}/api/admin/cache/clear
+
 ### ===== 新しい検索・フィルタリング機能テスト =====
 
 ### 58. フィルター情報取得
