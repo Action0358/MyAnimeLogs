@@ -255,6 +255,20 @@ func (s *AnimeService) Close() {
 func (s *AnimeService) ClearAnimeCache() {
 	s.logger.Info("Clearing anime cache after data sync")
 
+	// クリア対象のキー（完全一致）
+	exactKeys := []string{
+		constants.CacheKeyFilterOptions,
+	}
+
+	// クリア対象のプレフィックス
+	prefixKeys := []string{
+		constants.CacheKeyPopularSearches,
+		constants.CacheKeyCurrentSeason,
+		constants.CacheKeyPopular,
+		constants.CacheKeySearch,
+		constants.CacheKeyAdvSearch,
+	}
+
 	var wg sync.WaitGroup
 
 	// メモリキャッシュをクリア（goroutine）
@@ -262,18 +276,12 @@ func (s *AnimeService) ClearAnimeCache() {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			// フィルター情報
-			s.cache.Delete(constants.CacheKeyFilterOptions)
-			// 人気検索（プレフィックスで削除）
-			s.cache.DeleteByPrefix(constants.CacheKeyPopularSearches)
-			// 今期アニメ
-			s.cache.DeleteByPrefix(constants.CacheKeyCurrentSeason)
-			// 人気アニメ
-			s.cache.DeleteByPrefix(constants.CacheKeyPopular)
-			// 検索結果
-			s.cache.DeleteByPrefix(constants.CacheKeySearch)
-			s.cache.DeleteByPrefix(constants.CacheKeyAdvSearch)
-
+			for _, key := range exactKeys {
+				s.cache.Delete(key)
+			}
+			for _, prefix := range prefixKeys {
+				s.cache.DeleteByPrefix(prefix)
+			}
 			s.logger.Debug("Memory cache cleared")
 		}()
 	}
@@ -286,30 +294,16 @@ func (s *AnimeService) ClearAnimeCache() {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 
-			// フィルター情報
-			if err := s.redisCache.Delete(ctx, constants.CacheKeyFilterOptions); err != nil {
-				s.logger.Warn("Failed to clear filter options from Redis", "error", err)
+			for _, key := range exactKeys {
+				if err := s.redisCache.Delete(ctx, key); err != nil {
+					s.logger.Warn("Failed to clear key from Redis", "key", key, "error", err)
+				}
 			}
-			// 人気検索
-			if err := s.redisCache.DeleteByPrefix(ctx, constants.CacheKeyPopularSearches); err != nil {
-				s.logger.Warn("Failed to clear popular searches from Redis", "error", err)
+			for _, prefix := range prefixKeys {
+				if err := s.redisCache.DeleteByPrefix(ctx, prefix); err != nil {
+					s.logger.Warn("Failed to clear prefix from Redis", "prefix", prefix, "error", err)
+				}
 			}
-			// 今期アニメ
-			if err := s.redisCache.DeleteByPrefix(ctx, constants.CacheKeyCurrentSeason); err != nil {
-				s.logger.Warn("Failed to clear current season from Redis", "error", err)
-			}
-			// 人気アニメ
-			if err := s.redisCache.DeleteByPrefix(ctx, constants.CacheKeyPopular); err != nil {
-				s.logger.Warn("Failed to clear popular animes from Redis", "error", err)
-			}
-			// 検索結果
-			if err := s.redisCache.DeleteByPrefix(ctx, constants.CacheKeySearch); err != nil {
-				s.logger.Warn("Failed to clear search results from Redis", "error", err)
-			}
-			if err := s.redisCache.DeleteByPrefix(ctx, constants.CacheKeyAdvSearch); err != nil {
-				s.logger.Warn("Failed to clear advanced search results from Redis", "error", err)
-			}
-
 			s.logger.Debug("Redis cache cleared")
 		}()
 	}
