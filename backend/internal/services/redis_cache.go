@@ -88,23 +88,38 @@ func (r *RedisCache) Delete(ctx context.Context, key string) error {
 }
 
 // DeleteByPrefix removes all keys matching the prefix
-// Keys are collected first, then deleted in a single DEL command to reduce network overhead
+// Keys are processed in batches to prevent high memory consumption
+// when there are many matching keys
+const deleteByPrefixBatchSize = 1000
+
 func (r *RedisCache) DeleteByPrefix(ctx context.Context, prefix string) error {
-	var keys []string
-	iter := r.client.Scan(ctx, 0, prefix+"*", 0).Iterator()
-	for iter.Next(ctx) {
-		keys = append(keys, iter.Val())
-	}
-	if err := iter.Err(); err != nil {
-		return fmt.Errorf("failed to scan keys: %w", err)
+	var totalDeleted int
+	var cursor uint64
+
+	for {
+		// Scan keys in batches
+		keys, nextCursor, err := r.client.Scan(ctx, cursor, prefix+"*", deleteByPrefixBatchSize).Result()
+		if err != nil {
+			return fmt.Errorf("failed to scan keys: %w", err)
+		}
+
+		// Delete batch if any keys were found
+		if len(keys) > 0 {
+			if err := r.client.Del(ctx, keys...).Err(); err != nil {
+				return fmt.Errorf("failed to delete keys: %w", err)
+			}
+			totalDeleted += len(keys)
+		}
+
+		// Check if we've scanned all keys
+		cursor = nextCursor
+		if cursor == 0 {
+			break
+		}
 	}
 
-	// Delete all keys in a single command if any were found
-	if len(keys) > 0 {
-		if err := r.client.Del(ctx, keys...).Err(); err != nil {
-			return fmt.Errorf("failed to delete keys: %w", err)
-		}
-		r.logger.Debug("Deleted keys by prefix", "prefix", prefix, "count", len(keys))
+	if totalDeleted > 0 {
+		r.logger.Debug("Deleted keys by prefix", "prefix", prefix, "count", totalDeleted)
 	}
 
 	return nil

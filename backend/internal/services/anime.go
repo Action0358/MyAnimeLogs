@@ -283,7 +283,7 @@ func (s *AnimeService) ClearAnimeCache() {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 
 			// フィルター情報
@@ -293,6 +293,21 @@ func (s *AnimeService) ClearAnimeCache() {
 			// 人気検索
 			if err := s.redisCache.DeleteByPrefix(ctx, constants.CacheKeyPopularSearches); err != nil {
 				s.logger.Warn("Failed to clear popular searches from Redis", "error", err)
+			}
+			// 今期アニメ
+			if err := s.redisCache.DeleteByPrefix(ctx, constants.CacheKeyCurrentSeason); err != nil {
+				s.logger.Warn("Failed to clear current season from Redis", "error", err)
+			}
+			// 人気アニメ
+			if err := s.redisCache.DeleteByPrefix(ctx, constants.CacheKeyPopular); err != nil {
+				s.logger.Warn("Failed to clear popular animes from Redis", "error", err)
+			}
+			// 検索結果
+			if err := s.redisCache.DeleteByPrefix(ctx, constants.CacheKeySearch); err != nil {
+				s.logger.Warn("Failed to clear search results from Redis", "error", err)
+			}
+			if err := s.redisCache.DeleteByPrefix(ctx, constants.CacheKeyAdvSearch); err != nil {
+				s.logger.Warn("Failed to clear advanced search results from Redis", "error", err)
 			}
 
 			s.logger.Debug("Redis cache cleared")
@@ -1222,6 +1237,10 @@ func (s *AnimeService) GetFilterOptions() (*models.FilterOptions, error) {
 		var cachedOptions models.FilterOptions
 		if found, err := s.redisCache.Get(ctx, constants.CacheKeyFilterOptions, &cachedOptions); found && err == nil {
 			s.logger.Debug("Redis cache hit for filter options")
+			// Redisから取得したデータでメモリキャッシュも更新（後続リクエストの高速化）
+			if cacheErr := s.cache.SetWithTTL(constants.CacheKeyFilterOptions, &cachedOptions, constants.FilterOptionsCacheTTL); cacheErr != nil {
+				s.logger.Warn("Failed to update memory cache from Redis", "error", cacheErr)
+			}
 			return &cachedOptions, nil
 		}
 	}
@@ -1435,6 +1454,10 @@ func (s *AnimeService) GetPopularSearches(limit int) ([]string, error) {
 		var cachedSearches []string
 		if found, err := s.redisCache.Get(ctx, cacheKey, &cachedSearches); found && err == nil {
 			s.logger.Debug("Redis cache hit for popular searches", "limit", limit)
+			// Redisから取得したデータでメモリキャッシュも更新（後続リクエストの高速化）
+			if cacheErr := s.cache.SetWithTTL(cacheKey, cachedSearches, constants.PopularSearchesCacheTTL); cacheErr != nil {
+				s.logger.Warn("Failed to update memory cache from Redis for popular searches", "error", cacheErr)
+			}
 			return cachedSearches, nil
 		}
 	}
