@@ -166,6 +166,7 @@ type AnimeService struct {
 	annictClient     *AnnictClient
 	imageUpdateQueue chan func()  // 画像更新用ワーカープールのキュー
 	cache            *MemoryCache // レスポンスキャッシュ
+	redisCache       *RedisCache  // Redisキャッシュ（オプション）
 }
 
 func NewAnimeService(db *database.DB, logger *common.Logger, annictClient *AnnictClient) *AnimeService {
@@ -176,6 +177,14 @@ func NewAnimeService(db *database.DB, logger *common.Logger, annictClient *Annic
 		MaxItems:        constants.CacheMaxItems,
 	}
 
+	// Redisキャッシュを初期化（オプション - 接続失敗時はnilのまま）
+	var redisCache *RedisCache
+	if rc, err := NewRedisCache(logger); err != nil {
+		logger.Warn("Redis cache not available, using memory cache only", "error", err)
+	} else {
+		redisCache = rc
+	}
+
 	s := &AnimeService{
 		db:               db,
 		logger:           logger,
@@ -184,6 +193,7 @@ func NewAnimeService(db *database.DB, logger *common.Logger, annictClient *Annic
 		annictClient:     annictClient,
 		imageUpdateQueue: make(chan func(), constants.ImageUpdateQueueSize),
 		cache:            NewMemoryCache(cacheConfig),
+		redisCache:       redisCache,
 	}
 
 	// ワーカープールを起動
@@ -234,6 +244,74 @@ func (s *AnimeService) Close() {
 	if s.cache != nil {
 		s.cache.Close()
 	}
+	if s.redisCache != nil {
+		s.redisCache.Close()
+	}
+}
+
+// ClearAnimeCache - アニメ関連のキャッシュをクリア
+// データ同期後に呼び出して、最新データを反映させる
+// メモリキャッシュとRedisキャッシュを並行してクリアする
+func (s *AnimeService) ClearAnimeCache() {
+	s.logger.Info("Clearing anime cache after data sync")
+
+	// クリア対象のキー（完全一致）
+	exactKeys := []string{
+		constants.CacheKeyFilterOptions,
+	}
+
+	// クリア対象のプレフィックス
+	prefixKeys := []string{
+		constants.CacheKeyPopularSearches,
+		constants.CacheKeyCurrentSeason,
+		constants.CacheKeyPopular,
+		constants.CacheKeySearch,
+		constants.CacheKeyAdvSearch,
+	}
+
+	var wg sync.WaitGroup
+
+	// メモリキャッシュをクリア（goroutine）
+	if s.cache != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for _, key := range exactKeys {
+				s.cache.Delete(key)
+			}
+			for _, prefix := range prefixKeys {
+				s.cache.DeleteByPrefix(prefix)
+			}
+			s.logger.Debug("Memory cache cleared")
+		}()
+	}
+
+	// Redisキャッシュをクリア（goroutine）
+	if s.redisCache != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			for _, key := range exactKeys {
+				if err := s.redisCache.Delete(ctx, key); err != nil {
+					s.logger.Warn("Failed to clear key from Redis", "key", key, "error", err)
+				}
+			}
+			for _, prefix := range prefixKeys {
+				if err := s.redisCache.DeleteByPrefix(ctx, prefix); err != nil {
+					s.logger.Warn("Failed to clear prefix from Redis", "prefix", prefix, "error", err)
+				}
+			}
+			s.logger.Debug("Redis cache cleared")
+		}()
+	}
+
+	// 両方の完了を待つ
+	wg.Wait()
+
+	s.logger.Info("Anime cache cleared successfully")
 }
 
 // GetEpisodeSyncStatus returns the sync status for a specific anime's episodes
@@ -1145,10 +1223,26 @@ func (s *AnimeService) enrichAnimesWithUserData(animes []models.AnimeWithUserDat
 
 // GetFilterOptions - フィルター情報を取得
 func (s *AnimeService) GetFilterOptions() (*models.FilterOptions, error) {
-	// キャッシュから取得を試みる
+	// Redisキャッシュから取得を試みる
+	if s.redisCache != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+
+		var cachedOptions models.FilterOptions
+		if found, err := s.redisCache.Get(ctx, constants.CacheKeyFilterOptions, &cachedOptions); found && err == nil {
+			s.logger.Debug("Redis cache hit for filter options")
+			// Redisから取得したデータでメモリキャッシュも更新（後続リクエストの高速化）
+			if cacheErr := s.cache.SetWithTTL(constants.CacheKeyFilterOptions, &cachedOptions, constants.FilterOptionsCacheTTL); cacheErr != nil {
+				s.logger.Warn("Failed to update memory cache from Redis", "error", cacheErr)
+			}
+			return &cachedOptions, nil
+		}
+	}
+
+	// メモリキャッシュから取得を試みる
 	var cachedOptions models.FilterOptions
 	if found, err := s.cache.Get(constants.CacheKeyFilterOptions, &cachedOptions); found && err == nil {
-		s.logger.Debug("Cache hit for filter options")
+		s.logger.Debug("Memory cache hit for filter options")
 		return &cachedOptions, nil
 	}
 
@@ -1270,7 +1364,19 @@ func (s *AnimeService) GetFilterOptions() (*models.FilterOptions, error) {
 		filterOptions.Ratings = ratingStats
 	}
 
-	// キャッシュに保存
+	// Redisキャッシュに保存
+	if s.redisCache != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+
+		if err := s.redisCache.Set(ctx, constants.CacheKeyFilterOptions, filterOptions, constants.FilterOptionsCacheTTL); err != nil {
+			s.logger.Warn("Failed to cache filter options in Redis", "error", err)
+		} else {
+			s.logger.Debug("Cached filter options in Redis")
+		}
+	}
+
+	// メモリキャッシュにも保存
 	if cacheErr := s.cache.SetWithTTL(constants.CacheKeyFilterOptions, filterOptions, constants.FilterOptionsCacheTTL); cacheErr != nil {
 		s.logger.Warn("Failed to cache filter options", "error", cacheErr)
 	}
@@ -1331,6 +1437,32 @@ func (s *AnimeService) GetPopularSearches(limit int) ([]string, error) {
 		limit = 10
 	}
 
+	// キャッシュキーを生成
+	cacheKey := fmt.Sprintf("%s%d", constants.CacheKeyPopularSearches, limit)
+
+	// Redisキャッシュから取得を試みる
+	if s.redisCache != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+
+		var cachedSearches []string
+		if found, err := s.redisCache.Get(ctx, cacheKey, &cachedSearches); found && err == nil {
+			s.logger.Debug("Redis cache hit for popular searches", "limit", limit)
+			// Redisから取得したデータでメモリキャッシュも更新（後続リクエストの高速化）
+			if cacheErr := s.cache.SetWithTTL(cacheKey, cachedSearches, constants.PopularSearchesCacheTTL); cacheErr != nil {
+				s.logger.Warn("Failed to update memory cache from Redis for popular searches", "error", cacheErr)
+			}
+			return cachedSearches, nil
+		}
+	}
+
+	// メモリキャッシュから取得を試みる
+	var cachedSearches []string
+	if found, err := s.cache.Get(cacheKey, &cachedSearches); found && err == nil {
+		s.logger.Debug("Memory cache hit for popular searches", "limit", limit)
+		return cachedSearches, nil
+	}
+
 	// まず検索ログが存在するかチェック
 	var logCount int
 	err := s.db.QueryRow("SELECT COUNT(*) FROM search_logs").Scan(&logCount)
@@ -1385,6 +1517,23 @@ func (s *AnimeService) GetPopularSearches(limit int) ([]string, error) {
 		if limit < len(searches) {
 			searches = searches[:limit]
 		}
+	}
+
+	// Redisキャッシュに保存
+	if s.redisCache != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+
+		if err := s.redisCache.Set(ctx, cacheKey, searches, constants.PopularSearchesCacheTTL); err != nil {
+			s.logger.Warn("Failed to cache popular searches in Redis", "error", err)
+		} else {
+			s.logger.Debug("Cached popular searches in Redis", "limit", limit)
+		}
+	}
+
+	// メモリキャッシュにも保存
+	if err := s.cache.SetWithTTL(cacheKey, searches, constants.PopularSearchesCacheTTL); err != nil {
+		s.logger.Warn("Failed to cache popular searches in memory", "error", err)
 	}
 
 	return searches, nil

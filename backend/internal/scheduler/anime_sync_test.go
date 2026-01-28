@@ -49,6 +49,10 @@ func (m *mockAnimeService) SyncCoverImagesForAllAnimes() (int, int, []string, er
 	return 0, 0, nil, nil
 }
 
+func (m *mockAnimeService) ClearAnimeCache() {
+	// No-op for testing
+}
+
 func newTestAnimeService() AnimeService {
 	return &mockAnimeService{}
 }
@@ -312,6 +316,10 @@ func (m *mockAnimeServiceWithDelay) SyncCoverImagesForAllAnimes() (int, int, []s
 		time.Sleep(m.syncDelay)
 	}
 	return 10, 0, nil, nil
+}
+
+func (m *mockAnimeServiceWithDelay) ClearAnimeCache() {
+	// No-op for testing
 }
 
 // TestTryAcquireSyncLock tests the sync lock acquisition mechanism

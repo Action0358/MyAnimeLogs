@@ -123,6 +123,9 @@ func (s *AnimeSyncScheduler) runBackgroundSync() {
 	errors := s.syncGenresAndEpisodeDetails()
 	duration := time.Since(startTime)
 
+	// Clear cache after background sync to reflect new data
+	s.animeService.ClearAnimeCache()
+
 	// Log completion with status
 	if len(errors) > 0 {
 		// Calculate sample size inline to avoid dependency on min function
@@ -147,6 +150,7 @@ type AnimeService interface {
 	SyncGenresForAllAnimes() (int, int, []string, error)
 	SyncEpisodeDetailsForAllAnimes() (int, int, []string, error)
 	SyncCoverImagesForAllAnimes() (int, int, []string, error)
+	ClearAnimeCache() // キャッシュクリア
 }
 
 // AnimeSyncScheduler handles scheduled anime synchronization
@@ -332,6 +336,9 @@ func (s *AnimeSyncScheduler) syncAllSeasons(nextSyncTime time.Time) {
 	// Update status tracker
 	s.statusTracker.EndSync(success, totalAnimeCount, duration, errors)
 
+	// Clear cache after sync to reflect new data
+	s.animeService.ClearAnimeCache()
+
 	// Log results
 	if !success {
 		s.logger.Error("Initial full sync completed with errors",
@@ -384,6 +391,9 @@ func (s *AnimeSyncScheduler) syncCurrentSeasonAnimes() {
 
 	// Update status tracker
 	s.statusTracker.EndSync(success, totalAnimeCount, duration, errors)
+
+	// Clear cache after sync to reflect new data
+	s.animeService.ClearAnimeCache()
 
 	// Log results
 	if !success {
