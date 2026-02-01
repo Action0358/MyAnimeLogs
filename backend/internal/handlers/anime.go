@@ -96,6 +96,32 @@ func (h *AnimeHandler) GetAnimeEpisodes(c *gin.Context) {
 		}
 	}
 
+	// separatedパラメータで分離表示を制御（デフォルトはtrue）
+	separated := c.DefaultQuery("separated", "true") == "true"
+
+	if separated {
+		// 通常エピソードと特別編を分離して取得
+		regularEpisodes, specialEpisodes, err := h.animeService.GetEpisodesSeparated(animeID, userID)
+		if err != nil {
+			if err == services.ErrAnimeNotFound {
+				h.response.NotFoundError(c, "アニメが見つかりません")
+				return
+			}
+			h.response.InternalServerError(c, "エピソード一覧の取得に失敗しました")
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"anime_id":         animeID,
+			"regular_episodes": regularEpisodes,
+			"special_episodes": specialEpisodes,
+			"total_regular":    len(regularEpisodes),
+			"total_special":    len(specialEpisodes),
+		})
+		return
+	}
+
+	// 従来の形式（全エピソードを一覧で返す）
 	episodes, err := h.animeService.GetAnimeEpisodes(animeID, userID)
 	if err != nil {
 		if err == services.ErrAnimeNotFound {

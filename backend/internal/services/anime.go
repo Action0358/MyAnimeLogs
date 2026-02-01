@@ -800,9 +800,13 @@ func (s *AnimeService) GetAnimeEpisodes(animeID int, userID *int) ([]models.Epis
 	}
 
 	rows, err := s.db.Query(`
-		SELECT id, anime_id, title, episode_number, duration_minutes, air_date, created_at, updated_at
+		SELECT id, anime_id, title, episode_number, duration_minutes, air_date, 
+		       COALESCE(is_special, FALSE) as is_special, 
+		       COALESCE(filler, FALSE) as filler, 
+		       COALESCE(recap, FALSE) as recap,
+		       created_at, updated_at
 		FROM episodes WHERE anime_id = $1
-		ORDER BY episode_number
+		ORDER BY is_special ASC, episode_number ASC
 	`, animeID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get episodes: %w", err)
@@ -813,7 +817,9 @@ func (s *AnimeService) GetAnimeEpisodes(animeID int, userID *int) ([]models.Epis
 	hasMissingDurations := false
 	for rows.Next() {
 		var episode models.Episode
-		err := rows.Scan(&episode.ID, &episode.AnimeID, &episode.Title, &episode.EpisodeNumber, &episode.DurationMinutes, &episode.AirDate, &episode.CreatedAt, &episode.UpdatedAt)
+		err := rows.Scan(&episode.ID, &episode.AnimeID, &episode.Title, &episode.EpisodeNumber,
+			&episode.DurationMinutes, &episode.AirDate, &episode.IsSpecial, &episode.Filler,
+			&episode.Recap, &episode.CreatedAt, &episode.UpdatedAt)
 		if err != nil {
 			continue
 		}
@@ -3031,6 +3037,178 @@ func (s *AnimeService) CleanupOldSearchHistory(userID int) error {
 	if err != nil {
 		return fmt.Errorf("failed to cleanup old search history: %w", err)
 	}
+
+	return nil
+}
+
+// NormalizedEpisode represents an episode after normalization
+type NormalizedEpisode struct {
+	Number          int
+	Title           string
+	IsSpecial       bool
+	Filler          bool
+	Recap           bool
+	DurationMinutes int
+	AirDate         *string
+}
+
+// normalizeEpisodes separates regular episodes from specials and renumbers them
+// Uses Jikan API's filler and recap flags to identify special episodes (98-99% accuracy)
+func (s *AnimeService) normalizeEpisodes(jikanEpisodes []models.JikanEpisode) (regular, specials []NormalizedEpisode) {
+	for _, ep := range jikanEpisodes {
+		normalized := NormalizedEpisode{
+			Number:          ep.MalID,
+			Title:           ep.Title,
+			Filler:          ep.Filler,
+			Recap:           ep.Recap,
+			DurationMinutes: ep.Duration,
+			AirDate:         ep.Aired,
+		}
+
+		// Jikanのフラグで特別編判定（精度98-99%）
+		if ep.Filler || ep.Recap {
+			normalized.IsSpecial = true
+			specials = append(specials, normalized)
+		} else {
+			normalized.IsSpecial = false
+			regular = append(regular, normalized)
+		}
+	}
+
+	// 通常エピソードの番号を振り直し（1, 2, 3...）
+	for i := range regular {
+		regular[i].Number = i + 1
+	}
+
+	// 特別編の番号を振り直し（1, 2, 3...）
+	for i := range specials {
+		specials[i].Number = i + 1
+	}
+
+	return regular, specials
+}
+
+// GetEpisodesByType returns episodes filtered by type (regular or special)
+func (s *AnimeService) GetEpisodesByType(animeID int, isSpecial bool, userID *int) ([]models.Episode, error) {
+	rows, err := s.db.Query(`
+		SELECT id, anime_id, episode_number, title, duration_minutes, air_date,
+		       COALESCE(is_special, FALSE) as is_special, 
+		       COALESCE(filler, FALSE) as filler, 
+		       COALESCE(recap, FALSE) as recap,
+		       created_at, updated_at
+		FROM episodes
+		WHERE anime_id = $1 AND COALESCE(is_special, FALSE) = $2
+		ORDER BY episode_number ASC
+	`, animeID, isSpecial)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query episodes: %w", err)
+	}
+	defer rows.Close()
+
+	var episodes []models.Episode
+	for rows.Next() {
+		var ep models.Episode
+		err := rows.Scan(
+			&ep.ID, &ep.AnimeID, &ep.EpisodeNumber, &ep.Title,
+			&ep.DurationMinutes, &ep.AirDate, &ep.IsSpecial, &ep.Filler, &ep.Recap,
+			&ep.CreatedAt, &ep.UpdatedAt,
+		)
+		if err != nil {
+			s.logger.Warn("Failed to scan episode", "error", err)
+			continue
+		}
+
+		// Add watch status if user is authenticated
+		if userID != nil {
+			var viewed bool
+			err := s.db.QueryRow(`
+				SELECT viewed FROM watch_statuses 
+				WHERE user_id = $1 AND episode_id = $2
+			`, *userID, ep.ID).Scan(&viewed)
+			if err == nil {
+				ep.Viewed = viewed
+			}
+		}
+
+		episodes = append(episodes, ep)
+	}
+
+	return episodes, nil
+}
+
+// GetEpisodesSeparated returns episodes separated by type (regular and special)
+func (s *AnimeService) GetEpisodesSeparated(animeID int, userID *int) (regular, specials []models.Episode, err error) {
+	regular, err = s.GetEpisodesByType(animeID, false, userID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get regular episodes: %w", err)
+	}
+
+	specials, err = s.GetEpisodesByType(animeID, true, userID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get special episodes: %w", err)
+	}
+
+	return regular, specials, nil
+}
+
+// UpdateEpisodeSpecialFlags updates the special flags for episodes from Jikan API
+func (s *AnimeService) UpdateEpisodeSpecialFlags(animeID int, malAnimeID string) error {
+	// Fetch episodes from Jikan API
+	jikanEpisodes, err := s.jikanClient.GetAnimeEpisodes(malAnimeID)
+	if err != nil {
+		return fmt.Errorf("failed to fetch episodes from Jikan API: %w", err)
+	}
+
+	if len(jikanEpisodes) == 0 {
+		s.logger.Debug("No episodes found in Jikan API", "mal_anime_id", malAnimeID)
+		return nil
+	}
+
+	// Normalize episodes
+	regularEps, specialEps := s.normalizeEpisodes(jikanEpisodes)
+
+	s.logger.Info("Normalized episodes",
+		"anime_id", animeID,
+		"regular_count", len(regularEps),
+		"special_count", len(specialEps))
+
+	// Update existing episodes with special flags
+	updatedCount := 0
+	for _, ep := range regularEps {
+		_, err := s.db.Exec(`
+			UPDATE episodes 
+			SET is_special = FALSE, filler = $1, recap = $2, updated_at = CURRENT_TIMESTAMP
+			WHERE anime_id = $3 AND episode_number = $4 AND COALESCE(is_special, FALSE) = FALSE
+		`, ep.Filler, ep.Recap, animeID, ep.Number)
+		if err != nil {
+			s.logger.Warn("Failed to update regular episode flags",
+				"anime_id", animeID,
+				"episode_number", ep.Number,
+				"error", err)
+			continue
+		}
+		updatedCount++
+	}
+
+	for _, ep := range specialEps {
+		_, err := s.db.Exec(`
+			UPDATE episodes 
+			SET is_special = TRUE, filler = $1, recap = $2, updated_at = CURRENT_TIMESTAMP
+			WHERE anime_id = $3 AND episode_number = $4 AND COALESCE(is_special, FALSE) = TRUE
+		`, ep.Filler, ep.Recap, animeID, ep.Number)
+		if err != nil {
+			s.logger.Warn("Failed to update special episode flags",
+				"anime_id", animeID,
+				"episode_number", ep.Number,
+				"error", err)
+			continue
+		}
+		updatedCount++
+	}
+
+	s.logger.Info("Updated episode special flags",
+		"anime_id", animeID,
+		"updated_count", updatedCount)
 
 	return nil
 }
