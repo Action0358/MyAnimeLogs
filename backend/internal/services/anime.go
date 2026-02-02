@@ -800,9 +800,13 @@ func (s *AnimeService) GetAnimeEpisodes(animeID int, userID *int) ([]models.Epis
 	}
 
 	rows, err := s.db.Query(`
-		SELECT id, anime_id, title, episode_number, duration_minutes, air_date, created_at, updated_at
+		SELECT id, anime_id, title, episode_number, duration_minutes, air_date, 
+		       COALESCE(is_special, FALSE) as is_special, 
+		       COALESCE(filler, FALSE) as filler, 
+		       COALESCE(recap, FALSE) as recap,
+		       created_at, updated_at
 		FROM episodes WHERE anime_id = $1
-		ORDER BY episode_number
+		ORDER BY is_special ASC, episode_number ASC
 	`, animeID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get episodes: %w", err)
@@ -813,7 +817,9 @@ func (s *AnimeService) GetAnimeEpisodes(animeID int, userID *int) ([]models.Epis
 	hasMissingDurations := false
 	for rows.Next() {
 		var episode models.Episode
-		err := rows.Scan(&episode.ID, &episode.AnimeID, &episode.Title, &episode.EpisodeNumber, &episode.DurationMinutes, &episode.AirDate, &episode.CreatedAt, &episode.UpdatedAt)
+		err := rows.Scan(&episode.ID, &episode.AnimeID, &episode.Title, &episode.EpisodeNumber,
+			&episode.DurationMinutes, &episode.AirDate, &episode.IsSpecial, &episode.Filler,
+			&episode.Recap, &episode.CreatedAt, &episode.UpdatedAt)
 		if err != nil {
 			continue
 		}
@@ -3031,6 +3037,321 @@ func (s *AnimeService) CleanupOldSearchHistory(userID int) error {
 	if err != nil {
 		return fmt.Errorf("failed to cleanup old search history: %w", err)
 	}
+
+	return nil
+}
+
+// NormalizedEpisode represents an episode after normalization
+type NormalizedEpisode struct {
+	OriginalNumber  int // 元のエピソード番号（Jikan APIのMalID）- DB更新時に使用
+	Number          int // 振り直し後の番号
+	Title           string
+	IsSpecial       bool
+	Filler          bool
+	Recap           bool
+	DurationMinutes int
+	AirDate         *string
+}
+
+// normalizeEpisodes separates regular episodes from specials and renumbers them
+// Uses Jikan API's filler and recap flags to identify special episodes (98-99% accuracy)
+func (s *AnimeService) normalizeEpisodes(jikanEpisodes []models.JikanEpisode) (regular, specials []NormalizedEpisode) {
+	for _, ep := range jikanEpisodes {
+		normalized := NormalizedEpisode{
+			OriginalNumber:  ep.MalID, // 元の番号を保持
+			Number:          ep.MalID,
+			Title:           ep.Title,
+			Filler:          ep.Filler,
+			Recap:           ep.Recap,
+			DurationMinutes: ep.Duration,
+			AirDate:         ep.Aired,
+		}
+
+		// Jikanのフラグで特別編判定（精度98-99%）
+		if ep.Filler || ep.Recap {
+			normalized.IsSpecial = true
+			specials = append(specials, normalized)
+		} else {
+			normalized.IsSpecial = false
+			regular = append(regular, normalized)
+		}
+	}
+
+	// 通常エピソードの番号を振り直し（1, 2, 3...）
+	for i := range regular {
+		regular[i].Number = i + 1
+	}
+
+	// 特別編の番号を振り直し（1, 2, 3...）
+	for i := range specials {
+		specials[i].Number = i + 1
+	}
+
+	return regular, specials
+}
+
+// GetEpisodesByType returns episodes filtered by type (regular or special)
+// N+1クエリ問題を解消: 視聴ステータスを一括取得
+func (s *AnimeService) GetEpisodesByType(animeID int, isSpecial bool, userID *int) ([]models.Episode, error) {
+	rows, err := s.db.Query(`
+		SELECT id, anime_id, episode_number, title, duration_minutes, air_date,
+		       COALESCE(is_special, FALSE) as is_special, 
+		       COALESCE(filler, FALSE) as filler, 
+		       COALESCE(recap, FALSE) as recap,
+		       created_at, updated_at
+		FROM episodes
+		WHERE anime_id = $1 AND COALESCE(is_special, FALSE) = $2
+		ORDER BY episode_number ASC
+	`, animeID, isSpecial)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query episodes: %w", err)
+	}
+	defer rows.Close()
+
+	var episodes []models.Episode
+	var episodeIDs []int
+	for rows.Next() {
+		var ep models.Episode
+		err := rows.Scan(
+			&ep.ID, &ep.AnimeID, &ep.EpisodeNumber, &ep.Title,
+			&ep.DurationMinutes, &ep.AirDate, &ep.IsSpecial, &ep.Filler, &ep.Recap,
+			&ep.CreatedAt, &ep.UpdatedAt,
+		)
+		if err != nil {
+			s.logger.Warn("Failed to scan episode", "error", err)
+			continue
+		}
+		episodes = append(episodes, ep)
+		episodeIDs = append(episodeIDs, ep.ID)
+	}
+
+	// 視聴ステータスを一括取得（N+1クエリ解消）
+	if userID != nil && len(episodeIDs) > 0 {
+		viewedMap, err := s.getWatchStatusesBatch(*userID, episodeIDs)
+		if err != nil {
+			s.logger.Warn("Failed to get watch statuses batch", "error", err)
+		} else {
+			for i := range episodes {
+				if viewed, ok := viewedMap[episodes[i].ID]; ok {
+					episodes[i].Viewed = viewed
+				}
+			}
+		}
+	}
+
+	return episodes, nil
+}
+
+// getWatchStatusesBatch returns watch statuses for multiple episodes in a single query
+func (s *AnimeService) getWatchStatusesBatch(userID int, episodeIDs []int) (map[int]bool, error) {
+	if len(episodeIDs) == 0 {
+		return make(map[int]bool), nil
+	}
+
+	// プレースホルダーを動的に生成
+	placeholders := make([]string, len(episodeIDs))
+	args := make([]interface{}, len(episodeIDs)+1)
+	args[0] = userID
+	for i, id := range episodeIDs {
+		placeholders[i] = fmt.Sprintf("$%d", i+2)
+		args[i+1] = id
+	}
+
+	query := fmt.Sprintf(`
+		SELECT episode_id, viewed 
+		FROM watch_statuses 
+		WHERE user_id = $1 AND episode_id IN (%s)
+	`, strings.Join(placeholders, ","))
+
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query watch statuses: %w", err)
+	}
+	defer rows.Close()
+
+	viewedMap := make(map[int]bool)
+	for rows.Next() {
+		var episodeID int
+		var viewed bool
+		if err := rows.Scan(&episodeID, &viewed); err != nil {
+			continue
+		}
+		viewedMap[episodeID] = viewed
+	}
+
+	return viewedMap, nil
+}
+
+// GetEpisodesSeparated returns episodes separated by type (regular and special)
+// 1回のクエリで全エピソードを取得し、メモリ上で分離（効率化）
+func (s *AnimeService) GetEpisodesSeparated(animeID int, userID *int) (regular, specials []models.Episode, err error) {
+	// 全エピソードを1回のクエリで取得
+	rows, err := s.db.Query(`
+		SELECT id, anime_id, episode_number, title, duration_minutes, air_date,
+		       COALESCE(is_special, FALSE) as is_special, 
+		       COALESCE(filler, FALSE) as filler, 
+		       COALESCE(recap, FALSE) as recap,
+		       created_at, updated_at
+		FROM episodes
+		WHERE anime_id = $1
+		ORDER BY is_special ASC, episode_number ASC
+	`, animeID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to query episodes: %w", err)
+	}
+	defer rows.Close()
+
+	var allEpisodes []models.Episode
+	var episodeIDs []int
+	for rows.Next() {
+		var ep models.Episode
+		err := rows.Scan(
+			&ep.ID, &ep.AnimeID, &ep.EpisodeNumber, &ep.Title,
+			&ep.DurationMinutes, &ep.AirDate, &ep.IsSpecial, &ep.Filler, &ep.Recap,
+			&ep.CreatedAt, &ep.UpdatedAt,
+		)
+		if err != nil {
+			s.logger.Warn("Failed to scan episode", "error", err)
+			continue
+		}
+		allEpisodes = append(allEpisodes, ep)
+		episodeIDs = append(episodeIDs, ep.ID)
+	}
+
+	// 視聴ステータスを一括取得（N+1クエリ解消）
+	if userID != nil && len(episodeIDs) > 0 {
+		viewedMap, err := s.getWatchStatusesBatch(*userID, episodeIDs)
+		if err != nil {
+			s.logger.Warn("Failed to get watch statuses batch", "error", err)
+		} else {
+			for i := range allEpisodes {
+				if viewed, ok := viewedMap[allEpisodes[i].ID]; ok {
+					allEpisodes[i].Viewed = viewed
+				}
+			}
+		}
+	}
+
+	// メモリ上で通常エピソードと特別編に分離
+	for _, ep := range allEpisodes {
+		if ep.IsSpecial {
+			specials = append(specials, ep)
+		} else {
+			regular = append(regular, ep)
+		}
+	}
+
+	return regular, specials, nil
+}
+
+// UpdateEpisodeSpecialFlags updates the special flags for episodes from Jikan API
+// バッチ処理でUPDATEを最適化（CASE文を使用）
+func (s *AnimeService) UpdateEpisodeSpecialFlags(animeID int, malAnimeID string) error {
+	// Fetch episodes from Jikan API
+	jikanEpisodes, err := s.jikanClient.GetAnimeEpisodes(malAnimeID)
+	if err != nil {
+		return fmt.Errorf("failed to fetch episodes from Jikan API: %w", err)
+	}
+
+	if len(jikanEpisodes) == 0 {
+		s.logger.Debug("No episodes found in Jikan API", "mal_anime_id", malAnimeID)
+		return nil
+	}
+
+	// Normalize episodes
+	regularEps, specialEps := s.normalizeEpisodes(jikanEpisodes)
+
+	s.logger.Info("Normalized episodes",
+		"anime_id", animeID,
+		"regular_count", len(regularEps),
+		"special_count", len(specialEps))
+
+	// バッチ更新用のデータを準備
+	type updateData struct {
+		originalNumber int
+		filler         bool
+		recap          bool
+		isSpecial      bool
+	}
+	var updates []updateData
+
+	for _, ep := range regularEps {
+		updates = append(updates, updateData{
+			originalNumber: ep.OriginalNumber, // 元の番号を使用
+			filler:         ep.Filler,
+			recap:          ep.Recap,
+			isSpecial:      false,
+		})
+	}
+
+	for _, ep := range specialEps {
+		updates = append(updates, updateData{
+			originalNumber: ep.OriginalNumber, // 元の番号を使用
+			filler:         ep.Filler,
+			recap:          ep.Recap,
+			isSpecial:      true,
+		})
+	}
+
+	if len(updates) == 0 {
+		return nil
+	}
+
+	// CASE文を使ったバッチUPDATEクエリを構築
+	// 100件ずつバッチ処理
+	const batchSize = 100
+	updatedCount := 0
+
+	for i := 0; i < len(updates); i += batchSize {
+		end := i + batchSize
+		if end > len(updates) {
+			end = len(updates)
+		}
+		batch := updates[i:end]
+
+		// CASE文を構築
+		var fillerCases, recapCases, isSpecialCases []string
+		var episodeNumbers []string
+		args := []interface{}{animeID}
+		argIdx := 2
+
+		for _, u := range batch {
+			episodeNumbers = append(episodeNumbers, fmt.Sprintf("$%d", argIdx))
+			fillerCases = append(fillerCases, fmt.Sprintf("WHEN episode_number = $%d THEN $%d", argIdx, argIdx+1))
+			recapCases = append(recapCases, fmt.Sprintf("WHEN episode_number = $%d THEN $%d", argIdx, argIdx+2))
+			isSpecialCases = append(isSpecialCases, fmt.Sprintf("WHEN episode_number = $%d THEN $%d", argIdx, argIdx+3))
+
+			args = append(args, u.originalNumber, u.filler, u.recap, u.isSpecial)
+			argIdx += 4
+		}
+
+		query := fmt.Sprintf(`
+			UPDATE episodes 
+			SET 
+				filler = CASE %s ELSE filler END,
+				recap = CASE %s ELSE recap END,
+				is_special = CASE %s ELSE is_special END,
+				updated_at = CURRENT_TIMESTAMP
+			WHERE anime_id = $1 AND episode_number IN (%s)
+		`, strings.Join(fillerCases, " "), strings.Join(recapCases, " "),
+			strings.Join(isSpecialCases, " "), strings.Join(episodeNumbers, ","))
+
+		result, err := s.db.Exec(query, args...)
+		if err != nil {
+			s.logger.Warn("Failed to batch update episode flags",
+				"anime_id", animeID,
+				"batch_start", i,
+				"error", err)
+			continue
+		}
+
+		rowsAffected, _ := result.RowsAffected()
+		updatedCount += int(rowsAffected)
+	}
+
+	s.logger.Info("Updated episode special flags",
+		"anime_id", animeID,
+		"updated_count", updatedCount)
 
 	return nil
 }

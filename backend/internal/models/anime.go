@@ -40,6 +40,9 @@ type Episode struct {
 	EpisodeNumber   int        `json:"episode_number" db:"episode_number"`
 	AirDate         *time.Time `json:"air_date,omitempty" db:"air_date"`       // null if not yet fetched from Jikan API
 	DurationMinutes *int       `json:"duration_minutes" db:"duration_minutes"` // null if not yet fetched from Jikan API
+	IsSpecial       bool       `json:"is_special" db:"is_special"`             // true for OVA, recap, filler episodes
+	Filler          bool       `json:"filler" db:"filler"`                     // true for filler episodes
+	Recap           bool       `json:"recap" db:"recap"`                       // true for recap/summary episodes
 	Viewed          bool       `json:"viewed"`                                 // false if not authenticated or not viewed
 	CreatedAt       time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt       time.Time  `json:"updated_at" db:"updated_at"`
@@ -182,4 +185,27 @@ type PaginationMeta struct {
 	TotalPages  int `json:"total_pages"`
 	CurrentPage int `json:"current_page"`
 	Total       int `json:"total"`
+}
+
+// SeparatedEpisodes - 通常エピソードと特別編を分離したレスポンス
+type SeparatedEpisodes struct {
+	RegularEpisodes []Episode `json:"regular_episodes"`
+	SpecialEpisodes []Episode `json:"special_episodes"`
+	TotalRegular    int       `json:"total_regular"`
+	TotalSpecial    int       `json:"total_special"`
+}
+
+// SeparatedEpisodesResponse - エピソード分離APIのレスポンス（anime_id含む）
+type SeparatedEpisodesResponse struct {
+	AnimeID         int       `json:"anime_id"`
+	RegularEpisodes []Episode `json:"regular_episodes"`
+	SpecialEpisodes []Episode `json:"special_episodes"`
+	TotalRegular    int       `json:"total_regular"`
+	TotalSpecial    int       `json:"total_special"`
+}
+
+// EpisodesResponse - 従来形式のエピソードAPIレスポンス
+type EpisodesResponse struct {
+	AnimeID  int       `json:"anime_id"`
+	Episodes []Episode `json:"episodes"`
 }
