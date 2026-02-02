@@ -145,8 +145,7 @@ func (s *AnimeSyncScheduler) runBackgroundSync() {
 
 // AnimeService defines the interface for anime-related operations needed by the scheduler
 type AnimeService interface {
-	CreateEpisodesForAllAnimes() (int, int, error)
-	EnrichEpisodesWithTitles(animeID *int) (int, int, []string, error)
+	SyncEpisodesFromJikan(animeID *int) (int, int, []string, error)
 	SyncGenresForAllAnimes() (int, int, []string, error)
 	SyncEpisodeDetailsForAllAnimes() (int, int, []string, error)
 	SyncCoverImagesForAllAnimes() (int, int, []string, error)
@@ -417,37 +416,25 @@ func (s *AnimeSyncScheduler) syncCurrentSeasonAnimes() {
 	}
 }
 
-// syncEpisodeData creates episodes and enriches them with titles from Annict API
+// syncEpisodeData syncs episodes from Jikan API
 // Returns a slice of error messages if any errors occur
 // If isInitialSync is true, skips heavy operations (genres and episode details)
 func (s *AnimeSyncScheduler) syncEpisodeData(isInitialSync bool) []string {
 	var errors []string
 
-	// Step 1: Create episodes for animes that don't have episodes yet
-	s.logger.Info("Creating episodes for animes without episodes")
-	episodeSuccessCount, episodeFailureCount, episodeErr := s.animeService.CreateEpisodesForAllAnimes()
+	// Step 1: Sync episodes from Jikan API (creates/updates episodes with accurate data)
+	s.logger.Info("Syncing episodes from Jikan API")
+	episodeSuccessCount, episodeFailureCount, episodeErrors, episodeErr := s.animeService.SyncEpisodesFromJikan(nil)
 
 	if episodeErr != nil {
-		errors = append(errors, fmt.Sprintf("Episode creation: %s", episodeErr.Error()))
+		errors = append(errors, fmt.Sprintf("Episode sync from Jikan: %s", episodeErr.Error()))
 	} else {
-		s.logger.Info("Episode creation completed",
+		s.logger.Info("Episode sync from Jikan completed",
 			"success_count", episodeSuccessCount,
 			"failure_count", episodeFailureCount)
-	}
 
-	// Step 2: Enrich episode titles from Annict API
-	s.logger.Info("Enriching episode titles from Annict API")
-	titleSuccessCount, titleFailureCount, titleErrors, titleErr := s.animeService.EnrichEpisodesWithTitles(nil)
-
-	if titleErr != nil {
-		errors = append(errors, fmt.Sprintf("Episode title enrichment: %s", titleErr.Error()))
-	} else {
-		s.logger.Info("Episode title enrichment completed",
-			"success_count", titleSuccessCount,
-			"failure_count", titleFailureCount)
-
-		// Add individual title errors to the error list (limit to avoid log spam)
-		errors = appendErrorsWithLimit(errors, titleErrors, 10, "title")
+		// Add individual episode errors to the error list (limit to avoid log spam)
+		errors = appendErrorsWithLimit(errors, episodeErrors, 10, "episode")
 	}
 
 	// Skip heavy operations during initial sync to reduce startup time
