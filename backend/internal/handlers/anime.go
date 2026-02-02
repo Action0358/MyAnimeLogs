@@ -111,13 +111,23 @@ func (h *AnimeHandler) GetAnimeEpisodes(c *gin.Context) {
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{
-			"anime_id":         animeID,
-			"regular_episodes": regularEpisodes,
-			"special_episodes": specialEpisodes,
-			"total_regular":    len(regularEpisodes),
-			"total_special":    len(specialEpisodes),
-		})
+		// 型安全なレスポンス構造体を使用
+		response := models.SeparatedEpisodesResponse{
+			AnimeID:         animeID,
+			RegularEpisodes: regularEpisodes,
+			SpecialEpisodes: specialEpisodes,
+			TotalRegular:    len(regularEpisodes),
+			TotalSpecial:    len(specialEpisodes),
+		}
+		// nilスライスを空配列に変換
+		if response.RegularEpisodes == nil {
+			response.RegularEpisodes = []models.Episode{}
+		}
+		if response.SpecialEpisodes == nil {
+			response.SpecialEpisodes = []models.Episode{}
+		}
+
+		c.JSON(http.StatusOK, response)
 		return
 	}
 
@@ -132,10 +142,16 @@ func (h *AnimeHandler) GetAnimeEpisodes(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"anime_id": animeID,
-		"episodes": episodes,
-	})
+	// 型安全なレスポンス構造体を使用
+	response := models.EpisodesResponse{
+		AnimeID:  animeID,
+		Episodes: episodes,
+	}
+	if response.Episodes == nil {
+		response.Episodes = []models.Episode{}
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 func (h *AnimeHandler) GetFavorites(c *gin.Context) {

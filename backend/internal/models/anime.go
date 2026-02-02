@@ -194,3 +194,18 @@ type SeparatedEpisodes struct {
 	TotalRegular    int       `json:"total_regular"`
 	TotalSpecial    int       `json:"total_special"`
 }
+
+// SeparatedEpisodesResponse - エピソード分離APIのレスポンス（anime_id含む）
+type SeparatedEpisodesResponse struct {
+	AnimeID         int       `json:"anime_id"`
+	RegularEpisodes []Episode `json:"regular_episodes"`
+	SpecialEpisodes []Episode `json:"special_episodes"`
+	TotalRegular    int       `json:"total_regular"`
+	TotalSpecial    int       `json:"total_special"`
+}
+
+// EpisodesResponse - 従来形式のエピソードAPIレスポンス
+type EpisodesResponse struct {
+	AnimeID  int       `json:"anime_id"`
+	Episodes []Episode `json:"episodes"`
+}
