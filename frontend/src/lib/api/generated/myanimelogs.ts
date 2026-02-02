@@ -100,6 +100,12 @@ export interface Episode {
    * @nullable
    */
   duration_minutes?: number | null;
+  /** 特別編かどうか */
+  is_special?: boolean;
+  /** フィラーエピソードかどうか */
+  filler?: boolean;
+  /** 総集編かどうか */
+  recap?: boolean;
   viewed?: boolean;
   created_at?: string;
   updated_at?: string;
@@ -242,6 +248,29 @@ export interface AnnictWork {
   cover_image_large?: string;
   /** AniList APIから取得した中サイズカバー画像URL */
   cover_image_medium?: string;
+}
+
+export interface SearchLog {
+  /** 検索ログID */
+  id?: number;
+  /**
+   * ユーザーID
+   * @nullable
+   */
+  user_id?: number | null;
+  /** 検索クエリ */
+  query?: string;
+  /** 検索フィルター（JSON文字列） */
+  filters?: string;
+  /** 検索結果件数 */
+  result_count?: number;
+  /**
+   * クリックしたアニメID
+   * @nullable
+   */
+  clicked_anime_id?: number | null;
+  /** 検索日時 */
+  searched_at?: string;
 }
 
 export type PostRegisterBody = {
@@ -618,6 +647,27 @@ export type GetSearchPopular200 = {
   popular_searches?: string[];
 };
 
+export type GetSearchHistoryParams = {
+/**
+ * 取得件数（最大50件）
+ * @maximum 50
+ */
+limit?: number;
+};
+
+export type GetSearchHistory200 = {
+  history?: SearchLog[];
+  total?: number;
+};
+
+export type DeleteSearchHistory200 = {
+  message?: string;
+};
+
+export type DeleteSearchHistoryId200 = {
+  message?: string;
+};
+
 export type GetFilters200GenresItem = {
   name?: string;
   count?: number;
@@ -742,21 +792,12 @@ export type PostAdminSyncEpisodeDurations200 = {
   errors?: string[];
 };
 
-export type PostAdminCreateEpisodes200 = {
-  /** 成功したアニメ数 */
-  success_count?: number;
-  /** 失敗したアニメ数 */
-  failure_count?: number;
-  /** 処理結果メッセージ */
-  message?: string;
-};
-
-export type PostAdminEnrichEpisodeTitlesBody = {
-  /** 更新対象のアニメID（省略時は全アニメ） */
+export type PostAdminSyncEpisodesBody = {
+  /** 同期対象のアニメID（省略時は全アニメ） */
   anime_id?: number;
 };
 
-export type PostAdminEnrichEpisodeTitles200 = {
+export type PostAdminSyncEpisodes200 = {
   /** 成功したアニメ数 */
   success_count?: number;
   /** 失敗したアニメ数 */
@@ -2617,6 +2658,219 @@ export function useGetSearchPopular<TData = Awaited<ReturnType<typeof getSearchP
 
 
 /**
+ * ログインユーザーの検索履歴を取得
+ * @summary 検索履歴を取得
+ */
+export const getSearchHistory = (
+    params?: GetSearchHistoryParams, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<GetSearchHistory200>> => {
+    
+    
+    return axios.get(
+      `/search/history`,{
+    ...options,
+        params: {...params, ...options?.params},}
+    );
+  }
+
+
+export const getGetSearchHistoryQueryKey = (params?: GetSearchHistoryParams,) => {
+    return [`/search/history`, ...(params ? [params]: [])] as const;
+    }
+
+    
+export const getGetSearchHistoryQueryOptions = <TData = Awaited<ReturnType<typeof getSearchHistory>>, TError = AxiosError<Error>>(params?: GetSearchHistoryParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSearchHistory>>, TError, TData>>, axios?: AxiosRequestConfig}
+) => {
+
+const {query: queryOptions, axios: axiosOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSearchHistoryQueryKey(params);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSearchHistory>>> = ({ signal }) => getSearchHistory(params, { signal, ...axiosOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSearchHistory>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetSearchHistoryQueryResult = NonNullable<Awaited<ReturnType<typeof getSearchHistory>>>
+export type GetSearchHistoryQueryError = AxiosError<Error>
+
+
+export function useGetSearchHistory<TData = Awaited<ReturnType<typeof getSearchHistory>>, TError = AxiosError<Error>>(
+ params: undefined |  GetSearchHistoryParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSearchHistory>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getSearchHistory>>,
+          TError,
+          Awaited<ReturnType<typeof getSearchHistory>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetSearchHistory<TData = Awaited<ReturnType<typeof getSearchHistory>>, TError = AxiosError<Error>>(
+ params?: GetSearchHistoryParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSearchHistory>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getSearchHistory>>,
+          TError,
+          Awaited<ReturnType<typeof getSearchHistory>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetSearchHistory<TData = Awaited<ReturnType<typeof getSearchHistory>>, TError = AxiosError<Error>>(
+ params?: GetSearchHistoryParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSearchHistory>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+/**
+ * @summary 検索履歴を取得
+ */
+
+export function useGetSearchHistory<TData = Awaited<ReturnType<typeof getSearchHistory>>, TError = AxiosError<Error>>(
+ params?: GetSearchHistoryParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSearchHistory>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
+
+  const queryOptions = getGetSearchHistoryQueryOptions(params,options)
+
+  const query = useQuery(queryOptions , queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * ログインユーザーの検索履歴を全て削除
+ * @summary 検索履歴を全件削除
+ */
+export const deleteSearchHistory = (
+     options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<DeleteSearchHistory200>> => {
+    
+    
+    return axios.delete(
+      `/search/history`,options
+    );
+  }
+
+
+
+export const getDeleteSearchHistoryMutationOptions = <TError = AxiosError<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteSearchHistory>>, TError,void, TContext>, axios?: AxiosRequestConfig}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteSearchHistory>>, TError,void, TContext> => {
+
+const mutationKey = ['deleteSearchHistory'];
+const {mutation: mutationOptions, axios: axiosOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, axios: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteSearchHistory>>, void> = () => {
+          
+
+          return  deleteSearchHistory(axiosOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteSearchHistoryMutationResult = NonNullable<Awaited<ReturnType<typeof deleteSearchHistory>>>
+    
+    export type DeleteSearchHistoryMutationError = AxiosError<Error>
+
+    /**
+ * @summary 検索履歴を全件削除
+ */
+export const useDeleteSearchHistory = <TError = AxiosError<Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteSearchHistory>>, TError,void, TContext>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof deleteSearchHistory>>,
+        TError,
+        void,
+        TContext
+      > => {
+
+      const mutationOptions = getDeleteSearchHistoryMutationOptions(options);
+
+      return useMutation(mutationOptions , queryClient);
+    }
+    
+/**
+ * 指定した検索履歴を削除
+ * @summary 検索履歴を個別削除
+ */
+export const deleteSearchHistoryId = (
+    id: number, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<DeleteSearchHistoryId200>> => {
+    
+    
+    return axios.delete(
+      `/search/history/${id}`,options
+    );
+  }
+
+
+
+export const getDeleteSearchHistoryIdMutationOptions = <TError = AxiosError<Error | Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteSearchHistoryId>>, TError,{id: number}, TContext>, axios?: AxiosRequestConfig}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteSearchHistoryId>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteSearchHistoryId'];
+const {mutation: mutationOptions, axios: axiosOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, axios: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteSearchHistoryId>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteSearchHistoryId(id,axiosOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteSearchHistoryIdMutationResult = NonNullable<Awaited<ReturnType<typeof deleteSearchHistoryId>>>
+    
+    export type DeleteSearchHistoryIdMutationError = AxiosError<Error | Error>
+
+    /**
+ * @summary 検索履歴を個別削除
+ */
+export const useDeleteSearchHistoryId = <TError = AxiosError<Error | Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteSearchHistoryId>>, TError,{id: number}, TContext>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof deleteSearchHistoryId>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+
+      const mutationOptions = getDeleteSearchHistoryIdMutationOptions(options);
+
+      return useMutation(mutationOptions , queryClient);
+    }
+    
+/**
  * 検索フィルターに使用可能なジャンル、年、シーズン、評価情報を取得
  * @summary フィルター情報を取得
  */
@@ -3387,26 +3641,27 @@ export const usePostAdminSyncEpisodeDurations = <TError = AxiosError<Error | Err
     }
     
 /**
- * エピソードが存在しないアニメに対して、episodes_countに基づいてエピソードレコードを自動作成します
- * @summary エピソードを一括作成
+ * Jikan API（MyAnimeList）からエピソード情報を取得してデータベースに保存します。タイトル、放送日、再生時間、特別編フラグ（filler/recap）を同期します。
+ * @summary エピソード情報をJikan APIから同期
  */
-export const postAdminCreateEpisodes = (
-     options?: AxiosRequestConfig
- ): Promise<AxiosResponse<PostAdminCreateEpisodes200>> => {
+export const postAdminSyncEpisodes = (
+    postAdminSyncEpisodesBody?: PostAdminSyncEpisodesBody, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<PostAdminSyncEpisodes200>> => {
     
     
     return axios.post(
-      `/admin/create-episodes`,undefined,options
+      `/admin/sync/episodes`,
+      postAdminSyncEpisodesBody,options
     );
   }
 
 
 
-export const getPostAdminCreateEpisodesMutationOptions = <TError = AxiosError<Error | Error>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAdminCreateEpisodes>>, TError,void, TContext>, axios?: AxiosRequestConfig}
-): UseMutationOptions<Awaited<ReturnType<typeof postAdminCreateEpisodes>>, TError,void, TContext> => {
+export const getPostAdminSyncEpisodesMutationOptions = <TError = AxiosError<Error | Error | Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAdminSyncEpisodes>>, TError,{data: PostAdminSyncEpisodesBody}, TContext>, axios?: AxiosRequestConfig}
+): UseMutationOptions<Awaited<ReturnType<typeof postAdminSyncEpisodes>>, TError,{data: PostAdminSyncEpisodesBody}, TContext> => {
 
-const mutationKey = ['postAdminCreateEpisodes'];
+const mutationKey = ['postAdminSyncEpisodes'];
 const {mutation: mutationOptions, axios: axiosOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -3416,73 +3671,10 @@ const {mutation: mutationOptions, axios: axiosOptions} = options ?
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postAdminCreateEpisodes>>, void> = () => {
-          
-
-          return  postAdminCreateEpisodes(axiosOptions)
-        }
-
-        
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type PostAdminCreateEpisodesMutationResult = NonNullable<Awaited<ReturnType<typeof postAdminCreateEpisodes>>>
-    
-    export type PostAdminCreateEpisodesMutationError = AxiosError<Error | Error>
-
-    /**
- * @summary エピソードを一括作成
- */
-export const usePostAdminCreateEpisodes = <TError = AxiosError<Error | Error>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAdminCreateEpisodes>>, TError,void, TContext>, axios?: AxiosRequestConfig}
- , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof postAdminCreateEpisodes>>,
-        TError,
-        void,
-        TContext
-      > => {
-
-      const mutationOptions = getPostAdminCreateEpisodesMutationOptions(options);
-
-      return useMutation(mutationOptions , queryClient);
-    }
-    
-/**
- * Annict APIから実際のエピソードタイトルを取得してデータベースを更新します。anime_idを指定しない場合は全アニメを処理します。
- * @summary エピソードタイトルをAnnict APIから取得
- */
-export const postAdminEnrichEpisodeTitles = (
-    postAdminEnrichEpisodeTitlesBody: PostAdminEnrichEpisodeTitlesBody, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<PostAdminEnrichEpisodeTitles200>> => {
-    
-    
-    return axios.post(
-      `/admin/enrich/episode-titles`,
-      postAdminEnrichEpisodeTitlesBody,options
-    );
-  }
-
-
-
-export const getPostAdminEnrichEpisodeTitlesMutationOptions = <TError = AxiosError<Error | Error | Error>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAdminEnrichEpisodeTitles>>, TError,{data: PostAdminEnrichEpisodeTitlesBody}, TContext>, axios?: AxiosRequestConfig}
-): UseMutationOptions<Awaited<ReturnType<typeof postAdminEnrichEpisodeTitles>>, TError,{data: PostAdminEnrichEpisodeTitlesBody}, TContext> => {
-
-const mutationKey = ['postAdminEnrichEpisodeTitles'];
-const {mutation: mutationOptions, axios: axiosOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, axios: undefined};
-
-      
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postAdminEnrichEpisodeTitles>>, {data: PostAdminEnrichEpisodeTitlesBody}> = (props) => {
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postAdminSyncEpisodes>>, {data: PostAdminSyncEpisodesBody}> = (props) => {
           const {data} = props ?? {};
 
-          return  postAdminEnrichEpisodeTitles(data,axiosOptions)
+          return  postAdminSyncEpisodes(data,axiosOptions)
         }
 
         
@@ -3490,23 +3682,23 @@ const {mutation: mutationOptions, axios: axiosOptions} = options ?
 
   return  { mutationFn, ...mutationOptions }}
 
-    export type PostAdminEnrichEpisodeTitlesMutationResult = NonNullable<Awaited<ReturnType<typeof postAdminEnrichEpisodeTitles>>>
-    export type PostAdminEnrichEpisodeTitlesMutationBody = PostAdminEnrichEpisodeTitlesBody
-    export type PostAdminEnrichEpisodeTitlesMutationError = AxiosError<Error | Error | Error>
+    export type PostAdminSyncEpisodesMutationResult = NonNullable<Awaited<ReturnType<typeof postAdminSyncEpisodes>>>
+    export type PostAdminSyncEpisodesMutationBody = PostAdminSyncEpisodesBody
+    export type PostAdminSyncEpisodesMutationError = AxiosError<Error | Error | Error>
 
     /**
- * @summary エピソードタイトルをAnnict APIから取得
+ * @summary エピソード情報をJikan APIから同期
  */
-export const usePostAdminEnrichEpisodeTitles = <TError = AxiosError<Error | Error | Error>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAdminEnrichEpisodeTitles>>, TError,{data: PostAdminEnrichEpisodeTitlesBody}, TContext>, axios?: AxiosRequestConfig}
+export const usePostAdminSyncEpisodes = <TError = AxiosError<Error | Error | Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAdminSyncEpisodes>>, TError,{data: PostAdminSyncEpisodesBody}, TContext>, axios?: AxiosRequestConfig}
  , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof postAdminEnrichEpisodeTitles>>,
+        Awaited<ReturnType<typeof postAdminSyncEpisodes>>,
         TError,
-        {data: PostAdminEnrichEpisodeTitlesBody},
+        {data: PostAdminSyncEpisodesBody},
         TContext
       > => {
 
-      const mutationOptions = getPostAdminEnrichEpisodeTitlesMutationOptions(options);
+      const mutationOptions = getPostAdminSyncEpisodesMutationOptions(options);
 
       return useMutation(mutationOptions , queryClient);
     }
