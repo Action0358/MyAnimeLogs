@@ -229,3 +229,33 @@ func (m *MockAnimeService) DeleteSearchHistoryItem(userID int, logID int) error 
 	args := m.Called(userID, logID)
 	return args.Error(0)
 }
+
+// GetEpisodesByType mocks the GetEpisodesByType method
+func (m *MockAnimeService) GetEpisodesByType(animeID int, isSpecial bool, userID *int) ([]models.Episode, error) {
+	args := m.Called(animeID, isSpecial, userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	result, ok := args.Get(0).([]models.Episode)
+	if !ok {
+		panic("mock: GetEpisodesByType return value is not []models.Episode")
+	}
+	return result, args.Error(1)
+}
+
+// GetEpisodesSeparated mocks the GetEpisodesSeparated method
+func (m *MockAnimeService) GetEpisodesSeparated(animeID int, userID *int) (regular, specials []models.Episode, err error) {
+	args := m.Called(animeID, userID)
+	if args.Get(0) == nil {
+		return nil, nil, args.Error(2)
+	}
+	regular, ok := args.Get(0).([]models.Episode)
+	if !ok {
+		panic("mock: GetEpisodesSeparated regular return value is not []models.Episode")
+	}
+	specials, ok = args.Get(1).([]models.Episode)
+	if !ok {
+		panic("mock: GetEpisodesSeparated specials return value is not []models.Episode")
+	}
+	return regular, specials, args.Error(2)
+}

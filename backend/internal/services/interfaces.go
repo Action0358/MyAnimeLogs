@@ -48,6 +48,8 @@ type AnimeServiceInterface interface {
 	AdvancedSearchAnimes(params models.AdvancedSearchParams, userID *int) (*models.PaginatedResponse, error)
 	GetAnimeByID(id int, userID *int) (*models.AnimeWithUserData, error)
 	GetAnimeEpisodes(animeID int, userID *int) ([]models.Episode, error)
+	GetEpisodesByType(animeID int, isSpecial bool, userID *int) ([]models.Episode, error)
+	GetEpisodesSeparated(animeID int, userID *int) (regular, specials []models.Episode, err error)
 	GetUserFavorites(userID int, status string) ([]models.AnimeWithUserData, error)
 	UpdateFavorite(userID, animeID int, status string) (*models.UserFavorite, error)
 	DeleteFavorite(userID, animeID int) error

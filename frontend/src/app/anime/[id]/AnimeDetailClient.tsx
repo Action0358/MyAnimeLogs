@@ -126,6 +126,7 @@ const AnimeDetailClient: React.FC = () => {
   }
 
   const anime = animeData
+  // APIレスポンスからエピソード配列を取得
   const episodes = episodesData?.episodes || []
   const imageUrl = anime.cover_image_extra_large || anime.cover_image_large || anime.cover_image_medium || anime.image_url
 

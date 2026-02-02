@@ -96,6 +96,42 @@ func (h *AnimeHandler) GetAnimeEpisodes(c *gin.Context) {
 		}
 	}
 
+	// separatedパラメータで分離表示を制御（デフォルトはtrue）
+	separated := c.DefaultQuery("separated", "true") == "true"
+
+	if separated {
+		// 通常エピソードと特別編を分離して取得
+		regularEpisodes, specialEpisodes, err := h.animeService.GetEpisodesSeparated(animeID, userID)
+		if err != nil {
+			if err == services.ErrAnimeNotFound {
+				h.response.NotFoundError(c, "アニメが見つかりません")
+				return
+			}
+			h.response.InternalServerError(c, "エピソード一覧の取得に失敗しました")
+			return
+		}
+
+		// 型安全なレスポンス構造体を使用
+		response := models.SeparatedEpisodesResponse{
+			AnimeID:         animeID,
+			RegularEpisodes: regularEpisodes,
+			SpecialEpisodes: specialEpisodes,
+			TotalRegular:    len(regularEpisodes),
+			TotalSpecial:    len(specialEpisodes),
+		}
+		// nilスライスを空配列に変換
+		if response.RegularEpisodes == nil {
+			response.RegularEpisodes = []models.Episode{}
+		}
+		if response.SpecialEpisodes == nil {
+			response.SpecialEpisodes = []models.Episode{}
+		}
+
+		c.JSON(http.StatusOK, response)
+		return
+	}
+
+	// 従来の形式（全エピソードを一覧で返す）
 	episodes, err := h.animeService.GetAnimeEpisodes(animeID, userID)
 	if err != nil {
 		if err == services.ErrAnimeNotFound {
@@ -106,10 +142,16 @@ func (h *AnimeHandler) GetAnimeEpisodes(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"anime_id": animeID,
-		"episodes": episodes,
-	})
+	// 型安全なレスポンス構造体を使用
+	response := models.EpisodesResponse{
+		AnimeID:  animeID,
+		Episodes: episodes,
+	}
+	if response.Episodes == nil {
+		response.Episodes = []models.Episode{}
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 func (h *AnimeHandler) GetFavorites(c *gin.Context) {
