@@ -2289,7 +2289,7 @@ func (s *AnimeService) CreateEpisodesFromJikan(animeID int, malAnimeID string) (
 	}
 
 	// Insert episodes from Jikan API
-	insertedCount := 0
+	// All inserts must succeed for atomicity - if any fails, rollback entire transaction
 	for _, ep := range jikanEpisodes {
 		// Use Japanese title if available, otherwise fall back to English title
 		title := ep.Title
@@ -2308,7 +2308,7 @@ func (s *AnimeService) CreateEpisodesFromJikan(animeID int, malAnimeID string) (
 			}
 		}
 
-		// Insert episode
+		// Insert episode - fail entire transaction if any insert fails
 		_, err := tx.Exec(`
 			INSERT INTO episodes (
 				anime_id, episode_number, title, 
@@ -2319,13 +2319,9 @@ func (s *AnimeService) CreateEpisodesFromJikan(animeID int, malAnimeID string) (
 		`, animeID, ep.MalID, title, isSpecial, ep.Filler, ep.Recap, ep.Duration, airDate)
 
 		if err != nil {
-			s.logger.Warn("Failed to insert episode",
-				"anime_id", animeID,
-				"episode_number", ep.MalID,
-				"error", err)
-			continue
+			// Return error to trigger rollback via defer, preserving original episode data
+			return 0, fmt.Errorf("failed to insert episode %d: %w", ep.MalID, err)
 		}
-		insertedCount++
 	}
 
 	// Commit transaction
@@ -2336,10 +2332,9 @@ func (s *AnimeService) CreateEpisodesFromJikan(animeID int, malAnimeID string) (
 	s.logger.Info("Created episodes from Jikan API",
 		"anime_id", animeID,
 		"mal_anime_id", malAnimeID,
-		"total_episodes", len(jikanEpisodes),
-		"inserted_count", insertedCount)
+		"episode_count", len(jikanEpisodes))
 
-	return insertedCount, nil
+	return len(jikanEpisodes), nil
 }
 
 // SyncEpisodesFromJikan synchronizes episodes for all animes using Jikan API
