@@ -24,12 +24,7 @@ func (m *MockAdminAnimeServiceForGenres) SyncEpisodeDurations(animeID *int) (int
 	return args.Int(0), args.Int(1), args.Int(2), args.Int(3), args.Get(4).([]string), args.Error(5)
 }
 
-func (m *MockAdminAnimeServiceForGenres) CreateEpisodesForAllAnimes() (int, int, error) {
-	args := m.Called()
-	return args.Int(0), args.Int(1), args.Error(2)
-}
-
-func (m *MockAdminAnimeServiceForGenres) EnrichEpisodesWithTitles(animeID *int) (int, int, []string, error) {
+func (m *MockAdminAnimeServiceForGenres) SyncEpisodesFromJikan(animeID *int) (int, int, []string, error) {
 	args := m.Called(animeID)
 	return args.Int(0), args.Int(1), args.Get(2).([]string), args.Error(3)
 }

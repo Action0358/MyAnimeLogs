@@ -52,30 +52,30 @@ func run(logger *common.Logger) error {
 	animeService := services.NewAnimeService(db, logger, annictClient)
 
 	fmt.Println("\n=== Manual Full Sync ===")
-	fmt.Println("This will sync all episode titles and details.")
+	fmt.Println("This will sync all episodes from Jikan API.")
 	fmt.Println("Estimated time: 40-60 minutes")
 	fmt.Println()
 
 	startTime := time.Now()
 
-	// Step 1: Enrich episode titles
-	logger.Info("Step 1/2: Enriching episode titles from Annict API...")
-	titleSuccess, titleFailure, titleErrors, err := animeService.EnrichEpisodesWithTitles(nil)
+	// Step 1: Sync episodes from Jikan API
+	logger.Info("Step 1/2: Syncing episodes from Jikan API...")
+	episodeSuccess, episodeFailure, episodeErrors, err := animeService.SyncEpisodesFromJikan(nil)
 	if err != nil {
-		return fmt.Errorf("failed to enrich episode titles: %w", err)
+		return fmt.Errorf("failed to sync episodes from Jikan: %w", err)
 	}
 
-	logger.Info("Episode titles completed",
-		"success", titleSuccess,
-		"failure", titleFailure)
-	if len(titleErrors) > 0 {
+	logger.Info("Episode sync completed",
+		"success", episodeSuccess,
+		"failure", episodeFailure)
+	if len(episodeErrors) > 0 {
 		sampleSize := 5
-		if len(titleErrors) < sampleSize {
-			sampleSize = len(titleErrors)
+		if len(episodeErrors) < sampleSize {
+			sampleSize = len(episodeErrors)
 		}
-		logger.Warn("Episode title errors occurred",
-			"error_count", len(titleErrors),
-			"sample_errors", titleErrors[:sampleSize])
+		logger.Warn("Episode sync errors occurred",
+			"error_count", len(episodeErrors),
+			"sample_errors", episodeErrors[:sampleSize])
 	}
 
 	// Step 2: Sync episode details (air_date and duration)

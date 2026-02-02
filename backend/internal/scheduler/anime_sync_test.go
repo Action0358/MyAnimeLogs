@@ -29,11 +29,7 @@ func newTestAnnictClient() *services.AnnictClient {
 // mockAnimeService is a mock implementation of AnimeService for testing
 type mockAnimeService struct{}
 
-func (m *mockAnimeService) CreateEpisodesForAllAnimes() (int, int, error) {
-	return 0, 0, nil
-}
-
-func (m *mockAnimeService) EnrichEpisodesWithTitles(animeID *int) (int, int, []string, error) {
+func (m *mockAnimeService) SyncEpisodesFromJikan(animeID *int) (int, int, []string, error) {
 	return 0, 0, nil, nil
 }
 
@@ -289,11 +285,7 @@ type mockAnimeServiceWithDelay struct {
 	syncDelay time.Duration
 }
 
-func (m *mockAnimeServiceWithDelay) CreateEpisodesForAllAnimes() (int, int, error) {
-	return 0, 0, nil
-}
-
-func (m *mockAnimeServiceWithDelay) EnrichEpisodesWithTitles(animeID *int) (int, int, []string, error) {
+func (m *mockAnimeServiceWithDelay) SyncEpisodesFromJikan(animeID *int) (int, int, []string, error) {
 	return 0, 0, nil, nil
 }
 

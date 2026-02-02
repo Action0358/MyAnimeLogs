@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { cn } from '@/lib/utils'
 import type { Episode } from '@/lib/api/generated/myanimelogs'
 
@@ -21,6 +21,8 @@ const EpisodeSkeleton: React.FC = () => (
   </div>
 )
 
+type TabType = 'regular' | 'special'
+
 export const EpisodeList: React.FC<EpisodeListProps> = ({
   episodes,
   isLoading = false,
@@ -29,8 +31,27 @@ export const EpisodeList: React.FC<EpisodeListProps> = ({
 }) => {
   const [watchedEpisodes, setWatchedEpisodes] = useState<Set<number>>(new Set())
   const [searchQuery, setSearchQuery] = useState('')
+  const [activeTab, setActiveTab] = useState<TabType>('regular')
 
-  const filteredEpisodes = episodes.filter((episode) => {
+  // エピソードを通常/特別編に分離
+  const { regularEpisodes, specialEpisodes } = useMemo(() => {
+    const regular: Episode[] = []
+    const special: Episode[] = []
+    
+    episodes.forEach((ep) => {
+      if (ep.is_special) {
+        special.push(ep)
+      } else {
+        regular.push(ep)
+      }
+    })
+    
+    return { regularEpisodes: regular, specialEpisodes: special }
+  }, [episodes])
+
+  const currentEpisodes = activeTab === 'regular' ? regularEpisodes : specialEpisodes
+
+  const filteredEpisodes = currentEpisodes.filter((episode) => {
     if (!searchQuery) return true
     const query = searchQuery.toLowerCase()
     return (
@@ -54,9 +75,10 @@ export const EpisodeList: React.FC<EpisodeListProps> = ({
   }
 
   const handleMarkAllWatched = () => {
-    const allIds = new Set(episodes.map((ep) => ep.id).filter((id): id is number => id !== undefined))
-    setWatchedEpisodes(allIds)
-    episodes.forEach((ep) => {
+    const allIds = currentEpisodes.map((ep) => ep.id).filter((id): id is number => id !== undefined)
+    const newWatched = new Set([...Array.from(watchedEpisodes), ...allIds])
+    setWatchedEpisodes(newWatched)
+    currentEpisodes.forEach((ep) => {
       if (ep.id !== undefined) {
         onWatchStatusChange?.(ep.id, true)
       }
@@ -64,8 +86,10 @@ export const EpisodeList: React.FC<EpisodeListProps> = ({
   }
 
   const handleClearAll = () => {
-    setWatchedEpisodes(new Set())
-    episodes.forEach((ep) => {
+    const currentIds = new Set(currentEpisodes.map((ep) => ep.id).filter((id): id is number => id !== undefined))
+    const newWatched = new Set(Array.from(watchedEpisodes).filter((id) => !currentIds.has(id)))
+    setWatchedEpisodes(newWatched)
+    currentEpisodes.forEach((ep) => {
       if (ep.id !== undefined) {
         onWatchStatusChange?.(ep.id, false)
       }
@@ -91,12 +115,40 @@ export const EpisodeList: React.FC<EpisodeListProps> = ({
     )
   }
 
-  const watchedCount = watchedEpisodes.size
-  const totalCount = episodes.length
+  const watchedCount = currentEpisodes.filter((ep) => ep.id !== undefined && watchedEpisodes.has(ep.id)).length
+  const totalCount = currentEpisodes.length
   const progressPercent = totalCount > 0 ? Math.round((watchedCount / totalCount) * 100) : 0
 
   return (
     <div className={className}>
+      {/* タブ切り替え */}
+      {specialEpisodes.length > 0 && (
+        <div className="flex border-b border-gray-200 mb-4">
+          <button
+            onClick={() => setActiveTab('regular')}
+            className={cn(
+              'px-4 py-2 text-sm font-medium border-b-2 transition-colors',
+              activeTab === 'regular'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            )}
+          >
+            本編 ({regularEpisodes.length}話)
+          </button>
+          <button
+            onClick={() => setActiveTab('special')}
+            className={cn(
+              'px-4 py-2 text-sm font-medium border-b-2 transition-colors',
+              activeTab === 'special'
+                ? 'border-purple-600 text-purple-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            )}
+          >
+            特別編 ({specialEpisodes.length}話)
+          </button>
+        </div>
+      )}
+
       {/* ツールバー */}
       <div className="flex flex-col sm:flex-row gap-4 mb-4">
         {/* 検索 */}
@@ -127,7 +179,10 @@ export const EpisodeList: React.FC<EpisodeListProps> = ({
         <div className="flex gap-2">
           <button
             onClick={handleMarkAllWatched}
-            className="px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className={cn(
+              'px-3 py-2 text-sm text-white rounded-lg transition-colors',
+              activeTab === 'special' ? 'bg-purple-600 hover:bg-purple-700' : 'bg-blue-600 hover:bg-blue-700'
+            )}
           >
             すべて視聴済み
           </button>
@@ -150,7 +205,10 @@ export const EpisodeList: React.FC<EpisodeListProps> = ({
         </div>
         <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
           <div
-            className="h-full bg-blue-600 rounded-full transition-all duration-300"
+            className={cn(
+              'h-full rounded-full transition-all duration-300',
+              activeTab === 'special' ? 'bg-purple-600' : 'bg-blue-600'
+            )}
             style={{ width: `${progressPercent}%` }}
           />
         </div>
@@ -160,13 +218,18 @@ export const EpisodeList: React.FC<EpisodeListProps> = ({
       <div className="space-y-2">
         {filteredEpisodes.map((episode) => {
           const isWatched = episode.id !== undefined && watchedEpisodes.has(episode.id)
+          const isSpecial = episode.is_special
 
           return (
             <div
               key={episode.id}
               className={cn(
                 'flex items-center gap-4 p-4 bg-white border rounded-lg transition-colors',
-                isWatched ? 'border-green-200 bg-green-50' : 'border-gray-200 hover:border-gray-300'
+                isWatched
+                  ? 'border-green-200 bg-green-50'
+                  : isSpecial
+                    ? 'border-purple-200 hover:border-purple-300'
+                    : 'border-gray-200 hover:border-gray-300'
               )}
             >
               {/* チェックボックス */}
@@ -176,7 +239,9 @@ export const EpisodeList: React.FC<EpisodeListProps> = ({
                   'w-6 h-6 rounded border-2 flex items-center justify-center transition-colors',
                   isWatched
                     ? 'bg-green-500 border-green-500 text-white'
-                    : 'border-gray-300 hover:border-blue-500'
+                    : isSpecial
+                      ? 'border-purple-300 hover:border-purple-500'
+                      : 'border-gray-300 hover:border-blue-500'
                 )}
                 aria-label={isWatched ? '未視聴にする' : '視聴済みにする'}
               >
@@ -195,11 +260,24 @@ export const EpisodeList: React.FC<EpisodeListProps> = ({
               {/* エピソード情報 */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-gray-500">
-                    第{episode.episode_number}話
+                  <span className={cn(
+                    'text-sm font-medium',
+                    isSpecial ? 'text-purple-600' : 'text-gray-500'
+                  )}>
+                    {isSpecial ? `SP${episode.episode_number}` : `第${episode.episode_number}話`}
                   </span>
                   {isWatched && (
                     <span className="text-xs text-green-600 font-medium">視聴済み</span>
+                  )}
+                  {episode.filler && (
+                    <span className="px-1.5 py-0.5 text-xs font-medium bg-yellow-100 text-yellow-700 rounded">
+                      フィラー
+                    </span>
+                  )}
+                  {episode.recap && (
+                    <span className="px-1.5 py-0.5 text-xs font-medium bg-blue-100 text-blue-700 rounded">
+                      総集編
+                    </span>
                   )}
                 </div>
                 {episode.title && (
@@ -217,6 +295,16 @@ export const EpisodeList: React.FC<EpisodeListProps> = ({
       {filteredEpisodes.length === 0 && searchQuery && (
         <div className="text-center py-8">
           <p className="text-gray-500">「{searchQuery}」に一致するエピソードが見つかりません</p>
+        </div>
+      )}
+
+      {/* 現在のタブにエピソードがない場合 */}
+      {filteredEpisodes.length === 0 && !searchQuery && (
+        <div className="text-center py-8 bg-gray-50 rounded-lg">
+          <span className="text-4xl mb-2 block">📭</span>
+          <p className="text-gray-500">
+            {activeTab === 'special' ? '特別編はありません' : 'エピソードがありません'}
+          </p>
         </div>
       )}
     </div>

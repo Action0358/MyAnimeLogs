@@ -15,8 +15,7 @@ import (
 // AdminAnimeService defines the minimal interface needed by AdminHandler
 type AdminAnimeService interface {
 	SyncEpisodeDurations(animeID *int) (int, int, int, int, []string, error)
-	CreateEpisodesForAllAnimes() (int, int, error)
-	EnrichEpisodesWithTitles(animeID *int) (int, int, []string, error)
+	SyncEpisodesFromJikan(animeID *int) (int, int, []string, error)
 	GetEpisodeSyncStatus(animeID int) (*models.EpisodeSyncStatus, error)
 	SyncGenresForAllAnimes() (int, int, []string, error)
 	ClearAnimeCache() // キャッシュクリア
@@ -104,77 +103,45 @@ func (h *AdminHandler) SyncEpisodeDurations(c *gin.Context) {
 	c.JSON(http.StatusOK, response)
 }
 
-// CreateEpisodesResponse represents the response for creating episodes
-type CreateEpisodesResponse struct {
-	SuccessCount int    `json:"success_count"`
-	FailureCount int    `json:"failure_count"`
-	Message      string `json:"message"`
-}
-
-// CreateEpisodesForAllAnimes creates episodes for all animes that don't have episodes yet
-// POST /api/admin/create-episodes
-func (h *AdminHandler) CreateEpisodesForAllAnimes(c *gin.Context) {
-	h.logger.Info("Starting episode creation for all animes")
-
-	successCount, failureCount, err := h.animeService.CreateEpisodesForAllAnimes()
-	if err != nil {
-		h.logger.Error("Failed to create episodes", "error", err)
-		h.response.InternalServerError(c, "Failed to create episodes")
-		return
-	}
-
-	response := CreateEpisodesResponse{
-		SuccessCount: successCount,
-		FailureCount: failureCount,
-		Message:      fmt.Sprintf("Episodes creation completed: %d succeeded, %d failed", successCount, failureCount),
-	}
-
-	h.logger.Info("Episode creation completed",
-		"success_count", successCount,
-		"failure_count", failureCount)
-
-	c.JSON(http.StatusOK, response)
-}
-
-// EnrichEpisodeTitlesRequest represents the request body
-type EnrichEpisodeTitlesRequest struct {
+// SyncEpisodesRequest represents the request body
+type SyncEpisodesRequest struct {
 	AnimeID *int `json:"anime_id"`
 }
 
-// EnrichEpisodeTitlesResponse represents the response
-type EnrichEpisodeTitlesResponse struct {
+// SyncEpisodesResponse represents the response
+type SyncEpisodesResponse struct {
 	SuccessCount int      `json:"success_count"`
 	FailureCount int      `json:"failure_count"`
 	Errors       []string `json:"errors,omitempty"`
 	Message      string   `json:"message"`
 }
 
-// EnrichEpisodeTitles enriches episode titles from Annict API
-// POST /api/admin/enrich/episode-titles
-func (h *AdminHandler) EnrichEpisodeTitles(c *gin.Context) {
-	var req EnrichEpisodeTitlesRequest
+// SyncEpisodesFromJikan syncs episodes from Jikan API
+// POST /api/admin/sync/episodes
+func (h *AdminHandler) SyncEpisodesFromJikan(c *gin.Context) {
+	var req SyncEpisodesRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		h.response.ValidationErrorWithErr(c, err)
 		return
 	}
 
-	h.logger.Info("Starting episode titles enrichment")
+	h.logger.Info("Starting episode sync from Jikan API")
 
-	successCount, failureCount, errs, err := h.animeService.EnrichEpisodesWithTitles(req.AnimeID)
+	successCount, failureCount, errs, err := h.animeService.SyncEpisodesFromJikan(req.AnimeID)
 	if err != nil {
-		h.logger.Error("Failed to enrich episode titles", "error", err)
-		h.response.InternalServerError(c, "Failed to enrich episode titles")
+		h.logger.Error("Failed to sync episodes from Jikan", "error", err)
+		h.response.InternalServerError(c, "Failed to sync episodes")
 		return
 	}
 
-	response := EnrichEpisodeTitlesResponse{
+	response := SyncEpisodesResponse{
 		SuccessCount: successCount,
 		FailureCount: failureCount,
 		Errors:       errs,
-		Message:      fmt.Sprintf("Episode titles enrichment completed: %d succeeded, %d failed", successCount, failureCount),
+		Message:      fmt.Sprintf("Episode sync completed: %d succeeded, %d failed", successCount, failureCount),
 	}
 
-	h.logger.Info("Episode titles enrichment completed",
+	h.logger.Info("Episode sync from Jikan completed",
 		"success_count", successCount,
 		"failure_count", failureCount)
 

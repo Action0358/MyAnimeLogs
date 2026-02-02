@@ -801,19 +801,19 @@ Authorization: Bearer {{login.response.body.access_token}}
 GET {{baseUrl}}/api/users/me/stats
 Authorization: Bearer {{login.response.body.access_token}}
 
-### ===== Annict API エピソードタイトル取得機能テスト =====
+### ===== Jikan API エピソード同期機能テスト =====
 
-### 109. 管理者API - 全アニメのエピソードタイトルを取得
-# Annict IDが設定されている全アニメのエピソードタイトルをAnnict APIから取得
-POST {{baseUrl}}/api/admin/enrich/episode-titles
+### 109. 管理者API - 全アニメのエピソードをJikan APIから同期
+# MAL IDが設定されている全アニメのエピソード情報をJikan APIから取得
+POST {{baseUrl}}/api/admin/sync/episodes
 Content-Type: {{contentType}}
 Authorization: Bearer {{login.response.body.access_token}}
 
 {}
 
-### 110. 管理者API - 特定アニメのエピソードタイトルを取得
-# 特定のアニメのみエピソードタイトルを取得
-POST {{baseUrl}}/api/admin/enrich/episode-titles
+### 110. 管理者API - 特定アニメのエピソードをJikan APIから同期
+# 特定のアニメのみエピソード情報を同期
+POST {{baseUrl}}/api/admin/sync/episodes
 Content-Type: {{contentType}}
 Authorization: Bearer {{login.response.body.access_token}}
 
@@ -821,8 +821,8 @@ Authorization: Bearer {{login.response.body.access_token}}
   "anime_id": 1
 }
 
-### 111. エピソードタイトル確認（更新後）
-# タイトルが実際のエピソードタイトルに更新されているか確認
+### 111. エピソード情報確認（同期後）
+# タイトル、放送日、再生時間、特別編フラグが更新されているか確認
 GET {{baseUrl}}/api/animes/1/episodes
 Authorization: Bearer {{login.response.body.access_token}}
 
