@@ -449,9 +449,12 @@ func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int
 	}
 
 	if params.Season != "" {
-		whereClauses = append(whereClauses, fmt.Sprintf("season = $%d", argIndex))
-		args = append(args, params.Season)
-		argIndex++
+		dbSeason := utils.ConvertSeasonToDBFormat(params.Season)
+		if dbSeason != "" {
+			whereClauses = append(whereClauses, fmt.Sprintf("season = $%d", argIndex))
+			args = append(args, dbSeason)
+			argIndex++
+		}
 	}
 
 	if params.Status != "" {
