@@ -713,8 +713,8 @@ paths:
           in: query
           schema:
             type: string
-            enum: ["spring", "summer", "autumn", "winter"]
-          description: シーズン絞り込み
+          description: 放送時期絞り込み（形式: "YYYY-season" または "YYYY年季節"）
+          example: "2024-spring"
         - name: min_rating
           in: query
           schema:
