@@ -328,7 +328,18 @@ func TestAnimeService_BuildWhereClause(t *testing.T) {
 		{
 			name: "シーズンフィルター",
 			params: models.AdvancedSearchParams{
-				Season: "spring",
+				Season: "2024-spring",
+			},
+			userID:       nil,
+			expectedArgs: 1,
+			shouldContain: []string{
+				"a.season",
+			},
+		},
+		{
+			name: "シーズンフィルター（日本語形式）",
+			params: models.AdvancedSearchParams{
+				Season: "2024年春",
 			},
 			userID:       nil,
 			expectedArgs: 1,
@@ -387,7 +398,7 @@ func TestAnimeService_BuildWhereClause(t *testing.T) {
 			params: models.AdvancedSearchParams{
 				Query:      "アニメ",
 				Year:       2024,
-				Season:     "spring",
+				Season:     "2024-spring",
 				Genres:     []string{"アクション"},
 				MinRating:  4.0,
 				UserStatus: "watching",
