@@ -16,12 +16,12 @@ export const SEASONS = [
 export const GENRES = [
   'アクション',
   'アドベンチャー',
+  'SF',
   'コメディ',
   'ドラマ',
   'ファンタジー',
   'ホラー',
   'ロマンス',
-  'SF',
 ] as const;
 
 export type Season = (typeof SEASONS)[number];
