@@ -14,6 +14,7 @@ import (
 	"myanimelogs/internal/constants"
 	"myanimelogs/internal/database"
 	"myanimelogs/internal/models"
+	"myanimelogs/internal/utils"
 )
 
 var (
@@ -448,9 +449,12 @@ func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int
 	}
 
 	if params.Season != "" {
-		whereClauses = append(whereClauses, fmt.Sprintf("season = $%d", argIndex))
-		args = append(args, params.Season)
-		argIndex++
+		dbSeason := utils.ConvertSeasonToDBFormat(params.Season)
+		if dbSeason != "" {
+			whereClauses = append(whereClauses, fmt.Sprintf("season = $%d", argIndex))
+			args = append(args, dbSeason)
+			argIndex++
+		}
 	}
 
 	if params.Status != "" {
@@ -1895,11 +1899,14 @@ func (s *AnimeService) buildWhereClause(params models.AdvancedSearchParams, user
 		argIndex++
 	}
 
-	// シーズン検索
+	// シーズン検索（日本語フォーマットをDBフォーマットに変換）
 	if params.Season != "" {
-		whereClauses = append(whereClauses, fmt.Sprintf("a.season = $%d", argIndex))
-		args = append(args, params.Season)
-		argIndex++
+		dbSeason := utils.ConvertSeasonToDBFormat(params.Season)
+		if dbSeason != "" {
+			whereClauses = append(whereClauses, fmt.Sprintf("a.season = $%d", argIndex))
+			args = append(args, dbSeason)
+			argIndex++
+		}
 	}
 
 	// ステータス検索
