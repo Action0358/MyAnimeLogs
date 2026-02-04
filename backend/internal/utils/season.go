@@ -46,10 +46,8 @@ func ConvertSeasonToDBFormat(season string) string {
 
 	year := matches[1]
 	japaneseSeason := matches[2]
-	englishSeason, ok := seasonMapping[japaneseSeason]
-	if !ok {
-		return "" // Unknown season
-	}
+	// japaneseSeasonは正規表現により春|夏|秋|冬のいずれかが保証されている
+	englishSeason := seasonMapping[japaneseSeason]
 
 	return year + "-" + englishSeason
 }
