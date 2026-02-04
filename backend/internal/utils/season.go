@@ -13,6 +13,14 @@ var seasonMapping = map[string]string{
 	"冬": "winter",
 }
 
+// validDBSeasons is a set of valid season values in database format
+var validDBSeasons = map[string]struct{}{
+	"spring": {},
+	"summer": {},
+	"autumn": {},
+	"winter": {},
+}
+
 // japaneseSeasonPattern matches "2024年春" format
 var japaneseSeasonPattern = regexp.MustCompile(`^(\d{4})年(春|夏|秋|冬)$`)
 
@@ -63,13 +71,7 @@ func isDBFormat(season string) bool {
 		}
 	}
 
-	// Check season part
-	validSeasons := []string{"spring", "summer", "autumn", "winter"}
-	for _, s := range validSeasons {
-		if parts[1] == s {
-			return true
-		}
-	}
-
-	return false
+	// Check season part using map lookup
+	_, ok := validDBSeasons[parts[1]]
+	return ok
 }
