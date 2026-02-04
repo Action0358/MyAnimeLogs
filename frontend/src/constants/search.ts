@@ -12,16 +12,16 @@ export const SEASONS = [
   '2023年秋',
 ] as const;
 
-/** ジャンルの選択肢 */
+/** ジャンルの選択肢（五十音順） */
 export const GENRES = [
   'アクション',
-  'ラブコメ',
-  '異世界',
+  'アドベンチャー',
   'SF',
-  'ファンタジー',
-  'ドラマ',
   'コメディ',
+  'ドラマ',
+  'ファンタジー',
   'ホラー',
+  'ロマンス',
 ] as const;
 
 export type Season = (typeof SEASONS)[number];
