@@ -96,8 +96,8 @@ func (h *AnimeHandler) GetAnimeEpisodes(c *gin.Context) {
 		}
 	}
 
-	// separatedパラメータで分離表示を制御（デフォルトはtrue）
-	separated := c.DefaultQuery("separated", "true") == "true"
+	// separatedパラメータで分離表示を制御（デフォルトはfalse - Jikan API移行後は分離不要）
+	separated := c.DefaultQuery("separated", "false") == "true"
 
 	if separated {
 		// 通常エピソードと特別編を分離して取得
