@@ -1,8 +1,6 @@
 module myanimelogs
 
-go 1.24.0
-
-toolchain go1.24.7
+go 1.22.0
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
@@ -12,11 +10,11 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.4.0
 	github.com/lib/pq v1.10.9
-	github.com/redis/go-redis/v9 v9.17.3
+	github.com/redis/go-redis/v9 v9.7.0
 	github.com/stretchr/testify v1.8.3
 	golang.org/x/crypto v0.14.0
-	golang.org/x/sync v0.19.0
-	golang.org/x/text v0.33.0
+	golang.org/x/sync v0.8.0
+	golang.org/x/text v0.14.0
 	golang.org/x/time v0.5.0
 )
 
