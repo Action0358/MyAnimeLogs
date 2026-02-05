@@ -47,6 +47,11 @@ func TestKatakanaToHiragana(t *testing.T) {
 			input:    "ブリーチ",
 			expected: "ぶりーち",
 		},
+		{
+			name:     "半角カタカナ",
+			input:    "ﾌﾞﾘｰﾁ",
+			expected: "ぶりーち", // 長音記号はそのまま
+		},
 	}
 
 	for _, tt := range tests {
