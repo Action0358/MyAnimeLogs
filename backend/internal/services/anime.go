@@ -392,25 +392,38 @@ func (s *AnimeService) GetEpisodeSyncStatus(animeID int) (*models.EpisodeSyncSta
 // buildKeywordSearchClause - キーワード検索用のWHERE句を構築するヘルパー関数
 // tableAlias: テーブルエイリアス（例: "a." または ""）
 // 戻り値: WHERE句の条件文字列、引数スライス、次の引数インデックス
+// 注: PostgreSQLのFTS（全文検索）は日本語（カタカナ・ひらがな・漢字）を適切にトークン化できないため、
+// ILIKE検索のみを使用する。pg_trgmインデックスによりパフォーマンスは維持される。
+// また、title_kanaはひらがなで保存されているため、カタカナ検索時はひらがな変換も行う。
 func buildKeywordSearchClause(keyword string, argIndex int, tableAlias string) (string, []interface{}, int) {
 	if keyword == "" {
 		return "", nil, argIndex
 	}
 
 	likePattern := "%" + keyword + "%"
-	// $argIndex: FTS用のkeyword, $argIndex+1: ILIKE用のlikePattern（3つのカラムで共有）
-	clause := fmt.Sprintf(`
-		(to_tsvector('simple', COALESCE(%stitle, '') || ' ' || COALESCE(%stitle_kana, '') || ' ' || COALESCE(%stitle_en, '')) @@ plainto_tsquery('simple', $%d)
-		 OR %stitle ILIKE $%d 
-		 OR %stitle_kana ILIKE $%d 
-		 OR %stitle_en ILIKE $%d)
-	`, tableAlias, tableAlias, tableAlias, argIndex,
-		tableAlias, argIndex+1,
-		tableAlias, argIndex+1,
-		tableAlias, argIndex+1)
 
-	args := []interface{}{keyword, likePattern}
-	return clause, args, argIndex + 2
+	// カタカナ・ひらがな両方で検索できるようにする
+	// title_kanaはひらがなで保存されているため、カタカナ→ひらがな変換が必要
+	hiraganaPattern := "%" + utils.KatakanaToHiragana(keyword) + "%"
+	katakanaPattern := "%" + utils.HiraganaToKatakana(keyword) + "%"
+
+	// 元のキーワード、ひらがな版、カタカナ版すべてで検索
+	clause := fmt.Sprintf(`
+		(%stitle ILIKE $%d 
+		 OR %stitle ILIKE $%d
+		 OR %stitle ILIKE $%d
+		 OR %stitle_kana ILIKE $%d 
+		 OR %stitle_kana ILIKE $%d
+		 OR %stitle_en ILIKE $%d)
+	`, tableAlias, argIndex,
+		tableAlias, argIndex+1,
+		tableAlias, argIndex+2,
+		tableAlias, argIndex,
+		tableAlias, argIndex+1,
+		tableAlias, argIndex)
+
+	args := []interface{}{likePattern, hiraganaPattern, katakanaPattern}
+	return clause, args, argIndex + 3
 }
 
 // generateSearchCacheKey - 検索パラメータからキャッシュキーを生成
