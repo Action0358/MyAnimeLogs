@@ -10,7 +10,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.4.0
 	github.com/lib/pq v1.10.9
-	github.com/redis/go-redis/v9 v9.7.0
+	github.com/redis/go-redis/v9 v9.17.3
 	github.com/stretchr/testify v1.8.3
 	golang.org/x/crypto v0.14.0
 	golang.org/x/sync v0.8.0

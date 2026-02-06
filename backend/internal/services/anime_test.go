@@ -402,7 +402,7 @@ func TestAnimeService_BuildWhereClause(t *testing.T) {
 				UserStatus: "watching",
 			},
 			userID:       func() *int { id := 123; return &id }(),
-			expectedArgs: 8, // query(2: カタカナあり) + year + season + genre + minRating + user_id + userStatus
+			expectedArgs: 9, // query(3: original, katakana, hiragana) + year + season + genre + minRating + user_id + userStatus
 			shouldContain: []string{
 				"ILIKE",
 				"a.season LIKE",
