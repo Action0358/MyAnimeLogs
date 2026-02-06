@@ -307,7 +307,7 @@ func TestAnimeService_BuildWhereClause(t *testing.T) {
 				Query: "進撃",
 			},
 			userID:       nil,
-			expectedArgs: 2, // likePattern, hiraganaPattern
+			expectedArgs: 1, // カタカナなしの場合は1つの引数のみ
 			shouldContain: []string{
 				"ILIKE",
 			},
@@ -402,7 +402,7 @@ func TestAnimeService_BuildWhereClause(t *testing.T) {
 				UserStatus: "watching",
 			},
 			userID:       func() *int { id := 123; return &id }(),
-			expectedArgs: 8, // query(2: original, hiragana) + year + season + genre + minRating + user_id + userStatus
+			expectedArgs: 8, // query(2: カタカナあり) + year + season + genre + minRating + user_id + userStatus
 			shouldContain: []string{
 				"ILIKE",
 				"a.season LIKE",

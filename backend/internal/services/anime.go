@@ -401,13 +401,24 @@ func buildKeywordSearchClause(keyword string, argIndex int, tableAlias string) (
 	}
 
 	likePattern := "%" + keyword + "%"
-	// title_kanaはひらがなで保存されているため、ひらがな変換後のキーワードで検索
-	hiraganaPattern := "%" + utils.KatakanaToHiragana(keyword) + "%"
+	hiraganaKeyword := utils.KatakanaToHiragana(keyword)
 
-	// 検索条件を整理:
-	// - title: 元のキーワードで検索（漢字・カタカナ・ひらがな・英語すべて対応）
-	// - title_kana: ひらがな変換後のキーワードで検索（カタカナ入力でもヒット）
-	// - title_en: 元のキーワードで検索（英語タイトル用）
+	// カタカナが含まれない場合、likePatternとhiraganaPatternは同一になる
+	// その場合はクエリを最適化して引数を1つに減らす
+	if likePattern == "%"+hiraganaKeyword+"%" {
+		clause := fmt.Sprintf(`
+			(%stitle ILIKE $%d 
+			 OR %stitle_kana ILIKE $%d
+			 OR %stitle_en ILIKE $%d)
+		`, tableAlias, argIndex,
+			tableAlias, argIndex,
+			tableAlias, argIndex)
+
+		return clause, []interface{}{likePattern}, argIndex + 1
+	}
+
+	// カタカナが含まれる場合は、title_kanaにひらがな変換後のパターンを使用
+	hiraganaPattern := "%" + hiraganaKeyword + "%"
 	clause := fmt.Sprintf(`
 		(%stitle ILIKE $%d 
 		 OR %stitle_kana ILIKE $%d
@@ -416,8 +427,7 @@ func buildKeywordSearchClause(keyword string, argIndex int, tableAlias string) (
 		tableAlias, argIndex+1,
 		tableAlias, argIndex)
 
-	args := []interface{}{likePattern, hiraganaPattern}
-	return clause, args, argIndex + 2
+	return clause, []interface{}{likePattern, hiraganaPattern}, argIndex + 2
 }
 
 // generateSearchCacheKey - 検索パラメータからキャッシュキーを生成
