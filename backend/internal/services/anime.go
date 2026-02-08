@@ -704,13 +704,7 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 	`, animeID).Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount, &anime.CoverImageExtraLarge, &anime.CoverImageLarge, &anime.CoverImageMedium,
 		&description, &media, &releasedOn, &officialSiteURL, &titleKana, &titleEn, &episodesCount)
 
-	if description.Valid {
-		anime.Description = &description.String
-	}
-	if releasedOn.Valid {
-		anime.ReleasedOn = &releasedOn.String
-	}
-
+	// Check error immediately after Scan - accessing scanned variables before error check is undefined behavior
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrAnimeNotFound
@@ -718,7 +712,13 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 		return nil, fmt.Errorf("failed to get anime: %w", err)
 	}
 
-	// Set nullable fields
+	// Set nullable fields (safe to access after error check)
+	if description.Valid {
+		anime.Description = &description.String
+	}
+	if releasedOn.Valid {
+		anime.ReleasedOn = &releasedOn.String
+	}
 	if media.Valid {
 		anime.Media = &media.String
 	}

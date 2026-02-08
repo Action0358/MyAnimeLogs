@@ -178,10 +178,9 @@ func processGenresResponse(result *genresResponse) ([]string, error) {
 
 // GetCoverImageByMALId - MyAnimeList IDからカバー画像を取得
 func (c *AniListClient) GetCoverImageByMALId(ctx context.Context, malId string) (*CoverImage, error) {
-	// MAL IDを整数に変換
-	malIdInt, err := strconv.Atoi(malId)
+	malIdInt, err := c.parseMALId(malId)
 	if err != nil {
-		return nil, fmt.Errorf("invalid MAL ID: %w", err)
+		return nil, err
 	}
 
 	// GraphQLクエリ（MAL IDも取得）
@@ -238,10 +237,9 @@ func (c *AniListClient) GetCoverImageByTitle(ctx context.Context, title string) 
 
 // GetGenresByMALId - MyAnimeList IDからジャンル情報を取得
 func (c *AniListClient) GetGenresByMALId(ctx context.Context, malId string) ([]string, error) {
-	// MAL IDを整数に変換
-	malIdInt, err := strconv.Atoi(malId)
+	malIdInt, err := c.parseMALId(malId)
 	if err != nil {
-		return nil, fmt.Errorf("invalid MAL ID: %w", err)
+		return nil, err
 	}
 
 	// GraphQLクエリ
@@ -266,10 +264,9 @@ func (c *AniListClient) GetGenresByMALId(ctx context.Context, malId string) ([]s
 
 // GetDescriptionByMALId - MyAnimeList IDからあらすじを取得（日本語優先）
 func (c *AniListClient) GetDescriptionByMALId(ctx context.Context, malId string) (string, error) {
-	// MAL IDを整数に変換
-	malIdInt, err := strconv.Atoi(malId)
+	malIdInt, err := c.parseMALId(malId)
 	if err != nil {
-		return "", fmt.Errorf("invalid MAL ID: %w", err)
+		return "", err
 	}
 
 	// GraphQLクエリ（日本語のあらすじを取得）
@@ -313,9 +310,9 @@ type mediaFormatResponse struct {
 // GetMediaFormatByMALId - MAL IDからメディアフォーマット（TV, MOVIE, OVA等）を取得
 // 戻り値: "TV", "MOVIE", "OVA", "ONA", "SPECIAL", "MUSIC" など
 func (c *AniListClient) GetMediaFormatByMALId(ctx context.Context, malId string) (string, error) {
-	malIdInt, err := strconv.Atoi(malId)
+	malIdInt, err := c.parseMALId(malId)
 	if err != nil {
-		return "", fmt.Errorf("invalid MAL ID: %w", err)
+		return "", err
 	}
 
 	query := `
@@ -422,4 +419,14 @@ func translateGenre(genreEN string) string {
 	}
 	// マッピングがない場合は英語のまま返す
 	return genreEN
+}
+
+// parseMALId - MAL ID文字列を整数に変換するヘルパー関数
+// 複数のメソッドで使用される共通ロジックを集約
+func (c *AniListClient) parseMALId(malId string) (int, error) {
+	malIdInt, err := strconv.Atoi(malId)
+	if err != nil {
+		return 0, fmt.Errorf("invalid MAL ID: %w", err)
+	}
+	return malIdInt, nil
 }
