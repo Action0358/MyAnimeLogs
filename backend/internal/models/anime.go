@@ -5,16 +5,23 @@ import (
 )
 
 type Anime struct {
-	ID            int       `json:"id" db:"id"`
-	Title         string    `json:"title" db:"title"`
-	ImageURL      *string   `json:"image_url" db:"image_url"`
-	Season        *string   `json:"season" db:"season"` // Format: "YYYY-season" (e.g., "2025-summer")
-	Status        *string   `json:"status" db:"status"`
-	WatchersCount int       `json:"watchers_count" db:"watchers_count"`
-	MalAnimeID    *string   `json:"mal_anime_id" db:"mal_anime_id"` // MyAnimeList ID
-	AnnictID      *int      `json:"annict_id" db:"annict_id"`       // Annict ID
-	CreatedAt     time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at" db:"updated_at"`
+	ID              int       `json:"id" db:"id"`
+	Title           string    `json:"title" db:"title"`
+	TitleKana       *string   `json:"title_kana,omitempty" db:"title_kana"`
+	TitleEn         *string   `json:"title_en,omitempty" db:"title_en"`
+	ImageURL        *string   `json:"image_url" db:"image_url"`
+	Season          *string   `json:"season" db:"season"` // Format: "YYYY-season" (e.g., "2025-summer")
+	Status          *string   `json:"status" db:"status"`
+	Media           *string   `json:"media,omitempty" db:"media"`                         // TV, OVA, Movie, etc.
+	EpisodesCount   *int      `json:"episodes_count,omitempty" db:"episodes_count"`       // Total episode count
+	Description     *string   `json:"description,omitempty" db:"description"`             // Synopsis from AniList
+	ReleasedOn      *string   `json:"released_on,omitempty" db:"released_on"`             // Release date from Annict
+	OfficialSiteURL *string   `json:"official_site_url,omitempty" db:"official_site_url"` // Official website
+	WatchersCount   int       `json:"watchers_count" db:"watchers_count"`
+	MalAnimeID      *string   `json:"mal_anime_id" db:"mal_anime_id"` // MyAnimeList ID
+	AnnictID        *int      `json:"annict_id" db:"annict_id"`       // Annict ID
+	CreatedAt       time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at" db:"updated_at"`
 
 	// AniList から取得する画像（DBにキャッシュ）
 	CoverImageExtraLarge string `json:"cover_image_extra_large,omitempty" db:"cover_image_extra_large"`
@@ -24,13 +31,22 @@ type Anime struct {
 
 type AnimeWithUserData struct {
 	Anime
-	UserFavorite       *UserFavorite `json:"user_favorite,omitempty"`
-	UserRating         *UserRating   `json:"user_rating,omitempty"`
-	WatchProgress      float64       `json:"watch_progress"`
-	Episodes           []Episode     `json:"episodes,omitempty"`
-	AverageRating      *float64      `json:"average_rating,omitempty"`
-	RatingCount        int           `json:"rating_count"`
-	RatingDistribution map[int]int   `json:"rating_distribution,omitempty"`
+	UserFavorite       *UserFavorite   `json:"user_favorite,omitempty"`
+	UserRating         *UserRating     `json:"user_rating,omitempty"`
+	WatchProgress      float64         `json:"watch_progress"`
+	Episodes           []Episode       `json:"episodes,omitempty"`
+	Genres             []string        `json:"genres,omitempty"`
+	AverageRating      *float64        `json:"average_rating,omitempty"`
+	RatingCount        int             `json:"rating_count"`
+	RatingDistribution map[int]int     `json:"rating_distribution,omitempty"`
+	WatchProviders     []WatchProvider `json:"watch_providers,omitempty"`
+}
+
+// WatchProvider represents a streaming service provider
+type WatchProvider struct {
+	ProviderID   int    `json:"provider_id"`
+	ProviderName string `json:"provider_name"`
+	LogoURL      string `json:"logo_url"`
 }
 
 type Episode struct {

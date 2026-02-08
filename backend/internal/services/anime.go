@@ -165,6 +165,7 @@ type AnimeService struct {
 	anilistClient    *AniListClient
 	jikanClient      *JikanClient
 	annictClient     *AnnictClient
+	tmdbClient       *TMDBClient  // TMDB APIクライアント
 	imageUpdateQueue chan func()  // 画像更新用ワーカープールのキュー
 	cache            *MemoryCache // レスポンスキャッシュ
 	redisCache       *RedisCache  // Redisキャッシュ（オプション）
@@ -192,6 +193,7 @@ func NewAnimeService(db *database.DB, logger *common.Logger, annictClient *Annic
 		anilistClient:    NewAniListClient(),
 		jikanClient:      NewJikanClient(logger),
 		annictClient:     annictClient,
+		tmdbClient:       NewTMDBClient(logger),
 		imageUpdateQueue: make(chan func(), constants.ImageUpdateQueueSize),
 		cache:            NewMemoryCache(cacheConfig),
 		redisCache:       redisCache,
@@ -689,13 +691,20 @@ func (s *AnimeService) AdvancedSearchAnimes(params models.AdvancedSearchParams, 
 
 func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWithUserData, error) {
 	var anime models.Anime
+	var description, media, officialSiteURL, titleKana, titleEn, releasedOn sql.NullString
+	var episodesCount sql.NullInt64
+
 	err := s.db.QueryRow(`
 		SELECT id, title, image_url, season, status, mal_anime_id, annict_id, created_at, updated_at, watchers_count,
 		       COALESCE(cover_image_extra_large, '') as cover_image_extra_large,
 		       COALESCE(cover_image_large, '') as cover_image_large,
-		       COALESCE(cover_image_medium, '') as cover_image_medium
+		       COALESCE(cover_image_medium, '') as cover_image_medium,
+		       description, media, released_on, official_site_url, title_kana, title_en, episodes_count
 		FROM animes WHERE id = $1
-	`, animeID).Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount, &anime.CoverImageExtraLarge, &anime.CoverImageLarge, &anime.CoverImageMedium)
+	`, animeID).Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount, &anime.CoverImageExtraLarge, &anime.CoverImageLarge, &anime.CoverImageMedium,
+		&description, &media, &releasedOn, &officialSiteURL, &titleKana, &titleEn, &episodesCount)
+
+	// Check error immediately after Scan - accessing scanned variables before error check is undefined behavior
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrAnimeNotFound
@@ -703,12 +712,68 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 		return nil, fmt.Errorf("failed to get anime: %w", err)
 	}
 
+	// Set nullable fields (safe to access after error check)
+	if description.Valid {
+		anime.Description = &description.String
+	}
+	if releasedOn.Valid {
+		anime.ReleasedOn = &releasedOn.String
+	}
+	if media.Valid {
+		anime.Media = &media.String
+	}
+	if officialSiteURL.Valid {
+		anime.OfficialSiteURL = &officialSiteURL.String
+	}
+	if titleKana.Valid {
+		anime.TitleKana = &titleKana.String
+	}
+	if titleEn.Valid {
+		anime.TitleEn = &titleEn.String
+	}
+	if episodesCount.Valid {
+		count := int(episodesCount.Int64)
+		anime.EpisodesCount = &count
+	}
+
 	// DBキャッシュがない場合、またはextraLargeがない場合はAniListから画像を取得
 	if anime.CoverImageExtraLarge == "" || anime.CoverImageLarge == "" {
 		s.enrichAnimeWithCoverImage(&anime)
 	}
 
+	// descriptionがない場合はAniList APIから取得
+	if anime.Description == nil || *anime.Description == "" {
+		s.enrichAnimeWithDescription(&anime)
+	}
+
+	// released_onがない場合はJikan APIから取得
+	if anime.ReleasedOn == nil || *anime.ReleasedOn == "" {
+		s.enrichAnimeWithReleasedOn(&anime)
+	}
+
 	animeWithData := &models.AnimeWithUserData{Anime: anime}
+
+	// Get genres from anime_genres table
+	genreRows, err := s.db.Query(`
+		SELECT genre FROM anime_genres WHERE anime_id = $1 ORDER BY genre
+	`, animeID)
+	if err != nil {
+		s.logger.Warn("Failed to get genres", "anime_id", animeID, "error", err)
+	} else {
+		defer genreRows.Close()
+		var genres []string
+		for genreRows.Next() {
+			var genre string
+			if err := genreRows.Scan(&genre); err != nil {
+				s.logger.Warn("Failed to scan genre", "anime_id", animeID, "error", err)
+				continue
+			}
+			genres = append(genres, genre)
+		}
+		if len(genres) > 0 {
+			animeWithData.Genres = genres
+		}
+	}
 
 	// Get episodes
 	episodes, err := s.GetAnimeEpisodes(animeID, userID)
@@ -813,6 +878,9 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 		animeWithData.WatchProgress = s.calculateWatchProgress(*userID, animeID)
 	}
 
+	// Get watch providers from TMDB (if TMDB ID is available or can be found)
+	s.enrichAnimeWithWatchProviders(animeWithData)
+
 	return animeWithData, nil
 }
 
@@ -828,44 +896,15 @@ func (s *AnimeService) GetAnimeEpisodes(animeID int, userID *int) ([]models.Epis
 		return nil, ErrAnimeNotFound
 	}
 
-	// Check if new columns exist (for backward compatibility before migration)
-	var hasSpecialColumns bool
-	err = s.db.QueryRow(`
-		SELECT EXISTS(
-			SELECT 1 FROM information_schema.columns 
-			WHERE table_schema = 'public' AND table_name = 'episodes' AND column_name = 'is_special'
-		)
-	`).Scan(&hasSpecialColumns)
-	if err != nil {
-		s.logger.Warn("Failed to check for is_special column", "error", err)
-		hasSpecialColumns = false
-	}
-
-	s.logger.Debug("Episode column check", "hasSpecialColumns", hasSpecialColumns, "animeID", animeID)
-
-	var rows *sql.Rows
-	if hasSpecialColumns {
-		rows, err = s.db.Query(`
-			SELECT id, anime_id, title, episode_number, duration_minutes, air_date, 
-			       COALESCE(is_special, FALSE) as is_special, 
-			       COALESCE(filler, FALSE) as filler, 
-			       COALESCE(recap, FALSE) as recap,
-			       created_at, updated_at
-			FROM episodes WHERE anime_id = $1
-			ORDER BY is_special ASC, episode_number ASC
-		`, animeID)
-	} else {
-		// Fallback query without new columns
-		rows, err = s.db.Query(`
-			SELECT id, anime_id, title, episode_number, duration_minutes, air_date, 
-			       FALSE as is_special, 
-			       FALSE as filler, 
-			       FALSE as recap,
-			       created_at, updated_at
-			FROM episodes WHERE anime_id = $1
-			ORDER BY episode_number ASC
-		`, animeID)
-	}
+	rows, err := s.db.Query(`
+		SELECT id, anime_id, title, episode_number, duration_minutes, air_date, 
+		       COALESCE(is_special, FALSE) as is_special, 
+		       COALESCE(filler, FALSE) as filler, 
+		       COALESCE(recap, FALSE) as recap,
+		       created_at, updated_at
+		FROM episodes WHERE anime_id = $1
+		ORDER BY is_special ASC, episode_number ASC
+	`, animeID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get episodes: %w", err)
 	}
@@ -1759,6 +1798,155 @@ func (s *AnimeService) enrichAnimesWithCoverImages(animes []models.Anime) {
 
 	// すべてのゴルーチンが完了するまで待機
 	wg.Wait()
+}
+
+// enrichAnimeWithDescription - TMDBから日本語あらすじを取得してアニメ情報を拡張
+// DBにdescriptionがない場合のみAPIを呼び出す
+// TMDBが利用できない場合はAniListにフォールバック
+func (s *AnimeService) enrichAnimeWithDescription(anime *models.Anime) {
+	ctx := context.Background()
+
+	// まずTMDBから日本語あらすじを取得を試みる（MAL ID経由優先）
+	if s.tmdbClient != nil && s.tmdbClient.IsEnabled() {
+		malID := ""
+		if anime.MalAnimeID != nil {
+			malID = *anime.MalAnimeID
+		}
+
+		// AniListからメディアタイプを取得（MOVIE, TV等）
+		mediaTypeHint := ""
+		if malID != "" {
+			format, err := s.anilistClient.GetMediaFormatByMALId(ctx, malID)
+			if err == nil {
+				mediaTypeHint = format // "MOVIE", "TV", "OVA", etc.
+			}
+		}
+
+		overview, tmdbID, err := s.tmdbClient.GetOverviewByMALIDOrTitle(ctx, malID, anime.Title, mediaTypeHint)
+		if err == nil && overview != "" {
+			anime.Description = &overview
+
+			// DBに保存（非同期）
+			animeID := anime.ID
+			s.enqueueImageUpdate(func() {
+				ctx, cancel := context.WithTimeout(context.Background(), constants.ImageUpdateDBTimeout)
+				defer cancel()
+
+				_, saveErr := s.db.ExecContext(ctx, `
+					UPDATE animes 
+					SET description = $1, tmdb_id = $2
+					WHERE id = $3
+				`, overview, tmdbID, animeID)
+				if saveErr != nil {
+					s.logger.Warn("Failed to save TMDB description to DB",
+						"error", saveErr,
+						"anime_id", animeID)
+				}
+			})
+			return
+		}
+		s.logger.Debug("Failed to get description from TMDB, falling back to AniList",
+			"error", err,
+			"mal_id", malID,
+			"anime_title", anime.Title)
+	}
+
+	// TMDBが利用できない場合はAniListにフォールバック
+	// MAL IDがない場合は取得できない
+	if anime.MalAnimeID == nil || *anime.MalAnimeID == "" {
+		return
+	}
+
+	// AniList APIからあらすじを取得
+	description, err := s.anilistClient.GetDescriptionByMALId(ctx, *anime.MalAnimeID)
+	if err != nil {
+		s.logger.Debug("Failed to get description from AniList",
+			"error", err,
+			"mal_anime_id", *anime.MalAnimeID,
+			"anime_title", anime.Title)
+		return
+	}
+
+	if description == "" {
+		return
+	}
+
+	// アニメ情報に設定
+	anime.Description = &description
+
+	// DBに保存（非同期）
+	malID := *anime.MalAnimeID
+	s.enqueueImageUpdate(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), constants.ImageUpdateDBTimeout)
+		defer cancel()
+
+		_, saveErr := s.db.ExecContext(ctx, `
+			UPDATE animes 
+			SET description = $1
+			WHERE mal_anime_id = $2
+		`, description, malID)
+		if saveErr != nil {
+			s.logger.Warn("Failed to save description to DB",
+				"error", saveErr,
+				"mal_anime_id", malID)
+		}
+	})
+}
+
+// enrichAnimeWithReleasedOn - Jikan APIから放送開始日を取得してアニメ情報を拡張
+// DBにreleased_onがない場合のみAPIを呼び出す
+// Annictで欠損している放送開始日をJikanから補完する
+func (s *AnimeService) enrichAnimeWithReleasedOn(anime *models.Anime) {
+	// 既に放送開始日がある場合はスキップ
+	if anime.ReleasedOn != nil && *anime.ReleasedOn != "" {
+		return
+	}
+
+	// MAL IDがない場合は取得できない
+	if anime.MalAnimeID == nil || *anime.MalAnimeID == "" {
+		return
+	}
+
+	// Jikan APIから放送開始日を取得
+	releasedOn, err := s.jikanClient.GetAnimeAiredDate(*anime.MalAnimeID)
+	if err != nil {
+		s.logger.Debug("Failed to get aired date from Jikan",
+			"error", err,
+			"mal_anime_id", *anime.MalAnimeID,
+			"anime_title", anime.Title)
+		return
+	}
+
+	if releasedOn == "" {
+		return
+	}
+
+	// アニメ情報に設定
+	anime.ReleasedOn = &releasedOn
+
+	// DBに保存（非同期）
+	malID := *anime.MalAnimeID
+	animeID := anime.ID
+	s.enqueueImageUpdate(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), constants.ImageUpdateDBTimeout)
+		defer cancel()
+
+		_, saveErr := s.db.ExecContext(ctx, `
+			UPDATE animes 
+			SET released_on = $1
+			WHERE id = $2
+		`, releasedOn, animeID)
+		if saveErr != nil {
+			s.logger.Warn("Failed to save released_on to DB",
+				"error", saveErr,
+				"mal_anime_id", malID,
+				"anime_id", animeID)
+		} else {
+			s.logger.Debug("Saved released_on from Jikan to DB",
+				"anime_id", animeID,
+				"released_on", releasedOn)
+		}
+	})
 }
 
 // enrichAnimesWithCoverImagesIfNeeded - DBキャッシュがないアニメのみ画像を取得（最適化版）
@@ -3051,48 +3239,16 @@ func (s *AnimeService) CleanupOldSearchHistory(userID int) error {
 // GetEpisodesByType returns episodes filtered by type (regular or special)
 // N+1クエリ問題を解消: 視聴ステータスを一括取得
 func (s *AnimeService) GetEpisodesByType(animeID int, isSpecial bool, userID *int) ([]models.Episode, error) {
-	// Check if new columns exist (for backward compatibility before migration)
-	var hasSpecialColumns bool
-	err := s.db.QueryRow(`
-		SELECT EXISTS(
-			SELECT 1 FROM information_schema.columns 
-			WHERE table_schema = 'public' AND table_name = 'episodes' AND column_name = 'is_special'
-		)
-	`).Scan(&hasSpecialColumns)
-	if err != nil {
-		s.logger.Warn("Failed to check for is_special column", "error", err)
-		hasSpecialColumns = false
-	}
-
-	var rows *sql.Rows
-	if hasSpecialColumns {
-		rows, err = s.db.Query(`
-			SELECT id, anime_id, episode_number, title, duration_minutes, air_date,
-			       COALESCE(is_special, FALSE) as is_special, 
-			       COALESCE(filler, FALSE) as filler, 
-			       COALESCE(recap, FALSE) as recap,
-			       created_at, updated_at
-			FROM episodes
-			WHERE anime_id = $1 AND COALESCE(is_special, FALSE) = $2
-			ORDER BY episode_number ASC
-		`, animeID, isSpecial)
-	} else {
-		// Fallback: without new columns, return all episodes if isSpecial=false, empty if isSpecial=true
-		if isSpecial {
-			// No special episodes exist before migration
-			return []models.Episode{}, nil
-		}
-		rows, err = s.db.Query(`
-			SELECT id, anime_id, episode_number, title, duration_minutes, air_date,
-			       FALSE as is_special, 
-			       FALSE as filler, 
-			       FALSE as recap,
-			       created_at, updated_at
-			FROM episodes
-			WHERE anime_id = $1
-			ORDER BY episode_number ASC
-		`, animeID)
-	}
+	rows, err := s.db.Query(`
+		SELECT id, anime_id, episode_number, title, duration_minutes, air_date,
+		       COALESCE(is_special, FALSE) as is_special, 
+		       COALESCE(filler, FALSE) as filler, 
+		       COALESCE(recap, FALSE) as recap,
+		       created_at, updated_at
+		FROM episodes
+		WHERE anime_id = $1 AND COALESCE(is_special, FALSE) = $2
+		ORDER BY episode_number ASC
+	`, animeID, isSpecial)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query episodes: %w", err)
 	}
@@ -3175,44 +3331,16 @@ func (s *AnimeService) getWatchStatusesBatch(userID int, episodeIDs []int) (map[
 // GetEpisodesSeparated returns episodes separated by type (regular and special)
 // 1回のクエリで全エピソードを取得し、メモリ上で分離（効率化）
 func (s *AnimeService) GetEpisodesSeparated(animeID int, userID *int) (regular, specials []models.Episode, err error) {
-	// Check if new columns exist (for backward compatibility before migration)
-	var hasSpecialColumns bool
-	err = s.db.QueryRow(`
-		SELECT EXISTS(
-			SELECT 1 FROM information_schema.columns 
-			WHERE table_schema = 'public' AND table_name = 'episodes' AND column_name = 'is_special'
-		)
-	`).Scan(&hasSpecialColumns)
-	if err != nil {
-		s.logger.Warn("Failed to check for is_special column", "error", err)
-		hasSpecialColumns = false
-	}
-
-	var rows *sql.Rows
-	if hasSpecialColumns {
-		rows, err = s.db.Query(`
-			SELECT id, anime_id, episode_number, title, duration_minutes, air_date,
-			       COALESCE(is_special, FALSE) as is_special, 
-			       COALESCE(filler, FALSE) as filler, 
-			       COALESCE(recap, FALSE) as recap,
-			       created_at, updated_at
-			FROM episodes
-			WHERE anime_id = $1
-			ORDER BY is_special ASC, episode_number ASC
-		`, animeID)
-	} else {
-		// Fallback: without new columns, all episodes are regular
-		rows, err = s.db.Query(`
-			SELECT id, anime_id, episode_number, title, duration_minutes, air_date,
-			       FALSE as is_special, 
-			       FALSE as filler, 
-			       FALSE as recap,
-			       created_at, updated_at
-			FROM episodes
-			WHERE anime_id = $1
-			ORDER BY episode_number ASC
-		`, animeID)
-	}
+	rows, err := s.db.Query(`
+		SELECT id, anime_id, episode_number, title, duration_minutes, air_date,
+		       COALESCE(is_special, FALSE) as is_special, 
+		       COALESCE(filler, FALSE) as filler, 
+		       COALESCE(recap, FALSE) as recap,
+		       created_at, updated_at
+		FROM episodes
+		WHERE anime_id = $1
+		ORDER BY is_special ASC, episode_number ASC
+	`, animeID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to query episodes: %w", err)
 	}
@@ -3259,4 +3387,383 @@ func (s *AnimeService) GetEpisodesSeparated(animeID int, userID *int) (regular, 
 	}
 
 	return regular, specials, nil
+}
+
+// SyncDescriptionsFromTMDB syncs Japanese descriptions from TMDB for all animes without description
+// Also updates animes with English descriptions (detected by HTML tags or lack of Japanese characters)
+// Returns: success count, not found count, failure count, error
+func (s *AnimeService) SyncDescriptionsFromTMDB() (int, int, int, error) {
+	s.logger.Info("Starting TMDB description sync")
+
+	// Check if TMDB client is enabled
+	if s.tmdbClient == nil || !s.tmdbClient.IsEnabled() {
+		return 0, 0, 0, fmt.Errorf("TMDB client is not configured")
+	}
+
+	// Get animes that need description update:
+	// 1. No description (NULL or empty)
+	// 2. English description (contains HTML tags like <i>, <br>, or starts with ASCII and has no Japanese punctuation)
+	rows, err := s.db.Query(`
+		SELECT id, title, mal_anime_id 
+		FROM animes 
+		WHERE description IS NULL 
+		   OR description = ''
+		   OR description LIKE '%<i>%'
+		   OR description LIKE '%<br>%'
+		   OR (description ~ '^[A-Za-z]' AND description NOT LIKE '%。%' AND description NOT LIKE '%、%')
+		ORDER BY watchers_count DESC NULLS LAST, id
+	`)
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("failed to get animes: %w", err)
+	}
+
+	type animeInfo struct {
+		ID    int
+		Title string
+		MalID *string
+	}
+	var animes []animeInfo
+
+	for rows.Next() {
+		var a animeInfo
+		if err := rows.Scan(&a.ID, &a.Title, &a.MalID); err != nil {
+			s.logger.Warn("Failed to scan anime", "error", err)
+			continue
+		}
+		animes = append(animes, a)
+	}
+	rows.Close()
+
+	totalAnimes := len(animes)
+	if totalAnimes == 0 {
+		s.logger.Info("All animes already have descriptions")
+		return 0, 0, 0, nil
+	}
+
+	s.logger.Info("Found animes without description", "count", totalAnimes)
+
+	// TMDB rate limit: ~40 requests/10 seconds
+	const batchSize = 40
+	const batchInterval = 11 * time.Second
+
+	successCount := 0
+	notFoundCount := 0
+	failureCount := 0
+
+	// Process in batches
+	for i := 0; i < totalAnimes; i += batchSize {
+		end := i + batchSize
+		if end > totalAnimes {
+			end = totalAnimes
+		}
+		batch := animes[i:end]
+
+		s.logger.Info("Processing TMDB batch",
+			"progress", fmt.Sprintf("%d/%d", end, totalAnimes))
+
+		for _, anime := range batch {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+			malID := ""
+			if anime.MalID != nil {
+				malID = *anime.MalID
+			}
+
+			// AniListからメディアタイプを取得（MOVIE, TV等）
+			mediaTypeHint := ""
+			if malID != "" {
+				format, formatErr := s.anilistClient.GetMediaFormatByMALId(ctx, malID)
+				if formatErr == nil {
+					mediaTypeHint = format
+				}
+			}
+
+			overview, tmdbID, err := s.tmdbClient.GetOverviewByMALIDOrTitle(ctx, malID, anime.Title, mediaTypeHint)
+			cancel()
+
+			if err != nil {
+				s.logger.Debug("Failed to get description from TMDB",
+					"anime_id", anime.ID,
+					"mal_id", malID,
+					"title", anime.Title,
+					"error", err)
+				notFoundCount++
+				continue
+			}
+
+			if overview == "" {
+				notFoundCount++
+				continue
+			}
+
+			// Save to database
+			var result sql.Result
+			if tmdbID > 0 {
+				result, err = s.db.Exec(`
+					UPDATE animes 
+					SET description = $1, tmdb_id = $2
+					WHERE id = $3
+				`, overview, tmdbID, anime.ID)
+			} else {
+				result, err = s.db.Exec(`
+					UPDATE animes 
+					SET description = $1
+					WHERE id = $2
+				`, overview, anime.ID)
+			}
+
+			if err != nil {
+				s.logger.Warn("Failed to save description",
+					"anime_id", anime.ID,
+					"error", err)
+				failureCount++
+				continue
+			}
+
+			rowsAffected, _ := result.RowsAffected()
+			if rowsAffected > 0 {
+				successCount++
+			}
+		}
+
+		// Wait before next batch (except for last batch)
+		if end < totalAnimes {
+			time.Sleep(batchInterval)
+		}
+	}
+
+	s.logger.Info("TMDB description sync completed",
+		"success", successCount,
+		"not_found", notFoundCount,
+		"failure", failureCount)
+
+	return successCount, notFoundCount, failureCount, nil
+}
+
+// SyncReleasedOnFromJikan syncs release dates from Jikan API for animes without released_on
+// Returns: success count, not found count, failure count, error
+func (s *AnimeService) SyncReleasedOnFromJikan() (int, int, int, error) {
+	s.logger.Info("Starting Jikan released_on sync")
+
+	// Get animes that need released_on update:
+	// 1. No released_on (NULL or empty)
+	// 2. Has MAL ID (required for Jikan API)
+	rows, err := s.db.Query(`
+		SELECT id, title, mal_anime_id 
+		FROM animes 
+		WHERE (released_on IS NULL OR released_on = '')
+		  AND mal_anime_id IS NOT NULL AND mal_anime_id != ''
+		ORDER BY watchers_count DESC NULLS LAST, id
+	`)
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("failed to get animes: %w", err)
+	}
+
+	type animeInfo struct {
+		ID    int
+		Title string
+		MalID string
+	}
+	var animes []animeInfo
+
+	for rows.Next() {
+		var a animeInfo
+		var malID *string
+		if err := rows.Scan(&a.ID, &a.Title, &malID); err != nil {
+			s.logger.Warn("Failed to scan anime", "error", err)
+			continue
+		}
+		if malID != nil {
+			a.MalID = *malID
+		}
+		animes = append(animes, a)
+	}
+	rows.Close()
+
+	totalAnimes := len(animes)
+	if totalAnimes == 0 {
+		s.logger.Info("All animes already have released_on")
+		return 0, 0, 0, nil
+	}
+
+	s.logger.Info("Found animes without released_on", "count", totalAnimes)
+
+	// Jikan rate limit: 3 requests/second
+	// Process in batches of 30 with 11 second intervals for safety
+	const batchSize = 30
+	const batchInterval = 11 * time.Second
+
+	successCount := 0
+	notFoundCount := 0
+	failureCount := 0
+
+	// Process in batches
+	for i := 0; i < totalAnimes; i += batchSize {
+		end := i + batchSize
+		if end > totalAnimes {
+			end = totalAnimes
+		}
+		batch := animes[i:end]
+
+		s.logger.Info("Processing Jikan batch",
+			"progress", fmt.Sprintf("%d/%d", end, totalAnimes))
+
+		for _, anime := range batch {
+			releasedOn, err := s.jikanClient.GetAnimeAiredDate(anime.MalID)
+
+			if err != nil {
+				if errors.Is(err, ErrJikanNotFound) {
+					s.logger.Debug("Anime not found in Jikan",
+						"anime_id", anime.ID,
+						"mal_id", anime.MalID,
+						"title", anime.Title)
+					notFoundCount++
+				} else {
+					s.logger.Debug("Failed to get aired date from Jikan",
+						"anime_id", anime.ID,
+						"mal_id", anime.MalID,
+						"title", anime.Title,
+						"error", err)
+					failureCount++
+				}
+				continue
+			}
+
+			if releasedOn == "" {
+				notFoundCount++
+				continue
+			}
+
+			// Save to database
+			result, err := s.db.Exec(`
+				UPDATE animes 
+				SET released_on = $1
+				WHERE id = $2
+			`, releasedOn, anime.ID)
+
+			if err != nil {
+				s.logger.Warn("Failed to save released_on",
+					"anime_id", anime.ID,
+					"error", err)
+				failureCount++
+				continue
+			}
+
+			rowsAffected, _ := result.RowsAffected()
+			if rowsAffected > 0 {
+				successCount++
+			}
+		}
+
+		// Wait before next batch (except for last batch)
+		if end < totalAnimes {
+			time.Sleep(batchInterval)
+		}
+	}
+
+	s.logger.Info("Jikan released_on sync completed",
+		"success", successCount,
+		"not_found", notFoundCount,
+		"failure", failureCount)
+
+	return successCount, notFoundCount, failureCount, nil
+}
+
+// enrichAnimeWithWatchProviders - TMDBから配信サービス情報を取得してアニメ情報を拡張
+func (s *AnimeService) enrichAnimeWithWatchProviders(animeWithData *models.AnimeWithUserData) {
+	if s.tmdbClient == nil || !s.tmdbClient.IsEnabled() {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// First, try to get TMDB ID and media type from database
+	var tmdbID int
+	var dbMediaType sql.NullString
+	err := s.db.QueryRow(`SELECT tmdb_id, media FROM animes WHERE id = $1 AND tmdb_id IS NOT NULL`, animeWithData.ID).Scan(&tmdbID, &dbMediaType)
+
+	// Determine media type (movie or tv)
+	mediaType := "tv" // Default to TV
+	malID := ""
+	if animeWithData.MalAnimeID != nil {
+		malID = *animeWithData.MalAnimeID
+	}
+
+	// If TMDB ID is in DB, determine media type from DB or AniList
+	if err == nil && tmdbID > 0 {
+		// Check DB media field first
+		if dbMediaType.Valid && dbMediaType.String == "movie" {
+			mediaType = "movie"
+		} else if animeWithData.Media != nil && *animeWithData.Media == "movie" {
+			mediaType = "movie"
+		} else if malID != "" {
+			// Fall back to AniList
+			format, formatErr := s.anilistClient.GetMediaFormatByMALId(ctx, malID)
+			if formatErr == nil && format == "MOVIE" {
+				mediaType = "movie"
+			}
+		}
+	} else {
+		// TMDB ID not in DB, search by MAL ID first, then by title
+		// Use AniList or DB media field for hint
+		mediaTypeHint := ""
+		if animeWithData.Media != nil && *animeWithData.Media == "movie" {
+			mediaTypeHint = "MOVIE"
+		} else if malID != "" {
+			format, formatErr := s.anilistClient.GetMediaFormatByMALId(ctx, malID)
+			if formatErr == nil && format == "MOVIE" {
+				mediaTypeHint = "MOVIE"
+			}
+		}
+
+		// FindTMDBID returns the actual media type from TMDB search
+		foundID, foundMediaType, searchErr := s.tmdbClient.FindTMDBID(ctx, malID, animeWithData.Title, mediaTypeHint)
+		if searchErr != nil {
+			s.logger.Debug("Failed to find TMDB ID for anime",
+				"anime_id", animeWithData.ID,
+				"mal_id", malID,
+				"title", animeWithData.Title,
+				"error", searchErr)
+			return
+		}
+		tmdbID = foundID
+		// Use the media type returned by FindTMDBID (this is the actual type from TMDB)
+		mediaType = foundMediaType
+
+		// Save TMDB ID to database for future use (async)
+		animeID := animeWithData.ID
+		s.enqueueImageUpdate(func() {
+			ctx, cancel := context.WithTimeout(context.Background(), constants.ImageUpdateDBTimeout)
+			defer cancel()
+			_, _ = s.db.ExecContext(ctx, `UPDATE animes SET tmdb_id = $1 WHERE id = $2`, tmdbID, animeID)
+		})
+	}
+
+	// Get watch providers from TMDB (use appropriate endpoint for TV or movie)
+	providers, err := s.tmdbClient.GetJapaneseWatchProviders(ctx, tmdbID, mediaType)
+	if err != nil {
+		s.logger.Debug("Failed to get watch providers from TMDB",
+			"anime_id", animeWithData.ID,
+			"tmdb_id", tmdbID,
+			"media_type", mediaType,
+			"error", err)
+		return
+	}
+
+	if len(providers) == 0 {
+		return
+	}
+
+	// Convert to model
+	watchProviders := make([]models.WatchProvider, 0, len(providers))
+	for _, p := range providers {
+		watchProviders = append(watchProviders, models.WatchProvider{
+			ProviderID:   p.ProviderID,
+			ProviderName: p.ProviderName,
+			LogoURL:      GetProviderLogoURL(p.LogoPath, "w92"),
+		})
+	}
+
+	animeWithData.WatchProviders = watchProviders
 }

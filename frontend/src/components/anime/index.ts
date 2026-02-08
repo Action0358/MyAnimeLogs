@@ -6,6 +6,7 @@ export { AnimeCard } from './AnimeCard';
 export { AnimeGrid } from './AnimeGrid';
 export { EpisodeList } from './EpisodeList';
 export { SkeletonCard } from './SkeletonCard';
+export { WatchProviders } from './WatchProviders';
 export type { AnimeCardProps } from './AnimeCard';
 export type { AnimeGridProps } from './AnimeGrid';
 export type { EpisodeListProps } from './EpisodeList';

@@ -39,6 +39,28 @@ type JikanAnimeData struct {
 	Duration string       `json:"duration"` // e.g., "24 min per ep"
 	Episodes int          `json:"episodes"`
 	Genres   []JikanGenre `json:"genres"`
+	Aired    *JikanAired  `json:"aired"` // Broadcast date information
+}
+
+// JikanAired represents the aired date information from Jikan API
+type JikanAired struct {
+	From   *string         `json:"from"`   // ISO 8601 format: "2016-01-14T00:00:00+00:00"
+	To     *string         `json:"to"`     // ISO 8601 format or null if ongoing
+	Prop   *JikanAiredProp `json:"prop"`   // Detailed date properties
+	String string          `json:"string"` // Human readable: "Jan 14, 2016 to Mar 17, 2016"
+}
+
+// JikanAiredProp represents detailed date properties
+type JikanAiredProp struct {
+	From JikanDateProp `json:"from"`
+	To   JikanDateProp `json:"to"`
+}
+
+// JikanDateProp represents year/month/day breakdown
+type JikanDateProp struct {
+	Day   *int `json:"day"`
+	Month *int `json:"month"`
+	Year  *int `json:"year"`
 }
 
 // JikanGenre represents a genre from Jikan API
