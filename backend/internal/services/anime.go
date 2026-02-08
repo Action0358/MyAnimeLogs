@@ -3568,13 +3568,11 @@ func (s *AnimeService) SyncReleasedOnFromJikan() (int, int, int, error) {
 
 	for rows.Next() {
 		var a animeInfo
-		var malID *string
-		if err := rows.Scan(&a.ID, &a.Title, &malID); err != nil {
+		// SQL query already filters for mal_anime_id IS NOT NULL AND mal_anime_id != ''
+		// so we can scan directly into the string field
+		if err := rows.Scan(&a.ID, &a.Title, &a.MalID); err != nil {
 			s.logger.Warn("Failed to scan anime", "error", err)
 			continue
-		}
-		if malID != nil {
-			a.MalID = *malID
 		}
 		animes = append(animes, a)
 	}

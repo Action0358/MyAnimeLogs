@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
+import { decode as heDecodeEntities } from 'he'
 import { Container } from '@/components/layout'
 import { Button } from '@/components/ui'
 import { EpisodeList, WatchProviders } from '@/components/anime'
@@ -155,25 +156,10 @@ const AnimeDetailClient: React.FC = () => {
       return doc.body.textContent?.trim() || ''
     }
 
-    // SSR環境ではフォールバック処理
-    let text = html
-      .replace(/&lt;/g, '<')
-      .replace(/&gt;/g, '>')
-      .replace(/&amp;/g, '&')
-      .replace(/&quot;/g, '"')
-      .replace(/&nbsp;/g, ' ')
-      .replace(/&#39;/g, "'")
-      .replace(/&rsquo;/g, "'")
-      .replace(/&lsquo;/g, "'")
-      .replace(/&rdquo;/g, '"')
-      .replace(/&ldquo;/g, '"')
-      .replace(/&mdash;/g, '—')
-      .replace(/&ndash;/g, '–')
-      .replace(/&hellip;/g, '…')
-    text = text
-      .replace(/<br\s*\/?>/gi, '\n')
-      .replace(/<[^>]*>/g, '')
-    return text.trim()
+    // SSR環境では'he'ライブラリを使用してすべてのHTMLエンティティを正しくデコード
+    // これにより&copy;, &trade;, &rsquo;などすべてのエンティティに対応
+    let text = html.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]*>/g, '')
+    return heDecodeEntities(text).trim()
   }
 
   // 型アサーション（APIレスポンスの型に新しいフィールドが含まれていない場合の対応）
