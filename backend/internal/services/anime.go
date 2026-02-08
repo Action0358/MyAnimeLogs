@@ -691,52 +691,24 @@ func (s *AnimeService) AdvancedSearchAnimes(params models.AdvancedSearchParams, 
 
 func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWithUserData, error) {
 	var anime models.Anime
-	var media, officialSiteURL, titleKana, titleEn sql.NullString
+	var description, media, officialSiteURL, titleKana, titleEn, releasedOn sql.NullString
 	var episodesCount sql.NullInt64
 
-	// Check if new columns exist (for backward compatibility before migration)
-	var hasNewColumns bool
 	err := s.db.QueryRow(`
-		SELECT EXISTS(
-			SELECT 1 FROM information_schema.columns 
-			WHERE table_schema = 'public' AND table_name = 'animes' AND column_name = 'description'
-		)
-	`).Scan(&hasNewColumns)
-	if err != nil {
-		s.logger.Warn("Failed to check for description column", "error", err)
-		hasNewColumns = false
-	}
+		SELECT id, title, image_url, season, status, mal_anime_id, annict_id, created_at, updated_at, watchers_count,
+		       COALESCE(cover_image_extra_large, '') as cover_image_extra_large,
+		       COALESCE(cover_image_large, '') as cover_image_large,
+		       COALESCE(cover_image_medium, '') as cover_image_medium,
+		       description, media, released_on, official_site_url, title_kana, title_en, episodes_count
+		FROM animes WHERE id = $1
+	`, animeID).Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount, &anime.CoverImageExtraLarge, &anime.CoverImageLarge, &anime.CoverImageMedium,
+		&description, &media, &releasedOn, &officialSiteURL, &titleKana, &titleEn, &episodesCount)
 
-	if hasNewColumns {
-		var description, releasedOn sql.NullString
-		err = s.db.QueryRow(`
-			SELECT id, title, image_url, season, status, mal_anime_id, annict_id, created_at, updated_at, watchers_count,
-			       COALESCE(cover_image_extra_large, '') as cover_image_extra_large,
-			       COALESCE(cover_image_large, '') as cover_image_large,
-			       COALESCE(cover_image_medium, '') as cover_image_medium,
-			       description, media, released_on, official_site_url, title_kana, title_en, episodes_count
-			FROM animes WHERE id = $1
-		`, animeID).Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount, &anime.CoverImageExtraLarge, &anime.CoverImageLarge, &anime.CoverImageMedium,
-			&description, &media, &releasedOn, &officialSiteURL, &titleKana, &titleEn, &episodesCount)
-		if err == nil {
-			if description.Valid {
-				anime.Description = &description.String
-			}
-			if releasedOn.Valid {
-				anime.ReleasedOn = &releasedOn.String
-			}
-		}
-	} else {
-		// Fallback query without new columns
-		err = s.db.QueryRow(`
-			SELECT id, title, image_url, season, status, mal_anime_id, annict_id, created_at, updated_at, watchers_count,
-			       COALESCE(cover_image_extra_large, '') as cover_image_extra_large,
-			       COALESCE(cover_image_large, '') as cover_image_large,
-			       COALESCE(cover_image_medium, '') as cover_image_medium,
-			       media, official_site_url, title_kana, title_en, episodes_count
-			FROM animes WHERE id = $1
-		`, animeID).Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount, &anime.CoverImageExtraLarge, &anime.CoverImageLarge, &anime.CoverImageMedium,
-			&media, &officialSiteURL, &titleKana, &titleEn, &episodesCount)
+	if description.Valid {
+		anime.Description = &description.String
+	}
+	if releasedOn.Valid {
+		anime.ReleasedOn = &releasedOn.String
 	}
 
 	if err != nil {
@@ -924,44 +896,15 @@ func (s *AnimeService) GetAnimeEpisodes(animeID int, userID *int) ([]models.Epis
 		return nil, ErrAnimeNotFound
 	}
 
-	// Check if new columns exist (for backward compatibility before migration)
-	var hasSpecialColumns bool
-	err = s.db.QueryRow(`
-		SELECT EXISTS(
-			SELECT 1 FROM information_schema.columns 
-			WHERE table_schema = 'public' AND table_name = 'episodes' AND column_name = 'is_special'
-		)
-	`).Scan(&hasSpecialColumns)
-	if err != nil {
-		s.logger.Warn("Failed to check for is_special column", "error", err)
-		hasSpecialColumns = false
-	}
-
-	s.logger.Debug("Episode column check", "hasSpecialColumns", hasSpecialColumns, "animeID", animeID)
-
-	var rows *sql.Rows
-	if hasSpecialColumns {
-		rows, err = s.db.Query(`
-			SELECT id, anime_id, title, episode_number, duration_minutes, air_date, 
-			       COALESCE(is_special, FALSE) as is_special, 
-			       COALESCE(filler, FALSE) as filler, 
-			       COALESCE(recap, FALSE) as recap,
-			       created_at, updated_at
-			FROM episodes WHERE anime_id = $1
-			ORDER BY is_special ASC, episode_number ASC
-		`, animeID)
-	} else {
-		// Fallback query without new columns
-		rows, err = s.db.Query(`
-			SELECT id, anime_id, title, episode_number, duration_minutes, air_date, 
-			       FALSE as is_special, 
-			       FALSE as filler, 
-			       FALSE as recap,
-			       created_at, updated_at
-			FROM episodes WHERE anime_id = $1
-			ORDER BY episode_number ASC
-		`, animeID)
-	}
+	rows, err := s.db.Query(`
+		SELECT id, anime_id, title, episode_number, duration_minutes, air_date, 
+		       COALESCE(is_special, FALSE) as is_special, 
+		       COALESCE(filler, FALSE) as filler, 
+		       COALESCE(recap, FALSE) as recap,
+		       created_at, updated_at
+		FROM episodes WHERE anime_id = $1
+		ORDER BY is_special ASC, episode_number ASC
+	`, animeID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get episodes: %w", err)
 	}
@@ -3296,48 +3239,16 @@ func (s *AnimeService) CleanupOldSearchHistory(userID int) error {
 // GetEpisodesByType returns episodes filtered by type (regular or special)
 // N+1クエリ問題を解消: 視聴ステータスを一括取得
 func (s *AnimeService) GetEpisodesByType(animeID int, isSpecial bool, userID *int) ([]models.Episode, error) {
-	// Check if new columns exist (for backward compatibility before migration)
-	var hasSpecialColumns bool
-	err := s.db.QueryRow(`
-		SELECT EXISTS(
-			SELECT 1 FROM information_schema.columns 
-			WHERE table_schema = 'public' AND table_name = 'episodes' AND column_name = 'is_special'
-		)
-	`).Scan(&hasSpecialColumns)
-	if err != nil {
-		s.logger.Warn("Failed to check for is_special column", "error", err)
-		hasSpecialColumns = false
-	}
-
-	var rows *sql.Rows
-	if hasSpecialColumns {
-		rows, err = s.db.Query(`
-			SELECT id, anime_id, episode_number, title, duration_minutes, air_date,
-			       COALESCE(is_special, FALSE) as is_special, 
-			       COALESCE(filler, FALSE) as filler, 
-			       COALESCE(recap, FALSE) as recap,
-			       created_at, updated_at
-			FROM episodes
-			WHERE anime_id = $1 AND COALESCE(is_special, FALSE) = $2
-			ORDER BY episode_number ASC
-		`, animeID, isSpecial)
-	} else {
-		// Fallback: without new columns, return all episodes if isSpecial=false, empty if isSpecial=true
-		if isSpecial {
-			// No special episodes exist before migration
-			return []models.Episode{}, nil
-		}
-		rows, err = s.db.Query(`
-			SELECT id, anime_id, episode_number, title, duration_minutes, air_date,
-			       FALSE as is_special, 
-			       FALSE as filler, 
-			       FALSE as recap,
-			       created_at, updated_at
-			FROM episodes
-			WHERE anime_id = $1
-			ORDER BY episode_number ASC
-		`, animeID)
-	}
+	rows, err := s.db.Query(`
+		SELECT id, anime_id, episode_number, title, duration_minutes, air_date,
+		       COALESCE(is_special, FALSE) as is_special, 
+		       COALESCE(filler, FALSE) as filler, 
+		       COALESCE(recap, FALSE) as recap,
+		       created_at, updated_at
+		FROM episodes
+		WHERE anime_id = $1 AND COALESCE(is_special, FALSE) = $2
+		ORDER BY episode_number ASC
+	`, animeID, isSpecial)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query episodes: %w", err)
 	}
@@ -3420,44 +3331,16 @@ func (s *AnimeService) getWatchStatusesBatch(userID int, episodeIDs []int) (map[
 // GetEpisodesSeparated returns episodes separated by type (regular and special)
 // 1回のクエリで全エピソードを取得し、メモリ上で分離（効率化）
 func (s *AnimeService) GetEpisodesSeparated(animeID int, userID *int) (regular, specials []models.Episode, err error) {
-	// Check if new columns exist (for backward compatibility before migration)
-	var hasSpecialColumns bool
-	err = s.db.QueryRow(`
-		SELECT EXISTS(
-			SELECT 1 FROM information_schema.columns 
-			WHERE table_schema = 'public' AND table_name = 'episodes' AND column_name = 'is_special'
-		)
-	`).Scan(&hasSpecialColumns)
-	if err != nil {
-		s.logger.Warn("Failed to check for is_special column", "error", err)
-		hasSpecialColumns = false
-	}
-
-	var rows *sql.Rows
-	if hasSpecialColumns {
-		rows, err = s.db.Query(`
-			SELECT id, anime_id, episode_number, title, duration_minutes, air_date,
-			       COALESCE(is_special, FALSE) as is_special, 
-			       COALESCE(filler, FALSE) as filler, 
-			       COALESCE(recap, FALSE) as recap,
-			       created_at, updated_at
-			FROM episodes
-			WHERE anime_id = $1
-			ORDER BY is_special ASC, episode_number ASC
-		`, animeID)
-	} else {
-		// Fallback: without new columns, all episodes are regular
-		rows, err = s.db.Query(`
-			SELECT id, anime_id, episode_number, title, duration_minutes, air_date,
-			       FALSE as is_special, 
-			       FALSE as filler, 
-			       FALSE as recap,
-			       created_at, updated_at
-			FROM episodes
-			WHERE anime_id = $1
-			ORDER BY episode_number ASC
-		`, animeID)
-	}
+	rows, err := s.db.Query(`
+		SELECT id, anime_id, episode_number, title, duration_minutes, air_date,
+		       COALESCE(is_special, FALSE) as is_special, 
+		       COALESCE(filler, FALSE) as filler, 
+		       COALESCE(recap, FALSE) as recap,
+		       created_at, updated_at
+		FROM episodes
+		WHERE anime_id = $1
+		ORDER BY is_special ASC, episode_number ASC
+	`, animeID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to query episodes: %w", err)
 	}

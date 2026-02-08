@@ -414,43 +414,39 @@ func (c *TMDBClient) findBestMatch(results []TMDBTVShow) *TMDBTVShow {
 	return nil
 }
 
+// Pre-compiled regex patterns for anime title normalization (performance optimization)
+var animeTitlePatterns = []*regexp.Regexp{
+	// Japanese season patterns
+	regexp.MustCompile(` 第\d+期$`),    // " 第3期"
+	regexp.MustCompile(`第\d+期$`),     // "第3期" (no space)
+	regexp.MustCompile(` 第\d+シーズン$`), // " 第2シーズン"
+	regexp.MustCompile(`第\d+シーズン$`),  // "第2シーズン"
+	// English season patterns
+	regexp.MustCompile(` Season \d+$`),       // " Season 2"
+	regexp.MustCompile(` The Final Season$`), // " The Final Season"
+	regexp.MustCompile(` Final Season$`),     // " Final Season"
+	regexp.MustCompile(` Part \d+$`),         // " Part 2"
+	// Roman numerals
+	regexp.MustCompile(` [IVX]+$`), // " II", " III", etc.
+	// Other common suffixes
+	regexp.MustCompile(` \d+nd Season$`), // " 2nd Season"
+	regexp.MustCompile(` \d+rd Season$`), // " 3rd Season"
+	regexp.MustCompile(` \d+th Season$`), // " 4th Season"
+}
+
 // normalizeAnimeTitle removes season suffixes and other variations from anime titles
 // Examples:
 // - "ワンパンマン 第3期" -> "ワンパンマン"
 // - "葬送のフリーレン 第2期" -> "葬送のフリーレン"
 // - "【推しの子】第3期" -> "【推しの子】"
-// - "進撃の巨人 The Final Season" -> "進撃の巨人"
+// - "進撃の巨人 The Final Season Part 2" -> "進撃の巨人"
 func normalizeAnimeTitle(title string) string {
-	// Patterns to remove (order matters - more specific patterns first)
-	patterns := []string{
-		// Japanese season patterns
-		` 第\d+期$`,    // " 第3期"
-		`第\d+期$`,     // "第3期" (no space)
-		` 第\d+シーズン$`, // " 第2シーズン"
-		`第\d+シーズン$`,  // "第2シーズン"
-		// English season patterns
-		` Season \d+$`,       // " Season 2"
-		` The Final Season$`, // " The Final Season"
-		` Final Season$`,     // " Final Season"
-		` Part \d+$`,         // " Part 2"
-		// Roman numerals
-		` [IVX]+$`, // " II", " III", etc.
-		// Other common suffixes
-		` \d+nd Season$`, // " 2nd Season"
-		` \d+rd Season$`, // " 3rd Season"
-		` \d+th Season$`, // " 4th Season"
-	}
-
 	result := title
-	for _, pattern := range patterns {
-		re := regexp.MustCompile(pattern)
-		newResult := re.ReplaceAllString(result, "")
-		if newResult != result {
-			result = newResult
-			break // Only apply one pattern
-		}
+	// Apply all patterns to handle titles with multiple suffixes
+	// e.g., "進撃の巨人 The Final Season Part 2" -> "進撃の巨人"
+	for _, re := range animeTitlePatterns {
+		result = re.ReplaceAllString(result, "")
 	}
-
 	return strings.TrimSpace(result)
 }
 

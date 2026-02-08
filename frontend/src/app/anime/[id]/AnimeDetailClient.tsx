@@ -143,9 +143,19 @@ const AnimeDetailClient: React.FC = () => {
   }
 
   // HTMLタグを除去するユーティリティ関数
+  // DOMParserを使用してより堅牢にHTMLエンティティをデコード
   const stripHtmlTags = (html: string | undefined | null): string => {
     if (!html) return ''
-    // まずエスケープされたHTMLエンティティを元に戻す
+
+    // ブラウザ環境ではDOMParserを使用
+    if (typeof window !== 'undefined') {
+      // <br>タグを改行に変換してから処理
+      const htmlWithLineBreaks = html.replace(/<br\s*\/?>/gi, '\n')
+      const doc = new DOMParser().parseFromString(htmlWithLineBreaks, 'text/html')
+      return doc.body.textContent?.trim() || ''
+    }
+
+    // SSR環境ではフォールバック処理
     let text = html
       .replace(/&lt;/g, '<')
       .replace(/&gt;/g, '>')
@@ -153,10 +163,16 @@ const AnimeDetailClient: React.FC = () => {
       .replace(/&quot;/g, '"')
       .replace(/&nbsp;/g, ' ')
       .replace(/&#39;/g, "'")
-    // 次にHTMLタグを処理
+      .replace(/&rsquo;/g, "'")
+      .replace(/&lsquo;/g, "'")
+      .replace(/&rdquo;/g, '"')
+      .replace(/&ldquo;/g, '"')
+      .replace(/&mdash;/g, '—')
+      .replace(/&ndash;/g, '–')
+      .replace(/&hellip;/g, '…')
     text = text
-      .replace(/<br\s*\/?>/gi, '\n')   // <br>を改行に変換
-      .replace(/<[^>]*>/g, '')          // その他のHTMLタグを除去
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<[^>]*>/g, '')
     return text.trim()
   }
 
