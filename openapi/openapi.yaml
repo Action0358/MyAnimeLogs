@@ -713,7 +713,7 @@ paths:
           in: query
           schema:
             type: string
-          description: 放送時期絞り込み（形式: "YYYY-season" または "YYYY年季節"）
+          description: 放送時期絞り込み（形式 YYYY-season または YYYY年季節）
           example: "2024-spring"
         - name: min_rating
           in: query
@@ -1617,8 +1617,18 @@ components:
           type: integer
         title:
           type: string
+        title_kana:
+          type: string
+          nullable: true
+          description: タイトルのふりがな
+        title_en:
+          type: string
+          nullable: true
+          description: 英語タイトル
         description:
           type: string
+          nullable: true
+          description: あらすじ（AniList APIから取得）
         image_url:
           type: string
           format: uri
@@ -1627,6 +1637,39 @@ components:
         status:
           type: string
           enum: ["airing", "finished"]
+        media:
+          type: string
+          nullable: true
+          description: メディアタイプ（TV, OVA, Movie等）
+        episodes_count:
+          type: integer
+          nullable: true
+          description: 総話数
+        released_on:
+          type: string
+          nullable: true
+          description: 放送開始日（YYYY-MM-DD形式）
+        official_site_url:
+          type: string
+          format: uri
+          nullable: true
+          description: 公式サイトURL
+        watchers_count:
+          type: integer
+          description: 視聴者数
+        mal_anime_id:
+          type: string
+          nullable: true
+          description: MyAnimeList ID
+        annict_id:
+          type: integer
+          nullable: true
+          description: Annict ID
+        genres:
+          type: array
+          items:
+            type: string
+          description: ジャンル一覧
         cover_image_extra_large:
           type: string
           format: uri
