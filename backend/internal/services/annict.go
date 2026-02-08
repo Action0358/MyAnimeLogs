@@ -296,14 +296,15 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork) (*models.Anim
 				mal_anime_id = $13,
 				watchers_count = $14,
 				reviews_count = $15,
+				released_on = $16,
 				updated_at = CURRENT_TIMESTAMP
-			WHERE annict_id = $16
+			WHERE annict_id = $17
 			RETURNING id, title, image_url, season, status, annict_id, created_at, updated_at
 		`,
 			work.Title, work.TitleKana, work.TitleEn, imageURL, season,
 			status, work.Media, work.EpisodesCount, work.OfficialSiteURL, work.WikipediaURL,
 			work.TwitterUsername, work.TwitterHashtag, work.MalAnimeID,
-			work.WatchersCount, work.ReviewsCount, work.ID,
+			work.WatchersCount, work.ReviewsCount, work.ReleasedOn, work.ID,
 		).Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt)
 
 		if err != nil {
@@ -317,9 +318,9 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork) (*models.Anim
 				id, title, title_kana, title_en, image_url, season,
 				status, media, episodes_count, official_site_url, wikipedia_url,
 				twitter_username, twitter_hashtag, mal_anime_id, annict_id,
-				watchers_count, reviews_count, created_at, updated_at
+				watchers_count, reviews_count, released_on, created_at, updated_at
 			) VALUES (
-				DEFAULT, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
+				DEFAULT, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17,
 				CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 			)
 			RETURNING id, title, image_url, season, status, annict_id, created_at, updated_at
@@ -327,7 +328,7 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork) (*models.Anim
 			work.Title, work.TitleKana, work.TitleEn, imageURL, season,
 			status, work.Media, work.EpisodesCount, work.OfficialSiteURL, work.WikipediaURL,
 			work.TwitterUsername, work.TwitterHashtag, work.MalAnimeID, work.ID,
-			work.WatchersCount, work.ReviewsCount,
+			work.WatchersCount, work.ReviewsCount, work.ReleasedOn,
 		).Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt)
 
 		if err != nil {
@@ -416,6 +417,122 @@ func (c *AnnictClient) FetchAndSyncPopularWorks() ([]models.Anime, error) {
 	}
 
 	return c.SyncWorksToDatabase(response.Works)
+}
+
+// SyncAllExistingAnimes re-syncs all existing animes from Annict API
+// This updates media, official_site_url, and other fields that may be missing
+// Returns: success count, failure count, error
+func (c *AnnictClient) SyncAllExistingAnimes() (int, int, error) {
+	if c.DB == nil {
+		return 0, 0, fmt.Errorf("database connection not available")
+	}
+
+	// Get all animes with annict_id
+	rows, err := c.DB.Query(`
+		SELECT id, annict_id, title 
+		FROM animes 
+		WHERE annict_id IS NOT NULL
+		ORDER BY watchers_count DESC NULLS LAST, id
+	`)
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to get animes: %w", err)
+	}
+
+	type animeInfo struct {
+		ID       int
+		AnnictID int
+		Title    string
+	}
+	var animes []animeInfo
+
+	for rows.Next() {
+		var a animeInfo
+		if err := rows.Scan(&a.ID, &a.AnnictID, &a.Title); err != nil {
+			continue
+		}
+		animes = append(animes, a)
+	}
+	rows.Close()
+
+	totalAnimes := len(animes)
+	if totalAnimes == 0 {
+		return 0, 0, nil
+	}
+
+	if c.logger != nil {
+		c.logger.Info("Starting Annict re-sync for all animes", "count", totalAnimes)
+	}
+
+	// Annict rate limit: 5 requests/second
+	// Process in batches of 50 with delays
+	const batchSize = 50
+
+	successCount := 0
+	failureCount := 0
+
+	for i := 0; i < totalAnimes; i += batchSize {
+		end := i + batchSize
+		if end > totalAnimes {
+			end = totalAnimes
+		}
+		batch := animes[i:end]
+
+		if c.logger != nil {
+			c.logger.Info("Processing Annict batch",
+				"progress", fmt.Sprintf("%d/%d", end, totalAnimes))
+		}
+
+		for _, anime := range batch {
+			// Apply rate limiting
+			c.applyRateLimit()
+
+			// Fetch work from Annict
+			params := url.Values{}
+			params.Add("filter_ids", fmt.Sprintf("%d", anime.AnnictID))
+			params.Add("fields", annictAPIDefaultFields)
+			params.Add("per_page", "1")
+
+			response, err := c.makeRequest(params)
+			if err != nil {
+				if c.logger != nil {
+					c.logger.Debug("Failed to fetch from Annict",
+						"annict_id", anime.AnnictID,
+						"title", anime.Title,
+						"error", err)
+				}
+				failureCount++
+				continue
+			}
+
+			if len(response.Works) == 0 {
+				failureCount++
+				continue
+			}
+
+			// Sync to database (this will UPDATE existing record)
+			_, err = c.SyncAnimeToDatabase(response.Works[0])
+			if err != nil {
+				if c.logger != nil {
+					c.logger.Debug("Failed to sync anime",
+						"annict_id", anime.AnnictID,
+						"title", anime.Title,
+						"error", err)
+				}
+				failureCount++
+				continue
+			}
+
+			successCount++
+		}
+	}
+
+	if c.logger != nil {
+		c.logger.Info("Annict re-sync completed",
+			"success", successCount,
+			"failure", failureCount)
+	}
+
+	return successCount, failureCount, nil
 }
 
 // SearchAnimesByKeyword searches for anime by keyword using Annict API

@@ -123,6 +123,42 @@ func (c *JikanClient) GetAnimeDuration(malAnimeID string) (int, error) {
 	return duration, nil
 }
 
+// GetAnimeAiredDate fetches the aired date for a given MAL anime ID
+// Returns the "from" date in YYYY-MM-DD format (e.g., "2016-01-14")
+func (c *JikanClient) GetAnimeAiredDate(malAnimeID string) (string, error) {
+	if malAnimeID == "" {
+		return "", fmt.Errorf("mal_anime_id is required")
+	}
+
+	url := fmt.Sprintf("%s/anime/%s", c.baseURL, malAnimeID)
+
+	var response models.JikanAnimeResponse
+	err := c.makeRequestWithRetry(url, &response)
+	if err != nil {
+		return "", err
+	}
+
+	// Check if aired data exists
+	if response.Data.Aired == nil || response.Data.Aired.From == nil {
+		c.logger.Debug("No aired date available from Jikan API",
+			"mal_anime_id", malAnimeID)
+		return "", nil
+	}
+
+	// Parse ISO 8601 date and convert to YYYY-MM-DD format
+	// Example: "2016-01-14T00:00:00+00:00" -> "2016-01-14"
+	fromDate := *response.Data.Aired.From
+	if len(fromDate) >= 10 {
+		releasedOn := fromDate[:10] // Extract YYYY-MM-DD part
+		c.logger.Debug("Fetched aired date from Jikan API",
+			"mal_anime_id", malAnimeID,
+			"released_on", releasedOn)
+		return releasedOn, nil
+	}
+
+	return "", nil
+}
+
 // GetAnimeGenres fetches genre information for a given MAL anime ID
 func (c *JikanClient) GetAnimeGenres(malAnimeID string) ([]models.JikanGenre, error) {
 	if malAnimeID == "" {

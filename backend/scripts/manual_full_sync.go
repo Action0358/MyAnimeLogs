@@ -52,14 +52,25 @@ func run(logger *common.Logger) error {
 	animeService := services.NewAnimeService(db, logger, annictClient)
 
 	fmt.Println("\n=== Manual Full Sync ===")
-	fmt.Println("This will sync all episodes from Jikan API.")
-	fmt.Println("Estimated time: 40-60 minutes")
+	fmt.Println("This will re-sync all animes from Annict, episodes from Jikan, and descriptions from TMDB.")
+	fmt.Println("Estimated time: 90-120 minutes")
 	fmt.Println()
 
 	startTime := time.Now()
 
-	// Step 1: Sync episodes from Jikan API
-	logger.Info("Step 1/2: Syncing episodes from Jikan API...")
+	// Step 1: Re-sync all animes from Annict (updates media, official_site_url, etc.)
+	logger.Info("Step 1/5: Re-syncing all animes from Annict API...")
+	annictSuccess, annictFailure, err := annictClient.SyncAllExistingAnimes()
+	if err != nil {
+		logger.Warn("Failed to re-sync animes from Annict", "error", err)
+	} else {
+		logger.Info("Annict re-sync completed",
+			"success", annictSuccess,
+			"failure", annictFailure)
+	}
+
+	// Step 2: Sync episodes from Jikan API
+	logger.Info("Step 2/5: Syncing episodes from Jikan API...")
 	episodeSuccess, episodeFailure, episodeErrors, err := animeService.SyncEpisodesFromJikan(nil)
 	if err != nil {
 		return fmt.Errorf("failed to sync episodes from Jikan: %w", err)
@@ -78,8 +89,8 @@ func run(logger *common.Logger) error {
 			"sample_errors", episodeErrors[:sampleSize])
 	}
 
-	// Step 2: Sync episode details (air_date and duration)
-	logger.Info("Step 2/2: Syncing episode details from Jikan API...")
+	// Step 3: Sync episode details (air_date and duration)
+	logger.Info("Step 3/5: Syncing episode details from Jikan API...")
 	detailSuccess, detailFailure, detailErrors, err := animeService.SyncEpisodeDetailsForAllAnimes()
 	if err != nil {
 		return fmt.Errorf("failed to sync episode details: %w", err)
@@ -96,6 +107,35 @@ func run(logger *common.Logger) error {
 		logger.Warn("Episode detail errors occurred",
 			"error_count", len(detailErrors),
 			"sample_errors", detailErrors[:sampleSize])
+	}
+
+	// Step 4: Sync descriptions from TMDB
+	logger.Info("Step 4/5: Syncing descriptions from TMDB...")
+	tmdbAPIKey := os.Getenv("TMDB_API_KEY")
+	if tmdbAPIKey == "" {
+		logger.Warn("TMDB_API_KEY not set, skipping description sync")
+	} else {
+		descSuccess, descNotFound, descFailure, err := animeService.SyncDescriptionsFromTMDB()
+		if err != nil {
+			logger.Warn("Failed to sync descriptions from TMDB", "error", err)
+		} else {
+			logger.Info("TMDB description sync completed",
+				"success", descSuccess,
+				"not_found", descNotFound,
+				"failure", descFailure)
+		}
+	}
+
+	// Step 5: Sync released_on from Jikan API
+	logger.Info("Step 5/5: Syncing release dates from Jikan API...")
+	releasedSuccess, releasedNotFound, releasedFailure, err := animeService.SyncReleasedOnFromJikan()
+	if err != nil {
+		logger.Warn("Failed to sync released_on from Jikan", "error", err)
+	} else {
+		logger.Info("Jikan released_on sync completed",
+			"success", releasedSuccess,
+			"not_found", releasedNotFound,
+			"failure", releasedFailure)
 	}
 
 	duration := time.Since(startTime)
@@ -132,15 +172,32 @@ func run(logger *common.Logger) error {
 			"air_date_percent", fmt.Sprintf("%.1f%%", float64(airDate)/float64(total)*100))
 	}
 
+	// Display anime description statistics
+	var totalAnimes, withDescription, withReleasedOn, withMedia, withOfficialSite int
+	err = db.QueryRow(`
+		SELECT 
+			COUNT(*),
+			COUNT(CASE WHEN description IS NOT NULL AND description != '' THEN 1 END),
+			COUNT(CASE WHEN released_on IS NOT NULL AND released_on != '' THEN 1 END),
+			COUNT(CASE WHEN media IS NOT NULL AND media != '' THEN 1 END),
+			COUNT(CASE WHEN official_site_url IS NOT NULL AND official_site_url != '' THEN 1 END)
+		FROM animes
+	`).Scan(&totalAnimes, &withDescription, &withReleasedOn, &withMedia, &withOfficialSite)
+	if err == nil && totalAnimes > 0 {
+		logger.Info("Anime statistics",
+			"total_animes", totalAnimes,
+			"with_description", withDescription,
+			"description_percent", fmt.Sprintf("%.1f%%", float64(withDescription)/float64(totalAnimes)*100),
+			"with_released_on", withReleasedOn,
+			"released_on_percent", fmt.Sprintf("%.1f%%", float64(withReleasedOn)/float64(totalAnimes)*100),
+			"with_media", withMedia,
+			"media_percent", fmt.Sprintf("%.1f%%", float64(withMedia)/float64(totalAnimes)*100),
+			"with_official_site", withOfficialSite,
+			"official_site_percent", fmt.Sprintf("%.1f%%", float64(withOfficialSite)/float64(totalAnimes)*100))
+	}
+
 	logger.Info("✓ Manual full sync completed successfully!")
 	logger.Info("Future syncs will only update new/changed data.")
 
 	return nil
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }

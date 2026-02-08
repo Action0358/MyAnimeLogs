@@ -76,10 +76,58 @@ export const AnimeStatus = {
 export interface Anime {
   id?: number;
   title?: string;
-  description?: string;
+  /**
+   * タイトルのふりがな
+   * @nullable
+   */
+  title_kana?: string | null;
+  /**
+   * 英語タイトル
+   * @nullable
+   */
+  title_en?: string | null;
+  /**
+   * あらすじ（AniList APIから取得）
+   * @nullable
+   */
+  description?: string | null;
   image_url?: string;
   season?: string;
   status?: AnimeStatus;
+  /**
+   * メディアタイプ（TV, OVA, Movie等）
+   * @nullable
+   */
+  media?: string | null;
+  /**
+   * 総話数
+   * @nullable
+   */
+  episodes_count?: number | null;
+  /**
+   * 放送開始日（YYYY-MM-DD形式）
+   * @nullable
+   */
+  released_on?: string | null;
+  /**
+   * 公式サイトURL
+   * @nullable
+   */
+  official_site_url?: string | null;
+  /** 視聴者数 */
+  watchers_count?: number;
+  /**
+   * MyAnimeList ID
+   * @nullable
+   */
+  mal_anime_id?: string | null;
+  /**
+   * Annict ID
+   * @nullable
+   */
+  annict_id?: number | null;
+  /** ジャンル一覧 */
+  genres?: string[];
   /** AniList API から取得した最高画質のカバー画像URL（extraLargeサイズ） */
   cover_image_extra_large?: string;
   /** AniList API から取得した大サイズのカバー画像URL */
@@ -392,7 +440,6 @@ export type GetAnimes200 = {
 
 export type GetAnimesIdEpisodes200 = {
   anime_id?: number;
-  anime_title?: string;
   episodes?: Episode[];
 };
 
@@ -522,9 +569,9 @@ genres?: string[];
  */
 year?: number;
 /**
- * シーズン絞り込み
+ * 放送時期絞り込み（形式 YYYY-season または YYYY年季節）
  */
-season?: GetSearchAdvancedSeason;
+season?: string;
 /**
  * 最低評価
  * @minimum 1
@@ -556,17 +603,6 @@ order?: GetSearchAdvancedOrder;
 page?: number;
 per_page?: number;
 };
-
-export type GetSearchAdvancedSeason = typeof GetSearchAdvancedSeason[keyof typeof GetSearchAdvancedSeason];
-
-
-// eslint-disable-next-line @typescript-eslint/no-redeclare
-export const GetSearchAdvancedSeason = {
-  spring: 'spring',
-  summer: 'summer',
-  autumn: 'autumn',
-  winter: 'winter',
-} as const;
 
 export type GetSearchAdvancedStatus = typeof GetSearchAdvancedStatus[keyof typeof GetSearchAdvancedStatus];
 
