@@ -182,6 +182,9 @@ const AnimeDetailClient: React.FC = () => {
     }>
   }
 
+  // 映画かどうかを判定（エピソード一覧・話数の表示制御に使用）
+  const isMovie = animeWithDetails.media?.toLowerCase() === 'movie'
+
   return (
     <Container className="py-8">
       <div className="max-w-4xl mx-auto">
@@ -317,7 +320,8 @@ const AnimeDetailClient: React.FC = () => {
                   <dd className="text-gray-900">{getMediaLabel(animeWithDetails.media)}</dd>
                 </div>
               )}
-              {(animeWithDetails.episodes_count || episodes.length > 0) && (
+              {/* 話数 - 映画の場合は非表示（映画にエピソードの概念がないため） */}
+              {!isMovie && (animeWithDetails.episodes_count || episodes.length > 0) && (
                 <div className="flex">
                   <dt className="text-gray-500 w-24 flex-shrink-0">話数</dt>
                   <dd className="text-gray-900">{animeWithDetails.episodes_count || episodes.length}話</dd>
@@ -353,44 +357,46 @@ const AnimeDetailClient: React.FC = () => {
           <WatchProviders providers={animeWithDetails.watch_providers} />
         )}
 
-        {/* エピソード一覧セクション（折りたたみ可能） */}
-        <div className="bg-white rounded-lg border overflow-hidden">
-          <button
-            onClick={() => setIsEpisodesExpanded(!isEpisodesExpanded)}
-            className="w-full flex items-center justify-between px-4 md:px-6 py-4 hover:bg-gray-50 transition-colors"
-          >
-            <h2 className="text-lg font-semibold text-gray-900">
-              エピソード一覧
-              {episodes.length > 0 && (
-                <span className="ml-2 text-sm font-normal text-gray-500">
-                  ({episodes.length}話)
-                </span>
-              )}
-            </h2>
-            <svg
-              className={cn(
-                'w-5 h-5 text-gray-500 transition-transform',
-                isEpisodesExpanded && 'rotate-180'
-              )}
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
+        {/* エピソード一覧セクション - 映画の場合は非表示（映画にエピソードの概念がないため） */}
+        {!isMovie && (
+          <div className="bg-white rounded-lg border overflow-hidden">
+            <button
+              onClick={() => setIsEpisodesExpanded(!isEpisodesExpanded)}
+              className="w-full flex items-center justify-between px-4 md:px-6 py-4 hover:bg-gray-50 transition-colors"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-          
-          {isEpisodesExpanded && (
-            <div className="px-4 md:px-6 pb-4 md:pb-6 border-t">
-              <div className="pt-4">
-                <EpisodeList
-                  episodes={episodes}
-                  isLoading={isLoadingEpisodes}
-                />
+              <h2 className="text-lg font-semibold text-gray-900">
+                エピソード一覧
+                {episodes.length > 0 && (
+                  <span className="ml-2 text-sm font-normal text-gray-500">
+                    ({episodes.length}話)
+                  </span>
+                )}
+              </h2>
+              <svg
+                className={cn(
+                  'w-5 h-5 text-gray-500 transition-transform',
+                  isEpisodesExpanded && 'rotate-180'
+                )}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            
+            {isEpisodesExpanded && (
+              <div className="px-4 md:px-6 pb-4 md:pb-6 border-t">
+                <div className="pt-4">
+                  <EpisodeList
+                    episodes={episodes}
+                    isLoading={isLoadingEpisodes}
+                  />
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
     </Container>
   )
