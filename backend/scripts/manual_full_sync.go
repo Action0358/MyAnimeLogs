@@ -178,7 +178,7 @@ func run(logger *common.Logger) error {
 		SELECT 
 			COUNT(*),
 			COUNT(CASE WHEN description IS NOT NULL AND description != '' THEN 1 END),
-			COUNT(CASE WHEN released_on IS NOT NULL AND released_on != '' THEN 1 END),
+			COUNT(CASE WHEN released_on IS NOT NULL THEN 1 END),
 			COUNT(CASE WHEN media IS NOT NULL AND media != '' THEN 1 END),
 			COUNT(CASE WHEN official_site_url IS NOT NULL AND official_site_url != '' THEN 1 END)
 		FROM animes
