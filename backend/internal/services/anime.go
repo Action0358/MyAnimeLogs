@@ -3546,12 +3546,12 @@ func (s *AnimeService) SyncReleasedOnFromJikan() (int, int, int, error) {
 	s.logger.Info("Starting Jikan released_on sync")
 
 	// Get animes that need released_on update:
-	// 1. No released_on (NULL or empty)
+	// 1. No released_on (NULL only - DATE type cannot be empty string)
 	// 2. Has MAL ID (required for Jikan API)
 	rows, err := s.db.Query(`
 		SELECT id, title, mal_anime_id 
 		FROM animes 
-		WHERE (released_on IS NULL OR released_on = '')
+		WHERE released_on IS NULL
 		  AND mal_anime_id IS NOT NULL AND mal_anime_id != ''
 		ORDER BY watchers_count DESC NULLS LAST, id
 	`)
