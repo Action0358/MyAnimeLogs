@@ -10,7 +10,15 @@
     "tailwindcss",
     "nextjs",
     "Kiro",
-    "kiro"
+    "kiro",
+    "tmdb",
+    "TMDB",
+    "TMDBTV",
+    "TMDBID",
+    "flatrate",
+    "Flatrate",
+    "MALID",
+    "myanimelist"
   ],
   "ignorePaths": [
     "node_modules/**",
