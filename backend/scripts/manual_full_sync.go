@@ -4,6 +4,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"time"
@@ -16,18 +17,37 @@ import (
 )
 
 func main() {
+	// Parse command line arguments
+	env := flag.String("env", "local", "Environment to use: local, staging, production")
+	flag.Parse()
+
 	logger := common.NewLogger(common.LogLevelInfo, "text")
 
-	if err := run(logger); err != nil {
+	if err := run(logger, *env); err != nil {
 		logger.Error("Manual full sync failed", "error", err)
 		os.Exit(1)
 	}
 }
 
-func run(logger *common.Logger) error {
+func run(logger *common.Logger, env string) error {
+	// Determine env file based on environment
+	var envFile string
+	switch env {
+	case "local":
+		envFile = ".env.local"
+	case "staging":
+		envFile = ".env.staging"
+	case "production":
+		envFile = ".env.production"
+	default:
+		return fmt.Errorf("invalid environment: %s (use: local, staging, production)", env)
+	}
+
+	logger.Info("Loading environment", "env", env, "file", envFile)
+
 	// Load environment variables
-	if err := godotenv.Load(".env.local"); err != nil {
-		logger.Warn(".env.local file not found", "error", err)
+	if err := godotenv.Load(envFile); err != nil {
+		logger.Warn("Environment file not found", "file", envFile, "error", err)
 	}
 
 	// Initialize database
@@ -51,7 +71,7 @@ func run(logger *common.Logger) error {
 	annictClient := services.NewAnnictClientWithDB(annictToken, db, logger)
 	animeService := services.NewAnimeService(db, logger, annictClient)
 
-	fmt.Println("\n=== Manual Full Sync ===")
+	fmt.Printf("\n=== Manual Full Sync (%s) ===\n", env)
 	fmt.Println("This will re-sync all animes from Annict, episodes from Jikan, and descriptions from TMDB.")
 	fmt.Println("Estimated time: 90-120 minutes")
 	fmt.Println()
