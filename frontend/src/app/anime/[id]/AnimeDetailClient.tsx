@@ -15,7 +15,6 @@ const AnimeDetailClient: React.FC = () => {
   const params = useParams()
   const [imageError, setImageError] = useState(false)
   const [animeId, setAnimeId] = useState<number>(NaN)
-  const [isEpisodesExpanded, setIsEpisodesExpanded] = useState(false)
   
   // URLから実際のIDを取得（Cloudflare Pages Functionsによるリライト対応）
   useEffect(() => {
@@ -331,36 +330,18 @@ const AnimeDetailClient: React.FC = () => {
         {/* エピソード一覧セクション - 映画の場合は非表示（映画にエピソードの概念がないため） */}
         {!isMovie && (
           <div className="bg-white rounded-lg border overflow-hidden">
-            <button
-              onClick={() => setIsEpisodesExpanded(!isEpisodesExpanded)}
-              className="w-full flex items-center justify-between px-4 md:px-6 py-4 hover:bg-gray-50 transition-colors"
-            >
-              <h2 className="text-lg font-semibold text-gray-900">
-                エピソード一覧
-              </h2>
-              <svg
-                className={cn(
-                  'w-5 h-5 text-gray-500 transition-transform',
-                  isEpisodesExpanded && 'rotate-180'
-                )}
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
+            <h2 className="text-lg font-semibold text-gray-900 px-4 md:px-6 py-4">
+              エピソード一覧
+            </h2>
             
-            {isEpisodesExpanded && (
-              <div className="px-4 md:px-6 pb-4 md:pb-6 border-t">
-                <div className="pt-4">
-                  <EpisodeList
-                    episodes={episodes}
-                    isLoading={isLoadingEpisodes}
-                  />
-                </div>
+            <div className="px-4 md:px-6 pb-4 md:pb-6 border-t">
+              <div className="pt-4">
+                <EpisodeList
+                  episodes={episodes}
+                  isLoading={isLoadingEpisodes}
+                />
               </div>
-            )}
+            </div>
           </div>
         )}
       </div>
