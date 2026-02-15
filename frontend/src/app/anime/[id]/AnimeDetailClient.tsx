@@ -134,15 +134,6 @@ const AnimeDetailClient: React.FC = () => {
     }
   }
 
-  // 視聴者数のフォーマット
-  const formatWatchersCount = (count: number | undefined | null) => {
-    if (!count) return null
-    if (count >= 10000) {
-      return `${(count / 10000).toFixed(1)}万人`
-    }
-    return `${count.toLocaleString()}人`
-  }
-
   // HTMLタグを除去するユーティリティ関数
   // DOMParserを使用してより堅牢にHTMLエンティティをデコード
   const stripHtmlTags = (html: string | undefined | null): string => {
