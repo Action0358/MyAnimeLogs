@@ -134,15 +134,6 @@ const AnimeDetailClient: React.FC = () => {
     }
   }
 
-  // 視聴者数のフォーマット
-  const formatWatchersCount = (count: number | undefined | null) => {
-    if (!count) return null
-    if (count >= 10000) {
-      return `${(count / 10000).toFixed(1)}万人`
-    }
-    return `${count.toLocaleString()}人`
-  }
-
   // HTMLタグを除去するユーティリティ関数
   // DOMParserを使用してより堅牢にHTMLエンティティをデコード
   const stripHtmlTags = (html: string | undefined | null): string => {
@@ -228,15 +219,6 @@ const AnimeDetailClient: React.FC = () => {
           <div className="flex-1 min-w-0">
             {/* タイトル */}
             <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-1">{anime.title}</h1>
-            
-            {/* 英語タイトル・ふりがな */}
-            {(animeWithDetails.title_en || animeWithDetails.title_kana) && (
-              <p className="text-sm text-gray-500 mb-3">
-                {animeWithDetails.title_en && <span>{animeWithDetails.title_en}</span>}
-                {animeWithDetails.title_en && animeWithDetails.title_kana && <span> / </span>}
-                {animeWithDetails.title_kana && <span>{animeWithDetails.title_kana}</span>}
-              </p>
-            )}
 
             {/* メタ情報（放送時期・状況） */}
             <div className="flex flex-wrap items-center gap-2 mb-3">
@@ -271,17 +253,6 @@ const AnimeDetailClient: React.FC = () => {
                     {genre}
                   </Link>
                 ))}
-              </div>
-            )}
-
-            {/* 視聴者数 */}
-            {animeWithDetails.watchers_count && animeWithDetails.watchers_count > 0 && (
-              <div className="flex items-center gap-1.5 text-sm text-gray-600 mb-4">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                </svg>
-                <span>{formatWatchersCount(animeWithDetails.watchers_count)} が視聴中</span>
               </div>
             )}
 
@@ -366,11 +337,6 @@ const AnimeDetailClient: React.FC = () => {
             >
               <h2 className="text-lg font-semibold text-gray-900">
                 エピソード一覧
-                {episodes.length > 0 && (
-                  <span className="ml-2 text-sm font-normal text-gray-500">
-                    ({episodes.length}話)
-                  </span>
-                )}
               </h2>
               <svg
                 className={cn(
