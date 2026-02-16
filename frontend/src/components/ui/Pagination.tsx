@@ -63,9 +63,9 @@ export const Pagination: React.FC<PaginationProps> = ({
       className={cn('flex flex-wrap items-center justify-center gap-1', className)}
       aria-label="ページネーション"
     >
-      {/* 最初のページへ */}
+      {/* 前のページへ */}
       <button
-        onClick={() => onPageChange(1)}
+        onClick={() => onPageChange(currentPage - 1)}
         disabled={currentPage === 1}
         className={cn(
           buttonBase,
@@ -74,10 +74,10 @@ export const Pagination: React.FC<PaginationProps> = ({
             ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
             : 'bg-white text-gray-700 hover:bg-gray-50'
         )}
-        aria-label="最初のページ"
+        aria-label="前のページ"
       >
         <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7M18 19l-7-7 7-7" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
         </svg>
       </button>
 
@@ -104,9 +104,9 @@ export const Pagination: React.FC<PaginationProps> = ({
           )
         )}
 
-      {/* 最後のページへ */}
+      {/* 次のページへ */}
       <button
-        onClick={() => onPageChange(totalPages)}
+        onClick={() => onPageChange(currentPage + 1)}
         disabled={currentPage === totalPages}
         className={cn(
           buttonBase,
@@ -115,10 +115,10 @@ export const Pagination: React.FC<PaginationProps> = ({
             ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
             : 'bg-white text-gray-700 hover:bg-gray-50'
         )}
-        aria-label="最後のページ"
+        aria-label="次のページ"
       >
         <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M6 5l7 7-7 7" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
         </svg>
       </button>
     </nav>
