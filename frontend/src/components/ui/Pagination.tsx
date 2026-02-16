@@ -22,18 +22,18 @@ export const Pagination: React.FC<PaginationProps> = ({
 }) => {
   if (totalPages <= 1) return null
 
-  const getVisiblePages = (): (number | 'ellipsis')[] => {
+  const getVisiblePages = (max: number): (number | 'ellipsis')[] => {
     const pages: (number | 'ellipsis')[] = []
-    const half = Math.floor(maxVisiblePages / 2)
+    const half = Math.floor(max / 2)
 
     let start = Math.max(1, currentPage - half)
     let end = Math.min(totalPages, currentPage + half)
 
     if (currentPage <= half) {
-      end = Math.min(totalPages, maxVisiblePages)
+      end = Math.min(totalPages, max)
     }
     if (currentPage > totalPages - half) {
-      start = Math.max(1, totalPages - maxVisiblePages + 1)
+      start = Math.max(1, totalPages - max + 1)
     }
 
     if (start > 1) {
@@ -53,14 +53,16 @@ export const Pagination: React.FC<PaginationProps> = ({
     return pages
   }
 
-  const visiblePages = getVisiblePages()
-
   const buttonBase =
     'inline-flex items-center justify-center min-w-[32px] sm:min-w-[40px] h-8 sm:h-10 px-1.5 sm:px-3 text-xs sm:text-sm font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
 
+  // モバイル用（3ページ）とデスクトップ用（maxVisiblePages）で分ける
+  const mobilePages = getVisiblePages(3)
+  const desktopPages = getVisiblePages(maxVisiblePages)
+
   return (
     <nav
-      className={cn('flex flex-wrap items-center justify-center gap-1', className)}
+      className={cn('flex items-center justify-center gap-1', className)}
       aria-label="ページネーション"
     >
       {/* 前のページへ */}
@@ -81,28 +83,59 @@ export const Pagination: React.FC<PaginationProps> = ({
         </svg>
       </button>
 
-      {showPageNumbers &&
-        visiblePages.map((page, index) =>
-          page === 'ellipsis' ? (
-            <span key={`ellipsis-${index}`} className="px-1 sm:px-2 text-gray-500 text-xs sm:text-sm">
-              ...
-            </span>
-          ) : (
-            <button
-              key={page}
-              onClick={() => onPageChange(page)}
-              className={cn(
-                buttonBase,
-                page === currentPage
-                  ? 'bg-blue-600 text-white border border-blue-600'
-                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-              )}
-              aria-current={page === currentPage ? 'page' : undefined}
-            >
-              {page}
-            </button>
-          )
-        )}
+      {/* モバイル用ページ番号 */}
+      {showPageNumbers && (
+        <div className="flex items-center gap-1 sm:hidden">
+          {mobilePages.map((page, index) =>
+            page === 'ellipsis' ? (
+              <span key={`ellipsis-mobile-${index}`} className="px-1 text-gray-500 text-xs">
+                ...
+              </span>
+            ) : (
+              <button
+                key={`mobile-${page}`}
+                onClick={() => onPageChange(page)}
+                className={cn(
+                  buttonBase,
+                  page === currentPage
+                    ? 'bg-blue-600 text-white border border-blue-600'
+                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                )}
+                aria-current={page === currentPage ? 'page' : undefined}
+              >
+                {page}
+              </button>
+            )
+          )}
+        </div>
+      )}
+
+      {/* デスクトップ用ページ番号 */}
+      {showPageNumbers && (
+        <div className="hidden sm:flex items-center gap-1">
+          {desktopPages.map((page, index) =>
+            page === 'ellipsis' ? (
+              <span key={`ellipsis-desktop-${index}`} className="px-2 text-gray-500 text-sm">
+                ...
+              </span>
+            ) : (
+              <button
+                key={`desktop-${page}`}
+                onClick={() => onPageChange(page)}
+                className={cn(
+                  buttonBase,
+                  page === currentPage
+                    ? 'bg-blue-600 text-white border border-blue-600'
+                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                )}
+                aria-current={page === currentPage ? 'page' : undefined}
+              >
+                {page}
+              </button>
+            )
+          )}
+        </div>
+      )}
 
       {/* 次のページへ */}
       <button
