@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useMemo } from 'react'
 import { cn } from '@/lib/utils'
 
 export interface PaginationProps {
@@ -20,38 +20,50 @@ export const Pagination: React.FC<PaginationProps> = ({
   maxVisiblePages = 5,
   className,
 }) => {
+  // ページ番号の計算をメモ化（showPageNumbersがfalseの場合は計算しない）
+  const { mobilePages, desktopPages } = useMemo(() => {
+    if (!showPageNumbers) {
+      return { mobilePages: [], desktopPages: [] }
+    }
+
+    const getVisiblePages = (max: number): (number | 'ellipsis')[] => {
+      const pages: (number | 'ellipsis')[] = []
+      const half = Math.floor(max / 2)
+
+      let start = Math.max(1, currentPage - half)
+      let end = Math.min(totalPages, currentPage + half)
+
+      if (currentPage <= half) {
+        end = Math.min(totalPages, max)
+      }
+      if (currentPage > totalPages - half) {
+        start = Math.max(1, totalPages - max + 1)
+      }
+
+      if (start > 1) {
+        pages.push(1)
+        if (start > 2) pages.push('ellipsis')
+      }
+
+      for (let i = start; i <= end; i++) {
+        pages.push(i)
+      }
+
+      if (end < totalPages) {
+        if (end < totalPages - 1) pages.push('ellipsis')
+        pages.push(totalPages)
+      }
+
+      return pages
+    }
+
+    return {
+      mobilePages: getVisiblePages(3),
+      desktopPages: getVisiblePages(maxVisiblePages),
+    }
+  }, [currentPage, totalPages, maxVisiblePages, showPageNumbers])
+
   if (totalPages <= 1) return null
-
-  const getVisiblePages = (max: number): (number | 'ellipsis')[] => {
-    const pages: (number | 'ellipsis')[] = []
-    const half = Math.floor(max / 2)
-
-    let start = Math.max(1, currentPage - half)
-    let end = Math.min(totalPages, currentPage + half)
-
-    if (currentPage <= half) {
-      end = Math.min(totalPages, max)
-    }
-    if (currentPage > totalPages - half) {
-      start = Math.max(1, totalPages - max + 1)
-    }
-
-    if (start > 1) {
-      pages.push(1)
-      if (start > 2) pages.push('ellipsis')
-    }
-
-    for (let i = start; i <= end; i++) {
-      pages.push(i)
-    }
-
-    if (end < totalPages) {
-      if (end < totalPages - 1) pages.push('ellipsis')
-      pages.push(totalPages)
-    }
-
-    return pages
-  }
 
   const buttonBase =
     'inline-flex items-center justify-center min-w-[32px] sm:min-w-[40px] h-8 sm:h-10 px-1.5 sm:px-3 text-xs sm:text-sm font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
@@ -60,7 +72,11 @@ export const Pagination: React.FC<PaginationProps> = ({
   const renderPageNumbers = (pages: (number | 'ellipsis')[], keyPrefix: string) => (
     pages.map((page, index) =>
       page === 'ellipsis' ? (
-        <span key={`ellipsis-${keyPrefix}-${index}`} className="px-1 sm:px-2 text-gray-500 text-xs sm:text-sm">
+        <span
+          key={`ellipsis-${keyPrefix}-${index}`}
+          className="px-1 sm:px-2 text-gray-500 text-xs sm:text-sm"
+          aria-hidden="true"
+        >
           ...
         </span>
       ) : (
@@ -80,9 +96,6 @@ export const Pagination: React.FC<PaginationProps> = ({
       )
     )
   )
-
-  const mobilePages = getVisiblePages(3)
-  const desktopPages = getVisiblePages(maxVisiblePages)
 
   return (
     <nav
