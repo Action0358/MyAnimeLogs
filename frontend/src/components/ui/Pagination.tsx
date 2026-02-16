@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useMemo } from 'react'
 import { cn } from '@/lib/utils'
 
 export interface PaginationProps {
@@ -8,7 +8,6 @@ export interface PaginationProps {
   totalPages: number
   onPageChange: (page: number) => void
   showPageNumbers?: boolean
-  maxVisiblePages?: number
   className?: string
 }
 
@@ -17,127 +16,131 @@ export const Pagination: React.FC<PaginationProps> = ({
   totalPages,
   onPageChange,
   showPageNumbers = true,
-  maxVisiblePages = 5,
   className,
 }) => {
+  // 早期リターン（不要な計算を防ぐ）
   if (totalPages <= 1) return null
 
-  const getVisiblePages = (max: number): (number | 'ellipsis')[] => {
-    const pages: (number | 'ellipsis')[] = []
-    const half = Math.floor(max / 2)
+  // ページ番号の計算をメモ化（常に3ページ表示）
+  const visiblePages = useMemo(() => {
+    if (!showPageNumbers) return []
 
-    let start = Math.max(1, currentPage - half)
-    let end = Math.min(totalPages, currentPage + half)
+    // 常に3ページを表示（現在ページを中央に）
+    let start = Math.max(1, currentPage - 1)
+    let end = Math.min(totalPages, start + 2)
 
-    if (currentPage <= half) {
-      end = Math.min(totalPages, max)
-    }
-    if (currentPage > totalPages - half) {
-      start = Math.max(1, totalPages - max + 1)
-    }
-
-    if (start > 1) {
-      pages.push(1)
-      if (start > 2) pages.push('ellipsis')
+    // 終端に近い場合は開始位置を調整
+    if (end === totalPages) {
+      start = Math.max(1, totalPages - 2)
     }
 
+    const pages: number[] = []
     for (let i = start; i <= end; i++) {
       pages.push(i)
     }
-
-    if (end < totalPages) {
-      if (end < totalPages - 1) pages.push('ellipsis')
-      pages.push(totalPages)
-    }
-
     return pages
-  }
+  }, [currentPage, totalPages, showPageNumbers])
 
   const buttonBase =
-    'inline-flex items-center justify-center min-w-[32px] sm:min-w-[40px] h-8 sm:h-10 px-1.5 sm:px-3 text-xs sm:text-sm font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
-
-  // ページ番号のレンダリングを共通化
-  const renderPageNumbers = (pages: (number | 'ellipsis')[], keyPrefix: string) => (
-    pages.map((page, index) =>
-      page === 'ellipsis' ? (
-        <span key={`ellipsis-${keyPrefix}-${index}`} className="px-1 sm:px-2 text-gray-500 text-xs sm:text-sm">
-          ...
-        </span>
-      ) : (
-        <button
-          key={`${keyPrefix}-${page}`}
-          onClick={() => onPageChange(page)}
-          className={cn(
-            buttonBase,
-            page === currentPage
-              ? 'bg-blue-600 text-white border border-blue-600'
-              : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-          )}
-          aria-current={page === currentPage ? 'page' : undefined}
-        >
-          {page}
-        </button>
-      )
-    )
-  )
-
-  const mobilePages = getVisiblePages(3)
-  const desktopPages = getVisiblePages(maxVisiblePages)
+    'inline-flex items-center justify-center min-w-[36px] sm:min-w-[44px] h-9 sm:h-11 px-2 sm:px-3 text-sm font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
 
   return (
     <nav
-      className={cn('flex items-center justify-center gap-1', className)}
+      className={cn('flex items-center justify-between w-full', className)}
       aria-label="ページネーション"
     >
-      {/* 前のページへ */}
-      <button
-        onClick={() => onPageChange(currentPage - 1)}
-        disabled={currentPage === 1}
-        className={cn(
-          buttonBase,
-          'border border-gray-300',
-          currentPage === 1
-            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-            : 'bg-white text-gray-700 hover:bg-gray-50'
-        )}
-        aria-label="前のページ"
-      >
-        <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-        </svg>
-      </button>
+      {/* 左側: 最初へ + 前へ */}
+      <div className="flex items-center gap-1">
+        <button
+          onClick={() => onPageChange(1)}
+          disabled={currentPage === 1}
+          className={cn(
+            buttonBase,
+            'border border-gray-300',
+            currentPage === 1
+              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+              : 'bg-white text-gray-700 hover:bg-gray-50'
+          )}
+          aria-label="最初のページ"
+        >
+          <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7M18 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <button
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          className={cn(
+            buttonBase,
+            'border border-gray-300',
+            currentPage === 1
+              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+              : 'bg-white text-gray-700 hover:bg-gray-50'
+          )}
+          aria-label="前のページ"
+        >
+          <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+      </div>
 
-      {/* モバイル用ページ番号 */}
+      {/* ページ番号（中央に3つ） */}
       {showPageNumbers && (
-        <div className="flex items-center gap-1 sm:hidden">
-          {renderPageNumbers(mobilePages, 'mobile')}
+        <div className="flex items-center gap-1">
+          {visiblePages.map((page) => (
+            <button
+              key={page}
+              onClick={() => onPageChange(page)}
+              className={cn(
+                buttonBase,
+                page === currentPage
+                  ? 'bg-blue-600 text-white border border-blue-600'
+                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+              )}
+              aria-current={page === currentPage ? 'page' : undefined}
+            >
+              {page}
+            </button>
+          ))}
         </div>
       )}
 
-      {/* デスクトップ用ページ番号 */}
-      {showPageNumbers && (
-        <div className="hidden sm:flex items-center gap-1">
-          {renderPageNumbers(desktopPages, 'desktop')}
-        </div>
-      )}
-
-      {/* 次のページへ */}
-      <button
-        onClick={() => onPageChange(currentPage + 1)}
-        disabled={currentPage === totalPages}
-        className={cn(
-          buttonBase,
-          'border border-gray-300',
-          currentPage === totalPages
-            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-            : 'bg-white text-gray-700 hover:bg-gray-50'
-        )}
-        aria-label="次のページ"
-      >
-        <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-        </svg>
-      </button>
+      {/* 右側: 次へ + 最後へ */}
+      <div className="flex items-center gap-1">
+        <button
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className={cn(
+            buttonBase,
+            'border border-gray-300',
+            currentPage === totalPages
+              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+              : 'bg-white text-gray-700 hover:bg-gray-50'
+          )}
+          aria-label="次のページ"
+        >
+          <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+        <button
+          onClick={() => onPageChange(totalPages)}
+          disabled={currentPage === totalPages}
+          className={cn(
+            buttonBase,
+            'border border-gray-300',
+            currentPage === totalPages
+              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+              : 'bg-white text-gray-700 hover:bg-gray-50'
+          )}
+          aria-label="最後のページ"
+        >
+          <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M6 5l7 7-7 7" />
+          </svg>
+        </button>
+      </div>
     </nav>
   )
 }
