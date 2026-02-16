@@ -21,7 +21,7 @@ export const Pagination: React.FC<PaginationProps> = ({
   // 早期リターン（不要な計算を防ぐ）
   if (totalPages <= 1) return null
 
-  // ページ番号の計算をメモ化（モバイル3ページ、PC5ページ）
+  // ページ番号の計算をメモ化（モバイル3ページ、PC10ページ）
   const { mobilePages, desktopPages } = useMemo(() => {
     if (!showPageNumbers) return { mobilePages: [], desktopPages: [] }
 
@@ -92,7 +92,7 @@ export const Pagination: React.FC<PaginationProps> = ({
         </button>
       </div>
 
-      {/* ページ番号（モバイル3つ、PC5つ） */}
+      {/* ページ番号（モバイル3つ、PC10つ） */}
       {showPageNumbers && (
         <>
           {/* モバイル用 */}
