@@ -903,7 +903,7 @@ func (s *AnimeService) GetAnimeEpisodes(animeID int, userID *int) ([]models.Epis
 		       COALESCE(recap, FALSE) as recap,
 		       created_at, updated_at
 		FROM episodes WHERE anime_id = $1
-		ORDER BY episode_number ASC
+		ORDER BY episode_number ASC, is_special ASC
 	`, animeID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get episodes: %w", err)
@@ -3247,7 +3247,7 @@ func (s *AnimeService) GetEpisodesByType(animeID int, isSpecial bool, userID *in
 		       created_at, updated_at
 		FROM episodes
 		WHERE anime_id = $1 AND COALESCE(is_special, FALSE) = $2
-		ORDER BY episode_number ASC
+		ORDER BY episode_number ASC, is_special ASC
 	`, animeID, isSpecial)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query episodes: %w", err)
@@ -3339,7 +3339,7 @@ func (s *AnimeService) GetEpisodesSeparated(animeID int, userID *int) (regular, 
 		       created_at, updated_at
 		FROM episodes
 		WHERE anime_id = $1
-		ORDER BY episode_number ASC
+		ORDER BY episode_number ASC, is_special ASC
 	`, animeID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to query episodes: %w", err)
