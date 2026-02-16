@@ -56,6 +56,9 @@ const AnimeDetailClient: React.FC = () => {
     enabled: isValidAnimeId,
   })
 
+  // エピソードデータ
+  const episodes = episodesData?.episodes || []
+
   // ローディング表示
   if (isNaN(animeId) || isLoadingAnime) {
     return (
@@ -105,7 +108,6 @@ const AnimeDetailClient: React.FC = () => {
   }
 
   const anime = animeData
-  const episodes = episodesData?.episodes || []
   const imageUrl = anime.cover_image_extra_large || anime.cover_image_large || anime.cover_image_medium || anime.image_url
 
   // メディアタイプの日本語変換
@@ -291,10 +293,11 @@ const AnimeDetailClient: React.FC = () => {
                 </div>
               )}
               {/* 話数 - 映画の場合は非表示（映画にエピソードの概念がないため） */}
-              {!isMovie && (animeWithDetails.episodes_count || episodes.length > 0) && (
+              {/* 実際に取得したエピソードデータの数を表示（APIのepisodes_countと異なる場合があるため） */}
+              {!isMovie && episodes.length > 0 && (
                 <div className="flex">
                   <dt className="text-gray-500 w-24 flex-shrink-0">話数</dt>
-                  <dd className="text-gray-900">{animeWithDetails.episodes_count || episodes.length}話</dd>
+                  <dd className="text-gray-900">{episodes.length}話</dd>
                 </div>
               )}
               {animeWithDetails.official_site_url && (
@@ -329,7 +332,7 @@ const AnimeDetailClient: React.FC = () => {
 
         {/* エピソード一覧セクション - 映画の場合は非表示（映画にエピソードの概念がないため） */}
         {!isMovie && (
-          <div className="bg-white rounded-lg border overflow-hidden">
+          <div id="episode-section" className="bg-white rounded-lg border overflow-hidden">
             <h2 className="text-lg font-semibold text-gray-900 px-4 md:px-6 py-4">
               エピソード一覧
             </h2>
