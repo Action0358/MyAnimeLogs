@@ -56,13 +56,14 @@ export const Pagination: React.FC<PaginationProps> = ({
   const visiblePages = getVisiblePages()
 
   const buttonBase =
-    'inline-flex items-center justify-center min-w-[40px] h-10 px-3 text-sm font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
+    'inline-flex items-center justify-center min-w-[32px] sm:min-w-[40px] h-8 sm:h-10 px-1.5 sm:px-3 text-xs sm:text-sm font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
 
   return (
     <nav
-      className={cn('flex items-center justify-center gap-1', className)}
+      className={cn('flex flex-wrap items-center justify-center gap-1', className)}
       aria-label="ページネーション"
     >
+      {/* 前のページへ */}
       <button
         onClick={() => onPageChange(currentPage - 1)}
         disabled={currentPage === 1}
@@ -75,7 +76,7 @@ export const Pagination: React.FC<PaginationProps> = ({
         )}
         aria-label="前のページ"
       >
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
         </svg>
       </button>
@@ -83,7 +84,7 @@ export const Pagination: React.FC<PaginationProps> = ({
       {showPageNumbers &&
         visiblePages.map((page, index) =>
           page === 'ellipsis' ? (
-            <span key={`ellipsis-${index}`} className="px-2 text-gray-500">
+            <span key={`ellipsis-${index}`} className="px-1 sm:px-2 text-gray-500 text-xs sm:text-sm">
               ...
             </span>
           ) : (
@@ -103,6 +104,7 @@ export const Pagination: React.FC<PaginationProps> = ({
           )
         )}
 
+      {/* 次のページへ */}
       <button
         onClick={() => onPageChange(currentPage + 1)}
         disabled={currentPage === totalPages}
@@ -115,7 +117,7 @@ export const Pagination: React.FC<PaginationProps> = ({
         )}
         aria-label="次のページ"
       >
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
         </svg>
       </button>
