@@ -20,6 +20,9 @@ export const Pagination: React.FC<PaginationProps> = ({
   maxVisiblePages = 5,
   className,
 }) => {
+  // 早期リターン（不要な計算を防ぐ）
+  if (totalPages <= 1) return null
+
   // ページ番号の計算をメモ化（showPageNumbersがfalseの場合は計算しない）
   const { mobilePages, desktopPages } = useMemo(() => {
     if (!showPageNumbers) {
@@ -62,8 +65,6 @@ export const Pagination: React.FC<PaginationProps> = ({
       desktopPages: getVisiblePages(maxVisiblePages),
     }
   }, [currentPage, totalPages, maxVisiblePages, showPageNumbers])
-
-  if (totalPages <= 1) return null
 
   const buttonBase =
     'inline-flex items-center justify-center min-w-[32px] sm:min-w-[40px] h-8 sm:h-10 px-1.5 sm:px-3 text-xs sm:text-sm font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
@@ -120,18 +121,16 @@ export const Pagination: React.FC<PaginationProps> = ({
         </svg>
       </button>
 
-      {/* モバイル用ページ番号 */}
+      {/* ページ番号 */}
       {showPageNumbers && (
-        <div className="flex items-center gap-1 sm:hidden">
-          {renderPageNumbers(mobilePages, 'mobile')}
-        </div>
-      )}
-
-      {/* デスクトップ用ページ番号 */}
-      {showPageNumbers && (
-        <div className="hidden sm:flex items-center gap-1">
-          {renderPageNumbers(desktopPages, 'desktop')}
-        </div>
+        <>
+          <div className="flex items-center gap-1 sm:hidden">
+            {renderPageNumbers(mobilePages, 'mobile')}
+          </div>
+          <div className="hidden sm:flex items-center gap-1">
+            {renderPageNumbers(desktopPages, 'desktop')}
+          </div>
+        </>
       )}
 
       {/* 次のページへ */}
