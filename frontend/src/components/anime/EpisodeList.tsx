@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from 'react'
 import { cn } from '@/lib/utils'
+import { Pagination } from '@/components/ui/Pagination'
 import type { Episode } from '@/lib/api/generated/myanimelogs'
 
 // 1ページあたりのエピソード数
@@ -12,6 +13,8 @@ export interface EpisodeListProps {
   isLoading?: boolean
   onWatchStatusChange?: (episodeId: number, watched: boolean) => void
   className?: string
+  /** ページ変更時にスクロールするターゲット要素のID */
+  scrollTargetId?: string
 }
 
 const EpisodeSkeleton: React.FC = () => (
@@ -29,6 +32,7 @@ export const EpisodeList: React.FC<EpisodeListProps> = ({
   isLoading = false,
   onWatchStatusChange,
   className,
+  scrollTargetId,
 }) => {
   const [watchedEpisodes, setWatchedEpisodes] = useState<Set<number>>(new Set())
   const [currentPage, setCurrentPage] = useState(1)
@@ -47,9 +51,17 @@ export const EpisodeList: React.FC<EpisodeListProps> = ({
     }
   }, [episodes, currentPage])
 
-  // ページ変更ハンドラー
+  // ページ変更ハンドラー（スクロール機能付き）
   const handlePageChange = (page: number) => {
     setCurrentPage(page)
+    
+    // ページ変更時にターゲット要素にスクロール
+    if (scrollTargetId) {
+      const targetElement = document.getElementById(scrollTargetId)
+      if (targetElement) {
+        targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }
+    }
   }
 
   const handleToggleWatched = (episodeId: number) => {
@@ -222,70 +234,12 @@ export const EpisodeList: React.FC<EpisodeListProps> = ({
 
       {/* ページネーション */}
       {totalPages > 1 && (
-        <div className="mt-6 flex items-center justify-center gap-2">
-          <button
-            onClick={() => handlePageChange(currentPage - 1)}
-            disabled={currentPage <= 1}
-            className={cn(
-              'px-3 py-2 text-sm rounded-lg transition-colors',
-              currentPage <= 1
-                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            )}
-          >
-            前へ
-          </button>
-          
-          <div className="flex items-center gap-1">
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
-              // 表示するページ番号を制限（現在のページの前後2ページ + 最初と最後）
-              const showPage = 
-                page === 1 || 
-                page === totalPages || 
-                (page >= currentPage - 2 && page <= currentPage + 2)
-              
-              if (!showPage && page !== 2 && page !== totalPages - 1) return null
-              
-              if (page === 2 && currentPage > 4) {
-                return <span key="ellipsis-start" className="px-2 text-gray-400">...</span>
-              }
-              
-              if (page === totalPages - 1 && currentPage < totalPages - 3) {
-                return <span key="ellipsis-end" className="px-2 text-gray-400">...</span>
-              }
-              
-              if (!showPage) return null
-              
-              return (
-                <button
-                  key={page}
-                  onClick={() => handlePageChange(page)}
-                  className={cn(
-                    'w-8 h-8 text-sm rounded-lg transition-colors',
-                    page === currentPage
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  )}
-                >
-                  {page}
-                </button>
-              )
-            })}
-          </div>
-          
-          <button
-            onClick={() => handlePageChange(currentPage + 1)}
-            disabled={currentPage >= totalPages}
-            className={cn(
-              'px-3 py-2 text-sm rounded-lg transition-colors',
-              currentPage >= totalPages
-                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            )}
-          >
-            次へ
-          </button>
-        </div>
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={handlePageChange}
+          className="mt-6"
+        />
       )}
     </div>
   )

@@ -342,6 +342,7 @@ const AnimeDetailClient: React.FC = () => {
                 <EpisodeList
                   episodes={episodes}
                   isLoading={isLoadingEpisodes}
+                  scrollTargetId="episode-section"
                 />
               </div>
             </div>
