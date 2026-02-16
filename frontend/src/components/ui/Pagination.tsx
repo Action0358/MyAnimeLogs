@@ -21,24 +21,31 @@ export const Pagination: React.FC<PaginationProps> = ({
   // 早期リターン（不要な計算を防ぐ）
   if (totalPages <= 1) return null
 
-  // ページ番号の計算をメモ化（常に3ページ表示）
-  const visiblePages = useMemo(() => {
-    if (!showPageNumbers) return []
+  // ページ番号の計算をメモ化（モバイル3ページ、PC5ページ）
+  const { mobilePages, desktopPages } = useMemo(() => {
+    if (!showPageNumbers) return { mobilePages: [], desktopPages: [] }
 
-    // 常に3ページを表示（現在ページを中央に）
-    let start = Math.max(1, currentPage - 1)
-    let end = Math.min(totalPages, start + 2)
+    const getVisiblePages = (maxPages: number): number[] => {
+      const half = Math.floor(maxPages / 2)
+      let start = Math.max(1, currentPage - half)
+      let end = Math.min(totalPages, start + maxPages - 1)
 
-    // 終端に近い場合は開始位置を調整
-    if (end === totalPages) {
-      start = Math.max(1, totalPages - 2)
+      // 終端に近い場合は開始位置を調整
+      if (end === totalPages) {
+        start = Math.max(1, totalPages - maxPages + 1)
+      }
+
+      const pages: number[] = []
+      for (let i = start; i <= end; i++) {
+        pages.push(i)
+      }
+      return pages
     }
 
-    const pages: number[] = []
-    for (let i = start; i <= end; i++) {
-      pages.push(i)
+    return {
+      mobilePages: getVisiblePages(3),
+      desktopPages: getVisiblePages(10),
     }
-    return pages
   }, [currentPage, totalPages, showPageNumbers])
 
   const buttonBase =
@@ -85,25 +92,46 @@ export const Pagination: React.FC<PaginationProps> = ({
         </button>
       </div>
 
-      {/* ページ番号（中央に3つ） */}
+      {/* ページ番号（モバイル3つ、PC5つ） */}
       {showPageNumbers && (
-        <div className="flex items-center gap-1">
-          {visiblePages.map((page) => (
-            <button
-              key={page}
-              onClick={() => onPageChange(page)}
-              className={cn(
-                buttonBase,
-                page === currentPage
-                  ? 'bg-blue-600 text-white border border-blue-600'
-                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-              )}
-              aria-current={page === currentPage ? 'page' : undefined}
-            >
-              {page}
-            </button>
-          ))}
-        </div>
+        <>
+          {/* モバイル用 */}
+          <div className="flex items-center gap-2 sm:hidden">
+            {mobilePages.map((page) => (
+              <button
+                key={`mobile-${page}`}
+                onClick={() => onPageChange(page)}
+                className={cn(
+                  buttonBase,
+                  page === currentPage
+                    ? 'bg-blue-600 text-white border border-blue-600'
+                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                )}
+                aria-current={page === currentPage ? 'page' : undefined}
+              >
+                {page}
+              </button>
+            ))}
+          </div>
+          {/* PC用 */}
+          <div className="hidden sm:flex items-center gap-2">
+            {desktopPages.map((page) => (
+              <button
+                key={`desktop-${page}`}
+                onClick={() => onPageChange(page)}
+                className={cn(
+                  buttonBase,
+                  page === currentPage
+                    ? 'bg-blue-600 text-white border border-blue-600'
+                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                )}
+                aria-current={page === currentPage ? 'page' : undefined}
+              >
+                {page}
+              </button>
+            ))}
+          </div>
+        </>
       )}
 
       {/* 右側: 次へ + 最後へ */}
