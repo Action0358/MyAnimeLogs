@@ -51,6 +51,24 @@ export const Pagination: React.FC<PaginationProps> = ({
   const buttonBase =
     'inline-flex items-center justify-center min-w-[36px] sm:min-w-[44px] h-9 sm:h-11 px-2 sm:px-3 text-sm font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
 
+  // ページ番号ボタンのレンダリングを共通化
+  const renderPageNumbers = (pages: number[], keyPrefix: string) =>
+    pages.map((page) => (
+      <button
+        key={`${keyPrefix}-${page}`}
+        onClick={() => onPageChange(page)}
+        className={cn(
+          buttonBase,
+          page === currentPage
+            ? 'bg-blue-600 text-white border border-blue-600'
+            : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+        )}
+        aria-current={page === currentPage ? 'page' : undefined}
+      >
+        {page}
+      </button>
+    ))
+
   return (
     <nav
       className={cn('flex items-center justify-between w-full', className)}
@@ -97,39 +115,11 @@ export const Pagination: React.FC<PaginationProps> = ({
         <>
           {/* モバイル用 */}
           <div className="flex items-center gap-2 sm:hidden">
-            {mobilePages.map((page) => (
-              <button
-                key={`mobile-${page}`}
-                onClick={() => onPageChange(page)}
-                className={cn(
-                  buttonBase,
-                  page === currentPage
-                    ? 'bg-blue-600 text-white border border-blue-600'
-                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                )}
-                aria-current={page === currentPage ? 'page' : undefined}
-              >
-                {page}
-              </button>
-            ))}
+            {renderPageNumbers(mobilePages, 'mobile')}
           </div>
           {/* PC用 */}
           <div className="hidden sm:flex items-center gap-2">
-            {desktopPages.map((page) => (
-              <button
-                key={`desktop-${page}`}
-                onClick={() => onPageChange(page)}
-                className={cn(
-                  buttonBase,
-                  page === currentPage
-                    ? 'bg-blue-600 text-white border border-blue-600'
-                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                )}
-                aria-current={page === currentPage ? 'page' : undefined}
-              >
-                {page}
-              </button>
-            ))}
+            {renderPageNumbers(desktopPages, 'desktop')}
           </div>
         </>
       )}
