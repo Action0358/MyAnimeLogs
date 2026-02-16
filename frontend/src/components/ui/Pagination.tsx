@@ -32,20 +32,17 @@ export const Pagination: React.FC<PaginationProps> = ({
     if (!showPageNumbers) return { mobilePages: [], desktopPages: [] }
 
     const getVisiblePages = (maxPages: number): number[] => {
-      const half = Math.floor(maxPages / 2)
-      let start = Math.max(1, currentPage - half)
-      let end = Math.min(totalPages, start + maxPages - 1)
-
-      // 終端に近い場合は開始位置を調整
-      if (end === totalPages) {
-        start = Math.max(1, totalPages - maxPages + 1)
-      }
-
-      const pages: number[] = []
-      for (let i = start; i <= end; i++) {
-        pages.push(i)
-      }
-      return pages
+      // 表示するページ数を実際のページ数に制限
+      const visibleCount = Math.min(maxPages, totalPages)
+      
+      // 現在ページを中央に配置するための開始位置を計算
+      const half = Math.floor(visibleCount / 2)
+      const idealStart = currentPage - half
+      
+      // 開始位置を1〜(totalPages - visibleCount + 1)の範囲に収める
+      const start = Math.max(1, Math.min(idealStart, totalPages - visibleCount + 1))
+      
+      return Array.from({ length: visibleCount }, (_, i) => start + i)
     }
 
     return {
