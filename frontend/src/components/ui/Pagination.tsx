@@ -8,6 +8,10 @@ export interface PaginationProps {
   totalPages: number
   onPageChange: (page: number) => void
   showPageNumbers?: boolean
+  /** モバイル表示時の最大ページ数（デフォルト: 3） */
+  mobileMaxPages?: number
+  /** PC表示時の最大ページ数（デフォルト: 10） */
+  desktopMaxPages?: number
   className?: string
 }
 
@@ -16,12 +20,14 @@ export const Pagination: React.FC<PaginationProps> = ({
   totalPages,
   onPageChange,
   showPageNumbers = true,
+  mobileMaxPages = 3,
+  desktopMaxPages = 10,
   className,
 }) => {
   // 早期リターン（不要な計算を防ぐ）
   if (totalPages <= 1) return null
 
-  // ページ番号の計算をメモ化（モバイル3ページ、PC10ページ）
+  // ページ番号の計算をメモ化
   const { mobilePages, desktopPages } = useMemo(() => {
     if (!showPageNumbers) return { mobilePages: [], desktopPages: [] }
 
@@ -43,10 +49,10 @@ export const Pagination: React.FC<PaginationProps> = ({
     }
 
     return {
-      mobilePages: getVisiblePages(3),
-      desktopPages: getVisiblePages(10),
+      mobilePages: getVisiblePages(mobileMaxPages),
+      desktopPages: getVisiblePages(desktopMaxPages),
     }
-  }, [currentPage, totalPages, showPageNumbers])
+  }, [currentPage, totalPages, showPageNumbers, mobileMaxPages, desktopMaxPages])
 
   const buttonBase =
     'inline-flex items-center justify-center min-w-[36px] sm:min-w-[44px] h-9 sm:h-11 px-2 sm:px-3 text-sm font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
@@ -110,7 +116,7 @@ export const Pagination: React.FC<PaginationProps> = ({
         </button>
       </div>
 
-      {/* ページ番号（モバイル3つ、PC10つ） */}
+      {/* ページ番号 */}
       {showPageNumbers && (
         <>
           {/* モバイル用 */}
