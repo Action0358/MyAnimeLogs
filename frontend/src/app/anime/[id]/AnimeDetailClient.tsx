@@ -62,6 +62,14 @@ const AnimeDetailClient: React.FC = () => {
   // エピソードデータ
   const episodes = episodesData?.episodes || []
 
+  // クライアントサイドでのみ放送状態を計算（ハイドレーションミスマッチ回避）
+  // 注意: フックは条件付きreturnの前に配置する必要がある（Reactのルール）
+  useEffect(() => {
+    if (animeData) {
+      setStatusInfo(getAnimeStatusLabel(animeData.status, animeData.released_on))
+    }
+  }, [animeData])
+
   // ローディング表示
   if (isNaN(animeId) || isLoadingAnime) {
     return (
@@ -112,11 +120,6 @@ const AnimeDetailClient: React.FC = () => {
 
   const anime = animeData
   const imageUrl = anime.cover_image_extra_large || anime.cover_image_large || anime.cover_image_medium || anime.image_url
-
-  // クライアントサイドでのみ放送状態を計算（ハイドレーションミスマッチ回避）
-  useEffect(() => {
-    setStatusInfo(getAnimeStatusLabel(anime.status, anime.released_on))
-  }, [anime.status, anime.released_on])
 
 
   // メディアタイプの日本語変換
