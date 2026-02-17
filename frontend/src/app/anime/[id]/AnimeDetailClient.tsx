@@ -10,6 +10,7 @@ import { Button } from '@/components/ui'
 import { EpisodeList, WatchProviders } from '@/components/anime'
 import { getAnimesId, getAnimesIdEpisodes } from '@/lib/api/generated/myanimelogs'
 import { cn } from '@/lib/utils'
+import { getAnimeStatusLabel } from '@/utils/animeStatus'
 
 const AnimeDetailClient: React.FC = () => {
   const params = useParams()
@@ -110,6 +111,29 @@ const AnimeDetailClient: React.FC = () => {
   const anime = animeData
   const imageUrl = anime.cover_image_extra_large || anime.cover_image_large || anime.cover_image_medium || anime.image_url
 
+  // 型アサーション（APIレスポンスの型に新しいフィールドが含まれていない場合の対応）
+  const animeWithDetails = anime as typeof anime & {
+    genres?: string[]
+    media?: string
+    episodes_count?: number
+    released_on?: string
+    official_site_url?: string
+    title_kana?: string
+    title_en?: string
+    watchers_count?: number
+    mal_anime_id?: string
+    annict_id?: number
+    description?: string
+    watch_providers?: Array<{
+      provider_id: number
+      provider_name: string
+      logo_url: string
+    }>
+  }
+
+  const { label: statusLabel, className: statusClassName } = getAnimeStatusLabel(anime.status, animeWithDetails.released_on);
+
+
   // メディアタイプの日本語変換
   const getMediaLabel = (media: string | undefined | null) => {
     if (!media) return null
@@ -152,26 +176,6 @@ const AnimeDetailClient: React.FC = () => {
     // これにより&copy;, &trade;, &rsquo;などすべてのエンティティに対応
     let text = html.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]*>/g, '')
     return heDecodeEntities(text).trim()
-  }
-
-  // 型アサーション（APIレスポンスの型に新しいフィールドが含まれていない場合の対応）
-  const animeWithDetails = anime as typeof anime & {
-    genres?: string[]
-    media?: string
-    episodes_count?: number
-    released_on?: string
-    official_site_url?: string
-    title_kana?: string
-    title_en?: string
-    watchers_count?: number
-    mal_anime_id?: string
-    annict_id?: number
-    description?: string
-    watch_providers?: Array<{
-      provider_id: number
-      provider_name: string
-      logo_url: string
-    }>
   }
 
   // 映画かどうかを判定（エピソード一覧・話数の表示制御に使用）
@@ -228,16 +232,14 @@ const AnimeDetailClient: React.FC = () => {
                   {anime.season}
                 </span>
               )}
-              {anime.status && (
+              {statusLabel && (
                 <span
                   className={cn(
                     'inline-flex items-center px-2.5 py-1 rounded-full text-sm font-medium',
-                    anime.status === 'airing'
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-gray-100 text-gray-800'
+                    statusClassName
                   )}
                 >
-                  {anime.status === 'airing' ? '放送中' : '完結'}
+                  {statusLabel}
                 </span>
               )}
             </div>

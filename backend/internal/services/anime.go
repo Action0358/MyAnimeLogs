@@ -44,7 +44,7 @@ func (s *AnimeService) GetCurrentSeasonAnimes(limit int) ([]models.Anime, error)
 
 	// DBから取得
 	animes, err := s.getAnimesByQuery(
-		`SELECT id, title, image_url, season, status, mal_anime_id, annict_id, created_at, updated_at, watchers_count,
+		`SELECT id, title, image_url, season, status, released_on, mal_anime_id, annict_id, created_at, updated_at, watchers_count,
 		        COALESCE(cover_image_extra_large, '') as cover_image_extra_large,
 		        COALESCE(cover_image_large, '') as cover_image_large,
 		        COALESCE(cover_image_medium, '') as cover_image_medium
@@ -85,7 +85,7 @@ func (s *AnimeService) GetPopularAnimes(limit int) ([]models.Anime, error) {
 
 	// DBから取得
 	animes, err := s.getAnimesByQuery(
-		`SELECT id, title, image_url, season, status, mal_anime_id, annict_id, created_at, updated_at, watchers_count,
+		`SELECT id, title, image_url, season, status, released_on, mal_anime_id, annict_id, created_at, updated_at, watchers_count,
 		        COALESCE(cover_image_extra_large, '') as cover_image_extra_large,
 		        COALESCE(cover_image_large, '') as cover_image_large,
 		        COALESCE(cover_image_medium, '') as cover_image_medium
@@ -119,7 +119,7 @@ func (s *AnimeService) getAnimesByQuery(query string, args []interface{}, queryN
 	animes := []models.Anime{}
 	for rows.Next() {
 		var anime models.Anime
-		err := rows.Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount, &anime.CoverImageExtraLarge, &anime.CoverImageLarge, &anime.CoverImageMedium)
+		err := rows.Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.ReleasedOn, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount, &anime.CoverImageExtraLarge, &anime.CoverImageLarge, &anime.CoverImageMedium)
 		if err != nil {
 			s.logger.Warn("Failed to scan anime row", "query", queryName, "error", err)
 			continue

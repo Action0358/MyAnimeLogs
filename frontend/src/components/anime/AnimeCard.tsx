@@ -5,6 +5,7 @@ import Link from 'next/link'
 import type { Route } from 'next'
 import { cn } from '@/lib/utils'
 import { formatSeason } from '@/utils/formatSeason'
+import { getAnimeStatusLabel } from '@/utils/animeStatus'
 import type { Anime } from '@/lib/api/generated/myanimelogs'
 
 export interface AnimeCardProps {
@@ -52,6 +53,12 @@ export const AnimeCard: React.FC<AnimeCardProps> = ({
     anime.cover_image_medium ||
     anime.image_url
 
+  // 放送状態ラベルを事前に計算
+  const { label: statusLabel, className: statusClassName } = getAnimeStatusLabel(
+    anime.status,
+    anime.released_on
+  )
+
   const handleClick = (e: React.MouseEvent) => {
     if (onClick) {
       e.preventDefault()
@@ -88,17 +95,15 @@ export const AnimeCard: React.FC<AnimeCardProps> = ({
         )}
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-200" />
         
-        {anime.status && (
+        {statusLabel && (
           <div className="absolute top-2 left-2">
             <span
               className={cn(
                 'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
-                anime.status === 'airing'
-                  ? 'bg-green-100 text-green-800'
-                  : 'bg-gray-100 text-gray-800'
+                statusClassName
               )}
             >
-              {anime.status === 'airing' ? '放送中' : '完結'}
+              {statusLabel}
             </span>
           </div>
         )}
