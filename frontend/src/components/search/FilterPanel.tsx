@@ -7,10 +7,10 @@ import { SEASONS, GENRES } from '@/constants/search'
 export interface FilterPanelProps {
   selectedSeason?: string
   selectedGenre?: string
-  selectedStatus?: 'airing' | 'finished'
+  selectedStatus?: 'airing' | 'finished' | 'not_yet_aired'
   onSeasonChange: (season: string | undefined) => void
   onGenreChange: (genre: string | undefined) => void
-  onStatusChange: (status: 'airing' | 'finished' | undefined) => void
+  onStatusChange: (status: 'airing' | 'finished' | 'not_yet_aired' | undefined) => void
   onClear: () => void
   className?: string
 }
@@ -116,6 +116,18 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
               )}
             >
               完結
+            </button>
+            <button
+              type="button"
+              onClick={() => onStatusChange('not_yet_aired')}
+              className={cn(
+                'flex-1 px-3 py-2 text-sm rounded-lg border transition-colors',
+                selectedStatus === 'not_yet_aired'
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+              )}
+            >
+              放送予定
             </button>
           </div>
         </div>

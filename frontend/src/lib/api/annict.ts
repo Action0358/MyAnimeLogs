@@ -56,6 +56,7 @@ export interface DBAnime {
   image_url?: string;
   season?: string;
   status?: string;
+  released_on?: string;
   watchers_count: number;
   mal_anime_id?: string;
   annict_id?: number;
