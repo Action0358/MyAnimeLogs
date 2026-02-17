@@ -1,11 +1,11 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import type { Route } from 'next'
 import { cn } from '@/lib/utils'
 import { formatSeason } from '@/utils/formatSeason'
-import { getAnimeStatusLabel } from '@/utils/animeStatus'
+import { getAnimeStatusLabel, type BroadcastStatusLabel } from '@/utils/animeStatus'
 import type { Anime } from '@/lib/api/generated/myanimelogs'
 
 export interface AnimeCardProps {
@@ -45,19 +45,20 @@ export const AnimeCard: React.FC<AnimeCardProps> = ({
   className,
 }) => {
   const [imageError, setImageError] = useState(false)
+  // ハイドレーションミスマッチを回避するため、クライアントサイドでのみ放送状態を計算
+  const [statusInfo, setStatusInfo] = useState<BroadcastStatusLabel>({ label: null, className: '' })
   const config = sizeConfig[size]
+
+  useEffect(() => {
+    // クライアントサイドでのみ実行（new Date()を使用するため）
+    setStatusInfo(getAnimeStatusLabel(anime.status, anime.released_on))
+  }, [anime.status, anime.released_on])
 
   const imageUrl =
     anime.cover_image_extra_large ||
     anime.cover_image_large ||
     anime.cover_image_medium ||
     anime.image_url
-
-  // 放送状態ラベルを事前に計算
-  const { label: statusLabel, className: statusClassName } = getAnimeStatusLabel(
-    anime.status,
-    anime.released_on
-  )
 
   const handleClick = (e: React.MouseEvent) => {
     if (onClick) {
@@ -95,15 +96,15 @@ export const AnimeCard: React.FC<AnimeCardProps> = ({
         )}
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-200" />
         
-        {statusLabel && (
+        {statusInfo.label && (
           <div className="absolute top-2 left-2">
             <span
               className={cn(
                 'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
-                statusClassName
+                statusInfo.className
               )}
             >
-              {statusLabel}
+              {statusInfo.label}
             </span>
           </div>
         )}

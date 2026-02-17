@@ -71,6 +71,7 @@ export type AnimeStatus = typeof AnimeStatus[keyof typeof AnimeStatus];
 export const AnimeStatus = {
   airing: 'airing',
   finished: 'finished',
+  not_yet_aired: 'not_yet_aired',
 } as const;
 
 /**
@@ -463,6 +464,7 @@ export type GetAnimesStatus = typeof GetAnimesStatus[keyof typeof GetAnimesStatu
 export const GetAnimesStatus = {
   airing: 'airing',
   finished: 'finished',
+  not_yet_aired: 'not_yet_aired',
 } as const;
 
 export type GetAnimes200Meta = {
@@ -650,6 +652,7 @@ export type GetSearchAdvancedStatus = typeof GetSearchAdvancedStatus[keyof typeo
 export const GetSearchAdvancedStatus = {
   airing: 'airing',
   finished: 'finished',
+  not_yet_aired: 'not_yet_aired',
 } as const;
 
 export type GetSearchAdvancedUserStatus = typeof GetSearchAdvancedUserStatus[keyof typeof GetSearchAdvancedUserStatus];

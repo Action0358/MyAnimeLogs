@@ -10,12 +10,14 @@ import { Button } from '@/components/ui'
 import { EpisodeList, WatchProviders } from '@/components/anime'
 import { getAnimesId, getAnimesIdEpisodes } from '@/lib/api/generated/myanimelogs'
 import { cn } from '@/lib/utils'
-import { getAnimeStatusLabel } from '@/utils/animeStatus'
+import { getAnimeStatusLabel, type BroadcastStatusLabel } from '@/utils/animeStatus'
 
 const AnimeDetailClient: React.FC = () => {
   const params = useParams()
   const [imageError, setImageError] = useState(false)
   const [animeId, setAnimeId] = useState<number>(NaN)
+  // ハイドレーションミスマッチを回避するため、クライアントサイドでのみ放送状態を計算
+  const [statusInfo, setStatusInfo] = useState<BroadcastStatusLabel>({ label: null, className: '' })
   
   // URLから実際のIDを取得（Cloudflare Pages Functionsによるリライト対応）
   useEffect(() => {
@@ -111,7 +113,10 @@ const AnimeDetailClient: React.FC = () => {
   const anime = animeData
   const imageUrl = anime.cover_image_extra_large || anime.cover_image_large || anime.cover_image_medium || anime.image_url
 
-  const { label: statusLabel, className: statusClassName } = getAnimeStatusLabel(anime.status, anime.released_on);
+  // クライアントサイドでのみ放送状態を計算（ハイドレーションミスマッチ回避）
+  useEffect(() => {
+    setStatusInfo(getAnimeStatusLabel(anime.status, anime.released_on))
+  }, [anime.status, anime.released_on])
 
 
   // メディアタイプの日本語変換
@@ -212,14 +217,14 @@ const AnimeDetailClient: React.FC = () => {
                   {anime.season}
                 </span>
               )}
-              {statusLabel && (
+              {statusInfo.label && (
                 <span
                   className={cn(
                     'inline-flex items-center px-2.5 py-1 rounded-full text-sm font-medium',
-                    statusClassName
+                    statusInfo.className
                   )}
                 >
-                  {statusLabel}
+                  {statusInfo.label}
                 </span>
               )}
             </div>
