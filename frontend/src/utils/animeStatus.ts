@@ -1,13 +1,17 @@
 /**
- * アニメの放送状態を判定してラベルとスタイルを返すユーティリティ
+ * アニメの放送状態（放送予定/放送中/完結）を判定してラベルとスタイルを返すユーティリティ
+ * airing, finished などのアニメ放送状態を扱う
+ * 
+ * ユーザーの視聴ステータス（watching, completed, planned, dropped）は
+ * userWatchStatus.ts を使用してください
  */
 
-export interface AnimeStatusLabel {
+export interface BroadcastStatusLabel {
   label: string | null
   className: string
 }
 
-export interface AnimeStatusConfig {
+export interface BroadcastStatusConfig {
   label: string
   bgColor: string
   textColor: string
@@ -57,7 +61,7 @@ const determineBroadcastStatus = (
 export const getAnimeStatusLabel = (
   status: string | undefined | null,
   releasedOn?: string | undefined | null
-): AnimeStatusLabel => {
+): BroadcastStatusLabel => {
   const broadcastStatus = determineBroadcastStatus(status, releasedOn)
 
   switch (broadcastStatus) {
@@ -74,15 +78,14 @@ export const getAnimeStatusLabel = (
 
 /**
  * アニメの放送状態を判定してラベルとスタイルを返す（bgColor/textColor形式）
- * MyPageContentなどで使用
  * @param status - アニメのステータス（airing, finished など）
  * @param releasedOn - 放送開始日（YYYY-MM-DD形式）
  * @returns ラベルとCSSクラス名（bgColor/textColor形式）
  */
-export const getAnimeStatusConfig = (
+export const getAnimeBroadcastStatusConfig = (
   status: string | undefined | null,
   releasedOn?: string | undefined | null
-): AnimeStatusConfig => {
+): BroadcastStatusConfig => {
   const broadcastStatus = determineBroadcastStatus(status, releasedOn)
 
   switch (broadcastStatus) {
@@ -96,3 +99,8 @@ export const getAnimeStatusConfig = (
       return { label: '不明', bgColor: 'bg-gray-100', textColor: 'text-gray-800' }
   }
 }
+
+// 後方互換性のためのエイリアス
+// AnimeStatusLabel と AnimeStatusConfig は BroadcastStatusLabel と BroadcastStatusConfig のエイリアス
+export type AnimeStatusLabel = BroadcastStatusLabel
+export type AnimeStatusConfig = BroadcastStatusConfig
