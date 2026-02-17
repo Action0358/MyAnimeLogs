@@ -1,6 +1,8 @@
 /**
  * ユーザーの視聴ステータスを判定してラベルとスタイルを返すユーティリティ
  * watching, completed, planned, dropped などのユーザー視聴状態を扱う
+ * 
+ * 注意: 放送状態（airing, finished, upcoming）は animeStatus.ts を使用してください
  */
 
 export interface UserWatchStatusConfig {
@@ -44,9 +46,3 @@ export const getUserWatchStatusConfig = (status: string): UserWatchStatusConfig 
     textColor: 'text-gray-700',
   }
 }
-
-// 後方互換性のためのエイリアス（非推奨）
-/** @deprecated getUserWatchStatusConfigを使用してください */
-export const getAnimeStatusConfig = getUserWatchStatusConfig
-/** @deprecated USER_WATCH_STATUS_CONFIGを使用してください */
-export const ANIME_STATUS_CONFIG = USER_WATCH_STATUS_CONFIG
