@@ -71,7 +71,13 @@ export type AnimeStatus = typeof AnimeStatus[keyof typeof AnimeStatus];
 export const AnimeStatus = {
   airing: 'airing',
   finished: 'finished',
+  not_yet_aired: 'not_yet_aired',
 } as const;
+
+/**
+ * 評価分布（キー：評価値、値：件数）
+ */
+export type AnimeRatingDistribution = {[key: string]: number};
 
 export interface Anime {
   id?: number;
@@ -134,8 +140,42 @@ export interface Anime {
   cover_image_large?: string;
   /** AniList API から取得した中サイズのカバー画像URL */
   cover_image_medium?: string;
+  /**
+   * ユーザーのお気に入り情報（認証時のみ）
+   * @nullable
+   */
+  user_favorite?: Favorite;
+  /**
+   * ユーザーの評価情報（認証時のみ）
+   * @nullable
+   */
+  user_rating?: Rating;
+  /** 視聴進捗率（0-100） */
+  watch_progress?: number;
+  /** エピソード一覧 */
+  episodes?: Episode[];
+  /**
+   * 平均評価
+   * @nullable
+   */
+  average_rating?: number | null;
+  /** 評価数 */
+  rating_count?: number;
+  /** 評価分布（キー：評価値、値：件数） */
+  rating_distribution?: AnimeRatingDistribution;
+  /** 配信サービス一覧 */
+  watch_providers?: WatchProvider[];
   created_at?: string;
   updated_at?: string;
+}
+
+export interface WatchProvider {
+  /** 配信サービスID */
+  provider_id: number;
+  /** 配信サービス名 */
+  provider_name: string;
+  /** ロゴ画像URL */
+  logo_url: string;
 }
 
 export interface Episode {
@@ -424,6 +464,7 @@ export type GetAnimesStatus = typeof GetAnimesStatus[keyof typeof GetAnimesStatu
 export const GetAnimesStatus = {
   airing: 'airing',
   finished: 'finished',
+  not_yet_aired: 'not_yet_aired',
 } as const;
 
 export type GetAnimes200Meta = {
@@ -611,6 +652,7 @@ export type GetSearchAdvancedStatus = typeof GetSearchAdvancedStatus[keyof typeo
 export const GetSearchAdvancedStatus = {
   airing: 'airing',
   finished: 'finished',
+  not_yet_aired: 'not_yet_aired',
 } as const;
 
 export type GetSearchAdvancedUserStatus = typeof GetSearchAdvancedUserStatus[keyof typeof GetSearchAdvancedUserStatus];

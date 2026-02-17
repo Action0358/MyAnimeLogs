@@ -320,7 +320,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: ["airing", "finished"]
+            enum: ["airing", "finished", "not_yet_aired"]
         - name: genre
           in: query
           schema:
@@ -735,7 +735,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: ["airing", "finished"]
+            enum: ["airing", "finished", "not_yet_aired"]
           description: 放送状態
         - name: user_status
           in: query
@@ -1636,7 +1636,7 @@ components:
           type: string
         status:
           type: string
-          enum: ["airing", "finished"]
+          enum: ["airing", "finished", "not_yet_aired"]
         media:
           type: string
           nullable: true
@@ -1682,12 +1682,64 @@ components:
           type: string
           format: uri
           description: AniList API から取得した中サイズのカバー画像URL
+        user_favorite:
+          $ref: "#/components/schemas/Favorite"
+          nullable: true
+          description: ユーザーのお気に入り情報（認証時のみ）
+        user_rating:
+          $ref: "#/components/schemas/Rating"
+          nullable: true
+          description: ユーザーの評価情報（認証時のみ）
+        watch_progress:
+          type: number
+          format: float
+          description: 視聴進捗率（0-100）
+        episodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/Episode"
+          description: エピソード一覧
+        average_rating:
+          type: number
+          format: float
+          nullable: true
+          description: 平均評価
+        rating_count:
+          type: integer
+          description: 評価数
+        rating_distribution:
+          type: object
+          additionalProperties:
+            type: integer
+          description: 評価分布（キー：評価値、値：件数）
+        watch_providers:
+          type: array
+          items:
+            $ref: "#/components/schemas/WatchProvider"
+          description: 配信サービス一覧
         created_at:
           type: string
           format: date-time
         updated_at:
           type: string
           format: date-time
+    WatchProvider:
+      type: object
+      required:
+        - provider_id
+        - provider_name
+        - logo_url
+      properties:
+        provider_id:
+          type: integer
+          description: 配信サービスID
+        provider_name:
+          type: string
+          description: 配信サービス名
+        logo_url:
+          type: string
+          format: uri
+          description: ロゴ画像URL
     Episode:
       type: object
       properties:

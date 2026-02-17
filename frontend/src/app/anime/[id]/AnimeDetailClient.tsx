@@ -10,11 +10,14 @@ import { Button } from '@/components/ui'
 import { EpisodeList, WatchProviders } from '@/components/anime'
 import { getAnimesId, getAnimesIdEpisodes } from '@/lib/api/generated/myanimelogs'
 import { cn } from '@/lib/utils'
+import { getAnimeStatusLabel, type BroadcastStatusLabel } from '@/utils/animeStatus'
 
 const AnimeDetailClient: React.FC = () => {
   const params = useParams()
   const [imageError, setImageError] = useState(false)
   const [animeId, setAnimeId] = useState<number>(NaN)
+  // ハイドレーションミスマッチを回避するため、クライアントサイドでのみ放送状態を計算
+  const [statusInfo, setStatusInfo] = useState<BroadcastStatusLabel>({ label: null, className: '' })
   
   // URLから実際のIDを取得（Cloudflare Pages Functionsによるリライト対応）
   useEffect(() => {
@@ -110,6 +113,12 @@ const AnimeDetailClient: React.FC = () => {
   const anime = animeData
   const imageUrl = anime.cover_image_extra_large || anime.cover_image_large || anime.cover_image_medium || anime.image_url
 
+  // クライアントサイドでのみ放送状態を計算（ハイドレーションミスマッチ回避）
+  useEffect(() => {
+    setStatusInfo(getAnimeStatusLabel(anime.status, anime.released_on))
+  }, [anime.status, anime.released_on])
+
+
   // メディアタイプの日本語変換
   const getMediaLabel = (media: string | undefined | null) => {
     if (!media) return null
@@ -154,28 +163,8 @@ const AnimeDetailClient: React.FC = () => {
     return heDecodeEntities(text).trim()
   }
 
-  // 型アサーション（APIレスポンスの型に新しいフィールドが含まれていない場合の対応）
-  const animeWithDetails = anime as typeof anime & {
-    genres?: string[]
-    media?: string
-    episodes_count?: number
-    released_on?: string
-    official_site_url?: string
-    title_kana?: string
-    title_en?: string
-    watchers_count?: number
-    mal_anime_id?: string
-    annict_id?: number
-    description?: string
-    watch_providers?: Array<{
-      provider_id: number
-      provider_name: string
-      logo_url: string
-    }>
-  }
-
   // 映画かどうかを判定（エピソード一覧・話数の表示制御に使用）
-  const isMovie = animeWithDetails.media?.toLowerCase() === 'movie'
+  const isMovie = anime.media?.toLowerCase() === 'movie'
 
   return (
     <Container className="py-8">
@@ -228,24 +217,22 @@ const AnimeDetailClient: React.FC = () => {
                   {anime.season}
                 </span>
               )}
-              {anime.status && (
+              {statusInfo.label && (
                 <span
                   className={cn(
                     'inline-flex items-center px-2.5 py-1 rounded-full text-sm font-medium',
-                    anime.status === 'airing'
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-gray-100 text-gray-800'
+                    statusInfo.className
                   )}
                 >
-                  {anime.status === 'airing' ? '放送中' : '完結'}
+                  {statusInfo.label}
                 </span>
               )}
             </div>
 
             {/* ジャンルタグ */}
-            {animeWithDetails.genres && animeWithDetails.genres.length > 0 && (
+            {anime.genres && anime.genres.length > 0 && (
               <div className="flex flex-wrap gap-1.5 mb-4">
-                {animeWithDetails.genres.map((genre) => (
+                {anime.genres.map((genre) => (
                   <Link
                     key={genre}
                     href={`/search?genre=${encodeURIComponent(genre)}`}
@@ -266,30 +253,30 @@ const AnimeDetailClient: React.FC = () => {
         </div>
 
         {/* あらすじセクション */}
-        {animeWithDetails.description && (
+        {anime.description && (
           <div className="mb-6 bg-white rounded-lg border p-4 md:p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-3">あらすじ</h2>
             <p className="text-gray-700 leading-relaxed whitespace-pre-wrap text-sm md:text-base">
-              {stripHtmlTags(animeWithDetails.description)}
+              {stripHtmlTags(anime.description)}
             </p>
           </div>
         )}
 
         {/* 作品情報セクション */}
-        {(animeWithDetails.released_on || animeWithDetails.media || animeWithDetails.episodes_count || episodes.length > 0 || animeWithDetails.official_site_url) && (
+        {(anime.released_on || anime.media || anime.episodes_count || episodes.length > 0 || anime.official_site_url) && (
           <div className="mb-6 bg-white rounded-lg border p-4 md:p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-3">作品情報</h2>
             <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-              {animeWithDetails.released_on && (
+              {anime.released_on && (
                 <div className="flex">
                   <dt className="text-gray-500 w-24 flex-shrink-0">放送開始</dt>
-                  <dd className="text-gray-900">{formatReleasedOn(animeWithDetails.released_on)}</dd>
+                  <dd className="text-gray-900">{formatReleasedOn(anime.released_on)}</dd>
                 </div>
               )}
-              {animeWithDetails.media && (
+              {anime.media && (
                 <div className="flex">
                   <dt className="text-gray-500 w-24 flex-shrink-0">メディア</dt>
-                  <dd className="text-gray-900">{getMediaLabel(animeWithDetails.media)}</dd>
+                  <dd className="text-gray-900">{getMediaLabel(anime.media)}</dd>
                 </div>
               )}
               {/* 話数 - 映画の場合は非表示（映画にエピソードの概念がないため） */}
@@ -300,21 +287,21 @@ const AnimeDetailClient: React.FC = () => {
                   <dd className="text-gray-900">{episodes.length}話</dd>
                 </div>
               )}
-              {animeWithDetails.official_site_url && (
+              {anime.official_site_url && (
                 <div className="flex sm:col-span-2">
                   <dt className="text-gray-500 w-24 flex-shrink-0">公式サイト</dt>
                   <dd>
                     <a
-                      href={animeWithDetails.official_site_url}
+                      href={anime.official_site_url}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-blue-600 hover:text-blue-800 hover:underline truncate block max-w-xs"
                     >
                       {(() => {
                         try {
-                          return new URL(animeWithDetails.official_site_url).hostname
+                          return new URL(anime.official_site_url).hostname
                         } catch {
-                          return animeWithDetails.official_site_url
+                          return anime.official_site_url
                         }
                       })()}
                     </a>
@@ -326,8 +313,8 @@ const AnimeDetailClient: React.FC = () => {
         )}
 
         {/* 配信サービスセクション */}
-        {animeWithDetails.watch_providers && animeWithDetails.watch_providers.length > 0 && (
-          <WatchProviders providers={animeWithDetails.watch_providers} />
+        {anime.watch_providers && anime.watch_providers.length > 0 && (
+          <WatchProviders providers={anime.watch_providers} />
         )}
 
         {/* エピソード一覧セクション - 映画の場合は非表示（映画にエピソードの概念がないため） */}

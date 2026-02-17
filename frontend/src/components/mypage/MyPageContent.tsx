@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { Container } from '@/components/layout'
 import { Button } from '@/components/ui/Button'
-import { getAnimeStatusConfig } from '@/utils/animeStatus'
+import { getUserWatchStatusConfig } from '@/utils/userWatchStatus'
 import { buildIconUrl } from '@/lib/utils'
 import {
   DEFAULT_USER_STATS,
@@ -313,7 +313,7 @@ export const MyPageContent: React.FC = () => {
                   {favorites.length > 0 ? (
                     <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                       {favorites.map((anime) => {
-                        const statusConfig = getAnimeStatusConfig(anime.status)
+                        const statusConfig = getUserWatchStatusConfig(anime.status)
                         return (
                           <div
                             key={anime.id}

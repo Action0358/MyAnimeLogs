@@ -7,7 +7,7 @@ import { getAnimes, type GetAnimesParams, type Anime } from '@/lib/api/generated
 export interface SearchFilters {
   keyword?: string
   season?: string
-  status?: 'airing' | 'finished'
+  status?: 'airing' | 'finished' | 'not_yet_aired'
   genre?: string
 }
 

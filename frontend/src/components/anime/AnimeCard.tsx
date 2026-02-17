@@ -1,10 +1,11 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import type { Route } from 'next'
 import { cn } from '@/lib/utils'
 import { formatSeason } from '@/utils/formatSeason'
+import { getAnimeStatusLabel, type BroadcastStatusLabel } from '@/utils/animeStatus'
 import type { Anime } from '@/lib/api/generated/myanimelogs'
 
 export interface AnimeCardProps {
@@ -44,7 +45,14 @@ export const AnimeCard: React.FC<AnimeCardProps> = ({
   className,
 }) => {
   const [imageError, setImageError] = useState(false)
+  // ハイドレーションミスマッチを回避するため、クライアントサイドでのみ放送状態を計算
+  const [statusInfo, setStatusInfo] = useState<BroadcastStatusLabel>({ label: null, className: '' })
   const config = sizeConfig[size]
+
+  useEffect(() => {
+    // クライアントサイドでのみ実行（new Date()を使用するため）
+    setStatusInfo(getAnimeStatusLabel(anime.status, anime.released_on))
+  }, [anime.status, anime.released_on])
 
   const imageUrl =
     anime.cover_image_extra_large ||
@@ -88,17 +96,15 @@ export const AnimeCard: React.FC<AnimeCardProps> = ({
         )}
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-200" />
         
-        {anime.status && (
+        {statusInfo.label && (
           <div className="absolute top-2 left-2">
             <span
               className={cn(
                 'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
-                anime.status === 'airing'
-                  ? 'bg-green-100 text-green-800'
-                  : 'bg-gray-100 text-gray-800'
+                statusInfo.className
               )}
             >
-              {anime.status === 'airing' ? '放送中' : '完結'}
+              {statusInfo.label}
             </span>
           </div>
         )}

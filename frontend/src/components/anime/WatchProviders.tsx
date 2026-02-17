@@ -1,12 +1,7 @@
 'use client'
 
 import React from 'react'
-
-interface WatchProvider {
-  provider_id: number
-  provider_name: string
-  logo_url: string
-}
+import type { WatchProvider } from '@/lib/api/generated/myanimelogs'
 
 interface WatchProvidersProps {
   providers: WatchProvider[]

@@ -84,7 +84,7 @@ function SearchContent() {
               selectedStatus={filters.status}
               onSeasonChange={(season) => updateFilters({ season })}
               onGenreChange={(genre) => updateFilters({ genre })}
-              onStatusChange={(status) => updateFilters({ status })}
+              onStatusChange={(status: 'airing' | 'finished' | 'not_yet_aired' | undefined) => updateFilters({ status })}
               onClear={clearFilters}
             />
           </aside>
@@ -121,7 +121,7 @@ function SearchContent() {
                   selectedStatus={filters.status}
                   onSeasonChange={(season) => updateFilters({ season })}
                   onGenreChange={(genre) => updateFilters({ genre })}
-                  onStatusChange={(status) => updateFilters({ status })}
+                  onStatusChange={(status: 'airing' | 'finished' | 'not_yet_aired' | undefined) => updateFilters({ status })}
                   onClear={clearFilters}
                 />
               </div>
@@ -175,7 +175,7 @@ function SearchContent() {
                 )}
                 {filters.status && (
                   <span className="inline-flex items-center gap-1 px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm">
-                    {filters.status === 'airing' ? '放送中' : '完結'}
+                    {filters.status === 'airing' ? '放送中' : filters.status === 'not_yet_aired' ? '放送予定' : '完結'}
                     <button
                       onClick={() => updateFilters({ status: undefined })}
                       className="ml-1 hover:text-purple-600"
