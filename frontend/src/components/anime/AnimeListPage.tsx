@@ -92,6 +92,7 @@ export const AnimeListPage: React.FC<AnimeListPageProps> = ({
             image_url: anime.image_url,
             season: anime.season,
             status: toAnimeStatus(anime.status),
+            released_on: anime.released_on,
             cover_image_large: anime.cover_image_large,
             cover_image_medium: anime.cover_image_medium,
           }))}
