@@ -7,6 +7,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"regexp"
+	"strings"
 	"time"
 
 	"myanimelogs/internal/common"
@@ -15,6 +17,30 @@ import (
 
 	"github.com/joho/godotenv"
 )
+
+// Pre-compiled regex patterns for anime title normalization
+var animeTitlePatterns = []*regexp.Regexp{
+	regexp.MustCompile(` 第\d+期.*`),
+	regexp.MustCompile(`第\d+期.*`),
+	regexp.MustCompile(` 第\d+シーズン.*`),
+	regexp.MustCompile(`第\d+シーズン.*`),
+	regexp.MustCompile(` Season \d+.*`),
+	regexp.MustCompile(` The Final Season.*`),
+	regexp.MustCompile(` Final Season.*`),
+	regexp.MustCompile(` Part[.\s]*\d+$`),
+	regexp.MustCompile(` [IVX]+$`),
+	regexp.MustCompile(` \d+nd Season.*`),
+	regexp.MustCompile(` \d+rd Season.*`),
+	regexp.MustCompile(` \d+th Season.*`),
+}
+
+func normalizeAnimeTitle(title string) string {
+	result := title
+	for _, re := range animeTitlePatterns {
+		result = re.ReplaceAllString(result, "")
+	}
+	return strings.TrimSpace(result)
+}
 
 func main() {
 	// Parse command line arguments
@@ -147,7 +173,7 @@ func run(logger *common.Logger, env string) error {
 	}
 
 	// Step 5: Sync released_on from Jikan API
-	logger.Info("Step 5/5: Syncing release dates from Jikan API...")
+	logger.Info("Step 5/6: Syncing release dates from Jikan API...")
 	releasedSuccess, releasedNotFound, releasedFailure, err := animeService.SyncReleasedOnFromJikan()
 	if err != nil {
 		logger.Warn("Failed to sync released_on from Jikan", "error", err)
@@ -156,6 +182,15 @@ func run(logger *common.Logger, env string) error {
 			"success", releasedSuccess,
 			"not_found", releasedNotFound,
 			"failure", releasedFailure)
+	}
+
+	// Step 6: Update series_title for all animes
+	logger.Info("Step 6/6: Updating series_title for all animes...")
+	seriesUpdated, err := updateSeriesTitles(db, logger)
+	if err != nil {
+		logger.Warn("Failed to update series_title", "error", err)
+	} else {
+		logger.Info("Series title update completed", "updated", seriesUpdated)
 	}
 
 	duration := time.Since(startTime)
@@ -220,4 +255,92 @@ func run(logger *common.Logger, env string) error {
 	logger.Info("Future syncs will only update new/changed data.")
 
 	return nil
+}
+
+// updateSeriesTitles updates series_title for all animes that don't have it set
+// updateSeriesTitles updates series_title and propagates series_tmdb_id for all animes
+func updateSeriesTitles(db *database.DB, logger *common.Logger) (int, error) {
+	// Phase 1: Update series_title for animes that don't have it
+	rows, err := db.Query(`
+		SELECT id, title
+		FROM animes
+		WHERE series_title IS NULL OR series_title = ''
+		ORDER BY id
+	`)
+	if err != nil {
+		return 0, fmt.Errorf("failed to query animes: %w", err)
+	}
+	defer rows.Close()
+
+	type animeUpdate struct {
+		ID          int
+		Title       string
+		SeriesTitle string
+	}
+
+	var updates []animeUpdate
+	for rows.Next() {
+		var id int
+		var title string
+		if err := rows.Scan(&id, &title); err != nil {
+			logger.Warn("Failed to scan row", "error", err)
+			continue
+		}
+
+		seriesTitle := normalizeAnimeTitle(title)
+		updates = append(updates, animeUpdate{
+			ID:          id,
+			Title:       title,
+			SeriesTitle: seriesTitle,
+		})
+	}
+
+	if err := rows.Err(); err != nil {
+		return 0, fmt.Errorf("error iterating rows: %w", err)
+	}
+
+	logger.Info("Found animes to update series_title", "count", len(updates))
+
+	updated := 0
+	for _, u := range updates {
+		_, err := db.Exec(`UPDATE animes SET series_title = $1 WHERE id = $2`, u.SeriesTitle, u.ID)
+		if err != nil {
+			logger.Warn("Failed to update anime", "id", u.ID, "error", err)
+			continue
+		}
+		updated++
+	}
+
+	// Phase 2: Propagate series_tmdb_id within series groups
+	propagated, err := propagateSeriesTMDBIDs(db, logger)
+	if err != nil {
+		logger.Warn("Failed to propagate series_tmdb_id", "error", err)
+	} else {
+		logger.Info("Series TMDB ID propagation completed", "propagated", propagated)
+	}
+
+	return updated, nil
+}
+
+// propagateSeriesTMDBIDs copies series_tmdb_id from animes that have it to siblings with the same series_title
+func propagateSeriesTMDBIDs(db *database.DB, logger *common.Logger) (int, error) {
+	result, err := db.Exec(`
+		UPDATE animes a
+		SET series_tmdb_id = sub.series_tmdb_id
+		FROM (
+			SELECT DISTINCT ON (series_title) series_title, series_tmdb_id
+			FROM animes
+			WHERE series_title IS NOT NULL AND series_title != ''
+			  AND series_tmdb_id IS NOT NULL
+			ORDER BY series_title, id ASC
+		) sub
+		WHERE a.series_title = sub.series_title
+		  AND (a.series_tmdb_id IS NULL)
+	`)
+	if err != nil {
+		return 0, fmt.Errorf("failed to propagate series_tmdb_id: %w", err)
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	return int(rowsAffected), nil
 }

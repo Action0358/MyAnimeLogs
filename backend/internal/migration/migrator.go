@@ -87,6 +87,7 @@ func (m *Migrator) createMigrationsTable() error {
 }
 
 // getMigrationFiles returns sorted list of migration files
+// getMigrationFiles returns sorted list of migration files (excludes rollback files)
 func (m *Migrator) getMigrationFiles() ([]string, error) {
 	files, err := os.ReadDir(m.migrationsPath)
 	if err != nil {
@@ -95,7 +96,8 @@ func (m *Migrator) getMigrationFiles() ([]string, error) {
 
 	var sqlFiles []string
 	for _, file := range files {
-		if strings.HasSuffix(file.Name(), ".sql") && !file.IsDir() {
+		if strings.HasSuffix(file.Name(), ".sql") && !file.IsDir() &&
+			!strings.Contains(file.Name(), "_rollback") {
 			sqlFiles = append(sqlFiles, file.Name())
 		}
 	}

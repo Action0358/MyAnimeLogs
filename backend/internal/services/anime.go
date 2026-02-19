@@ -691,18 +691,19 @@ func (s *AnimeService) AdvancedSearchAnimes(params models.AdvancedSearchParams, 
 
 func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWithUserData, error) {
 	var anime models.Anime
-	var description, media, officialSiteURL, titleKana, titleEn, releasedOn sql.NullString
-	var episodesCount sql.NullInt64
+	var description, media, officialSiteURL, titleKana, titleEn, releasedOn, seriesTitle sql.NullString
+	var episodesCount, seriesTMDBID sql.NullInt64
 
 	err := s.db.QueryRow(`
 		SELECT id, title, image_url, season, status, mal_anime_id, annict_id, created_at, updated_at, watchers_count,
 		       COALESCE(cover_image_extra_large, '') as cover_image_extra_large,
 		       COALESCE(cover_image_large, '') as cover_image_large,
 		       COALESCE(cover_image_medium, '') as cover_image_medium,
-		       description, media, released_on, official_site_url, title_kana, title_en, episodes_count
+		       description, media, released_on, official_site_url, title_kana, title_en, episodes_count,
+		       series_title, series_tmdb_id
 		FROM animes WHERE id = $1
 	`, animeID).Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount, &anime.CoverImageExtraLarge, &anime.CoverImageLarge, &anime.CoverImageMedium,
-		&description, &media, &releasedOn, &officialSiteURL, &titleKana, &titleEn, &episodesCount)
+		&description, &media, &releasedOn, &officialSiteURL, &titleKana, &titleEn, &episodesCount, &seriesTitle, &seriesTMDBID)
 
 	// Check error immediately after Scan - accessing scanned variables before error check is undefined behavior
 	if err != nil {
@@ -735,6 +736,13 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 		count := int(episodesCount.Int64)
 		anime.EpisodesCount = &count
 	}
+	if seriesTitle.Valid {
+		anime.SeriesTitle = &seriesTitle.String
+	}
+	if seriesTMDBID.Valid {
+		id := int(seriesTMDBID.Int64)
+		anime.SeriesTMDBID = &id
+	}
 
 	// DBキャッシュがない場合、またはextraLargeがない場合はAniListから画像を取得
 	if anime.CoverImageExtraLarge == "" || anime.CoverImageLarge == "" {
@@ -745,6 +753,9 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 	if anime.Description == nil || *anime.Description == "" {
 		s.enrichAnimeWithDescription(&anime)
 	}
+
+	// series_titleがない場合は設定（シリーズフォールバック用）
+	s.ensureSeriesTitle(&anime)
 
 	// released_onがない場合はJikan APIから取得
 	if anime.ReleasedOn == nil || *anime.ReleasedOn == "" {
@@ -1803,6 +1814,7 @@ func (s *AnimeService) enrichAnimesWithCoverImages(animes []models.Anime) {
 // enrichAnimeWithDescription - TMDBから日本語あらすじを取得してアニメ情報を拡張
 // DBにdescriptionがない場合のみAPIを呼び出す
 // TMDBが利用できない場合はAniListにフォールバック
+// シリーズ作品の場合、同じシリーズからあらすじを取得するフォールバックも実装
 func (s *AnimeService) enrichAnimeWithDescription(anime *models.Anime) {
 	ctx := context.Background()
 
@@ -1826,17 +1838,19 @@ func (s *AnimeService) enrichAnimeWithDescription(anime *models.Anime) {
 		if err == nil && overview != "" {
 			anime.Description = &overview
 
-			// DBに保存（非同期）
+			// DBに保存（非同期）- series_titleとseries_tmdb_idも保存
 			animeID := anime.ID
+			animeTitle := anime.Title
 			s.enqueueImageUpdate(func() {
 				ctx, cancel := context.WithTimeout(context.Background(), constants.ImageUpdateDBTimeout)
 				defer cancel()
 
+				seriesTitle := NormalizeAnimeTitle(animeTitle)
 				_, saveErr := s.db.ExecContext(ctx, `
 					UPDATE animes 
-					SET description = $1, tmdb_id = $2
-					WHERE id = $3
-				`, overview, tmdbID, animeID)
+					SET description = $1, tmdb_id = $2, series_title = $3, series_tmdb_id = $4
+					WHERE id = $5
+				`, overview, tmdbID, seriesTitle, tmdbID, animeID)
 				if saveErr != nil {
 					s.logger.Warn("Failed to save TMDB description to DB",
 						"error", saveErr,
@@ -1845,6 +1859,57 @@ func (s *AnimeService) enrichAnimeWithDescription(anime *models.Anime) {
 			})
 			return
 		}
+
+		// TMDBから直接取得できなかった場合、同じシリーズからあらすじを取得
+		seriesTitle := NormalizeAnimeTitle(anime.Title)
+		var seriesDescription string
+		var seriesTMDBID sql.NullInt64
+		seriesErr := s.db.QueryRow(`
+			SELECT description, series_tmdb_id
+			FROM animes 
+			WHERE series_title = $1 
+			  AND description IS NOT NULL 
+			  AND description != ''
+			ORDER BY series_tmdb_id IS NOT NULL DESC, id ASC
+			LIMIT 1
+		`, seriesTitle).Scan(&seriesDescription, &seriesTMDBID)
+
+		if seriesErr == nil && seriesDescription != "" {
+			anime.Description = &seriesDescription
+
+			// DBに保存（非同期）- series_titleとseries_tmdb_idも保存
+			animeID := anime.ID
+			s.enqueueImageUpdate(func() {
+				ctx, cancel := context.WithTimeout(context.Background(), constants.ImageUpdateDBTimeout)
+				defer cancel()
+
+				if seriesTMDBID.Valid && seriesTMDBID.Int64 > 0 {
+					_, saveErr := s.db.ExecContext(ctx, `
+						UPDATE animes 
+						SET description = $1, series_title = $2, series_tmdb_id = $3
+						WHERE id = $4
+					`, seriesDescription, seriesTitle, int(seriesTMDBID.Int64), animeID)
+					if saveErr != nil {
+						s.logger.Warn("Failed to save series description to DB",
+							"error", saveErr,
+							"anime_id", animeID)
+					}
+				} else {
+					_, saveErr := s.db.ExecContext(ctx, `
+						UPDATE animes 
+						SET description = $1, series_title = $2
+						WHERE id = $3
+					`, seriesDescription, seriesTitle, animeID)
+					if saveErr != nil {
+						s.logger.Warn("Failed to save series description to DB",
+							"error", saveErr,
+							"anime_id", animeID)
+					}
+				}
+			})
+			return
+		}
+
 		s.logger.Debug("Failed to get description from TMDB, falling back to AniList",
 			"error", err,
 			"mal_id", malID,
@@ -1891,6 +1956,40 @@ func (s *AnimeService) enrichAnimeWithDescription(anime *models.Anime) {
 				"mal_anime_id", malID)
 		}
 	})
+}
+
+// ensureSeriesTitle - series_titleがない場合に設定する
+// シリーズフォールバック機能のために、全てのアニメにseries_titleを設定する
+// descriptionが既にある場合でも、series_titleがない場合は設定する
+func (s *AnimeService) ensureSeriesTitle(anime *models.Anime) {
+	// series_titleが既にある場合はスキップ
+	if anime.SeriesTitle != nil && *anime.SeriesTitle != "" {
+		return
+	}
+
+	// タイトルからseries_titleを生成
+	seriesTitle := NormalizeAnimeTitle(anime.Title)
+
+	// DBに保存（非同期）
+	animeID := anime.ID
+	s.enqueueImageUpdate(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), constants.ImageUpdateDBTimeout)
+		defer cancel()
+
+		_, saveErr := s.db.ExecContext(ctx, `
+			UPDATE animes 
+			SET series_title = $1
+			WHERE id = $2 AND (series_title IS NULL OR series_title = '')
+		`, seriesTitle, animeID)
+		if saveErr != nil {
+			s.logger.Warn("Failed to save series_title to DB",
+				"error", saveErr,
+				"anime_id", animeID)
+		}
+	})
+
+	// メモリ上のanimeにも設定
+	anime.SeriesTitle = &seriesTitle
 }
 
 // enrichAnimeWithReleasedOn - Jikan APIから放送開始日を取得してアニメ情報を拡張
@@ -3404,9 +3503,9 @@ func (s *AnimeService) SyncDescriptionsFromTMDB() (int, int, int, error) {
 	// 1. No description (NULL or empty)
 	// 2. English description (contains HTML tags like <i>, <br>, or starts with ASCII and has no Japanese punctuation)
 	rows, err := s.db.Query(`
-		SELECT id, title, mal_anime_id 
-		FROM animes 
-		WHERE description IS NULL 
+		SELECT id, title, mal_anime_id
+		FROM animes
+		WHERE description IS NULL
 		   OR description = ''
 		   OR description LIKE '%<i>%'
 		   OR description LIKE '%<br>%'
@@ -3481,35 +3580,68 @@ func (s *AnimeService) SyncDescriptionsFromTMDB() (int, int, int, error) {
 			overview, tmdbID, err := s.tmdbClient.GetOverviewByMALIDOrTitle(ctx, malID, anime.Title, mediaTypeHint)
 			cancel()
 
-			if err != nil {
-				s.logger.Debug("Failed to get description from TMDB",
-					"anime_id", anime.ID,
-					"mal_id", malID,
-					"title", anime.Title,
-					"error", err)
+			if err != nil || overview == "" {
+				// TMDBから直接取得できなかった場合、シリーズフォールバックを試行
+				seriesTitle := NormalizeAnimeTitle(anime.Title)
+				var seriesDesc string
+				var seriesTMDBID sql.NullInt64
+				seriesErr := s.db.QueryRow(`
+					SELECT description, series_tmdb_id
+					FROM animes
+					WHERE series_title = $1
+					  AND description IS NOT NULL
+					  AND description != ''
+					  AND description NOT LIKE '%<i>%'
+					  AND description NOT LIKE '%<br>%'
+					ORDER BY series_tmdb_id IS NOT NULL DESC, id ASC
+					LIMIT 1
+				`, seriesTitle).Scan(&seriesDesc, &seriesTMDBID)
+
+				if seriesErr == nil && seriesDesc != "" {
+					// シリーズフォールバックで取得成功
+					if seriesTMDBID.Valid && seriesTMDBID.Int64 > 0 {
+						_, saveErr := s.db.Exec(`
+							UPDATE animes
+							SET description = $1, series_title = $2, series_tmdb_id = $3
+							WHERE id = $4
+						`, seriesDesc, seriesTitle, int(seriesTMDBID.Int64), anime.ID)
+						if saveErr != nil {
+							failureCount++
+							continue
+						}
+					} else {
+						_, saveErr := s.db.Exec(`
+							UPDATE animes
+							SET description = $1, series_title = $2
+							WHERE id = $3
+						`, seriesDesc, seriesTitle, anime.ID)
+						if saveErr != nil {
+							failureCount++
+							continue
+						}
+					}
+					successCount++
+					continue
+				}
+
 				notFoundCount++
 				continue
 			}
 
-			if overview == "" {
-				notFoundCount++
-				continue
-			}
-
-			// Save to database
-			var result sql.Result
+			// Save to database with series_title and series_tmdb_id
+			seriesTitle := NormalizeAnimeTitle(anime.Title)
 			if tmdbID > 0 {
-				result, err = s.db.Exec(`
-					UPDATE animes 
-					SET description = $1, tmdb_id = $2
-					WHERE id = $3
-				`, overview, tmdbID, anime.ID)
+				_, err = s.db.Exec(`
+					UPDATE animes
+					SET description = $1, tmdb_id = $2, series_title = $3, series_tmdb_id = $4
+					WHERE id = $5
+				`, overview, tmdbID, seriesTitle, tmdbID, anime.ID)
 			} else {
-				result, err = s.db.Exec(`
-					UPDATE animes 
-					SET description = $1
-					WHERE id = $2
-				`, overview, anime.ID)
+				_, err = s.db.Exec(`
+					UPDATE animes
+					SET description = $1, series_title = $2
+					WHERE id = $3
+				`, overview, seriesTitle, anime.ID)
 			}
 
 			if err != nil {
@@ -3520,10 +3652,7 @@ func (s *AnimeService) SyncDescriptionsFromTMDB() (int, int, int, error) {
 				continue
 			}
 
-			rowsAffected, _ := result.RowsAffected()
-			if rowsAffected > 0 {
-				successCount++
-			}
+			successCount++
 		}
 
 		// Wait before next batch (except for last batch)
@@ -3668,6 +3797,7 @@ func (s *AnimeService) SyncReleasedOnFromJikan() (int, int, int, error) {
 }
 
 // enrichAnimeWithWatchProviders - TMDBから配信サービス情報を取得してアニメ情報を拡張
+// series_tmdb_idがある場合はそれを優先的に使用（シリーズ作品の統合管理）
 func (s *AnimeService) enrichAnimeWithWatchProviders(animeWithData *models.AnimeWithUserData) {
 	if s.tmdbClient == nil || !s.tmdbClient.IsEnabled() {
 		return
@@ -3676,10 +3806,11 @@ func (s *AnimeService) enrichAnimeWithWatchProviders(animeWithData *models.Anime
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	// First, try to get TMDB ID and media type from database
+	// First, try to get TMDB ID and series_tmdb_id from database
 	var tmdbID int
+	var seriesTMDBID sql.NullInt64
 	var dbMediaType sql.NullString
-	err := s.db.QueryRow(`SELECT tmdb_id, media FROM animes WHERE id = $1 AND tmdb_id IS NOT NULL`, animeWithData.ID).Scan(&tmdbID, &dbMediaType)
+	err := s.db.QueryRow(`SELECT tmdb_id, series_tmdb_id, media FROM animes WHERE id = $1`, animeWithData.ID).Scan(&tmdbID, &seriesTMDBID, &dbMediaType)
 
 	// Determine media type (movie or tv)
 	mediaType := "tv" // Default to TV
@@ -3688,8 +3819,12 @@ func (s *AnimeService) enrichAnimeWithWatchProviders(animeWithData *models.Anime
 		malID = *animeWithData.MalAnimeID
 	}
 
-	// If TMDB ID is in DB, determine media type from DB or AniList
-	if err == nil && tmdbID > 0 {
+	// Use series_tmdb_id if available (for series works)
+	if err == nil && seriesTMDBID.Valid && seriesTMDBID.Int64 > 0 {
+		tmdbID = int(seriesTMDBID.Int64)
+		// series_tmdb_id is always for TV series
+		mediaType = "tv"
+	} else if err == nil && tmdbID > 0 {
 		// Check DB media field first
 		if dbMediaType.Valid && dbMediaType.String == "movie" {
 			mediaType = "movie"
@@ -3701,6 +3836,19 @@ func (s *AnimeService) enrichAnimeWithWatchProviders(animeWithData *models.Anime
 			if formatErr == nil && format == "MOVIE" {
 				mediaType = "movie"
 			}
+		}
+
+		// series_tmdb_idが未設定の場合、tmdb_idから設定（非同期）
+		if !seriesTMDBID.Valid || seriesTMDBID.Int64 == 0 {
+			animeID := animeWithData.ID
+			animeTitle := animeWithData.Title
+			savedTmdbID := tmdbID
+			s.enqueueImageUpdate(func() {
+				ctx, cancel := context.WithTimeout(context.Background(), constants.ImageUpdateDBTimeout)
+				defer cancel()
+				seriesTitle := NormalizeAnimeTitle(animeTitle)
+				_, _ = s.db.ExecContext(ctx, `UPDATE animes SET series_title = $1, series_tmdb_id = $2 WHERE id = $3 AND (series_tmdb_id IS NULL OR series_tmdb_id = 0)`, seriesTitle, savedTmdbID, animeID)
+			})
 		}
 	} else {
 		// TMDB ID not in DB, search by MAL ID first, then by title
@@ -3729,12 +3877,14 @@ func (s *AnimeService) enrichAnimeWithWatchProviders(animeWithData *models.Anime
 		// Use the media type returned by FindTMDBID (this is the actual type from TMDB)
 		mediaType = foundMediaType
 
-		// Save TMDB ID to database for future use (async)
+		// Save TMDB ID and series_tmdb_id to database for future use (async)
 		animeID := animeWithData.ID
+		animeTitle := animeWithData.Title
 		s.enqueueImageUpdate(func() {
 			ctx, cancel := context.WithTimeout(context.Background(), constants.ImageUpdateDBTimeout)
 			defer cancel()
-			_, _ = s.db.ExecContext(ctx, `UPDATE animes SET tmdb_id = $1 WHERE id = $2`, tmdbID, animeID)
+			seriesTitle := NormalizeAnimeTitle(animeTitle)
+			_, _ = s.db.ExecContext(ctx, `UPDATE animes SET tmdb_id = $1, series_title = $2, series_tmdb_id = $3 WHERE id = $4`, tmdbID, seriesTitle, tmdbID, animeID)
 		})
 	}
 
