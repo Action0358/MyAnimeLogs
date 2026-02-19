@@ -416,11 +416,16 @@ func (c *TMDBClient) findBestMatch(results []TMDBTVShow) *TMDBTVShow {
 
 // Pre-compiled regex patterns for anime title normalization (performance optimization)
 var animeTitlePatterns = []*regexp.Regexp{
-	// Japanese season patterns
+	// Japanese season patterns (Arabic numerals)
 	regexp.MustCompile(` 第\d+期.*`),    // " 第3期" and anything after
 	regexp.MustCompile(`第\d+期.*`),     // "第3期" (no space)
 	regexp.MustCompile(` 第\d+シーズン.*`), // " 第2シーズン"
 	regexp.MustCompile(`第\d+シーズン.*`),  // "第2シーズン"
+	// Japanese season patterns (Kanji numerals)
+	regexp.MustCompile(` 第[一二三四五六七八九十百]+期.*`),    // " 第二期"
+	regexp.MustCompile(`第[一二三四五六七八九十百]+期.*`),     // "第二期" (no space)
+	regexp.MustCompile(` 第[一二三四五六七八九十百]+シーズン.*`), // " 第二シーズン"
+	regexp.MustCompile(`第[一二三四五六七八九十百]+シーズン.*`),  // "第二シーズン"
 	// English season patterns (greedy: removes everything after match)
 	regexp.MustCompile(` Season \d+.*`),       // " Season 3 Part.2" etc.
 	regexp.MustCompile(` The Final Season.*`), // " The Final Season Part 2"
