@@ -24,6 +24,8 @@ var animeTitlePatterns = []*regexp.Regexp{
 	regexp.MustCompile(`第\d+期.*`),
 	regexp.MustCompile(` 第\d+シーズン.*`),
 	regexp.MustCompile(`第\d+シーズン.*`),
+	regexp.MustCompile(` 第\d+クール.*`),
+	regexp.MustCompile(`第\d+クール.*`),
 	regexp.MustCompile(` 第[一二三四五六七八九十百]+期.*`),
 	regexp.MustCompile(`第[一二三四五六七八九十百]+期.*`),
 	regexp.MustCompile(` 第[一二三四五六七八九十百]+シーズン.*`),

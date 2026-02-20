@@ -421,6 +421,8 @@ var animeTitlePatterns = []*regexp.Regexp{
 	regexp.MustCompile(`第\d+期.*`),     // "第3期" (no space)
 	regexp.MustCompile(` 第\d+シーズン.*`), // " 第2シーズン"
 	regexp.MustCompile(`第\d+シーズン.*`),  // "第2シーズン"
+	regexp.MustCompile(` 第\d+クール.*`),  // " 第2クール"
+	regexp.MustCompile(`第\d+クール.*`),   // "第2クール"
 	// Japanese season patterns (Kanji numerals)
 	regexp.MustCompile(` 第[一二三四五六七八九十百]+期.*`),    // " 第二期"
 	regexp.MustCompile(`第[一二三四五六七八九十百]+期.*`),     // "第二期" (no space)
