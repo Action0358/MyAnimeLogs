@@ -86,7 +86,6 @@ func (m *Migrator) createMigrationsTable() error {
 	return err
 }
 
-// getMigrationFiles returns sorted list of migration files
 // getMigrationFiles returns sorted list of migration files (excludes rollback files)
 func (m *Migrator) getMigrationFiles() ([]string, error) {
 	files, err := os.ReadDir(m.migrationsPath)

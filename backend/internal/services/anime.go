@@ -1988,24 +1988,11 @@ func (s *AnimeService) enrichAnimeWithDescription(anime *models.Anime) {
 		if err == nil && overview != "" {
 			anime.Description = &overview
 
-			// DBに保存（非同期）- series_titleとseries_tmdb_idも保存
+			// DBに保存（非同期）
 			animeID := anime.ID
-			animeTitle := anime.Title
+			seriesTitle := NormalizeAnimeTitle(anime.Title)
 			s.enqueueImageUpdate(func() {
-				ctx, cancel := context.WithTimeout(context.Background(), constants.ImageUpdateDBTimeout)
-				defer cancel()
-
-				seriesTitle := NormalizeAnimeTitle(animeTitle)
-				_, saveErr := s.db.ExecContext(ctx, `
-					UPDATE animes 
-					SET description = $1, tmdb_id = $2, series_title = $3, series_tmdb_id = $4
-					WHERE id = $5
-				`, overview, tmdbID, seriesTitle, tmdbID, animeID)
-				if saveErr != nil {
-					s.logger.Warn("Failed to save TMDB description to DB",
-						"error", saveErr,
-						"anime_id", animeID)
-				}
+				s.updateAnimeSeriesInfo(context.Background(), animeID, overview, tmdbID, seriesTitle, tmdbID)
 			})
 			return
 		}
@@ -2027,35 +2014,14 @@ func (s *AnimeService) enrichAnimeWithDescription(anime *models.Anime) {
 		if seriesErr == nil && seriesDescription != "" {
 			anime.Description = &seriesDescription
 
-			// DBに保存（非同期）- series_titleとseries_tmdb_idも保存
+			// DBに保存（非同期）
 			animeID := anime.ID
 			s.enqueueImageUpdate(func() {
-				ctx, cancel := context.WithTimeout(context.Background(), constants.ImageUpdateDBTimeout)
-				defer cancel()
-
-				if seriesTMDBID.Valid && seriesTMDBID.Int64 > 0 {
-					_, saveErr := s.db.ExecContext(ctx, `
-						UPDATE animes 
-						SET description = $1, series_title = $2, series_tmdb_id = $3
-						WHERE id = $4
-					`, seriesDescription, seriesTitle, int(seriesTMDBID.Int64), animeID)
-					if saveErr != nil {
-						s.logger.Warn("Failed to save series description to DB",
-							"error", saveErr,
-							"anime_id", animeID)
-					}
-				} else {
-					_, saveErr := s.db.ExecContext(ctx, `
-						UPDATE animes 
-						SET description = $1, series_title = $2
-						WHERE id = $3
-					`, seriesDescription, seriesTitle, animeID)
-					if saveErr != nil {
-						s.logger.Warn("Failed to save series description to DB",
-							"error", saveErr,
-							"anime_id", animeID)
-					}
+				var tmdbID int
+				if seriesTMDBID.Valid {
+					tmdbID = int(seriesTMDBID.Int64)
 				}
+				s.updateAnimeSeriesInfo(context.Background(), animeID, seriesDescription, 0, seriesTitle, tmdbID)
 			})
 			return
 		}
@@ -2106,6 +2072,45 @@ func (s *AnimeService) enrichAnimeWithDescription(anime *models.Anime) {
 				"mal_anime_id", malID)
 		}
 	})
+}
+
+// updateAnimeSeriesInfo updates anime description and series information
+func (s *AnimeService) updateAnimeSeriesInfo(ctx context.Context, animeID int, description string, tmdbID int, seriesTitle string, seriesTMDBID int) {
+	dbCtx, cancel := context.WithTimeout(ctx, constants.ImageUpdateDBTimeout)
+	defer cancel()
+
+	var err error
+	if tmdbID > 0 && seriesTMDBID > 0 {
+		_, err = s.db.ExecContext(dbCtx, `
+			UPDATE animes 
+			SET description = $1, tmdb_id = $2, series_title = $3, series_tmdb_id = $4
+			WHERE id = $5
+		`, description, tmdbID, seriesTitle, seriesTMDBID, animeID)
+	} else if seriesTMDBID > 0 {
+		_, err = s.db.ExecContext(dbCtx, `
+			UPDATE animes 
+			SET description = $1, series_title = $2, series_tmdb_id = $3
+			WHERE id = $4
+		`, description, seriesTitle, seriesTMDBID, animeID)
+	} else if tmdbID > 0 {
+		_, err = s.db.ExecContext(dbCtx, `
+			UPDATE animes 
+			SET description = $1, tmdb_id = $2, series_title = $3
+			WHERE id = $4
+		`, description, tmdbID, seriesTitle, animeID)
+	} else {
+		_, err = s.db.ExecContext(dbCtx, `
+			UPDATE animes 
+			SET description = $1, series_title = $2
+			WHERE id = $3
+		`, description, seriesTitle, animeID)
+	}
+
+	if err != nil {
+		s.logger.Warn("Failed to update anime series info in DB",
+			"error", err,
+			"anime_id", animeID)
+	}
 }
 
 // ensureSeriesTitle - series_titleがない場合に設定する
@@ -3749,27 +3754,11 @@ func (s *AnimeService) SyncDescriptionsFromTMDB() (int, int, int, error) {
 
 				if seriesErr == nil && seriesDesc != "" {
 					// シリーズフォールバックで取得成功
-					if seriesTMDBID.Valid && seriesTMDBID.Int64 > 0 {
-						_, saveErr := s.db.Exec(`
-							UPDATE animes
-							SET description = $1, series_title = $2, series_tmdb_id = $3
-							WHERE id = $4
-						`, seriesDesc, seriesTitle, int(seriesTMDBID.Int64), anime.ID)
-						if saveErr != nil {
-							failureCount++
-							continue
-						}
-					} else {
-						_, saveErr := s.db.Exec(`
-							UPDATE animes
-							SET description = $1, series_title = $2
-							WHERE id = $3
-						`, seriesDesc, seriesTitle, anime.ID)
-						if saveErr != nil {
-							failureCount++
-							continue
-						}
+					var seriesTMDBIDVal int
+					if seriesTMDBID.Valid {
+						seriesTMDBIDVal = int(seriesTMDBID.Int64)
 					}
+					s.updateAnimeSeriesInfo(context.Background(), anime.ID, seriesDesc, 0, seriesTitle, seriesTMDBIDVal)
 					successCount++
 					continue
 				}
@@ -3780,28 +3769,7 @@ func (s *AnimeService) SyncDescriptionsFromTMDB() (int, int, int, error) {
 
 			// Save to database with series_title and series_tmdb_id
 			seriesTitle := NormalizeAnimeTitle(anime.Title)
-			if tmdbID > 0 {
-				_, err = s.db.Exec(`
-					UPDATE animes
-					SET description = $1, tmdb_id = $2, series_title = $3, series_tmdb_id = $4
-					WHERE id = $5
-				`, overview, tmdbID, seriesTitle, tmdbID, anime.ID)
-			} else {
-				_, err = s.db.Exec(`
-					UPDATE animes
-					SET description = $1, series_title = $2
-					WHERE id = $3
-				`, overview, seriesTitle, anime.ID)
-			}
-
-			if err != nil {
-				s.logger.Warn("Failed to save description",
-					"anime_id", anime.ID,
-					"error", err)
-				failureCount++
-				continue
-			}
-
+			s.updateAnimeSeriesInfo(context.Background(), anime.ID, overview, tmdbID, seriesTitle, tmdbID)
 			successCount++
 		}
 
@@ -4145,10 +4113,8 @@ func (s *AnimeService) enrichAnimeWithWatchProviders(animeWithData *models.Anime
 			animeTitle := animeWithData.Title
 			savedTmdbID := tmdbID
 			s.enqueueImageUpdate(func() {
-				ctx, cancel := context.WithTimeout(context.Background(), constants.ImageUpdateDBTimeout)
-				defer cancel()
 				seriesTitle := NormalizeAnimeTitle(animeTitle)
-				_, _ = s.db.ExecContext(ctx, `UPDATE animes SET series_title = $1, series_tmdb_id = $2 WHERE id = $3 AND (series_tmdb_id IS NULL OR series_tmdb_id = 0)`, seriesTitle, savedTmdbID, animeID)
+				s.updateAnimeSeriesInfo(context.Background(), animeID, "", 0, seriesTitle, savedTmdbID)
 			})
 		}
 	} else {
@@ -4182,10 +4148,8 @@ func (s *AnimeService) enrichAnimeWithWatchProviders(animeWithData *models.Anime
 		animeID := animeWithData.ID
 		animeTitle := animeWithData.Title
 		s.enqueueImageUpdate(func() {
-			ctx, cancel := context.WithTimeout(context.Background(), constants.ImageUpdateDBTimeout)
-			defer cancel()
 			seriesTitle := NormalizeAnimeTitle(animeTitle)
-			_, _ = s.db.ExecContext(ctx, `UPDATE animes SET tmdb_id = $1, series_title = $2, series_tmdb_id = $3 WHERE id = $4`, tmdbID, seriesTitle, tmdbID, animeID)
+			s.updateAnimeSeriesInfo(context.Background(), animeID, "", tmdbID, seriesTitle, tmdbID)
 		})
 	}
 

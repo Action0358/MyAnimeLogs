@@ -18,36 +18,6 @@ import (
 	"github.com/joho/godotenv"
 )
 
-// Pre-compiled regex patterns for anime title normalization
-var animeTitlePatterns = []*regexp.Regexp{
-	regexp.MustCompile(` 第\d+期.*`),
-	regexp.MustCompile(`第\d+期.*`),
-	regexp.MustCompile(` 第\d+シーズン.*`),
-	regexp.MustCompile(`第\d+シーズン.*`),
-	regexp.MustCompile(` 第\d+クール.*`),
-	regexp.MustCompile(`第\d+クール.*`),
-	regexp.MustCompile(` 第[一二三四五六七八九十百]+期.*`),
-	regexp.MustCompile(`第[一二三四五六七八九十百]+期.*`),
-	regexp.MustCompile(` 第[一二三四五六七八九十百]+シーズン.*`),
-	regexp.MustCompile(`第[一二三四五六七八九十百]+シーズン.*`),
-	regexp.MustCompile(` Season \d+.*`),
-	regexp.MustCompile(` The Final Season.*`),
-	regexp.MustCompile(` Final Season.*`),
-	regexp.MustCompile(` Part[.\s]*\d+$`),
-	regexp.MustCompile(` [IVX]+$`),
-	regexp.MustCompile(` \d+nd Season.*`),
-	regexp.MustCompile(` \d+rd Season.*`),
-	regexp.MustCompile(` \d+th Season.*`),
-}
-
-func normalizeAnimeTitle(title string) string {
-	result := title
-	for _, re := range animeTitlePatterns {
-		result = re.ReplaceAllString(result, "")
-	}
-	return strings.TrimSpace(result)
-}
-
 func main() {
 	// Parse command line arguments
 	env := flag.String("env", "local", "Environment to use: local, staging, production")
@@ -379,7 +349,7 @@ func updateSeriesTitles(db *database.DB, logger *common.Logger) (int, error) {
 			continue
 		}
 
-		seriesTitle := normalizeAnimeTitle(title)
+		seriesTitle := services.NormalizeAnimeTitle(title)
 		updates = append(updates, animeUpdate{
 			ID:          id,
 			Title:       title,
@@ -391,16 +361,37 @@ func updateSeriesTitles(db *database.DB, logger *common.Logger) (int, error) {
 		return 0, fmt.Errorf("error iterating rows: %w", err)
 	}
 
+	if len(updates) == 0 {
+		return 0, nil
+	}
+
 	logger.Info("Found animes to update series_title", "count", len(updates))
+
+	// Start transaction for batch update
+	tx, err := db.Begin()
+	if err != nil {
+		return 0, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	stmt, err := tx.Prepare(`UPDATE animes SET series_title = $1 WHERE id = $2`)
+	if err != nil {
+		return 0, fmt.Errorf("failed to prepare statement: %w", err)
+	}
+	defer stmt.Close()
 
 	updated := 0
 	for _, u := range updates {
-		_, err := db.Exec(`UPDATE animes SET series_title = $1 WHERE id = $2`, u.SeriesTitle, u.ID)
+		_, err := stmt.Exec(u.SeriesTitle, u.ID)
 		if err != nil {
 			logger.Warn("Failed to update anime", "id", u.ID, "error", err)
 			continue
 		}
 		updated++
+	}
+
+	if err := tx.Commit(); err != nil {
+		return updated, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	// Phase 2: Propagate series_tmdb_id within series groups
