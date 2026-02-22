@@ -367,19 +367,20 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork) (*models.Anim
 		}
 	}
 
-	// アニメのステータスを非同期で更新
+	// アニメのステータスを非同期で更新（ワーカープールを使用して並行数を制御）
 	// SyncAnimeStatusはAnimeServiceのメソッドなので、AnnictClientからはanimeService経由で呼び出す
 	if c.animeService != nil {
-		go func() {
-			err := c.animeService.SyncAnimeStatus(anime.ID)
+		animeID := anime.ID
+		c.animeService.enqueueImageUpdate(func() {
+			err := c.animeService.SyncAnimeStatus(animeID, true)
 			if err != nil {
 				c.logger.Error("Failed to sync anime status after Annict sync",
-					"anime_id", anime.ID,
+					"anime_id", animeID,
 					"error", err)
 			} else {
-				c.logger.Debug("Anime status sync triggered for", "anime_id", anime.ID)
+				c.logger.Debug("Anime status sync triggered for", "anime_id", animeID)
 			}
-		}()
+		})
 	}
 
 	return &anime, nil

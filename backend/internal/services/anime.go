@@ -896,7 +896,7 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 }
 
 // SyncAnimeStatus - TMDBからステータスを取得して更新
-func (s *AnimeService) SyncAnimeStatus(animeID int) error {
+func (s *AnimeService) SyncAnimeStatus(animeID int, clearCache bool) error {
 	// アニメ情報を取得（released_on, mediaも含める）
 	var anime models.Anime
 	var releasedOn, media sql.NullString
@@ -943,9 +943,10 @@ func (s *AnimeService) SyncAnimeStatus(animeID int) error {
 			status = mapTMDBStatus(details.Status)
 			// TMDBがairingを返しても、released_onが未来ならupcomingに上書き
 			if releasedOnPtr != nil && *releasedOnPtr != "" {
-				releaseDate, parseErr := time.Parse("2006-01-02", *releasedOnPtr)
+				// UTCでパースして比較（サーバーのタイムゾーンに依存しないようにする）
+				releaseDate, parseErr := time.ParseInLocation("2006-01-02", *releasedOnPtr, time.UTC)
 				if parseErr == nil {
-					today := time.Now().Truncate(24 * time.Hour)
+					today := time.Now().UTC().Truncate(24 * time.Hour)
 					if releaseDate.After(today) {
 						status = "upcoming"
 					}
@@ -986,14 +987,17 @@ func (s *AnimeService) SyncAnimeStatus(animeID int) error {
 		return fmt.Errorf("failed to update anime status for anime %d to %s: %w", animeID, status, err)
 	}
 
-	// キャッシュをクリア
-	s.ClearAnimeCache()
+	// キャッシュをクリア（バッチ処理の場合は最後にまとめてクリアするため false を指定可能）
+	if clearCache {
+		s.ClearAnimeCache()
+	}
 	s.logger.Debug("Anime status updated", "anime_id", animeID, "new_status", status)
 
 	return nil
 }
 
 // SyncAllAnimeStatuses - 全アニメのステータスを更新
+// 処理に時間がかかるため、バックグラウンドで実行することを推奨
 func (s *AnimeService) SyncAllAnimeStatuses() (int, int, error) {
 	rows, err := s.db.Query(`
         SELECT id, season FROM animes
@@ -1030,7 +1034,8 @@ func (s *AnimeService) SyncAllAnimeStatuses() (int, int, error) {
 	s.logger.Info("Starting status sync for all animes", "total_animes", totalAnimes)
 
 	// レート制限対策 (TMDB API呼び出しを考慮)
-	const delay = 100 * time.Millisecond // 100ms per anime
+	// TMDBの制限は 40 req / 10 sec なので、余裕を持って 250ms (4 req / sec) とする
+	const delay = 250 * time.Millisecond
 
 	for i, animeID := range animeIDs {
 		// 進行状況のロギング
@@ -1038,7 +1043,8 @@ func (s *AnimeService) SyncAllAnimeStatuses() (int, int, error) {
 			s.logger.Info("Processing anime status sync", "progress", fmt.Sprintf("%d/%d", i, totalAnimes))
 		}
 
-		if err := s.SyncAnimeStatus(animeID); err != nil {
+		// バッチ処理内では個別のキャッシュクリアを無効化 (false)
+		if err := s.SyncAnimeStatus(animeID, false); err != nil {
 			s.logger.Warn("Failed to sync anime status", "anime_id", animeID, "error", err)
 			failureCount++
 		} else {
@@ -1046,6 +1052,11 @@ func (s *AnimeService) SyncAllAnimeStatuses() (int, int, error) {
 		}
 
 		time.Sleep(delay)
+	}
+
+	// 全ての更新が完了した後に一度だけキャッシュをクリア
+	if successCount > 0 {
+		s.ClearAnimeCache()
 	}
 
 	s.logger.Info("Anime status sync completed", "success", successCount, "failure", failureCount)
@@ -4201,9 +4212,10 @@ func (s *AnimeService) enrichAnimeWithWatchProviders(animeWithData *models.Anime
 func determineStatusBySeason(seasonName string, releasedOn *string) string {
 	// released_onが未来の日付なら放送予定
 	if releasedOn != nil && *releasedOn != "" {
-		releaseDate, err := time.Parse("2006-01-02", *releasedOn)
+		// UTCで比較してサーバータイムゾーンの影響を排除
+		releaseDate, err := time.ParseInLocation("2006-01-02", *releasedOn, time.UTC)
 		if err == nil {
-			today := time.Now().Truncate(24 * time.Hour)
+			today := time.Now().UTC().Truncate(24 * time.Hour)
 			if releaseDate.After(today) {
 				return "upcoming"
 			}
@@ -4222,7 +4234,7 @@ func determineStatusBySeason(seasonName string, releasedOn *string) string {
 		return "finished" // パース失敗時は完結とみなす
 	}
 
-	now := time.Now()
+	now := time.Now().UTC()
 	currentYear := now.Year()
 	currentMonth := int(now.Month())
 
