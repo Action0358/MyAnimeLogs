@@ -1,5 +1,5 @@
 -- +migrate Up
-ALTER TABLE animes ADD COLUMN released_on VARCHAR(255);
+ALTER TABLE animes ADD COLUMN IF NOT EXISTS released_on VARCHAR(255);
 
 -- +migrate Down
-ALTER TABLE animes DROP COLUMN released_on;
+ALTER TABLE animes DROP COLUMN IF EXISTS released_on;

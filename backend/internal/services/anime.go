@@ -897,15 +897,15 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 
 // SyncAnimeStatus - TMDBからステータスを取得して更新
 func (s *AnimeService) SyncAnimeStatus(animeID int) error {
-	// アニメ情報を取得（released_onも含める）
+	// アニメ情報を取得（released_on, mediaも含める）
 	var anime models.Anime
-	var releasedOn sql.NullString
+	var releasedOn, media sql.NullString
 	var seriesTMDBID sql.NullInt64
 	err := s.db.QueryRow(`
-		SELECT id, series_tmdb_id, season, released_on
+		SELECT id, series_tmdb_id, season, released_on, media
 		FROM animes
 		WHERE id = $1
-	`, animeID).Scan(&anime.ID, &seriesTMDBID, &anime.Season, &releasedOn)
+	`, animeID).Scan(&anime.ID, &seriesTMDBID, &anime.Season, &releasedOn, &media)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -931,7 +931,12 @@ func (s *AnimeService) SyncAnimeStatus(animeID int) error {
 	}
 
 	// TMDBからステータスを取得
-	if anime.SeriesTMDBID != nil && s.tmdbClient != nil && s.tmdbClient.IsEnabled() {
+	// 映画（movie）の場合はTMDB TV APIが使えないため、released_onベースで判定
+	isMovie := media.Valid && media.String == "movie"
+	if isMovie {
+		// 映画はreleased_on + シーズンベースで判定
+		status = determineStatusBySeason(seasonStr, releasedOnPtr)
+	} else if anime.SeriesTMDBID != nil && s.tmdbClient != nil && s.tmdbClient.IsEnabled() {
 		ctx := context.Background()
 		details, err := s.tmdbClient.GetTVDetails(ctx, *anime.SeriesTMDBID, "ja-JP")
 		if err == nil {
