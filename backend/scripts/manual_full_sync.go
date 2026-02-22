@@ -19,18 +19,25 @@ import (
 func main() {
 	// Parse command line arguments
 	env := flag.String("env", "local", "Environment to use: local, staging, production")
+	priority := flag.Bool("priority", false, "Priority mode: sync current season + popular animes only")
 	flag.Parse()
 
 	logger := common.NewLogger(common.LogLevelInfo, "text")
 
-	if err := run(logger, *env); err != nil {
-		logger.Error("Manual full sync failed", "error", err)
-		os.Exit(1)
+	if *priority {
+		if err := runPriority(logger, *env); err != nil {
+			logger.Error("Priority sync failed", "error", err)
+			os.Exit(1)
+		}
+	} else {
+		if err := run(logger, *env); err != nil {
+			logger.Error("Manual full sync failed", "error", err)
+			os.Exit(1)
+		}
 	}
 }
 
-func run(logger *common.Logger, env string) error {
-	// Determine env file based on environment
+func initServices(logger *common.Logger, env string) (*database.DB, *services.AnnictClient, *services.AnimeService, error) {
 	var envFile string
 	switch env {
 	case "local":
@@ -40,36 +47,116 @@ func run(logger *common.Logger, env string) error {
 	case "production":
 		envFile = ".env.production"
 	default:
-		return fmt.Errorf("invalid environment: %s (use: local, staging, production)", env)
+		return nil, nil, nil, fmt.Errorf("invalid environment: %s (use: local, staging, production)", env)
 	}
 
 	logger.Info("Loading environment", "env", env, "file", envFile)
-
-	// Load environment variables
 	if err := godotenv.Load(envFile); err != nil {
 		logger.Warn("Environment file not found", "file", envFile, "error", err)
 	}
 
-	// Initialize database
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
-		return fmt.Errorf("DATABASE_URL is not set")
+		return nil, nil, nil, fmt.Errorf("DATABASE_URL is not set")
 	}
 
 	db, err := database.New(dbURL)
 	if err != nil {
-		return fmt.Errorf("failed to connect to database: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
-	defer db.Close()
 
-	// Initialize services
 	annictToken := os.Getenv("ANNICT_API_KEY")
 	if annictToken == "" {
-		return fmt.Errorf("ANNICT_API_KEY is not set")
+		db.Close()
+		return nil, nil, nil, fmt.Errorf("ANNICT_API_KEY is not set")
 	}
 
 	annictClient := services.NewAnnictClientWithDB(annictToken, db, logger)
 	animeService := services.NewAnimeService(db, logger, annictClient)
+
+	return db, annictClient, animeService, nil
+}
+
+func runPriority(logger *common.Logger, env string) error {
+	db, annictClient, animeService, err := initServices(logger, env)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	// Determine current season
+	now := time.Now()
+	year := now.Year()
+	var seasonName string
+	switch {
+	case now.Month() >= 1 && now.Month() <= 3:
+		seasonName = "winter"
+	case now.Month() >= 4 && now.Month() <= 6:
+		seasonName = "spring"
+	case now.Month() >= 7 && now.Month() <= 9:
+		seasonName = "summer"
+	default:
+		seasonName = "autumn"
+	}
+	currentSeason := fmt.Sprintf("%d-%s", year, seasonName)
+
+	fmt.Printf("\n=== Priority Sync (%s) ===\n", env)
+	fmt.Printf("Current season: %s\n", currentSeason)
+	fmt.Println("Syncing current season + popular animes (top 100)")
+	fmt.Println()
+
+	startTime := time.Now()
+	animeIDSet := make(map[int]bool)
+
+	// Step 1: Fetch current season from Annict
+	logger.Info("Step 1/3: Fetching current season animes from Annict...", "season", currentSeason)
+	seasonAnimes, err := annictClient.FetchAndSyncWorksBySeason(currentSeason)
+	if err != nil {
+		logger.Warn("Failed to fetch current season", "error", err)
+	} else {
+		for _, a := range seasonAnimes {
+			animeIDSet[a.ID] = true
+		}
+		logger.Info("Current season animes synced", "count", len(seasonAnimes))
+	}
+
+	// Step 2: Re-sync popular animes (top 100 by watchers_count)
+	logger.Info("Step 2/3: Re-syncing popular animes from Annict...")
+	popularAnimes, err := annictClient.FetchAndSyncPopularWorks()
+	if err != nil {
+		logger.Warn("Failed to fetch popular works", "error", err)
+	} else {
+		for _, a := range popularAnimes {
+			animeIDSet[a.ID] = true
+		}
+		logger.Info("Popular animes synced", "count", len(popularAnimes))
+	}
+
+	// Collect unique anime IDs
+	animeIDs := make([]int, 0, len(animeIDSet))
+	for id := range animeIDSet {
+		animeIDs = append(animeIDs, id)
+	}
+	logger.Info("Total unique animes to enrich", "count", len(animeIDs))
+
+	// Step 3: Enrich with episodes, descriptions, released_on
+	logger.Info("Step 3/3: Enriching anime data (episodes, descriptions, released_on)...")
+	if err := animeService.SyncPriorityAnimeData(animeIDs); err != nil {
+		logger.Warn("Failed to enrich priority anime data", "error", err)
+	}
+
+	duration := time.Since(startTime)
+	logger.Info("Priority sync completed", "duration", duration.String(), "total_animes", len(animeIDs))
+
+	return nil
+}
+
+func run(logger *common.Logger, env string) error {
+	db, annictClient, animeService, err := initServices(logger, env)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
 
 	fmt.Printf("\n=== Manual Full Sync (%s) ===\n", env)
 	fmt.Println("This will re-sync all animes from Annict, episodes from Jikan, and descriptions from TMDB.")

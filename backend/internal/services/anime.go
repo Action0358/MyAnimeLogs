@@ -44,10 +44,11 @@ func (s *AnimeService) GetCurrentSeasonAnimes(limit int) ([]models.Anime, error)
 
 	// DBから取得
 	animes, err := s.getAnimesByQuery(
-		`SELECT id, title, image_url, season, status, released_on, mal_anime_id, annict_id, created_at, updated_at, watchers_count,
+		`SELECT id, title, image_url, season, status, mal_anime_id, annict_id, created_at, updated_at, watchers_count,
 		        COALESCE(cover_image_extra_large, '') as cover_image_extra_large,
 		        COALESCE(cover_image_large, '') as cover_image_large,
-		        COALESCE(cover_image_medium, '') as cover_image_medium
+		        COALESCE(cover_image_medium, '') as cover_image_medium,
+		        released_on
 		FROM animes
 		WHERE season = $1
 		ORDER BY watchers_count DESC NULLS LAST, title
@@ -85,10 +86,11 @@ func (s *AnimeService) GetPopularAnimes(limit int) ([]models.Anime, error) {
 
 	// DBから取得
 	animes, err := s.getAnimesByQuery(
-		`SELECT id, title, image_url, season, status, released_on, mal_anime_id, annict_id, created_at, updated_at, watchers_count,
+		`SELECT id, title, image_url, season, status, mal_anime_id, annict_id, created_at, updated_at, watchers_count,
 		        COALESCE(cover_image_extra_large, '') as cover_image_extra_large,
 		        COALESCE(cover_image_large, '') as cover_image_large,
-		        COALESCE(cover_image_medium, '') as cover_image_medium
+		        COALESCE(cover_image_medium, '') as cover_image_medium,
+		        released_on
 		FROM animes
 		WHERE watchers_count > 0
 		ORDER BY watchers_count DESC, title
@@ -109,6 +111,7 @@ func (s *AnimeService) GetPopularAnimes(limit int) ([]models.Anime, error) {
 }
 
 // getAnimesByQuery is a helper function to execute anime queries with proper error handling
+// getAnimesByQuery is a helper function to execute anime queries with proper error handling
 func (s *AnimeService) getAnimesByQuery(query string, args []interface{}, queryName string) ([]models.Anime, error) {
 	rows, err := s.db.Query(query, args...)
 	if err != nil {
@@ -119,7 +122,7 @@ func (s *AnimeService) getAnimesByQuery(query string, args []interface{}, queryN
 	animes := []models.Anime{}
 	for rows.Next() {
 		var anime models.Anime
-		err := rows.Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.ReleasedOn, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount, &anime.CoverImageExtraLarge, &anime.CoverImageLarge, &anime.CoverImageMedium)
+		err := rows.Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount, &anime.CoverImageExtraLarge, &anime.CoverImageLarge, &anime.CoverImageMedium, &anime.ReleasedOn)
 		if err != nil {
 			s.logger.Warn("Failed to scan anime row", "query", queryName, "error", err)
 			continue
@@ -882,6 +885,153 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 	s.enrichAnimeWithWatchProviders(animeWithData)
 
 	return animeWithData, nil
+}
+
+// SyncAnimeStatus - TMDBからステータスを取得して更新
+func (s *AnimeService) SyncAnimeStatus(animeID int) error {
+	// アニメ情報を取得（released_onも含める）
+	var anime models.Anime
+	var releasedOn sql.NullString
+	err := s.db.QueryRow(`
+		SELECT id, series_tmdb_id, season, released_on
+		FROM animes
+		WHERE id = $1
+	`, animeID).Scan(&anime.ID, &anime.SeriesTMDBID, &anime.Season, &releasedOn)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return ErrAnimeNotFound
+		}
+		return fmt.Errorf("failed to get anime for status sync: %w", err)
+	}
+
+	// released_onをポインタに変換
+	var releasedOnPtr *string
+	if releasedOn.Valid {
+		releasedOnPtr = &releasedOn.String
+	}
+
+	var status string
+	var seasonStr string
+	if anime.Season != nil {
+		seasonStr = *anime.Season
+	}
+
+	// TMDBからステータスを取得
+	if anime.SeriesTMDBID != nil && s.tmdbClient != nil && s.tmdbClient.IsEnabled() {
+		ctx := context.Background()
+		details, err := s.tmdbClient.GetTVDetails(ctx, *anime.SeriesTMDBID, "ja-JP")
+		if err == nil {
+			status = mapTMDBStatus(details.Status)
+			// TMDBがairingを返しても、released_onが未来ならupcomingに上書き
+			if releasedOnPtr != nil && *releasedOnPtr != "" {
+				releaseDate, parseErr := time.Parse("2006-01-02", *releasedOnPtr)
+				if parseErr == nil {
+					today := time.Now().Truncate(24 * time.Hour)
+					if releaseDate.After(today) {
+						status = "upcoming"
+					}
+				}
+			}
+		} else {
+			s.logger.Warn("Failed to get TMDB TV details for status sync, falling back to season-based status",
+				"anime_id", animeID,
+				"series_tmdb_id", *anime.SeriesTMDBID,
+				"error", err)
+			// フォールバック
+			status = determineStatusBySeason(seasonStr, releasedOnPtr)
+		}
+	} else {
+		// TMDB IDがない、またはTMDBクライアントが利用できない場合はシーズンベース
+		status = determineStatusBySeason(seasonStr, releasedOnPtr)
+	}
+
+	// 既存のステータスと比較して変更がなければ更新しない
+	var currentStatus sql.NullString
+	err = s.db.QueryRow("SELECT status FROM animes WHERE id = $1", animeID).Scan(&currentStatus)
+	if err != nil && err != sql.ErrNoRows {
+		return fmt.Errorf("failed to get current status for anime %d: %w", animeID, err)
+	}
+
+	if currentStatus.Valid && currentStatus.String == status {
+		// ステータスに変更がなければ何もしない
+		return nil
+	}
+
+	// ステータスを更新
+	_, err = s.db.Exec(`
+		UPDATE animes
+		SET status = $1, updated_at = CURRENT_TIMESTAMP
+		WHERE id = $2
+	`, status, animeID)
+	if err != nil {
+		return fmt.Errorf("failed to update anime status for anime %d to %s: %w", animeID, status, err)
+	}
+
+	// キャッシュをクリア
+	s.ClearAnimeCache()
+	s.logger.Debug("Anime status updated", "anime_id", animeID, "new_status", status)
+
+	return nil
+}
+
+// SyncAllAnimeStatuses - 全アニメのステータスを更新
+func (s *AnimeService) SyncAllAnimeStatuses() (int, int, error) {
+	rows, err := s.db.Query(`
+        SELECT id, season FROM animes
+        WHERE series_tmdb_id IS NOT NULL OR season IS NOT NULL
+    `)
+	if err != nil {
+		s.logger.Error("Failed to query animes for status sync", "error", err)
+		return 0, 0, fmt.Errorf("failed to query animes for status sync: %w", err)
+	}
+	defer rows.Close()
+
+	successCount := 0
+	failureCount := 0
+
+	var animeIDs []int
+	for rows.Next() {
+		var animeID int
+		var season sql.NullString // seasonがNULLの場合もあるのでsql.NullStringで受け取る
+		if err := rows.Scan(&animeID, &season); err != nil {
+			s.logger.Warn("Failed to scan anime ID or season for status sync", "error", err)
+			failureCount++
+			continue
+		}
+		// seasonが有効でなければ、determineStatusBySeasonが"finished"を返すため問題なし
+		animeIDs = append(animeIDs, animeID)
+	}
+
+	totalAnimes := len(animeIDs)
+	if totalAnimes == 0 {
+		s.logger.Info("No animes found with TMDB ID or season for status sync.")
+		return 0, 0, nil
+	}
+
+	s.logger.Info("Starting status sync for all animes", "total_animes", totalAnimes)
+
+	// レート制限対策 (TMDB API呼び出しを考慮)
+	const delay = 100 * time.Millisecond // 100ms per anime
+
+	for i, animeID := range animeIDs {
+		// 進行状況のロギング
+		if i > 0 && i%50 == 0 { // 50件ごとにログ出力
+			s.logger.Info("Processing anime status sync", "progress", fmt.Sprintf("%d/%d", i, totalAnimes))
+		}
+
+		if err := s.SyncAnimeStatus(animeID); err != nil {
+			s.logger.Warn("Failed to sync anime status", "anime_id", animeID, "error", err)
+			failureCount++
+		} else {
+			successCount++
+		}
+
+		time.Sleep(delay)
+	}
+
+	s.logger.Info("Anime status sync completed", "success", successCount, "failure", failureCount)
+	return successCount, failureCount, nil
 }
 
 func (s *AnimeService) GetAnimeEpisodes(animeID int, userID *int) ([]models.Episode, error) {
@@ -3667,6 +3817,112 @@ func (s *AnimeService) SyncReleasedOnFromJikan() (int, int, int, error) {
 	return successCount, notFoundCount, failureCount, nil
 }
 
+// SyncPriorityAnimeData syncs episodes, descriptions, and released_on for specific anime IDs.
+// Used by priority sync mode to enrich only current season + popular animes.
+func (s *AnimeService) SyncPriorityAnimeData(animeIDs []int) error {
+	if len(animeIDs) == 0 {
+		return nil
+	}
+
+	s.logger.Info("Starting priority anime data sync", "anime_count", len(animeIDs))
+
+	// Step 1: Sync episodes from Jikan
+	s.logger.Info("Priority sync: episodes from Jikan...")
+	epSuccess, epFail := 0, 0
+	for _, id := range animeIDs {
+		var malID sql.NullString
+		_ = s.db.QueryRow("SELECT mal_anime_id FROM animes WHERE id = $1", id).Scan(&malID)
+		if !malID.Valid || malID.String == "" {
+			continue
+		}
+		_, err := s.CreateEpisodesFromJikan(id, malID.String)
+		if err != nil {
+			s.logger.Debug("Failed to sync episodes", "anime_id", id, "error", err)
+			epFail++
+		} else {
+			epSuccess++
+		}
+		time.Sleep(400 * time.Millisecond)
+	}
+	s.logger.Info("Priority sync: episodes completed", "success", epSuccess, "failure", epFail)
+
+	// Step 2: Sync episode details (duration, air_date)
+	s.logger.Info("Priority sync: episode details from Jikan...")
+	detailSuccess, detailFail := 0, 0
+	for _, id := range animeIDs {
+		var malAnimeID string
+		err := s.db.QueryRow("SELECT mal_anime_id FROM animes WHERE id = $1 AND mal_anime_id IS NOT NULL AND mal_anime_id != ''", id).Scan(&malAnimeID)
+		if err != nil {
+			continue
+		}
+		err = s.syncEpisodeDetailsForAnime(id, malAnimeID)
+		if err != nil {
+			s.logger.Debug("Failed to sync episode details", "anime_id", id, "error", err)
+			detailFail++
+		} else {
+			detailSuccess++
+		}
+	}
+	s.logger.Info("Priority sync: episode details completed", "success", detailSuccess, "failure", detailFail)
+
+	// Step 3: Sync descriptions from TMDB
+	s.logger.Info("Priority sync: descriptions from TMDB...")
+	descSuccess, descSkip := 0, 0
+	for _, id := range animeIDs {
+		var anime models.Anime
+		var description, malAnimeID sql.NullString
+		err := s.db.QueryRow("SELECT id, title, description, mal_anime_id FROM animes WHERE id = $1", id).Scan(&anime.ID, &anime.Title, &description, &malAnimeID)
+		if err != nil {
+			continue
+		}
+		if description.Valid {
+			anime.Description = &description.String
+		}
+		if malAnimeID.Valid {
+			anime.MalAnimeID = &malAnimeID.String
+		}
+		if anime.Description != nil && *anime.Description != "" {
+			descSkip++
+			continue
+		}
+		s.enrichAnimeWithDescription(&anime)
+		if anime.Description != nil && *anime.Description != "" {
+			descSuccess++
+		}
+	}
+	s.logger.Info("Priority sync: descriptions completed", "success", descSuccess, "skipped", descSkip)
+
+	// Step 4: Sync released_on from Jikan
+	s.logger.Info("Priority sync: released_on from Jikan...")
+	relSuccess, relSkip := 0, 0
+	for _, id := range animeIDs {
+		var anime models.Anime
+		var releasedOn, malAnimeID sql.NullString
+		err := s.db.QueryRow("SELECT id, title, released_on, mal_anime_id FROM animes WHERE id = $1", id).Scan(&anime.ID, &anime.Title, &releasedOn, &malAnimeID)
+		if err != nil {
+			continue
+		}
+		if releasedOn.Valid {
+			anime.ReleasedOn = &releasedOn.String
+		}
+		if malAnimeID.Valid {
+			anime.MalAnimeID = &malAnimeID.String
+		}
+		if anime.ReleasedOn != nil && *anime.ReleasedOn != "" {
+			relSkip++
+			continue
+		}
+		s.enrichAnimeWithReleasedOn(&anime)
+		if anime.ReleasedOn != nil && *anime.ReleasedOn != "" {
+			relSuccess++
+		}
+	}
+	s.logger.Info("Priority sync: released_on completed", "success", relSuccess, "skipped", relSkip)
+
+	s.logger.Info("Priority anime data sync completed")
+	return nil
+}
+
 // enrichAnimeWithWatchProviders - TMDBから配信サービス情報を取得してアニメ情報を拡張
 func (s *AnimeService) enrichAnimeWithWatchProviders(animeWithData *models.AnimeWithUserData) {
 	if s.tmdbClient == nil || !s.tmdbClient.IsEnabled() {
@@ -3764,4 +4020,91 @@ func (s *AnimeService) enrichAnimeWithWatchProviders(animeWithData *models.Anime
 	}
 
 	animeWithData.WatchProviders = watchProviders
+}
+
+// determineStatusBySeason はシーズンと月を考慮してアニメの放送状態を判定します。
+// TMDBの情報が利用できない場合のフォールバックとして使用されます。
+// determineStatusBySeason はシーズンと放送開始日を考慮してアニメの放送状態を判定します。
+// TMDBの情報が利用できない場合のフォールバックとして使用されます。
+func determineStatusBySeason(seasonName string, releasedOn *string) string {
+	// released_onが未来の日付なら放送予定
+	if releasedOn != nil && *releasedOn != "" {
+		releaseDate, err := time.Parse("2006-01-02", *releasedOn)
+		if err == nil {
+			today := time.Now().Truncate(24 * time.Hour)
+			if releaseDate.After(today) {
+				return "upcoming"
+			}
+		}
+	}
+
+	if seasonName == "" {
+		return "finished"
+	}
+
+	// シーズン名（例: "YYYY-season"）をパース
+	var seasonYear int
+	var seasonStr string
+	_, err := fmt.Sscanf(seasonName, "%d-%s", &seasonYear, &seasonStr)
+	if err != nil {
+		return "finished" // パース失敗時は完結とみなす
+	}
+
+	now := time.Now()
+	currentYear := now.Year()
+	currentMonth := int(now.Month())
+
+	// シーズンの開始月と終了月を判定
+	var seasonStartMonth, seasonEndMonth int
+	switch seasonStr {
+	case "winter": // 1月, 2月, 3月
+		seasonStartMonth = 1
+		seasonEndMonth = 3
+	case "spring": // 4月, 5月, 6月
+		seasonStartMonth = 4
+		seasonEndMonth = 6
+	case "summer": // 7月, 8月, 9月
+		seasonStartMonth = 7
+		seasonEndMonth = 9
+	case "autumn", "fall": // 10月, 11月, 12月
+		seasonStartMonth = 10
+		seasonEndMonth = 12
+	default:
+		return "finished" // 未知のシーズン名は完結とみなす
+	}
+
+	// 判定ロジック
+	if seasonYear > currentYear {
+		// 未来のシーズン → 放送予定
+		return "upcoming"
+	} else if seasonYear == currentYear {
+		// 同じ年のシーズン
+		if currentMonth < seasonStartMonth {
+			// シーズン開始月より前 → 放送予定
+			return "upcoming"
+		} else if currentMonth <= seasonEndMonth {
+			// シーズン期間中 → 放送中
+			return "airing"
+		} else {
+			// シーズン終了月以後 → 完結
+			return "finished"
+		}
+	} else {
+		// 過去のシーズン → 完結
+		return "finished"
+	}
+}
+
+// mapTMDBStatus はTMDBのステータス文字列を内部の放送状態文字列にマッピングします。
+func mapTMDBStatus(tmdbStatus string) string {
+	switch tmdbStatus {
+	case "Returning Series", "In Production":
+		return "airing"
+	case "Planned":
+		return "upcoming"
+	case "Ended", "Canceled":
+		return "finished"
+	default:
+		return "finished" // デフォルトは完結とみなす
+	}
 }

@@ -109,13 +109,21 @@ func main() {
 	logger := common.NewLogger(common.LogLevel(cfg.LogLevel), cfg.LogFormat)
 	log.Printf("Logger initialized with level: %s", cfg.LogLevel)
 
+	// まずAnnictClientのポインタを宣言し、後から初期化と設定を行う
+	var annictClient *services.AnnictClient
+
+	// Initialize anime service. AnnictClientは後からSetする。
+	animeService := services.NewAnimeService(db, logger, annictClient) // annictClientは現在nil
+	log.Printf("Anime service initialized")
+
 	// Initialize Annict client (shared across all components)
-	annictClient := services.NewAnnictClientWithDB(cfg.AnnictAPIKey, db, logger)
+	annictClient = services.NewAnnictClientWithDB(cfg.AnnictAPIKey, db, logger)
 	log.Printf("Annict client initialized")
 
-	// Initialize anime service (required for scheduler)
-	animeService := services.NewAnimeService(db, logger, annictClient)
-	log.Printf("Anime service initialized")
+	// AnnictClientにAnimeServiceを設定（循環参照回避のため後から設定）
+	annictClient.SetAnimeService(animeService)
+	// AnnictClientにAnimeServiceを設定（循環参照回避のため後から設定）
+	annictClient.SetAnimeService(animeService)
 
 	// Initialize and start anime sync scheduler
 	animeSyncScheduler, err := scheduler.NewAnimeSyncScheduler(
