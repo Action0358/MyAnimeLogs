@@ -274,6 +274,8 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork) (*models.Anim
 
 	if err == nil && existingID > 0 {
 		// Anime exists, update it
+		// Note: statusはSyncAnimeStatusで管理するため、ここでは上書きしない
+		// released_onはAnnictの値がある場合のみ更新（COALESCEで既存値を保持）
 		err = c.DB.QueryRow(`
 			UPDATE animes SET
 				title = $1,
@@ -281,23 +283,22 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork) (*models.Anim
 				title_en = $3,
 				image_url = $4,
 				season = $5,
-				status = $6,
-				media = $7,
-				episodes_count = $8,
-				official_site_url = $9,
-				wikipedia_url = $10,
-				twitter_username = $11,
-				twitter_hashtag = $12,
-				mal_anime_id = $13,
-				watchers_count = $14,
-				reviews_count = $15,
-				released_on = $16,
+				media = $6,
+				episodes_count = $7,
+				official_site_url = $8,
+				wikipedia_url = $9,
+				twitter_username = $10,
+				twitter_hashtag = $11,
+				mal_anime_id = $12,
+				watchers_count = $13,
+				reviews_count = $14,
+				released_on = COALESCE($15, released_on),
 				updated_at = CURRENT_TIMESTAMP
-			WHERE annict_id = $17
+			WHERE annict_id = $16
 			RETURNING id, title, image_url, season, status, annict_id, created_at, updated_at
 		`,
 			work.Title, work.TitleKana, work.TitleEn, imageURL, season,
-			status, work.Media, work.EpisodesCount, work.OfficialSiteURL, work.WikipediaURL,
+			work.Media, work.EpisodesCount, work.OfficialSiteURL, work.WikipediaURL,
 			work.TwitterUsername, work.TwitterHashtag, work.MalAnimeID,
 			work.WatchersCount, work.ReviewsCount, work.ReleasedOn, work.ID,
 		).Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt)
