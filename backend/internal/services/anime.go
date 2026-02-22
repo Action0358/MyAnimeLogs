@@ -903,11 +903,12 @@ func (s *AnimeService) SyncAnimeStatus(animeID int) error {
 	// アニメ情報を取得（released_onも含める）
 	var anime models.Anime
 	var releasedOn sql.NullString
+	var seriesTMDBID sql.NullInt64
 	err := s.db.QueryRow(`
 		SELECT id, series_tmdb_id, season, released_on
 		FROM animes
 		WHERE id = $1
-	`, animeID).Scan(&anime.ID, &anime.SeriesTMDBID, &anime.Season, &releasedOn)
+	`, animeID).Scan(&anime.ID, &seriesTMDBID, &anime.Season, &releasedOn)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -916,7 +917,11 @@ func (s *AnimeService) SyncAnimeStatus(animeID int) error {
 		return fmt.Errorf("failed to get anime for status sync: %w", err)
 	}
 
-	// released_onをポインタに変換
+	// NullableフィールドをGoポインタに変換
+	if seriesTMDBID.Valid {
+		id := int(seriesTMDBID.Int64)
+		anime.SeriesTMDBID = &id
+	}
 	var releasedOnPtr *string
 	if releasedOn.Valid {
 		releasedOnPtr = &releasedOn.String
