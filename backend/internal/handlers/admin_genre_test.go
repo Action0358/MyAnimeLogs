@@ -46,6 +46,11 @@ func (m *MockAdminAnimeServiceForGenres) ClearAnimeCache() {
 	m.Called()
 }
 
+func (m *MockAdminAnimeServiceForGenres) SyncAllAnimeStatuses() (int, int, error) {
+	args := m.Called()
+	return args.Int(0), args.Int(1), args.Error(2)
+}
+
 func TestSyncGenresForAllAnimes_Success(t *testing.T) {
 	// Setup
 	gin.SetMode(gin.TestMode)

@@ -165,6 +165,11 @@ func (m *MockAnimeService) ClearAnimeCache() {
 	m.Called()
 }
 
+func (m *MockAnimeService) SyncAllAnimeStatuses() (int, int, error) {
+	args := m.Called()
+	return args.Int(0), args.Int(1), args.Error(2)
+}
+
 func TestAdminHandler_SyncEpisodeDurations(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	logger := common.NewLogger(common.LogLevelDebug, "text")
