@@ -113,7 +113,7 @@ func main() {
 	var annictClient *services.AnnictClient
 
 	// Initialize anime service. AnnictClientは後からSetする。
-	animeService := services.NewAnimeService(db, logger, annictClient) // annictClientは現在nil
+	animeService := services.NewAnimeService(db, logger)
 	log.Printf("Anime service initialized")
 
 	// Initialize Annict client (shared across all components)

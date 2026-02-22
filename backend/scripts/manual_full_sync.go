@@ -71,7 +71,7 @@ func initServices(logger *common.Logger, env string) (*database.DB, *services.An
 	}
 
 	annictClient := services.NewAnnictClientWithDB(annictToken, db, logger)
-	animeService := services.NewAnimeService(db, logger, annictClient)
+	animeService := services.NewAnimeService(db, logger)
 
 	return db, annictClient, animeService, nil
 }

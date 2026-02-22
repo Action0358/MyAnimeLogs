@@ -111,7 +111,6 @@ func (s *AnimeService) GetPopularAnimes(limit int) ([]models.Anime, error) {
 }
 
 // getAnimesByQuery is a helper function to execute anime queries with proper error handling
-// getAnimesByQuery is a helper function to execute anime queries with proper error handling
 func (s *AnimeService) getAnimesByQuery(query string, args []interface{}, queryName string) ([]models.Anime, error) {
 	rows, err := s.db.Query(query, args...)
 	if err != nil {
@@ -167,14 +166,13 @@ type AnimeService struct {
 	logger           *common.Logger
 	anilistClient    *AniListClient
 	jikanClient      *JikanClient
-	annictClient     *AnnictClient
 	tmdbClient       *TMDBClient  // TMDB APIクライアント
 	imageUpdateQueue chan func()  // 画像更新用ワーカープールのキュー
 	cache            *MemoryCache // レスポンスキャッシュ
 	redisCache       *RedisCache  // Redisキャッシュ（オプション）
 }
 
-func NewAnimeService(db *database.DB, logger *common.Logger, annictClient *AnnictClient) *AnimeService {
+func NewAnimeService(db *database.DB, logger *common.Logger) *AnimeService {
 	// キャッシュを初期化
 	cacheConfig := CacheConfig{
 		DefaultTTL:      constants.SearchResultCacheTTL,
@@ -195,7 +193,6 @@ func NewAnimeService(db *database.DB, logger *common.Logger, annictClient *Annic
 		logger:           logger,
 		anilistClient:    NewAniListClient(),
 		jikanClient:      NewJikanClient(logger),
-		annictClient:     annictClient,
 		tmdbClient:       NewTMDBClient(logger),
 		imageUpdateQueue: make(chan func(), constants.ImageUpdateQueueSize),
 		cache:            NewMemoryCache(cacheConfig),
@@ -2080,37 +2077,45 @@ func (s *AnimeService) enrichAnimeWithDescription(anime *models.Anime) {
 }
 
 // updateAnimeSeriesInfo updates anime description and series information
+// Only fields with non-empty/non-zero values are included in the update to prevent overwriting existing data.
 func (s *AnimeService) updateAnimeSeriesInfo(ctx context.Context, animeID int, description string, tmdbID int, seriesTitle string, seriesTMDBID int) {
 	dbCtx, cancel := context.WithTimeout(ctx, constants.ImageUpdateDBTimeout)
 	defer cancel()
 
-	var err error
-	if tmdbID > 0 && seriesTMDBID > 0 {
-		_, err = s.db.ExecContext(dbCtx, `
-			UPDATE animes 
-			SET description = $1, tmdb_id = $2, series_title = $3, series_tmdb_id = $4
-			WHERE id = $5
-		`, description, tmdbID, seriesTitle, seriesTMDBID, animeID)
-	} else if seriesTMDBID > 0 {
-		_, err = s.db.ExecContext(dbCtx, `
-			UPDATE animes 
-			SET description = $1, series_title = $2, series_tmdb_id = $3
-			WHERE id = $4
-		`, description, seriesTitle, seriesTMDBID, animeID)
-	} else if tmdbID > 0 {
-		_, err = s.db.ExecContext(dbCtx, `
-			UPDATE animes 
-			SET description = $1, tmdb_id = $2, series_title = $3
-			WHERE id = $4
-		`, description, tmdbID, seriesTitle, animeID)
-	} else {
-		_, err = s.db.ExecContext(dbCtx, `
-			UPDATE animes 
-			SET description = $1, series_title = $2
-			WHERE id = $3
-		`, description, seriesTitle, animeID)
+	// Build dynamic query
+	var updates []string
+	var args []interface{}
+	argIdx := 1
+
+	if description != "" {
+		updates = append(updates, fmt.Sprintf("description = $%d", argIdx))
+		args = append(args, description)
+		argIdx++
+	}
+	if tmdbID > 0 {
+		updates = append(updates, fmt.Sprintf("tmdb_id = $%d", argIdx))
+		args = append(args, tmdbID)
+		argIdx++
+	}
+	if seriesTitle != "" {
+		updates = append(updates, fmt.Sprintf("series_title = $%d", argIdx))
+		args = append(args, seriesTitle)
+		argIdx++
+	}
+	if seriesTMDBID > 0 {
+		updates = append(updates, fmt.Sprintf("series_tmdb_id = $%d", argIdx))
+		args = append(args, seriesTMDBID)
+		argIdx++
 	}
 
+	if len(updates) == 0 {
+		return
+	}
+
+	query := fmt.Sprintf("UPDATE animes SET %s WHERE id = $%d", strings.Join(updates, ", "), argIdx)
+	args = append(args, animeID)
+
+	_, err := s.db.ExecContext(dbCtx, query, args...)
 	if err != nil {
 		s.logger.Warn("Failed to update anime series info in DB",
 			"error", err,
@@ -4186,8 +4191,6 @@ func (s *AnimeService) enrichAnimeWithWatchProviders(animeWithData *models.Anime
 	animeWithData.WatchProviders = watchProviders
 }
 
-// determineStatusBySeason はシーズンと月を考慮してアニメの放送状態を判定します。
-// TMDBの情報が利用できない場合のフォールバックとして使用されます。
 // determineStatusBySeason はシーズンと放送開始日を考慮してアニメの放送状態を判定します。
 // TMDBの情報が利用できない場合のフォールバックとして使用されます。
 func determineStatusBySeason(seasonName string, releasedOn *string) string {
