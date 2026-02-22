@@ -1682,6 +1682,12 @@ components:
           type: string
           format: uri
           description: AniList API から取得した中サイズのカバー画像URL
+        series_title:
+          type: string
+          description: シリーズ名（正規化後、内部識別用）
+        series_tmdb_id:
+          type: integer
+          description: シリーズ代表のTMDB ID（あらすじ・配信サービス取得用）
         user_favorite:
           $ref: "#/components/schemas/Favorite"
           nullable: true

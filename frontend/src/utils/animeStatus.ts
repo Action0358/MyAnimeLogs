@@ -22,9 +22,8 @@ type BroadcastStatus = 'upcoming' | 'airing' | 'finished' | 'unknown'
 
 /**
  * 放送状態を判定する共通ヘルパー関数
- * タイムゾーンの問題を回避するため、日付文字列を直接比較
  * @param status - アニメのステータス（airing, finished など）
- * @param releasedOn - 放送開始日（YYYY-MM-DD形式）
+ * @param releasedOn - 放送開始日（YYYY-MM-DD形式またはISO 8601形式）
  * @returns 放送状態
  */
 const determineBroadcastStatus = (
@@ -35,12 +34,27 @@ const determineBroadcastStatus = (
     return 'unknown'
   }
 
-  // YYYY-MM-DD形式の今日の日付を取得（タイムゾーン問題を回避）
-  const today = new Date()
-  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
-
-  // 日付文字列を直接比較（releasedOnがYYYY-MM-DD形式の場合）
-  const isUpcoming = releasedOn && releasedOn > todayStr
+  // 放送開始日が未来かどうかを判定
+  let isUpcoming = false
+  if (releasedOn) {
+    try {
+      // releasedOnをDateオブジェクトに変換
+      const releaseDate = new Date(releasedOn)
+      
+      // 今日の日付（時刻を00:00:00にリセット）
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      
+      // 放送開始日も時刻を00:00:00にリセット
+      releaseDate.setHours(0, 0, 0, 0)
+      
+      // 日付を比較
+      isUpcoming = releaseDate > today
+    } catch (error) {
+      // 日付のパースに失敗した場合は無視
+      console.warn('Failed to parse releasedOn date:', releasedOn, error)
+    }
+  }
 
   if (isUpcoming) {
     return 'upcoming'
@@ -55,7 +69,7 @@ const determineBroadcastStatus = (
 /**
  * アニメの放送状態を判定してラベルとスタイルを返す
  * @param status - アニメのステータス（airing, finished など）
- * @param releasedOn - 放送開始日（YYYY-MM-DD形式）
+ * @param releasedOn - 放送開始日（YYYY-MM-DD形式またはISO 8601形式）
  * @returns ラベルとCSSクラス名
  */
 export const getAnimeStatusLabel = (
@@ -79,7 +93,7 @@ export const getAnimeStatusLabel = (
 /**
  * アニメの放送状態を判定してラベルとスタイルを返す（bgColor/textColor形式）
  * @param status - アニメのステータス（airing, finished など）
- * @param releasedOn - 放送開始日（YYYY-MM-DD形式）
+ * @param releasedOn - 放送開始日（YYYY-MM-DD形式またはISO 8601形式）
  * @returns ラベルとCSSクラス名（bgColor/textColor形式）
  */
 export const getAnimeBroadcastStatusConfig = (

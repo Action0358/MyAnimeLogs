@@ -104,13 +104,13 @@ export const CURRENT_SEASON_ANIME_LIMIT = 100
 /**
  * アニメのステータス型
  */
-export type AnimeStatus = 'airing' | 'finished'
+export type AnimeStatus = 'airing' | 'finished' | 'upcoming'
 
 /**
  * 有効なアニメステータスかどうかを判定する型ガード関数
  */
 export const isValidAnimeStatus = (status: unknown): status is AnimeStatus => {
-  return status === 'airing' || status === 'finished'
+  return status === 'airing' || status === 'finished' || status === 'upcoming'
 }
 
 /**

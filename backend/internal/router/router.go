@@ -40,7 +40,7 @@ func Setup(db *database.DB, cfg *config.Config, syncScheduler handlers.SyncSched
 
 	// サービス（共有されたannictClientを使用）
 	authService := services.NewAuthService(db, cfg.JWTSecret)
-	animeService := services.NewAnimeService(db, logger, annictClient)
+	animeService := services.NewAnimeService(db, logger)
 	uploadService := services.NewUploadService(cfg.UploadDir, cfg.UploadPublicPath, cfg.MaxUploadSize, logger)
 
 	// 強化されたエラーハンドリングを持つハンドラー（共有されたannictClientを使用）
@@ -107,6 +107,7 @@ func Setup(db *database.DB, cfg *config.Config, syncScheduler handlers.SyncSched
 			admin.POST("/sync/episode-durations", adminHandler.SyncEpisodeDurations)
 			admin.POST("/sync/episodes", adminHandler.SyncEpisodesFromJikan)
 			admin.POST("/sync/genres", adminHandler.SyncGenresForAllAnimes)
+			admin.POST("/sync/statuses", adminHandler.SyncAnimeStatuses) // 新しく追加
 			admin.GET("/sync/status", adminHandler.GetSyncStatus)
 			admin.GET("/episode-sync-status", adminHandler.GetEpisodeSyncStatus)
 
