@@ -20,7 +20,6 @@ type Anime struct {
 	WatchersCount   int       `json:"watchers_count" db:"watchers_count"`
 	MalAnimeID      *string   `json:"mal_anime_id" db:"mal_anime_id"` // MyAnimeList ID
 	AnnictID        *int      `json:"annict_id" db:"annict_id"`       // Annict ID
-	SeriesTMDBID    *int      `json:"series_tmdb_id,omitempty" db:"series_tmdb_id"` // TMDB Series ID (for TV shows)
 	CreatedAt       time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at" db:"updated_at"`
 
@@ -28,6 +27,10 @@ type Anime struct {
 	CoverImageExtraLarge string `json:"cover_image_extra_large,omitempty" db:"cover_image_extra_large"`
 	CoverImageLarge      string `json:"cover_image_large,omitempty" db:"cover_image_large"`
 	CoverImageMedium     string `json:"cover_image_medium,omitempty" db:"cover_image_medium"`
+
+	// シリーズ作品の統合管理用（内部識別用）
+	SeriesTitle  *string `json:"series_title,omitempty" db:"series_title"`     // 正規化後のシリーズ名
+	SeriesTMDBID *int    `json:"series_tmdb_id,omitempty" db:"series_tmdb_id"` // シリーズ代表のTMDB ID
 }
 
 type AnimeWithUserData struct {

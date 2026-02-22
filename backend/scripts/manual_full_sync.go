@@ -233,7 +233,7 @@ func run(logger *common.Logger, env string) error {
 	}
 
 	// Step 5: Sync released_on from Jikan API
-	logger.Info("Step 5/5: Syncing release dates from Jikan API...")
+	logger.Info("Step 5/6: Syncing release dates from Jikan API...")
 	releasedSuccess, releasedNotFound, releasedFailure, err := animeService.SyncReleasedOnFromJikan()
 	if err != nil {
 		logger.Warn("Failed to sync released_on from Jikan", "error", err)
@@ -242,6 +242,15 @@ func run(logger *common.Logger, env string) error {
 			"success", releasedSuccess,
 			"not_found", releasedNotFound,
 			"failure", releasedFailure)
+	}
+
+	// Step 6: Update series_title for all animes
+	logger.Info("Step 6/6: Updating series_title for all animes...")
+	seriesUpdated, err := updateSeriesTitles(db, logger)
+	if err != nil {
+		logger.Warn("Failed to update series_title", "error", err)
+	} else {
+		logger.Info("Series title update completed", "updated", seriesUpdated)
 	}
 
 	duration := time.Since(startTime)
@@ -306,4 +315,113 @@ func run(logger *common.Logger, env string) error {
 	logger.Info("Future syncs will only update new/changed data.")
 
 	return nil
+}
+
+// updateSeriesTitles updates series_title for all animes that don't have it set
+// updateSeriesTitles updates series_title and propagates series_tmdb_id for all animes
+func updateSeriesTitles(db *database.DB, logger *common.Logger) (int, error) {
+	// Phase 1: Update series_title for animes that don't have it
+	rows, err := db.Query(`
+		SELECT id, title
+		FROM animes
+		WHERE series_title IS NULL OR series_title = ''
+		ORDER BY id
+	`)
+	if err != nil {
+		return 0, fmt.Errorf("failed to query animes: %w", err)
+	}
+	defer rows.Close()
+
+	type animeUpdate struct {
+		ID          int
+		Title       string
+		SeriesTitle string
+	}
+
+	var updates []animeUpdate
+	for rows.Next() {
+		var id int
+		var title string
+		if err := rows.Scan(&id, &title); err != nil {
+			logger.Warn("Failed to scan row", "error", err)
+			continue
+		}
+
+		seriesTitle := services.NormalizeAnimeTitle(title)
+		updates = append(updates, animeUpdate{
+			ID:          id,
+			Title:       title,
+			SeriesTitle: seriesTitle,
+		})
+	}
+
+	if err := rows.Err(); err != nil {
+		return 0, fmt.Errorf("error iterating rows: %w", err)
+	}
+
+	if len(updates) == 0 {
+		return 0, nil
+	}
+
+	logger.Info("Found animes to update series_title", "count", len(updates))
+
+	// Start transaction for batch update
+	tx, err := db.Begin()
+	if err != nil {
+		return 0, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	stmt, err := tx.Prepare(`UPDATE animes SET series_title = $1 WHERE id = $2`)
+	if err != nil {
+		return 0, fmt.Errorf("failed to prepare statement: %w", err)
+	}
+	defer stmt.Close()
+
+	updated := 0
+	for _, u := range updates {
+		_, err := stmt.Exec(u.SeriesTitle, u.ID)
+		if err != nil {
+			logger.Warn("Failed to update anime", "id", u.ID, "error", err)
+			continue
+		}
+		updated++
+	}
+
+	if err := tx.Commit(); err != nil {
+		return updated, fmt.Errorf("failed to commit transaction: %w", err)
+	}
+
+	// Phase 2: Propagate series_tmdb_id within series groups
+	propagated, err := propagateSeriesTMDBIDs(db, logger)
+	if err != nil {
+		logger.Warn("Failed to propagate series_tmdb_id", "error", err)
+	} else {
+		logger.Info("Series TMDB ID propagation completed", "propagated", propagated)
+	}
+
+	return updated, nil
+}
+
+// propagateSeriesTMDBIDs copies series_tmdb_id from animes that have it to siblings with the same series_title
+func propagateSeriesTMDBIDs(db *database.DB, logger *common.Logger) (int, error) {
+	result, err := db.Exec(`
+		UPDATE animes a
+		SET series_tmdb_id = sub.series_tmdb_id
+		FROM (
+			SELECT DISTINCT ON (series_title) series_title, series_tmdb_id
+			FROM animes
+			WHERE series_title IS NOT NULL AND series_title != ''
+			  AND series_tmdb_id IS NOT NULL
+			ORDER BY series_title, id ASC
+		) sub
+		WHERE a.series_title = sub.series_title
+		  AND (a.series_tmdb_id IS NULL)
+	`)
+	if err != nil {
+		return 0, fmt.Errorf("failed to propagate series_tmdb_id: %w", err)
+	}
+
+	rowsAffected, _ := result.RowsAffected()
+	return int(rowsAffected), nil
 }
