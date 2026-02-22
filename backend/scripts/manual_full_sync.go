@@ -7,8 +7,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"regexp"
-	"strings"
 	"time"
 
 	"myanimelogs/internal/common"
