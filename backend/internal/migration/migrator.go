@@ -86,7 +86,7 @@ func (m *Migrator) createMigrationsTable() error {
 	return err
 }
 
-// getMigrationFiles returns sorted list of migration files
+// getMigrationFiles returns sorted list of migration files (excludes rollback files)
 func (m *Migrator) getMigrationFiles() ([]string, error) {
 	files, err := os.ReadDir(m.migrationsPath)
 	if err != nil {
@@ -95,7 +95,8 @@ func (m *Migrator) getMigrationFiles() ([]string, error) {
 
 	var sqlFiles []string
 	for _, file := range files {
-		if strings.HasSuffix(file.Name(), ".sql") && !file.IsDir() {
+		if strings.HasSuffix(file.Name(), ".sql") && !file.IsDir() &&
+			!strings.Contains(file.Name(), "_rollback") {
 			sqlFiles = append(sqlFiles, file.Name())
 		}
 	}
@@ -154,9 +155,12 @@ func (m *Migrator) executeMigration(filename string) (executed bool, err error) 
 		return false, err
 	}
 
+	// Extract only the "Up" section if +migrate markers are present
+	sqlContent := extractUpSection(string(content))
+
 	// Execute migration SQL
 	log.Printf("Executing migration %s...", filename)
-	_, err = tx.Exec(string(content))
+	_, err = tx.Exec(sqlContent)
 	if err != nil {
 		return false, fmt.Errorf("failed to execute migration SQL in %s: %w", filename, err)
 	}
@@ -175,6 +179,39 @@ func (m *Migrator) executeMigration(filename string) (executed bool, err error) 
 
 	log.Printf("Migration %s executed successfully", filename)
 	return true, nil
+}
+
+// extractUpSection extracts only the "Up" migration SQL from a file.
+// If the file contains "-- +migrate Up" and "-- +migrate Down" markers,
+// only the SQL between them is returned. Otherwise, the full content is returned.
+func extractUpSection(content string) string {
+	lines := strings.Split(content, "\n")
+	var upLines []string
+	inUpSection := false
+	hasMarkers := false
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "-- +migrate Up" {
+			hasMarkers = true
+			inUpSection = true
+			continue
+		}
+		if trimmed == "-- +migrate Down" {
+			inUpSection = false
+			continue
+		}
+		if inUpSection {
+			upLines = append(upLines, line)
+		}
+	}
+
+	if !hasMarkers {
+		// No markers found, return full content
+		return content
+	}
+
+	return strings.Join(upLines, "\n")
 }
 
 // GetExecutedMigrations returns list of executed migrations

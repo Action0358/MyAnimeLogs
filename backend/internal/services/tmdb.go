@@ -384,7 +384,7 @@ func (c *TMDBClient) SearchTVByTitle(ctx context.Context, title string) (*TMDBTV
 	}
 
 	// Try normalized title (remove season suffixes like "第3期", "Season 2", etc.)
-	normalizedTitle := normalizeAnimeTitle(title)
+	normalizedTitle := NormalizeAnimeTitle(title)
 	if normalizedTitle != title {
 		result, err = c.SearchTV(ctx, normalizedTitle, "ja-JP")
 		if err == nil && len(result.Results) > 0 {
@@ -416,31 +416,38 @@ func (c *TMDBClient) findBestMatch(results []TMDBTVShow) *TMDBTVShow {
 
 // Pre-compiled regex patterns for anime title normalization (performance optimization)
 var animeTitlePatterns = []*regexp.Regexp{
-	// Japanese season patterns
-	regexp.MustCompile(` 第\d+期$`),    // " 第3期"
-	regexp.MustCompile(`第\d+期$`),     // "第3期" (no space)
-	regexp.MustCompile(` 第\d+シーズン$`), // " 第2シーズン"
-	regexp.MustCompile(`第\d+シーズン$`),  // "第2シーズン"
-	// English season patterns
-	regexp.MustCompile(` Season \d+$`),       // " Season 2"
-	regexp.MustCompile(` The Final Season$`), // " The Final Season"
-	regexp.MustCompile(` Final Season$`),     // " Final Season"
-	regexp.MustCompile(` Part \d+$`),         // " Part 2"
+	// Japanese season patterns (Arabic numerals)
+	regexp.MustCompile(` 第\d+期.*`),    // " 第3期" and anything after
+	regexp.MustCompile(`第\d+期.*`),     // "第3期" (no space)
+	regexp.MustCompile(` 第\d+シーズン.*`), // " 第2シーズン"
+	regexp.MustCompile(`第\d+シーズン.*`),  // "第2シーズン"
+	regexp.MustCompile(` 第\d+クール.*`),  // " 第2クール"
+	regexp.MustCompile(`第\d+クール.*`),   // "第2クール"
+	// Japanese season patterns (Kanji numerals)
+	regexp.MustCompile(` 第[一二三四五六七八九十百]+期.*`),    // " 第二期"
+	regexp.MustCompile(`第[一二三四五六七八九十百]+期.*`),     // "第二期" (no space)
+	regexp.MustCompile(` 第[一二三四五六七八九十百]+シーズン.*`), // " 第二シーズン"
+	regexp.MustCompile(`第[一二三四五六七八九十百]+シーズン.*`),  // "第二シーズン"
+	// English season patterns (greedy: removes everything after match)
+	regexp.MustCompile(` Season \d+.*`),       // " Season 3 Part.2" etc.
+	regexp.MustCompile(` The Final Season.*`), // " The Final Season Part 2"
+	regexp.MustCompile(` Final Season.*`),     // " Final Season"
+	regexp.MustCompile(` Part[.\s]*\d+$`),     // " Part 2", " Part.2"
 	// Roman numerals
 	regexp.MustCompile(` [IVX]+$`), // " II", " III", etc.
 	// Other common suffixes
-	regexp.MustCompile(` \d+nd Season$`), // " 2nd Season"
-	regexp.MustCompile(` \d+rd Season$`), // " 3rd Season"
-	regexp.MustCompile(` \d+th Season$`), // " 4th Season"
+	regexp.MustCompile(` \d+nd Season.*`), // " 2nd Season"
+	regexp.MustCompile(` \d+rd Season.*`), // " 3rd Season"
+	regexp.MustCompile(` \d+th Season.*`), // " 4th Season"
 }
 
-// normalizeAnimeTitle removes season suffixes and other variations from anime titles
+// NormalizeAnimeTitle removes season suffixes and other variations from anime titles
 // Examples:
 // - "ワンパンマン 第3期" -> "ワンパンマン"
 // - "葬送のフリーレン 第2期" -> "葬送のフリーレン"
 // - "【推しの子】第3期" -> "【推しの子】"
 // - "進撃の巨人 The Final Season Part 2" -> "進撃の巨人"
-func normalizeAnimeTitle(title string) string {
+func NormalizeAnimeTitle(title string) string {
 	result := title
 	// Apply all patterns to handle titles with multiple suffixes
 	// e.g., "進撃の巨人 The Final Season Part 2" -> "進撃の巨人"
@@ -646,7 +653,7 @@ func (c *TMDBClient) SearchMovieByTitle(ctx context.Context, title string) (*TMD
 	}
 
 	// Try normalized title
-	normalizedTitle := normalizeAnimeTitle(title)
+	normalizedTitle := NormalizeAnimeTitle(title)
 	if normalizedTitle != title {
 		result, err = c.SearchMovie(ctx, normalizedTitle, "ja-JP")
 		if err == nil && len(result.Results) > 0 {

@@ -74,6 +74,7 @@ func (h *AnimeHandler) GetAnime(c *gin.Context) {
 			h.response.NotFoundError(c, "アニメが見つかりません")
 			return
 		}
+		h.logger.Error("Failed to get anime by ID", "anime_id", id, "error", err)
 		h.response.InternalServerError(c, "アニメ詳細の取得に失敗しました")
 		return
 	}

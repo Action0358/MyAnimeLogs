@@ -41,6 +41,7 @@ type AnnictClient struct {
 	logger         *common.Logger
 	rateLimitDelay time.Duration
 	anilistClient  *AniListClient
+	animeService   *AnimeService // Add AnimeService here
 }
 
 // AnnictService defines the interface for Annict API interactions.
@@ -60,7 +61,7 @@ func NewAnnictClient(token string) *AnnictClient {
 	}
 }
 
-func NewAnnictClientWithDB(token string, db *database.DB, logger *common.Logger) *AnnictClient {
+func NewAnnictClientWithDB(token string, db *database.DB, logger *common.Logger) *AnnictClient { // animeService引数を削除
 	return &AnnictClient{
 		Token: token,
 		HTTPClient: &http.Client{
@@ -70,10 +71,14 @@ func NewAnnictClientWithDB(token string, db *database.DB, logger *common.Logger)
 		logger:         logger,
 		rateLimitDelay: 1000 * time.Millisecond, // Increased from 500ms to 1s to avoid rate limiting
 		anilistClient:  NewAniListClient(),      // Initialize once for reuse
+		// animeService は後からSetAnimeServiceで設定する
 	}
 }
 
-// applyRateLimit applies rate limiting delay
+// SetAnimeService - AnimeServiceをAnnictClientに設定する
+func (c *AnnictClient) SetAnimeService(as *AnimeService) {
+	c.animeService = as
+} // applyRateLimit applies rate limiting delay
 func (c *AnnictClient) applyRateLimit() {
 	if c.rateLimitDelay > 0 {
 		time.Sleep(c.rateLimitDelay)
@@ -255,19 +260,9 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork) (*models.Anim
 	// Use season name directly (format: "YYYY-season", e.g., "2024-winter")
 	season := work.SeasonName
 
-	// Determine status based on season and current date
+	// 既存のステータス判定ロジックを削除（代わりにSyncAnimeStatusを呼び出す）
+	// デフォルトステータスを設定（後でSyncAnimeStatusで更新される）
 	status := "finished"
-	if work.SeasonName != "" {
-		// Extract year from season name (format: "YYYY-season")
-		var seasonYear int
-		_, err := fmt.Sscanf(work.SeasonName, "%d-", &seasonYear)
-		if err == nil {
-			currentYear := time.Now().Year()
-			if seasonYear >= currentYear {
-				status = "airing"
-			}
-		}
-	}
 
 	// Upsert anime record using manual SELECT + INSERT/UPDATE approach
 	// This is a workaround for ON CONFLICT not working properly
@@ -279,6 +274,8 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork) (*models.Anim
 
 	if err == nil && existingID > 0 {
 		// Anime exists, update it
+		// Note: statusはSyncAnimeStatusで管理するため、ここでは上書きしない
+		// released_onはAnnictの値がある場合のみ更新（COALESCEで既存値を保持）
 		err = c.DB.QueryRow(`
 			UPDATE animes SET
 				title = $1,
@@ -286,23 +283,22 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork) (*models.Anim
 				title_en = $3,
 				image_url = $4,
 				season = $5,
-				status = $6,
-				media = $7,
-				episodes_count = $8,
-				official_site_url = $9,
-				wikipedia_url = $10,
-				twitter_username = $11,
-				twitter_hashtag = $12,
-				mal_anime_id = $13,
-				watchers_count = $14,
-				reviews_count = $15,
-				released_on = $16,
+				media = $6,
+				episodes_count = $7,
+				official_site_url = $8,
+				wikipedia_url = $9,
+				twitter_username = $10,
+				twitter_hashtag = $11,
+				mal_anime_id = $12,
+				watchers_count = $13,
+				reviews_count = $14,
+				released_on = COALESCE(NULLIF($15, ''), released_on),
 				updated_at = CURRENT_TIMESTAMP
-			WHERE annict_id = $17
+			WHERE annict_id = $16
 			RETURNING id, title, image_url, season, status, annict_id, created_at, updated_at
 		`,
 			work.Title, work.TitleKana, work.TitleEn, imageURL, season,
-			status, work.Media, work.EpisodesCount, work.OfficialSiteURL, work.WikipediaURL,
+			work.Media, work.EpisodesCount, work.OfficialSiteURL, work.WikipediaURL,
 			work.TwitterUsername, work.TwitterHashtag, work.MalAnimeID,
 			work.WatchersCount, work.ReviewsCount, work.ReleasedOn, work.ID,
 		).Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt)
@@ -339,28 +335,21 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork) (*models.Anim
 	// Note: Episode creation is now handled by AnimeService.createEpisodesForAnime
 	// This avoids code duplication and centralizes episode management
 
-	// Sync genres in background if MAL ID is available (non-blocking)
+	// Sync genres synchronously if MAL ID is available
+	// Note: Must be synchronous to respect AniList rate limiter (90 req/min).
+	// Running as goroutines causes burst requests that exceed the rate limit.
 	if work.MalAnimeID != nil && *work.MalAnimeID != "" && c.anilistClient != nil {
-		go func() {
-			// Rate limiting is handled by AniListClient's internal rate limiter
-			// No need for manual sleep - the client will automatically throttle requests
+		ctx := context.Background()
 
-			// Use background context for goroutine (no parent context to cancel)
-			ctx := context.Background()
-
-			// Use AniList API to fetch and save genres (reuse client)
-			genres, err := c.anilistClient.GetGenresByMALId(ctx, *work.MalAnimeID)
-			if err != nil {
-				if c.logger != nil {
-					c.logger.Warn("Failed to get genres from AniList",
-						"anime_id", anime.ID,
-						"mal_anime_id", *work.MalAnimeID,
-						"error", err)
-				}
-				return
+		genres, err := c.anilistClient.GetGenresByMALId(ctx, *work.MalAnimeID)
+		if err != nil {
+			if c.logger != nil {
+				c.logger.Warn("Failed to get genres from AniList",
+					"anime_id", anime.ID,
+					"mal_anime_id", *work.MalAnimeID,
+					"error", err)
 			}
-
-			// Save genres to database using shared function
+		} else {
 			err = saveGenresToDatabase(c.DB, c.logger, anime.ID, genres)
 			if err != nil {
 				if c.logger != nil {
@@ -375,7 +364,23 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork) (*models.Anim
 						"genres", genres)
 				}
 			}
-		}()
+		}
+	}
+
+	// アニメのステータスを非同期で更新（ワーカープールを使用して並行数を制御）
+	// SyncAnimeStatusはAnimeServiceのメソッドなので、AnnictClientからはanimeService経由で呼び出す
+	if c.animeService != nil {
+		animeID := anime.ID
+		c.animeService.enqueueImageUpdate(func() {
+			err := c.animeService.SyncAnimeStatus(animeID, true)
+			if err != nil {
+				c.logger.Error("Failed to sync anime status after Annict sync",
+					"anime_id", animeID,
+					"error", err)
+			} else {
+				c.logger.Debug("Anime status sync triggered for", "anime_id", animeID)
+			}
+		})
 	}
 
 	return &anime, nil

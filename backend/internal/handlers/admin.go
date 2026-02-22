@@ -19,6 +19,7 @@ type AdminAnimeService interface {
 	GetEpisodeSyncStatus(animeID int) (*models.EpisodeSyncStatus, error)
 	SyncGenresForAllAnimes() (int, int, []string, error)
 	ClearAnimeCache() // キャッシュクリア
+    SyncAllAnimeStatuses() (int, int, error) // <-- 追加
 }
 
 // SyncScheduler defines the interface for sync scheduler
@@ -235,5 +236,24 @@ func (h *AdminHandler) ClearCache(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Cache cleared successfully",
+	})
+}
+
+// SyncAnimeStatuses - 全アニメのステータスを同期
+// POST /api/admin/sync/statuses
+func (h *AdminHandler) SyncAnimeStatuses(c *gin.Context) {
+	h.logger.Info("Starting anime status sync via admin API")
+
+	successCount, failureCount, err := h.animeService.SyncAllAnimeStatuses()
+	if err != nil {
+		h.logger.Error("Failed to sync anime statuses", "error", err)
+		h.response.InternalServerError(c, "ステータス同期に失敗しました")
+		return
+	}
+
+	h.response.Success(c, gin.H{
+		"success_count": successCount,
+		"failure_count": failureCount,
+		"message":       fmt.Sprintf("ステータス同期完了: 成功 %d件, 失敗 %d件", successCount, failureCount),
 	})
 }
