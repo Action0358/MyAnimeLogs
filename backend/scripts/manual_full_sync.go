@@ -67,7 +67,6 @@ func initServices(logger *common.Logger, env string) (*database.DB, *services.An
 
 	annictToken := os.Getenv("ANNICT_API_KEY")
 	if annictToken == "" {
-		db.Close()
 		return nil, nil, nil, fmt.Errorf("ANNICT_API_KEY is not set")
 	}
 

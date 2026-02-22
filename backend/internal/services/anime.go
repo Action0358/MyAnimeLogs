@@ -3826,16 +3826,66 @@ func (s *AnimeService) SyncPriorityAnimeData(animeIDs []int) error {
 
 	s.logger.Info("Starting priority anime data sync", "anime_count", len(animeIDs))
 
+	// バッチクエリで全アニメ情報を一括取得（N+1問題の回避）
+	type animeInfo struct {
+		ID          int
+		Title       string
+		Description *string
+		ReleasedOn  *string
+		MalAnimeID  *string
+	}
+	animeMap := make(map[int]*animeInfo, len(animeIDs))
+
+	// IN句用のプレースホルダーを構築
+	placeholders := ""
+	args := make([]interface{}, len(animeIDs))
+	for i, id := range animeIDs {
+		if i > 0 {
+			placeholders += ", "
+		}
+		placeholders += fmt.Sprintf("$%d", i+1)
+		args[i] = id
+	}
+
+	rows, err := s.db.Query(fmt.Sprintf(`
+		SELECT id, title, description, released_on, mal_anime_id
+		FROM animes WHERE id IN (%s)
+	`, placeholders), args...)
+	if err != nil {
+		return fmt.Errorf("failed to batch fetch anime info: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var info animeInfo
+		var desc, relOn, malID sql.NullString
+		if err := rows.Scan(&info.ID, &info.Title, &desc, &relOn, &malID); err != nil {
+			s.logger.Warn("Failed to scan anime info", "error", err)
+			continue
+		}
+		if desc.Valid && desc.String != "" {
+			info.Description = &desc.String
+		}
+		if relOn.Valid && relOn.String != "" {
+			info.ReleasedOn = &relOn.String
+		}
+		if malID.Valid && malID.String != "" {
+			info.MalAnimeID = &malID.String
+		}
+		animeMap[info.ID] = &info
+	}
+
+	s.logger.Info("Batch fetched anime info", "fetched", len(animeMap))
+
 	// Step 1: Sync episodes from Jikan
 	s.logger.Info("Priority sync: episodes from Jikan...")
 	epSuccess, epFail := 0, 0
 	for _, id := range animeIDs {
-		var malID sql.NullString
-		_ = s.db.QueryRow("SELECT mal_anime_id FROM animes WHERE id = $1", id).Scan(&malID)
-		if !malID.Valid || malID.String == "" {
+		info, ok := animeMap[id]
+		if !ok || info.MalAnimeID == nil {
 			continue
 		}
-		_, err := s.CreateEpisodesFromJikan(id, malID.String)
+		_, err := s.CreateEpisodesFromJikan(id, *info.MalAnimeID)
 		if err != nil {
 			s.logger.Debug("Failed to sync episodes", "anime_id", id, "error", err)
 			epFail++
@@ -3850,12 +3900,11 @@ func (s *AnimeService) SyncPriorityAnimeData(animeIDs []int) error {
 	s.logger.Info("Priority sync: episode details from Jikan...")
 	detailSuccess, detailFail := 0, 0
 	for _, id := range animeIDs {
-		var malAnimeID string
-		err := s.db.QueryRow("SELECT mal_anime_id FROM animes WHERE id = $1 AND mal_anime_id IS NOT NULL AND mal_anime_id != ''", id).Scan(&malAnimeID)
-		if err != nil {
+		info, ok := animeMap[id]
+		if !ok || info.MalAnimeID == nil {
 			continue
 		}
-		err = s.syncEpisodeDetailsForAnime(id, malAnimeID)
+		err := s.syncEpisodeDetailsForAnime(id, *info.MalAnimeID)
 		if err != nil {
 			s.logger.Debug("Failed to sync episode details", "anime_id", id, "error", err)
 			detailFail++
@@ -3869,25 +3918,24 @@ func (s *AnimeService) SyncPriorityAnimeData(animeIDs []int) error {
 	s.logger.Info("Priority sync: descriptions from TMDB...")
 	descSuccess, descSkip := 0, 0
 	for _, id := range animeIDs {
-		var anime models.Anime
-		var description, malAnimeID sql.NullString
-		err := s.db.QueryRow("SELECT id, title, description, mal_anime_id FROM animes WHERE id = $1", id).Scan(&anime.ID, &anime.Title, &description, &malAnimeID)
-		if err != nil {
+		info, ok := animeMap[id]
+		if !ok {
 			continue
 		}
-		if description.Valid {
-			anime.Description = &description.String
-		}
-		if malAnimeID.Valid {
-			anime.MalAnimeID = &malAnimeID.String
-		}
-		if anime.Description != nil && *anime.Description != "" {
+		if info.Description != nil && *info.Description != "" {
 			descSkip++
 			continue
+		}
+		anime := models.Anime{
+			ID:         info.ID,
+			Title:      info.Title,
+			MalAnimeID: info.MalAnimeID,
 		}
 		s.enrichAnimeWithDescription(&anime)
 		if anime.Description != nil && *anime.Description != "" {
 			descSuccess++
+			// メモリ上のマップも更新
+			info.Description = anime.Description
 		}
 	}
 	s.logger.Info("Priority sync: descriptions completed", "success", descSuccess, "skipped", descSkip)
@@ -3896,21 +3944,18 @@ func (s *AnimeService) SyncPriorityAnimeData(animeIDs []int) error {
 	s.logger.Info("Priority sync: released_on from Jikan...")
 	relSuccess, relSkip := 0, 0
 	for _, id := range animeIDs {
-		var anime models.Anime
-		var releasedOn, malAnimeID sql.NullString
-		err := s.db.QueryRow("SELECT id, title, released_on, mal_anime_id FROM animes WHERE id = $1", id).Scan(&anime.ID, &anime.Title, &releasedOn, &malAnimeID)
-		if err != nil {
+		info, ok := animeMap[id]
+		if !ok {
 			continue
 		}
-		if releasedOn.Valid {
-			anime.ReleasedOn = &releasedOn.String
-		}
-		if malAnimeID.Valid {
-			anime.MalAnimeID = &malAnimeID.String
-		}
-		if anime.ReleasedOn != nil && *anime.ReleasedOn != "" {
+		if info.ReleasedOn != nil && *info.ReleasedOn != "" {
 			relSkip++
 			continue
+		}
+		anime := models.Anime{
+			ID:         info.ID,
+			Title:      info.Title,
+			MalAnimeID: info.MalAnimeID,
 		}
 		s.enrichAnimeWithReleasedOn(&anime)
 		if anime.ReleasedOn != nil && *anime.ReleasedOn != "" {
