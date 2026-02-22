@@ -292,7 +292,7 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork) (*models.Anim
 				mal_anime_id = $12,
 				watchers_count = $13,
 				reviews_count = $14,
-				released_on = COALESCE($15, released_on),
+				released_on = COALESCE(NULLIF($15, ''), released_on),
 				updated_at = CURRENT_TIMESTAMP
 			WHERE annict_id = $16
 			RETURNING id, title, image_url, season, status, annict_id, created_at, updated_at
