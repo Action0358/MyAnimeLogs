@@ -20,6 +20,7 @@ type Anime struct {
 	WatchersCount   int       `json:"watchers_count" db:"watchers_count"`
 	MalAnimeID      *string   `json:"mal_anime_id" db:"mal_anime_id"` // MyAnimeList ID
 	AnnictID        *int      `json:"annict_id" db:"annict_id"`       // Annict ID
+	SeriesTMDBID    *int      `json:"series_tmdb_id,omitempty" db:"series_tmdb_id"` // TMDB Series ID (for TV shows)
 	CreatedAt       time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at" db:"updated_at"`
 
