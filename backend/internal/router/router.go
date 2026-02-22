@@ -40,7 +40,7 @@ func Setup(db *database.DB, cfg *config.Config, syncScheduler handlers.SyncSched
 
 	// サービス（共有されたannictClientを使用）
 	authService := services.NewAuthService(db, cfg.JWTSecret)
-	animeService := services.NewAnimeService(db, logger, annictClient)
+	animeService := services.NewAnimeService(db, logger)
 	uploadService := services.NewUploadService(cfg.UploadDir, cfg.UploadPublicPath, cfg.MaxUploadSize, logger)
 
 	// 強化されたエラーハンドリングを持つハンドラー（共有されたannictClientを使用）
