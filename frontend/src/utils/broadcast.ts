@@ -1,5 +1,5 @@
 /**
- * 放送曜日・時間の翻訳・フォーマットユーティリティ
+ * 放送曜日の翻訳ユーティリティ
  */
 
 const dayMap: Record<string, string> = {
@@ -14,13 +14,4 @@ const dayMap: Record<string, string> = {
 
 export const translateBroadcastDay = (day: string): string => {
   return dayMap[day] || day
-}
-
-export const formatBroadcastInfo = (
-  day?: string | null,
-  time?: string | null
-): string | null => {
-  if (!day) return null
-  const translatedDay = translateBroadcastDay(day)
-  return time ? `${translatedDay} ${time}` : translatedDay
 }

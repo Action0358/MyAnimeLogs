@@ -11,7 +11,7 @@ import { EpisodeList, WatchProviders } from '@/components/anime'
 import { getAnimesId, getAnimesIdEpisodes } from '@/lib/api/generated/myanimelogs'
 import { cn } from '@/lib/utils'
 import { getAnimeStatusLabel, type BroadcastStatusLabel } from '@/utils/animeStatus'
-import { formatBroadcastInfo } from '@/utils/broadcast'
+import { translateBroadcastDay } from '@/utils/broadcast'
 
 const AnimeDetailClient: React.FC = () => {
   const params = useParams()
@@ -286,7 +286,7 @@ const AnimeDetailClient: React.FC = () => {
               {anime.broadcast_day && (
                 <div className="flex">
                   <dt className="text-gray-500 w-24 flex-shrink-0">放送日</dt>
-                  <dd className="text-gray-900">{formatBroadcastInfo(anime.broadcast_day)}</dd>
+                  <dd className="text-gray-900">{translateBroadcastDay(anime.broadcast_day)}</dd>
                 </div>
               )}
               {anime.broadcast_time && (

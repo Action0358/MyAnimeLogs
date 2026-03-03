@@ -162,14 +162,14 @@ func getSeasonStringFromTime(t time.Time) string {
 }
 
 type AnimeService struct {
-	db               *database.DB
-	logger           *common.Logger
-	anilistClient    *AniListClient
-	jikanClient      *JikanClient
-	tmdbClient       *TMDBClient  // TMDB APIクライアント
-	imageUpdateQueue chan func()  // 画像更新用ワーカープールのキュー
-	cache            *MemoryCache // レスポンスキャッシュ
-	redisCache       *RedisCache  // Redisキャッシュ（オプション）
+	db                  *database.DB
+	logger              *common.Logger
+	anilistClient       *AniListClient
+	jikanClient         *JikanClient
+	tmdbClient          *TMDBClient  // TMDB APIクライアント
+	backgroundTaskQueue chan func()  // バックグラウンドタスク用ワーカープールのキュー
+	cache               *MemoryCache // レスポンスキャッシュ
+	redisCache          *RedisCache  // Redisキャッシュ（オプション）
 }
 
 func NewAnimeService(db *database.DB, logger *common.Logger) *AnimeService {
@@ -189,14 +189,14 @@ func NewAnimeService(db *database.DB, logger *common.Logger) *AnimeService {
 	}
 
 	s := &AnimeService{
-		db:               db,
-		logger:           logger,
-		anilistClient:    NewAniListClient(),
-		jikanClient:      NewJikanClient(logger),
-		tmdbClient:       NewTMDBClient(logger),
-		imageUpdateQueue: make(chan func(), constants.ImageUpdateQueueSize),
-		cache:            NewMemoryCache(cacheConfig),
-		redisCache:       redisCache,
+		db:                  db,
+		logger:              logger,
+		anilistClient:       NewAniListClient(),
+		jikanClient:         NewJikanClient(logger),
+		tmdbClient:          NewTMDBClient(logger),
+		backgroundTaskQueue: make(chan func(), constants.BackgroundTaskQueueSize),
+		cache:               NewMemoryCache(cacheConfig),
+		redisCache:          redisCache,
 	}
 
 	// ワーカープールを起動
@@ -208,9 +208,9 @@ func NewAnimeService(db *database.DB, logger *common.Logger) *AnimeService {
 // startImageUpdateWorkers - 画像更新用ワーカープールを起動
 // 高負荷時のgoroutine爆発を防ぐため、固定数のワーカーでタスクを処理
 func (s *AnimeService) startImageUpdateWorkers() {
-	for i := 0; i < constants.ImageUpdateWorkerPoolSize; i++ {
+	for i := 0; i < constants.BackgroundTaskWorkerPoolSize; i++ {
 		go func() {
-			for task := range s.imageUpdateQueue {
+			for task := range s.backgroundTaskQueue {
 				// パニックからの復帰（アプリケーション全体のクラッシュを防止）
 				func() {
 					defer func() {
@@ -226,11 +226,11 @@ func (s *AnimeService) startImageUpdateWorkers() {
 	}
 }
 
-// enqueueImageUpdate - 画像更新タスクをキューに追加
+// enqueueBackgroundTask - バックグラウンドタスクをキューに追加
 // キューが満杯の場合はタスクをドロップ（ノンブロッキング）
-func (s *AnimeService) enqueueImageUpdate(task func()) {
+func (s *AnimeService) enqueueBackgroundTask(task func()) {
 	select {
-	case s.imageUpdateQueue <- task:
+	case s.backgroundTaskQueue <- task:
 		// タスクをキューに追加成功
 	default:
 		// キューが満杯の場合はドロップ（次回リクエスト時に再試行される）
@@ -241,8 +241,8 @@ func (s *AnimeService) enqueueImageUpdate(task func()) {
 // Close - AnimeServiceのリソースを解放
 // ワーカープールを graceful にシャットダウンし、goroutineリークを防止
 func (s *AnimeService) Close() {
-	if s.imageUpdateQueue != nil {
-		close(s.imageUpdateQueue)
+	if s.backgroundTaskQueue != nil {
+		close(s.backgroundTaskQueue)
 	}
 	if s.cache != nil {
 		s.cache.Close()
@@ -1956,9 +1956,9 @@ func (s *AnimeService) enrichAnimeWithCoverImage(anime *models.Anime) {
 			extraLarge := coverImage.ExtraLarge
 			large := coverImage.Large
 			medium := coverImage.Medium
-			s.enqueueImageUpdate(func() {
+			s.enqueueBackgroundTask(func() {
 				// タイムアウト付きcontextでDBハングを防止
-				ctx, cancel := context.WithTimeout(context.Background(), constants.ImageUpdateDBTimeout)
+				ctx, cancel := context.WithTimeout(context.Background(), constants.BackgroundTaskDBTimeout)
 				defer cancel()
 
 				_, saveErr := s.db.ExecContext(ctx, `
@@ -2026,7 +2026,7 @@ func (s *AnimeService) enrichAnimeWithDescription(anime *models.Anime) {
 			// DBに保存（非同期）
 			animeID := anime.ID
 			seriesTitle := NormalizeAnimeTitle(anime.Title)
-			s.enqueueImageUpdate(func() {
+			s.enqueueBackgroundTask(func() {
 				s.updateAnimeSeriesInfo(context.Background(), animeID, overview, tmdbID, seriesTitle, tmdbID)
 			})
 			return
@@ -2051,7 +2051,7 @@ func (s *AnimeService) enrichAnimeWithDescription(anime *models.Anime) {
 
 			// DBに保存（非同期）
 			animeID := anime.ID
-			s.enqueueImageUpdate(func() {
+			s.enqueueBackgroundTask(func() {
 				var tmdbID int
 				if seriesTMDBID.Valid {
 					tmdbID = int(seriesTMDBID.Int64)
@@ -2092,8 +2092,8 @@ func (s *AnimeService) enrichAnimeWithDescription(anime *models.Anime) {
 
 	// DBに保存（非同期）
 	malID := *anime.MalAnimeID
-	s.enqueueImageUpdate(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), constants.ImageUpdateDBTimeout)
+	s.enqueueBackgroundTask(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), constants.BackgroundTaskDBTimeout)
 		defer cancel()
 
 		_, saveErr := s.db.ExecContext(ctx, `
@@ -2112,7 +2112,7 @@ func (s *AnimeService) enrichAnimeWithDescription(anime *models.Anime) {
 // updateAnimeSeriesInfo updates anime description and series information
 // Only fields with non-empty/non-zero values are included in the update to prevent overwriting existing data.
 func (s *AnimeService) updateAnimeSeriesInfo(ctx context.Context, animeID int, description string, tmdbID int, seriesTitle string, seriesTMDBID int) {
-	dbCtx, cancel := context.WithTimeout(ctx, constants.ImageUpdateDBTimeout)
+	dbCtx, cancel := context.WithTimeout(ctx, constants.BackgroundTaskDBTimeout)
 	defer cancel()
 
 	// Build dynamic query
@@ -2170,8 +2170,8 @@ func (s *AnimeService) ensureSeriesTitle(anime *models.Anime) {
 
 	// DBに保存（非同期）
 	animeID := anime.ID
-	s.enqueueImageUpdate(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), constants.ImageUpdateDBTimeout)
+	s.enqueueBackgroundTask(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), constants.BackgroundTaskDBTimeout)
 		defer cancel()
 
 		_, saveErr := s.db.ExecContext(ctx, `
@@ -2224,8 +2224,8 @@ func (s *AnimeService) enrichAnimeWithReleasedOn(anime *models.Anime) {
 	// DBに保存（非同期）
 	malID := *anime.MalAnimeID
 	animeID := anime.ID
-	s.enqueueImageUpdate(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), constants.ImageUpdateDBTimeout)
+	s.enqueueBackgroundTask(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), constants.BackgroundTaskDBTimeout)
 		defer cancel()
 
 		_, saveErr := s.db.ExecContext(ctx, `
@@ -2295,8 +2295,8 @@ func (s *AnimeService) enrichAnimeWithBroadcastInfo(anime *models.Anime) {
 	day := anime.BroadcastDay
 	bTime := anime.BroadcastTime
 	tz := anime.BroadcastTimezone
-	s.enqueueImageUpdate(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), constants.ImageUpdateDBTimeout)
+	s.enqueueBackgroundTask(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), constants.BackgroundTaskDBTimeout)
 		defer cancel()
 
 		_, saveErr := s.db.ExecContext(ctx, `
@@ -4226,7 +4226,7 @@ func (s *AnimeService) enrichAnimeWithWatchProviders(animeWithData *models.Anime
 			animeID := animeWithData.ID
 			animeTitle := animeWithData.Title
 			savedTmdbID := tmdbID
-			s.enqueueImageUpdate(func() {
+			s.enqueueBackgroundTask(func() {
 				seriesTitle := NormalizeAnimeTitle(animeTitle)
 				s.updateAnimeSeriesInfo(context.Background(), animeID, "", 0, seriesTitle, savedTmdbID)
 			})
@@ -4261,7 +4261,7 @@ func (s *AnimeService) enrichAnimeWithWatchProviders(animeWithData *models.Anime
 		// Save TMDB ID and series_tmdb_id to database for future use (async)
 		animeID := animeWithData.ID
 		animeTitle := animeWithData.Title
-		s.enqueueImageUpdate(func() {
+		s.enqueueBackgroundTask(func() {
 			seriesTitle := NormalizeAnimeTitle(animeTitle)
 			s.updateAnimeSeriesInfo(context.Background(), animeID, "", tmdbID, seriesTitle, tmdbID)
 		})
