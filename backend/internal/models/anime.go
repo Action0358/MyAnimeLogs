@@ -31,6 +31,11 @@ type Anime struct {
 	// シリーズ作品の統合管理用（内部識別用）
 	SeriesTitle  *string `json:"series_title,omitempty" db:"series_title"`     // 正規化後のシリーズ名
 	SeriesTMDBID *int    `json:"series_tmdb_id,omitempty" db:"series_tmdb_id"` // シリーズ代表のTMDB ID
+
+	// Jikan APIから取得する放送情報
+	BroadcastDay      *string `json:"broadcast_day,omitempty" db:"broadcast_day"`           // 放送曜日（例: "Fridays"）
+	BroadcastTime     *string `json:"broadcast_time,omitempty" db:"broadcast_time"`         // 放送時間（例: "23:30"）
+	BroadcastTimezone *string `json:"broadcast_timezone,omitempty" db:"broadcast_timezone"` // タイムゾーン（例: "Asia/Tokyo"）
 }
 
 type AnimeWithUserData struct {

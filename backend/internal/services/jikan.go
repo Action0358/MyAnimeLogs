@@ -343,3 +343,26 @@ func extractEpisodeNumber(url string) (int, error) {
 func (c *JikanClient) ExtractEpisodeNumber(url string) (int, error) {
 	return extractEpisodeNumber(url)
 }
+
+// GetBroadcastInfo fetches broadcast schedule information for a given MAL anime ID
+func (c *JikanClient) GetBroadcastInfo(malAnimeID string) (*models.JikanBroadcast, error) {
+	if malAnimeID == "" {
+		return nil, fmt.Errorf("mal_anime_id is required")
+	}
+
+	url := fmt.Sprintf("%s/anime/%s", c.baseURL, malAnimeID)
+
+	var response models.JikanAnimeResponse
+	err := c.makeRequestWithRetry(url, &response)
+	if err != nil {
+		return nil, err
+	}
+
+	if response.Data.Broadcast == nil {
+		c.logger.Debug("No broadcast info available from Jikan API",
+			"mal_anime_id", malAnimeID)
+		return nil, nil
+	}
+
+	return response.Data.Broadcast, nil
+}

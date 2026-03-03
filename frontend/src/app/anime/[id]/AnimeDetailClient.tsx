@@ -11,6 +11,7 @@ import { EpisodeList, WatchProviders } from '@/components/anime'
 import { getAnimesId, getAnimesIdEpisodes } from '@/lib/api/generated/myanimelogs'
 import { cn } from '@/lib/utils'
 import { getAnimeStatusLabel, type BroadcastStatusLabel } from '@/utils/animeStatus'
+import { formatBroadcastInfo } from '@/utils/broadcast'
 
 const AnimeDetailClient: React.FC = () => {
   const params = useParams()
@@ -280,6 +281,18 @@ const AnimeDetailClient: React.FC = () => {
                 <div className="flex">
                   <dt className="text-gray-500 w-24 flex-shrink-0">メディア</dt>
                   <dd className="text-gray-900">{getMediaLabel(anime.media)}</dd>
+                </div>
+              )}
+              {anime.broadcast_day && (
+                <div className="flex">
+                  <dt className="text-gray-500 w-24 flex-shrink-0">放送日</dt>
+                  <dd className="text-gray-900">{formatBroadcastInfo(anime.broadcast_day)}</dd>
+                </div>
+              )}
+              {anime.broadcast_time && (
+                <div className="flex">
+                  <dt className="text-gray-500 w-24 flex-shrink-0">放送時間</dt>
+                  <dd className="text-gray-900">{anime.broadcast_time}</dd>
                 </div>
               )}
               {/* 話数 - 映画の場合は非表示（映画にエピソードの概念がないため） */}

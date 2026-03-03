@@ -692,6 +692,7 @@ func (s *AnimeService) AdvancedSearchAnimes(params models.AdvancedSearchParams, 
 func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWithUserData, error) {
 	var anime models.Anime
 	var description, media, officialSiteURL, titleKana, titleEn, releasedOn, seriesTitle sql.NullString
+	var broadcastDay, broadcastTime, broadcastTimezone sql.NullString
 	var episodesCount, seriesTMDBID sql.NullInt64
 
 	err := s.db.QueryRow(`
@@ -700,10 +701,12 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 		       COALESCE(cover_image_large, '') as cover_image_large,
 		       COALESCE(cover_image_medium, '') as cover_image_medium,
 		       description, media, released_on, official_site_url, title_kana, title_en, episodes_count,
-		       series_title, series_tmdb_id
+		       series_title, series_tmdb_id,
+		       broadcast_day, broadcast_time, broadcast_timezone
 		FROM animes WHERE id = $1
 	`, animeID).Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount, &anime.CoverImageExtraLarge, &anime.CoverImageLarge, &anime.CoverImageMedium,
-		&description, &media, &releasedOn, &officialSiteURL, &titleKana, &titleEn, &episodesCount, &seriesTitle, &seriesTMDBID)
+		&description, &media, &releasedOn, &officialSiteURL, &titleKana, &titleEn, &episodesCount, &seriesTitle, &seriesTMDBID,
+		&broadcastDay, &broadcastTime, &broadcastTimezone)
 
 	// Check error immediately after Scan - accessing scanned variables before error check is undefined behavior
 	if err != nil {
@@ -743,6 +746,15 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 		id := int(seriesTMDBID.Int64)
 		anime.SeriesTMDBID = &id
 	}
+	if broadcastDay.Valid {
+		anime.BroadcastDay = &broadcastDay.String
+	}
+	if broadcastTime.Valid {
+		anime.BroadcastTime = &broadcastTime.String
+	}
+	if broadcastTimezone.Valid {
+		anime.BroadcastTimezone = &broadcastTimezone.String
+	}
 
 	// DBキャッシュがない場合、またはextraLargeがない場合はAniListから画像を取得
 	if anime.CoverImageExtraLarge == "" || anime.CoverImageLarge == "" {
@@ -760,6 +772,11 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 	// released_onがない場合はJikan APIから取得
 	if anime.ReleasedOn == nil || *anime.ReleasedOn == "" {
 		s.enrichAnimeWithReleasedOn(&anime)
+	}
+
+	// 放送情報がない場合はJikan APIから取得
+	if anime.BroadcastDay == nil {
+		s.enrichAnimeWithBroadcastInfo(&anime)
 	}
 
 	animeWithData := &models.AnimeWithUserData{Anime: anime}
@@ -2225,6 +2242,77 @@ func (s *AnimeService) enrichAnimeWithReleasedOn(anime *models.Anime) {
 			s.logger.Debug("Saved released_on from Jikan to DB",
 				"anime_id", animeID,
 				"released_on", releasedOn)
+		}
+	})
+}
+
+// enrichAnimeWithBroadcastInfo - Jikan APIから放送情報を取得してアニメ情報を拡張
+// DBにbroadcast_dayがない場合のみAPIを呼び出す
+func (s *AnimeService) enrichAnimeWithBroadcastInfo(anime *models.Anime) {
+	// 既に放送情報がある場合はスキップ
+	if anime.BroadcastDay != nil {
+		return
+	}
+
+	// MAL IDがない場合は取得できない
+	if anime.MalAnimeID == nil || *anime.MalAnimeID == "" {
+		return
+	}
+
+	// Jikan APIから放送情報を取得
+	broadcast, err := s.jikanClient.GetBroadcastInfo(*anime.MalAnimeID)
+	if err != nil {
+		s.logger.Debug("Failed to get broadcast info from Jikan",
+			"error", err,
+			"mal_anime_id", *anime.MalAnimeID,
+			"anime_title", anime.Title)
+		return
+	}
+
+	if broadcast == nil {
+		return
+	}
+
+	// アニメ情報に設定
+	if broadcast.Day != nil && *broadcast.Day != "" {
+		anime.BroadcastDay = broadcast.Day
+	}
+	if broadcast.Time != nil && *broadcast.Time != "" {
+		anime.BroadcastTime = broadcast.Time
+	}
+	if broadcast.Timezone != nil && *broadcast.Timezone != "" {
+		anime.BroadcastTimezone = broadcast.Timezone
+	}
+
+	// 放送曜日がない場合はDB保存もスキップ
+	if anime.BroadcastDay == nil {
+		return
+	}
+
+	// DBに保存（非同期）
+	malID := *anime.MalAnimeID
+	animeID := anime.ID
+	day := anime.BroadcastDay
+	bTime := anime.BroadcastTime
+	tz := anime.BroadcastTimezone
+	s.enqueueImageUpdate(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), constants.ImageUpdateDBTimeout)
+		defer cancel()
+
+		_, saveErr := s.db.ExecContext(ctx, `
+			UPDATE animes 
+			SET broadcast_day = $1, broadcast_time = $2, broadcast_timezone = $3
+			WHERE id = $4
+		`, day, bTime, tz, animeID)
+		if saveErr != nil {
+			s.logger.Warn("Failed to save broadcast info to DB",
+				"error", saveErr,
+				"mal_anime_id", malID,
+				"anime_id", animeID)
+		} else {
+			s.logger.Debug("Saved broadcast info from Jikan to DB",
+				"anime_id", animeID,
+				"broadcast_day", day)
 		}
 	})
 }
