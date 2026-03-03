@@ -34,12 +34,21 @@ type JikanAnimeResponse struct {
 
 // JikanAnimeData represents anime details from Jikan API
 type JikanAnimeData struct {
-	MalID    int          `json:"mal_id"`
-	Title    string       `json:"title"`
-	Duration string       `json:"duration"` // e.g., "24 min per ep"
-	Episodes int          `json:"episodes"`
-	Genres   []JikanGenre `json:"genres"`
-	Aired    *JikanAired  `json:"aired"` // Broadcast date information
+	MalID     int             `json:"mal_id"`
+	Title     string          `json:"title"`
+	Duration  string          `json:"duration"` // e.g., "24 min per ep"
+	Episodes  int             `json:"episodes"`
+	Genres    []JikanGenre    `json:"genres"`
+	Aired     *JikanAired     `json:"aired"`     // Broadcast date information
+	Broadcast *JikanBroadcast `json:"broadcast"` // Broadcast day/time information
+}
+
+// JikanBroadcast represents broadcast schedule information from Jikan API
+type JikanBroadcast struct {
+	Day      *string `json:"day"`      // e.g., "Fridays"
+	Time     *string `json:"time"`     // e.g., "23:30"
+	Timezone *string `json:"timezone"` // e.g., "Asia/Tokyo"
+	String   *string `json:"string"`   // e.g., "Fridays at 23:30 (JST)"
 }
 
 // JikanAired represents the aired date information from Jikan API
