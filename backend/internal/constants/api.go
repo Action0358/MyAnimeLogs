@@ -30,17 +30,17 @@ const (
 	// 7日間キャッシュを保持し、期限切れ後はAPIから再取得
 	CoverImageCacheTTL = 7 * 24 * time.Hour
 
-	// ImageUpdateWorkerPoolSize - 画像更新用ワーカープールのサイズ
+	// BackgroundTaskWorkerPoolSize - バックグラウンドタスク用ワーカープールのサイズ
 	// 高負荷時のgoroutine爆発を防ぐため、同時実行数を制限
-	ImageUpdateWorkerPoolSize = 10
+	BackgroundTaskWorkerPoolSize = 10
 
-	// ImageUpdateQueueSize - 画像更新キューのバッファサイズ
+	// BackgroundTaskQueueSize - バックグラウンドタスクキューのバッファサイズ
 	// キューが満杯の場合、新しいタスクはドロップされる
-	ImageUpdateQueueSize = 100
+	BackgroundTaskQueueSize = 100
 
-	// ImageUpdateDBTimeout - 画像更新のDB操作タイムアウト
+	// BackgroundTaskDBTimeout - バックグラウンドタスクのDB操作タイムアウト
 	// DBが応答しない場合にワーカーがハングするのを防ぐ
-	ImageUpdateDBTimeout = 10 * time.Second
+	BackgroundTaskDBTimeout = 10 * time.Second
 )
 
 // APIレスポンスキャッシュ関連の定数

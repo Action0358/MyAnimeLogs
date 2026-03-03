@@ -371,7 +371,7 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork) (*models.Anim
 	// SyncAnimeStatusはAnimeServiceのメソッドなので、AnnictClientからはanimeService経由で呼び出す
 	if c.animeService != nil {
 		animeID := anime.ID
-		c.animeService.enqueueImageUpdate(func() {
+		c.animeService.enqueueBackgroundTask(func() {
 			err := c.animeService.SyncAnimeStatus(animeID, true)
 			if err != nil {
 				c.logger.Error("Failed to sync anime status after Annict sync",
