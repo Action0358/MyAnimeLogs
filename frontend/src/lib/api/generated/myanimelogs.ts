@@ -166,6 +166,21 @@ export interface Anime {
   rating_distribution?: AnimeRatingDistribution;
   /** 配信サービス一覧 */
   watch_providers?: WatchProvider[];
+  /**
+   * 放送曜日（例：Fridays）
+   * @nullable
+   */
+  broadcast_day?: string | null;
+  /**
+   * 放送時間（例：23:30）
+   * @nullable
+   */
+  broadcast_time?: string | null;
+  /**
+   * タイムゾーン（例：Asia/Tokyo）
+   * @nullable
+   */
+  broadcast_timezone?: string | null;
   created_at?: string;
   updated_at?: string;
 }
