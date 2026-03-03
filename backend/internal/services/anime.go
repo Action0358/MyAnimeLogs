@@ -200,14 +200,14 @@ func NewAnimeService(db *database.DB, logger *common.Logger) *AnimeService {
 	}
 
 	// ワーカープールを起動
-	s.startImageUpdateWorkers()
+	s.startBackgroundTaskWorkers()
 
 	return s
 }
 
-// startImageUpdateWorkers - 画像更新用ワーカープールを起動
+// startBackgroundTaskWorkers - バックグラウンドタスク用ワーカープールを起動
 // 高負荷時のgoroutine爆発を防ぐため、固定数のワーカーでタスクを処理
-func (s *AnimeService) startImageUpdateWorkers() {
+func (s *AnimeService) startBackgroundTaskWorkers() {
 	for i := 0; i < constants.BackgroundTaskWorkerPoolSize; i++ {
 		go func() {
 			for task := range s.backgroundTaskQueue {
@@ -234,7 +234,7 @@ func (s *AnimeService) enqueueBackgroundTask(task func()) {
 		// タスクをキューに追加成功
 	default:
 		// キューが満杯の場合はドロップ（次回リクエスト時に再試行される）
-		s.logger.Debug("Image update queue is full, task dropped")
+		s.logger.Debug("Background task queue is full, task dropped")
 	}
 }
 
