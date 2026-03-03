@@ -277,12 +277,6 @@ const AnimeDetailClient: React.FC = () => {
                   <dd className="text-gray-900">{formatReleasedOn(anime.released_on)}</dd>
                 </div>
               )}
-              {anime.media && (
-                <div className="flex">
-                  <dt className="text-gray-500 w-24 flex-shrink-0">メディア</dt>
-                  <dd className="text-gray-900">{getMediaLabel(anime.media)}</dd>
-                </div>
-              )}
               {anime.broadcast_day && (
                 <div className="flex">
                   <dt className="text-gray-500 w-24 flex-shrink-0">放送日</dt>
@@ -301,6 +295,12 @@ const AnimeDetailClient: React.FC = () => {
                 <div className="flex">
                   <dt className="text-gray-500 w-24 flex-shrink-0">話数</dt>
                   <dd className="text-gray-900">{episodes.length}話</dd>
+                </div>
+              )}
+              {anime.media && (
+                <div className="flex">
+                  <dt className="text-gray-500 w-24 flex-shrink-0">メディア</dt>
+                  <dd className="text-gray-900">{getMediaLabel(anime.media)}</dd>
                 </div>
               )}
               {anime.official_site_url && (
