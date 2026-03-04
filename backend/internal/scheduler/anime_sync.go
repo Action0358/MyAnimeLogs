@@ -616,11 +616,35 @@ func isSeasonBefore(season1, season2 string) bool {
 	return seasonIndex[seasonName1] < seasonIndex[seasonName2]
 }
 
-// getAnimesWithoutMetadata - メタデータ未取得作品を取得
-func (s *AnimeSyncScheduler) getAnimesWithoutMetadata() ([]models.Anime, error) {
+// getAnimesByQuery - 共通のアニメ取得ヘルパー関数
+func (s *AnimeSyncScheduler) getAnimesByQuery(query string, args ...interface{}) ([]models.Anime, error) {
 	var animes []models.Anime
 
-	query := `
+	rows, err := s.annictClient.DB.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var anime models.Anime
+		if err := rows.Scan(&anime.ID, &anime.MalAnimeID, &anime.Title, &anime.AnnictID); err != nil {
+			s.logger.Warn("Failed to scan anime", "error", err)
+			continue
+		}
+		animes = append(animes, anime)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating anime rows: %w", err)
+	}
+
+	return animes, nil
+}
+
+// getAnimesWithoutMetadata - メタデータ未取得作品を取得
+func (s *AnimeSyncScheduler) getAnimesWithoutMetadata() ([]models.Anime, error) {
+	return s.getAnimesByQuery(`
 		SELECT id, mal_anime_id, title, annict_id
 		FROM animes
 		WHERE metadata_synced_at IS NULL
@@ -628,35 +652,12 @@ func (s *AnimeSyncScheduler) getAnimesWithoutMetadata() ([]models.Anime, error) 
 		AND sync_status != $1
 		ORDER BY created_at DESC
 		LIMIT 100
-	`
-
-	rows, err := s.annictClient.DB.Query(query, string(constants.SyncStatusFailed))
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var anime models.Anime
-		if err := rows.Scan(&anime.ID, &anime.MalAnimeID, &anime.Title, &anime.AnnictID); err != nil {
-			s.logger.Warn("Failed to scan anime", "error", err)
-			continue
-		}
-		animes = append(animes, anime)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating anime rows: %w", err)
-	}
-
-	return animes, nil
+	`, string(constants.SyncStatusFailed))
 }
 
 // getAiringAnimes - 放送中作品を取得
 func (s *AnimeSyncScheduler) getAiringAnimes() ([]models.Anime, error) {
-	var animes []models.Anime
-
-	query := `
+	return s.getAnimesByQuery(`
 		SELECT id, mal_anime_id, title, annict_id
 		FROM animes
 		WHERE status = 'currently_airing'
@@ -664,37 +665,13 @@ func (s *AnimeSyncScheduler) getAiringAnimes() ([]models.Anime, error) {
 		AND mal_anime_id IS NOT NULL
 		ORDER BY metadata_synced_at ASC NULLS FIRST
 		LIMIT 50
-	`
-
-	rows, err := s.annictClient.DB.Query(query)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var anime models.Anime
-		if err := rows.Scan(&anime.ID, &anime.MalAnimeID, &anime.Title, &anime.AnnictID); err != nil {
-			s.logger.Warn("Failed to scan anime", "error", err)
-			continue
-		}
-		animes = append(animes, anime)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating anime rows: %w", err)
-	}
-
-	return animes, nil
+	`)
 }
 
 // getAnimesWithStaleMetadata - 古いメタデータを持つ作品を取得
 func (s *AnimeSyncScheduler) getAnimesWithStaleMetadata(staleDuration time.Duration) ([]models.Anime, error) {
-	var animes []models.Anime
-
 	staleThreshold := time.Now().Add(-staleDuration)
-
-	query := `
+	return s.getAnimesByQuery(`
 		SELECT id, mal_anime_id, title, annict_id
 		FROM animes
 		WHERE metadata_synced_at < $1
@@ -702,28 +679,7 @@ func (s *AnimeSyncScheduler) getAnimesWithStaleMetadata(staleDuration time.Durat
 		AND sync_status != $2
 		ORDER BY metadata_synced_at ASC
 		LIMIT 50
-	`
-
-	rows, err := s.annictClient.DB.Query(query, staleThreshold, string(constants.SyncStatusFailed))
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var anime models.Anime
-		if err := rows.Scan(&anime.ID, &anime.MalAnimeID, &anime.Title, &anime.AnnictID); err != nil {
-			s.logger.Warn("Failed to scan anime", "error", err)
-			continue
-		}
-		animes = append(animes, anime)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating anime rows: %w", err)
-	}
-
-	return animes, nil
+	`, staleThreshold, string(constants.SyncStatusFailed))
 }
 
 // updateMetadataSyncTime - メタデータ同期日時を更新
@@ -735,6 +691,18 @@ func (s *AnimeSyncScheduler) updateMetadataSyncTime(animeID int) error {
 			sync_error = NULL
 		WHERE id = $2
 	`, string(constants.SyncStatusSynced), animeID)
+	return err
+}
+
+// updateMetadataSyncFailure - メタデータ同期失敗時のステータス更新
+func (s *AnimeSyncScheduler) updateMetadataSyncFailure(animeID int, syncErr error) error {
+	_, err := s.annictClient.DB.Exec(`
+		UPDATE animes
+		SET sync_status = $1,
+			sync_error = $2,
+			updated_at = CURRENT_TIMESTAMP
+		WHERE id = $3
+	`, string(constants.SyncStatusFailed), syncErr.Error(), animeID)
 	return err
 }
 
@@ -799,25 +767,34 @@ func (s *AnimeSyncScheduler) syncMetadataForAnimes(animes []models.Anime, catego
 		// ジャンル同期（AniList API: 90req/min = 1.5req/sec）
 		// 構造体フィールドのanilistClientを再利用（レートリミッター共有）
 		ctx := context.Background()
-		genres, err := s.anilistClient.GetGenresByMALId(ctx, malID)
-		if err != nil {
+		genres, genreErr := s.anilistClient.GetGenresByMALId(ctx, malID)
+		if genreErr != nil {
 			s.logger.Warn("Failed to get genres",
 				"anime_id", anime.ID,
 				"mal_id", malID,
-				"error", err)
+				"error", genreErr)
 			failureCount++
-			errors = append(errors, fmt.Sprintf("Anime %d: genre sync failed - %s", anime.ID, err))
-		} else {
-			// ジャンル保存
-			if err := s.saveGenres(anime.ID, genres); err != nil {
-				s.logger.Error("Failed to save genres", "anime_id", anime.ID, "error", err)
-				failureCount++
-			} else {
-				successCount++
+			errors = append(errors, fmt.Sprintf("Anime %d: genre sync failed - %s", anime.ID, genreErr))
+			// 失敗時はsync_statusをfailedに更新
+			if err := s.updateMetadataSyncFailure(anime.ID, genreErr); err != nil {
+				s.logger.Error("Failed to update metadata sync failure", "anime_id", anime.ID, "error", err)
 			}
+			continue
 		}
 
-		// メタデータ同期日時を更新
+		// ジャンル保存
+		if saveErr := s.saveGenres(anime.ID, genres); saveErr != nil {
+			s.logger.Error("Failed to save genres", "anime_id", anime.ID, "error", saveErr)
+			failureCount++
+			// 失敗時はsync_statusをfailedに更新
+			if err := s.updateMetadataSyncFailure(anime.ID, saveErr); err != nil {
+				s.logger.Error("Failed to update metadata sync failure", "anime_id", anime.ID, "error", err)
+			}
+			continue
+		}
+
+		// ジャンル保存成功時のみメタデータ同期日時を更新
+		successCount++
 		if err := s.updateMetadataSyncTime(anime.ID); err != nil {
 			s.logger.Error("Failed to update metadata sync time", "anime_id", anime.ID, "error", err)
 		}

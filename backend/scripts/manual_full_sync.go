@@ -232,14 +232,18 @@ func run(logger *common.Logger, env string) error {
 	// Display differential sync statistics
 	logger.Info("Fetching differential sync statistics...")
 
-	// Sync status distribution
+	// Sync status distribution（単一クエリで取得）
 	var totalAnimes, syncedCount, pendingCount, failedCount int
-	db.QueryRow("SELECT COUNT(*) FROM animes").Scan(&totalAnimes)
-	db.QueryRow("SELECT COUNT(*) FROM animes WHERE sync_status = $1", string(constants.SyncStatusSynced)).Scan(&syncedCount)
-	db.QueryRow("SELECT COUNT(*) FROM animes WHERE sync_status = $1 OR sync_status IS NULL", string(constants.SyncStatusPending)).Scan(&pendingCount)
-	db.QueryRow("SELECT COUNT(*) FROM animes WHERE sync_status = $1", string(constants.SyncStatusFailed)).Scan(&failedCount)
+	err = db.QueryRow(`
+		SELECT
+			COUNT(*),
+			COUNT(CASE WHEN sync_status = $1 THEN 1 END),
+			COUNT(CASE WHEN sync_status = $2 OR sync_status IS NULL THEN 1 END),
+			COUNT(CASE WHEN sync_status = $3 THEN 1 END)
+		FROM animes
+	`, string(constants.SyncStatusSynced), string(constants.SyncStatusPending), string(constants.SyncStatusFailed)).Scan(&totalAnimes, &syncedCount, &pendingCount, &failedCount)
 
-	if totalAnimes > 0 {
+	if err == nil && totalAnimes > 0 {
 		logger.Info("Sync status distribution",
 			"total", totalAnimes,
 			"synced", syncedCount,
@@ -248,12 +252,16 @@ func run(logger *common.Logger, env string) error {
 			"failed", failedCount)
 	}
 
-	// Metadata sync status
+	// Metadata sync status（単一クエリで取得）
 	var withMetadata, withoutMetadata int
-	db.QueryRow("SELECT COUNT(*) FROM animes WHERE metadata_synced_at IS NOT NULL").Scan(&withMetadata)
-	db.QueryRow("SELECT COUNT(*) FROM animes WHERE metadata_synced_at IS NULL").Scan(&withoutMetadata)
+	err = db.QueryRow(`
+		SELECT
+			COUNT(CASE WHEN metadata_synced_at IS NOT NULL THEN 1 END),
+			COUNT(CASE WHEN metadata_synced_at IS NULL THEN 1 END)
+		FROM animes
+	`).Scan(&withMetadata, &withoutMetadata)
 
-	if totalAnimes > 0 {
+	if err == nil && totalAnimes > 0 {
 		logger.Info("Metadata sync status",
 			"synced", withMetadata,
 			"synced_percent", fmt.Sprintf("%.1f%%", float64(withMetadata)/float64(totalAnimes)*100),

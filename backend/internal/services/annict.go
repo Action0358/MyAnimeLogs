@@ -1093,13 +1093,6 @@ func (c *AnnictClient) needsSync(work models.AnnictWork, existingAnime *models.A
 	if work.UpdatedAt != "" && existingAnime.AnnictUpdatedAt != nil {
 		workUpdated, err := time.Parse(time.RFC3339, work.UpdatedAt)
 		if err == nil && workUpdated.After(*existingAnime.AnnictUpdatedAt) {
-			if c.logger != nil {
-				c.logger.Debug("Sync needed - Annict data updated",
-					"annict_id", work.ID,
-					"title", work.Title,
-					"work_updated_at", workUpdated,
-					"db_updated_at", existingAnime.AnnictUpdatedAt)
-			}
 			return true
 		}
 	}
@@ -1107,12 +1100,6 @@ func (c *AnnictClient) needsSync(work models.AnnictWork, existingAnime *models.A
 	// 一定期間同期していない場合は強制同期
 	if existingAnime.LastSyncedAt != nil {
 		if time.Since(*existingAnime.LastSyncedAt) > constants.StaleDataThreshold {
-			if c.logger != nil {
-				c.logger.Debug("Sync needed - stale data",
-					"annict_id", work.ID,
-					"title", work.Title,
-					"last_synced_at", existingAnime.LastSyncedAt)
-			}
 			return true
 		}
 	} else {
@@ -1120,11 +1107,6 @@ func (c *AnnictClient) needsSync(work models.AnnictWork, existingAnime *models.A
 		return true
 	}
 
-	if c.logger != nil {
-		c.logger.Debug("Sync skipped - no changes detected",
-			"annict_id", work.ID,
-			"title", work.Title)
-	}
 	return false
 }
 
