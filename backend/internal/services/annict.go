@@ -337,6 +337,8 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork) (*models.Anim
 		).Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt)
 
 		if err != nil {
+			// 同期失敗時のステータス更新
+			c.updateSyncFailureStatus(work.ID, err)
 			return nil, fmt.Errorf("failed to update anime (annict_id=%d): %w", work.ID, err)
 		}
 	} else {
@@ -375,6 +377,13 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork) (*models.Anim
 		).Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt)
 
 		if err != nil {
+			// 同期失敗時のステータス更新（INSERT失敗時は既存レコードがないため、ログのみ）
+			if c.logger != nil {
+				c.logger.Error("Failed to insert anime",
+					"annict_id", work.ID,
+					"title", work.Title,
+					"error", err)
+			}
 			return nil, fmt.Errorf("failed to insert anime (annict_id=%d): %w", work.ID, err)
 		}
 	}
@@ -1069,4 +1078,25 @@ func (c *AnnictClient) needsSync(work models.AnnictWork, existingAnime *models.A
 			"title", work.Title)
 	}
 	return false
+}
+
+// updateSyncFailureStatus - 同期失敗時のステータスを更新
+func (c *AnnictClient) updateSyncFailureStatus(annictID int, err error) {
+	if c.DB == nil {
+		return
+	}
+
+	_, updateErr := c.DB.Exec(`
+		UPDATE animes
+		SET sync_status = 'failed',
+			sync_error = $1,
+			updated_at = CURRENT_TIMESTAMP
+		WHERE annict_id = $2
+	`, err.Error(), annictID)
+
+	if updateErr != nil && c.logger != nil {
+		c.logger.Error("Failed to update sync failure status",
+			"annict_id", annictID,
+			"error", updateErr)
+	}
 }

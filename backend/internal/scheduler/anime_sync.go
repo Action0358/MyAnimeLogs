@@ -343,7 +343,7 @@ func (s *AnimeSyncScheduler) syncAllSeasons(nextSyncTime time.Time) {
 
 	// 初回同期時はメタデータも同期（優先度ベース）
 	s.logger.Info("Starting initial metadata sync")
-	metadataErrors := s.syncMetadataIncrementally()
+	metadataErrors, metadataSyncedCount := s.syncMetadataIncrementally()
 	errors = append(errors, metadataErrors...)
 
 	duration := time.Since(startTime)
@@ -351,6 +351,9 @@ func (s *AnimeSyncScheduler) syncAllSeasons(nextSyncTime time.Time) {
 
 	// Update status tracker
 	s.statusTracker.EndSync(success, totalAnimeCount, duration, errors)
+
+	// Record sync stats
+	s.recordSyncStats("full", startTime, totalAnimeCount, 0, 0, episodeFailureCount, metadataSyncedCount, success, len(errors))
 
 	// Clear cache after sync to reflect new data
 	s.animeService.ClearAnimeCache()
@@ -418,7 +421,7 @@ func (s *AnimeSyncScheduler) syncCurrentSeasonAnimes() {
 	// Step 3: メタデータの段階的同期（優先度ベース）
 	// 全作品ではなく、優先度の高いもののみ同期
 	s.logger.Info("Starting incremental metadata sync")
-	metadataErrors := s.syncMetadataIncrementally()
+	metadataErrors, metadataSyncedCount := s.syncMetadataIncrementally()
 	errors = append(errors, metadataErrors...)
 
 	duration := time.Since(startTime)
@@ -426,6 +429,10 @@ func (s *AnimeSyncScheduler) syncCurrentSeasonAnimes() {
 
 	// Update status tracker
 	s.statusTracker.EndSync(success, totalAnimeCount, duration, errors)
+
+	// Record sync stats
+	// Note: updated/skipped counts are not tracked yet (will be implemented in future)
+	s.recordSyncStats("incremental", startTime, totalAnimeCount, 0, 0, episodeFailureCount, metadataSyncedCount, success, len(errors))
 
 	// Clear cache after sync to reflect new data
 	s.animeService.ClearAnimeCache()
@@ -718,8 +725,10 @@ func (s *AnimeSyncScheduler) updateMetadataSyncTime(animeID int) error {
 }
 
 // syncMetadataIncrementally - 優先度ベースでメタデータを段階的に同期
-func (s *AnimeSyncScheduler) syncMetadataIncrementally() []string {
+// Returns: error messages, metadata synced count
+func (s *AnimeSyncScheduler) syncMetadataIncrementally() ([]string, int) {
 	var errors []string
+	metadataSyncedCount := 0
 
 	// 優先度1: 新規作品（メタデータ未取得）
 	newAnimes, err := s.getAnimesWithoutMetadata()
@@ -727,7 +736,9 @@ func (s *AnimeSyncScheduler) syncMetadataIncrementally() []string {
 		errors = append(errors, fmt.Sprintf("Failed to get new animes: %s", err))
 	} else {
 		s.logger.Info("Syncing metadata for new animes", "count", len(newAnimes))
-		errors = append(errors, s.syncMetadataForAnimes(newAnimes, "new")...)
+		syncErrors, syncCount := s.syncMetadataForAnimes(newAnimes, "new")
+		errors = append(errors, syncErrors...)
+		metadataSyncedCount += syncCount
 	}
 
 	// 優先度2: 放送中作品（週次更新）
@@ -736,7 +747,9 @@ func (s *AnimeSyncScheduler) syncMetadataIncrementally() []string {
 		errors = append(errors, fmt.Sprintf("Failed to get airing animes: %s", err))
 	} else {
 		s.logger.Info("Syncing metadata for airing animes", "count", len(airingAnimes))
-		errors = append(errors, s.syncMetadataForAnimes(airingAnimes, "airing")...)
+		syncErrors, syncCount := s.syncMetadataForAnimes(airingAnimes, "airing")
+		errors = append(errors, syncErrors...)
+		metadataSyncedCount += syncCount
 	}
 
 	// 優先度3: 古いメタデータ（月次更新）
@@ -745,14 +758,17 @@ func (s *AnimeSyncScheduler) syncMetadataIncrementally() []string {
 		errors = append(errors, fmt.Sprintf("Failed to get stale animes: %s", err))
 	} else {
 		s.logger.Info("Syncing metadata for stale animes", "count", len(staleAnimes))
-		errors = append(errors, s.syncMetadataForAnimes(staleAnimes, "stale")...)
+		syncErrors, syncCount := s.syncMetadataForAnimes(staleAnimes, "stale")
+		errors = append(errors, syncErrors...)
+		metadataSyncedCount += syncCount
 	}
 
-	return errors
+	return errors, metadataSyncedCount
 }
 
 // syncMetadataForAnimes - アニメリストのメタデータを同期
-func (s *AnimeSyncScheduler) syncMetadataForAnimes(animes []models.Anime, category string) []string {
+// Returns: error messages, success count
+func (s *AnimeSyncScheduler) syncMetadataForAnimes(animes []models.Anime, category string) ([]string, int) {
 	var errors []string
 	successCount := 0
 	failureCount := 0
@@ -800,7 +816,7 @@ func (s *AnimeSyncScheduler) syncMetadataForAnimes(animes []models.Anime, catego
 		"success", successCount,
 		"failure", failureCount)
 
-	return errors
+	return errors, successCount
 }
 
 // saveGenres - ジャンルをDBに保存
@@ -823,4 +839,29 @@ func (s *AnimeSyncScheduler) saveGenres(animeID int, genres []string) error {
 	}
 
 	return nil
+}
+
+// recordSyncStats - 同期統計をDBに記録
+func (s *AnimeSyncScheduler) recordSyncStats(syncType string, startTime time.Time, totalAnimes, updatedAnimes, skippedAnimes, failedAnimes, metadataSynced int, success bool, errorCount int) {
+	duration := int(time.Since(startTime).Seconds())
+
+	_, err := s.annictClient.DB.Exec(`
+		INSERT INTO sync_stats (
+			sync_type, started_at, completed_at, duration,
+			total_animes, updated_animes, skipped_animes, failed_animes,
+			metadata_synced, success, error_count
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+	`, syncType, startTime, time.Now(), duration,
+		totalAnimes, updatedAnimes, skippedAnimes, failedAnimes,
+		metadataSynced, success, errorCount)
+
+	if err != nil {
+		s.logger.Error("Failed to record sync stats", "error", err)
+	} else {
+		s.logger.Debug("Sync stats recorded",
+			"sync_type", syncType,
+			"duration", duration,
+			"total_animes", totalAnimes,
+			"success", success)
+	}
 }
