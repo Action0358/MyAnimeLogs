@@ -21,6 +21,7 @@ type AnnictWork struct {
 	WatchersCount   int               `json:"watchers_count"`
 	ReviewsCount    int               `json:"reviews_count"`
 	NoEpisodes      bool              `json:"no_episodes"`
+	UpdatedAt       string            `json:"updated_at"` // Annictの更新日時
 	// Anilist API から取得した画像（リアルタイム取得）
 	CoverImageExtraLarge string `json:"cover_image_extra_large,omitempty"`
 	CoverImageLarge      string `json:"cover_image_large,omitempty"`

@@ -36,6 +36,13 @@ type Anime struct {
 	BroadcastDay      *string `json:"broadcast_day,omitempty" db:"broadcast_day"`           // 放送曜日（例: "Fridays"）
 	BroadcastTime     *string `json:"broadcast_time,omitempty" db:"broadcast_time"`         // 放送時間（例: "23:30"）
 	BroadcastTimezone *string `json:"broadcast_timezone,omitempty" db:"broadcast_timezone"` // タイムゾーン（例: "Asia/Tokyo"）
+
+	// 差分同期用トラッキングフィールド
+	LastSyncedAt     *time.Time `json:"last_synced_at,omitempty" db:"last_synced_at"`         // 最終同期日時
+	AnnictUpdatedAt  *time.Time `json:"annict_updated_at,omitempty" db:"annict_updated_at"`   // Annict側の更新日時
+	MetadataSyncedAt *time.Time `json:"metadata_synced_at,omitempty" db:"metadata_synced_at"` // メタデータの最終同期日時
+	SyncStatus       string     `json:"sync_status" db:"sync_status"`                         // pending/synced/failed
+	SyncError        *string    `json:"sync_error,omitempty" db:"sync_error"`                 // エラー内容
 }
 
 type AnimeWithUserData struct {
