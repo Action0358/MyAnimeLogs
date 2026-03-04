@@ -157,6 +157,7 @@ type AnimeService interface {
 type AnimeSyncScheduler struct {
 	annictClient   *services.AnnictClient
 	animeService   AnimeService
+	anilistClient  *services.AniListClient // AniListClientを再利用（レートリミッター共有）
 	logger         *common.Logger
 	mu             sync.Mutex // Protects ticker field and syncInProgress
 	ticker         *time.Ticker
@@ -783,9 +784,9 @@ func (s *AnimeSyncScheduler) syncMetadataForAnimes(animes []models.Anime, catego
 		malID := *anime.MalAnimeID
 
 		// ジャンル同期（AniList API: 90req/min = 1.5req/sec）
+		// 構造体フィールドのanilistClientを再利用（レートリミッター共有）
 		ctx := context.Background()
-		anilistClient := services.NewAniListClient()
-		genres, err := anilistClient.GetGenresByMALId(ctx, malID)
+		genres, err := s.anilistClient.GetGenresByMALId(ctx, malID)
 		if err != nil {
 			s.logger.Warn("Failed to get genres",
 				"anime_id", anime.ID,
@@ -819,23 +820,35 @@ func (s *AnimeSyncScheduler) syncMetadataForAnimes(animes []models.Anime, catego
 	return errors, successCount
 }
 
-// saveGenres - ジャンルをDBに保存
+// saveGenres - ジャンルをDBに保存（トランザクション対応）
 func (s *AnimeSyncScheduler) saveGenres(animeID int, genres []string) error {
+	// トランザクション開始
+	tx, err := s.annictClient.DB.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
 	// 既存のジャンルを削除
-	_, err := s.annictClient.DB.Exec("DELETE FROM anime_genres WHERE anime_id = $1", animeID)
+	_, err = tx.Exec("DELETE FROM anime_genres WHERE anime_id = $1", animeID)
 	if err != nil {
 		return fmt.Errorf("failed to delete existing genres: %w", err)
 	}
 
 	// 新しいジャンルを挿入
 	for _, genre := range genres {
-		_, err := s.annictClient.DB.Exec(`
+		_, err := tx.Exec(`
 			INSERT INTO anime_genres (anime_id, genre)
 			VALUES ($1, $2)
 		`, animeID, genre)
 		if err != nil {
 			return fmt.Errorf("failed to insert genre %s: %w", genre, err)
 		}
+	}
+
+	// コミット
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return nil

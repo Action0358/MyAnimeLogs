@@ -242,16 +242,26 @@ func (c *AnnictClient) TestConnection() error {
 	return err
 }
 
+// SyncAnimeToDatabaseResult - SyncAnimeToDatabaseの結果
+type SyncAnimeToDatabaseResult struct {
+	Anime   *models.Anime
+	Updated bool // 実際にDB更新が行われたか（スキップの場合false）
+}
+
 // SyncAnimeToDatabase syncs Annict work data to local database
-func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork) (*models.Anime, error) {
+// existingAnime: 呼び出し元で既に取得済みの場合に渡す（nilの場合は内部で取得）
+func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork, existingAnime *models.Anime) (*SyncAnimeToDatabaseResult, error) {
 	if c.DB == nil {
 		return nil, fmt.Errorf("database connection not available")
 	}
 
-	// 既存データを取得
-	existingAnime, err := c.getExistingAnime(work.ID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get existing anime: %w", err)
+	// 既存データが渡されていない場合のみDBから取得（二重クエリ防止）
+	if existingAnime == nil {
+		var err error
+		existingAnime, err = c.getExistingAnime(work.ID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get existing anime: %w", err)
+		}
 	}
 
 	// 差分判定
@@ -262,7 +272,16 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork) (*models.Anim
 				"annict_id", work.ID,
 				"title", work.Title)
 		}
-		return existingAnime, nil
+		return &SyncAnimeToDatabaseResult{Anime: existingAnime, Updated: false}, nil
+	}
+
+	// Annict更新日時をパース（UPDATE/INSERT共通で使用）
+	var annictUpdatedAt *time.Time
+	if work.UpdatedAt != "" {
+		parsed, parseErr := time.Parse(time.RFC3339, work.UpdatedAt)
+		if parseErr == nil {
+			annictUpdatedAt = &parsed
+		}
 	}
 
 	// Extract image URL
@@ -278,32 +297,19 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork) (*models.Anim
 	// Use season name directly (format: "YYYY-season", e.g., "2024-winter")
 	season := work.SeasonName
 
-	// 既存のステータス判定ロジックを削除（代わりにSyncAnimeStatusを呼び出す）
 	// デフォルトステータスを設定（後でSyncAnimeStatusで更新される）
 	status := "finished"
 
-	// Upsert anime record using manual SELECT + INSERT/UPDATE approach
-	// This is a workaround for ON CONFLICT not working properly
 	var anime models.Anime
 
 	// Check if anime already exists
 	var existingID int
-	err = c.DB.QueryRow("SELECT id FROM animes WHERE annict_id = $1", work.ID).Scan(&existingID)
+	err := c.DB.QueryRow("SELECT id FROM animes WHERE annict_id = $1", work.ID).Scan(&existingID)
 
 	if err == nil && existingID > 0 {
 		// Anime exists, update it
 		// Note: statusはSyncAnimeStatusで管理するため、ここでは上書きしない
 		// released_onはAnnictの値がある場合のみ更新（COALESCEで既存値を保持）
-
-		// Annict更新日時をパース
-		var annictUpdatedAt *time.Time
-		if work.UpdatedAt != "" {
-			parsed, parseErr := time.Parse(time.RFC3339, work.UpdatedAt)
-			if parseErr == nil {
-				annictUpdatedAt = &parsed
-			}
-		}
-
 		err = c.DB.QueryRow(`
 			UPDATE animes SET
 				title = $1,
@@ -327,14 +333,14 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork) (*models.Anim
 				sync_error = NULL,
 				updated_at = CURRENT_TIMESTAMP
 			WHERE annict_id = $16
-			RETURNING id, title, image_url, season, status, annict_id, created_at, updated_at
+			RETURNING id, title, image_url, season, status, annict_id, created_at, updated_at, last_synced_at, annict_updated_at
 		`,
 			work.Title, work.TitleKana, work.TitleEn, imageURL, season,
 			work.Media, work.EpisodesCount, work.OfficialSiteURL, work.WikipediaURL,
 			work.TwitterUsername, work.TwitterHashtag, work.MalAnimeID,
 			work.WatchersCount, work.ReviewsCount, work.ReleasedOn, work.ID,
 			annictUpdatedAt,
-		).Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt)
+		).Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.LastSyncedAt, &anime.AnnictUpdatedAt)
 
 		if err != nil {
 			// 同期失敗時のステータス更新
@@ -343,17 +349,6 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork) (*models.Anim
 		}
 	} else {
 		// Anime doesn't exist, insert it
-		// Use RETURNING to get the inserted row in a single query
-
-		// Annict更新日時をパース
-		var annictUpdatedAt *time.Time
-		if work.UpdatedAt != "" {
-			parsed, parseErr := time.Parse(time.RFC3339, work.UpdatedAt)
-			if parseErr == nil {
-				annictUpdatedAt = &parsed
-			}
-		}
-
 		err = c.DB.QueryRow(`
 			INSERT INTO animes (
 				id, title, title_kana, title_en, image_url, season,
@@ -367,17 +362,16 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork) (*models.Anim
 				CURRENT_TIMESTAMP, $18, 'synced',
 				CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 			)
-			RETURNING id, title, image_url, season, status, annict_id, created_at, updated_at
+			RETURNING id, title, image_url, season, status, annict_id, created_at, updated_at, last_synced_at, annict_updated_at
 		`,
 			work.Title, work.TitleKana, work.TitleEn, imageURL, season,
 			status, work.Media, work.EpisodesCount, work.OfficialSiteURL, work.WikipediaURL,
 			work.TwitterUsername, work.TwitterHashtag, work.MalAnimeID, work.ID,
 			work.WatchersCount, work.ReviewsCount, work.ReleasedOn,
 			annictUpdatedAt,
-		).Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt)
+		).Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.LastSyncedAt, &anime.AnnictUpdatedAt)
 
 		if err != nil {
-			// 同期失敗時のステータス更新（INSERT失敗時は既存レコードがないため、ログのみ）
 			if c.logger != nil {
 				c.logger.Error("Failed to insert anime",
 					"annict_id", work.ID,
@@ -439,7 +433,7 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork) (*models.Anim
 		})
 	}
 
-	return &anime, nil
+	return &SyncAnimeToDatabaseResult{Anime: &anime, Updated: true}, nil
 }
 
 // SyncWorksToDatabase syncs multiple works to database
@@ -447,13 +441,15 @@ func (c *AnnictClient) SyncWorksToDatabase(works []models.AnnictWork) ([]models.
 	var animes []models.Anime
 
 	for _, work := range works {
-		anime, err := c.SyncAnimeToDatabase(work)
+		result, err := c.SyncAnimeToDatabase(work, nil)
 		if err != nil {
 			// Log error but continue with other works
 			fmt.Printf("Failed to sync anime %s (ID: %d): %v\n", work.Title, work.ID, err)
 			continue
 		}
-		animes = append(animes, *anime)
+		if result.Anime != nil {
+			animes = append(animes, *result.Anime)
+		}
 	}
 
 	return animes, nil
@@ -596,8 +592,17 @@ func (c *AnnictClient) SyncAllExistingAnimes() (int, int, error) {
 				continue
 			}
 
+			// 取得済みデータからexistingAnimeを構築（二重クエリ防止）
+			existing := &models.Anime{
+				ID:              anime.ID,
+				AnnictID:        &anime.AnnictID,
+				Title:           anime.Title,
+				LastSyncedAt:    anime.LastSyncedAt,
+				AnnictUpdatedAt: anime.AnnictUpdatedAt,
+			}
+
 			// Sync to database (differential update inside)
-			syncedAnime, err := c.SyncAnimeToDatabase(response.Works[0])
+			result, err := c.SyncAnimeToDatabase(response.Works[0], existing)
 			if err != nil {
 				if c.logger != nil {
 					c.logger.Debug("Failed to sync anime",
@@ -609,8 +614,8 @@ func (c *AnnictClient) SyncAllExistingAnimes() (int, int, error) {
 				continue
 			}
 
-			// Check if actually updated (by comparing timestamps)
-			if syncedAnime != nil {
+			// Updated フラグで更新/スキップを正確に区別
+			if result.Updated {
 				successCount++
 			} else {
 				skippedCount++
