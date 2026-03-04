@@ -248,6 +248,23 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork) (*models.Anim
 		return nil, fmt.Errorf("database connection not available")
 	}
 
+	// 既存データを取得
+	existingAnime, err := c.getExistingAnime(work.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get existing anime: %w", err)
+	}
+
+	// 差分判定
+	if !c.needsSync(work, existingAnime) {
+		// 変更なし - スキップ
+		if c.logger != nil {
+			c.logger.Debug("Skipping sync - no changes detected",
+				"annict_id", work.ID,
+				"title", work.Title)
+		}
+		return existingAnime, nil
+	}
+
 	// Extract image URL
 	var imageURL *string
 	if work.Images != nil {
@@ -271,12 +288,22 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork) (*models.Anim
 
 	// Check if anime already exists
 	var existingID int
-	err := c.DB.QueryRow("SELECT id FROM animes WHERE annict_id = $1", work.ID).Scan(&existingID)
+	err = c.DB.QueryRow("SELECT id FROM animes WHERE annict_id = $1", work.ID).Scan(&existingID)
 
 	if err == nil && existingID > 0 {
 		// Anime exists, update it
 		// Note: statusはSyncAnimeStatusで管理するため、ここでは上書きしない
 		// released_onはAnnictの値がある場合のみ更新（COALESCEで既存値を保持）
+
+		// Annict更新日時をパース
+		var annictUpdatedAt *time.Time
+		if work.UpdatedAt != "" {
+			parsed, parseErr := time.Parse(time.RFC3339, work.UpdatedAt)
+			if parseErr == nil {
+				annictUpdatedAt = &parsed
+			}
+		}
+
 		err = c.DB.QueryRow(`
 			UPDATE animes SET
 				title = $1,
@@ -294,6 +321,10 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork) (*models.Anim
 				watchers_count = $13,
 				reviews_count = $14,
 				released_on = COALESCE(NULLIF($15, ''), released_on),
+				last_synced_at = CURRENT_TIMESTAMP,
+				annict_updated_at = $17,
+				sync_status = 'synced',
+				sync_error = NULL,
 				updated_at = CURRENT_TIMESTAMP
 			WHERE annict_id = $16
 			RETURNING id, title, image_url, season, status, annict_id, created_at, updated_at
@@ -302,6 +333,7 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork) (*models.Anim
 			work.Media, work.EpisodesCount, work.OfficialSiteURL, work.WikipediaURL,
 			work.TwitterUsername, work.TwitterHashtag, work.MalAnimeID,
 			work.WatchersCount, work.ReviewsCount, work.ReleasedOn, work.ID,
+			annictUpdatedAt,
 		).Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt)
 
 		if err != nil {
@@ -310,14 +342,27 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork) (*models.Anim
 	} else {
 		// Anime doesn't exist, insert it
 		// Use RETURNING to get the inserted row in a single query
+
+		// Annict更新日時をパース
+		var annictUpdatedAt *time.Time
+		if work.UpdatedAt != "" {
+			parsed, parseErr := time.Parse(time.RFC3339, work.UpdatedAt)
+			if parseErr == nil {
+				annictUpdatedAt = &parsed
+			}
+		}
+
 		err = c.DB.QueryRow(`
 			INSERT INTO animes (
 				id, title, title_kana, title_en, image_url, season,
 				status, media, episodes_count, official_site_url, wikipedia_url,
 				twitter_username, twitter_hashtag, mal_anime_id, annict_id,
-				watchers_count, reviews_count, released_on, created_at, updated_at
+				watchers_count, reviews_count, released_on,
+				last_synced_at, annict_updated_at, sync_status,
+				created_at, updated_at
 			) VALUES (
 				DEFAULT, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17,
+				CURRENT_TIMESTAMP, $18, 'synced',
 				CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 			)
 			RETURNING id, title, image_url, season, status, annict_id, created_at, updated_at
@@ -326,6 +371,7 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork) (*models.Anim
 			status, work.Media, work.EpisodesCount, work.OfficialSiteURL, work.WikipediaURL,
 			work.TwitterUsername, work.TwitterHashtag, work.MalAnimeID, work.ID,
 			work.WatchersCount, work.ReviewsCount, work.ReleasedOn,
+			annictUpdatedAt,
 		).Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt)
 
 		if err != nil {
