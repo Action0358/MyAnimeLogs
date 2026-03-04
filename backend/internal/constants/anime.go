@@ -1,5 +1,7 @@
 package constants
 
+import "time"
+
 // 季節の定数
 const (
 	// SeasonSpring - 春
@@ -21,3 +23,18 @@ var DefaultPopularSearches = []string{"進撃の巨人", "鬼滅の刃", "呪術
 // DefaultSeasons - デフォルトシーズン一覧
 // エラー時に使用
 var DefaultSeasons = []string{SeasonSpring, SeasonSummer, SeasonAutumn, SeasonWinter}
+
+// SyncStatus - 同期ステータスの型
+type SyncStatus string
+
+const (
+	// SyncStatusPending - 同期待ち
+	SyncStatusPending SyncStatus = "pending"
+	// SyncStatusSynced - 同期済み
+	SyncStatusSynced SyncStatus = "synced"
+	// SyncStatusFailed - 同期失敗
+	SyncStatusFailed SyncStatus = "failed"
+)
+
+// StaleDataThreshold - データが古いと判定する閾値（30日）
+const StaleDataThreshold = 30 * 24 * time.Hour

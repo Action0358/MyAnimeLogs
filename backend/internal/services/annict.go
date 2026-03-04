@@ -329,7 +329,7 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork, existingAnime
 				released_on = COALESCE(NULLIF($15, ''), released_on),
 				last_synced_at = CURRENT_TIMESTAMP,
 				annict_updated_at = $17,
-				sync_status = 'synced',
+				sync_status = $18,
 				sync_error = NULL,
 				updated_at = CURRENT_TIMESTAMP
 			WHERE annict_id = $16
@@ -339,7 +339,7 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork, existingAnime
 			work.Media, work.EpisodesCount, work.OfficialSiteURL, work.WikipediaURL,
 			work.TwitterUsername, work.TwitterHashtag, work.MalAnimeID,
 			work.WatchersCount, work.ReviewsCount, work.ReleasedOn, work.ID,
-			annictUpdatedAt,
+			annictUpdatedAt, string(constants.SyncStatusSynced),
 		).Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.LastSyncedAt, &anime.AnnictUpdatedAt)
 
 		if err != nil {
@@ -359,7 +359,7 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork, existingAnime
 				created_at, updated_at
 			) VALUES (
 				DEFAULT, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17,
-				CURRENT_TIMESTAMP, $18, 'synced',
+				CURRENT_TIMESTAMP, $18, $19,
 				CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 			)
 			RETURNING id, title, image_url, season, status, annict_id, created_at, updated_at, last_synced_at, annict_updated_at
@@ -368,7 +368,7 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork, existingAnime
 			status, work.Media, work.EpisodesCount, work.OfficialSiteURL, work.WikipediaURL,
 			work.TwitterUsername, work.TwitterHashtag, work.MalAnimeID, work.ID,
 			work.WatchersCount, work.ReviewsCount, work.ReleasedOn,
-			annictUpdatedAt,
+			annictUpdatedAt, string(constants.SyncStatusSynced),
 		).Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.LastSyncedAt, &anime.AnnictUpdatedAt)
 
 		if err != nil {
@@ -444,7 +444,12 @@ func (c *AnnictClient) SyncWorksToDatabase(works []models.AnnictWork) ([]models.
 		result, err := c.SyncAnimeToDatabase(work, nil)
 		if err != nil {
 			// Log error but continue with other works
-			fmt.Printf("Failed to sync anime %s (ID: %d): %v\n", work.Title, work.ID, err)
+			if c.logger != nil {
+				c.logger.Warn("Failed to sync anime",
+					"title", work.Title,
+					"annict_id", work.ID,
+					"error", err)
+			}
 			continue
 		}
 		if result.Anime != nil {
@@ -486,15 +491,16 @@ func (c *AnnictClient) SyncAllExistingAnimes() (int, int, error) {
 
 	// Get animes that need syncing (differential update)
 	// Priority 1: Never synced (last_synced_at IS NULL)
-	// Priority 2: Stale data (last_synced_at > 30 days ago)
+	// Priority 2: Stale data (last_synced_at older than StaleDataThreshold)
 	// Priority 3: Recently updated on Annict (annict_updated_at > last_synced_at)
+	staleThreshold := time.Now().Add(-constants.StaleDataThreshold)
 	rows, err := c.DB.Query(`
 		SELECT id, annict_id, title, last_synced_at, annict_updated_at
 		FROM animes 
 		WHERE annict_id IS NOT NULL
 		AND (
 			last_synced_at IS NULL
-			OR last_synced_at < NOW() - INTERVAL '30 days'
+			OR last_synced_at < $1
 			OR (annict_updated_at IS NOT NULL AND annict_updated_at > last_synced_at)
 		)
 		ORDER BY 
@@ -505,7 +511,7 @@ func (c *AnnictClient) SyncAllExistingAnimes() (int, int, error) {
 			END,
 			watchers_count DESC NULLS LAST, 
 			id
-	`)
+	`, staleThreshold)
 	if err != nil {
 		return 0, 0, fmt.Errorf("failed to get animes: %w", err)
 	}
@@ -527,6 +533,10 @@ func (c *AnnictClient) SyncAllExistingAnimes() (int, int, error) {
 		animes = append(animes, a)
 	}
 	rows.Close()
+
+	if err := rows.Err(); err != nil {
+		return 0, 0, fmt.Errorf("error iterating anime rows: %w", err)
+	}
 
 	totalAnimes := len(animes)
 	if totalAnimes == 0 {
@@ -1094,9 +1104,9 @@ func (c *AnnictClient) needsSync(work models.AnnictWork, existingAnime *models.A
 		}
 	}
 
-	// 一定期間同期していない場合は強制同期（30日）
+	// 一定期間同期していない場合は強制同期
 	if existingAnime.LastSyncedAt != nil {
-		if time.Since(*existingAnime.LastSyncedAt) > 30*24*time.Hour {
+		if time.Since(*existingAnime.LastSyncedAt) > constants.StaleDataThreshold {
 			if c.logger != nil {
 				c.logger.Debug("Sync needed - stale data",
 					"annict_id", work.ID,
@@ -1126,11 +1136,11 @@ func (c *AnnictClient) updateSyncFailureStatus(annictID int, err error) {
 
 	_, updateErr := c.DB.Exec(`
 		UPDATE animes
-		SET sync_status = 'failed',
-			sync_error = $1,
+		SET sync_status = $1,
+			sync_error = $2,
 			updated_at = CURRENT_TIMESTAMP
-		WHERE annict_id = $2
-	`, err.Error(), annictID)
+		WHERE annict_id = $3
+	`, string(constants.SyncStatusFailed), err.Error(), annictID)
 
 	if updateErr != nil && c.logger != nil {
 		c.logger.Error("Failed to update sync failure status",

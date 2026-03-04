@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"myanimelogs/internal/common"
+	"myanimelogs/internal/constants"
 	"myanimelogs/internal/database"
 	"myanimelogs/internal/services"
 
@@ -234,9 +235,9 @@ func run(logger *common.Logger, env string) error {
 	// Sync status distribution
 	var totalAnimes, syncedCount, pendingCount, failedCount int
 	db.QueryRow("SELECT COUNT(*) FROM animes").Scan(&totalAnimes)
-	db.QueryRow("SELECT COUNT(*) FROM animes WHERE sync_status = 'synced'").Scan(&syncedCount)
-	db.QueryRow("SELECT COUNT(*) FROM animes WHERE sync_status = 'pending' OR sync_status IS NULL").Scan(&pendingCount)
-	db.QueryRow("SELECT COUNT(*) FROM animes WHERE sync_status = 'failed'").Scan(&failedCount)
+	db.QueryRow("SELECT COUNT(*) FROM animes WHERE sync_status = $1", string(constants.SyncStatusSynced)).Scan(&syncedCount)
+	db.QueryRow("SELECT COUNT(*) FROM animes WHERE sync_status = $1 OR sync_status IS NULL", string(constants.SyncStatusPending)).Scan(&pendingCount)
+	db.QueryRow("SELECT COUNT(*) FROM animes WHERE sync_status = $1", string(constants.SyncStatusFailed)).Scan(&failedCount)
 
 	if totalAnimes > 0 {
 		logger.Info("Sync status distribution",

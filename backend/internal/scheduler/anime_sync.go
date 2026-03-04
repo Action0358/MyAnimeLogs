@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"myanimelogs/internal/common"
+	"myanimelogs/internal/constants"
 	"myanimelogs/internal/models"
 	"myanimelogs/internal/services"
 )
@@ -624,12 +625,12 @@ func (s *AnimeSyncScheduler) getAnimesWithoutMetadata() ([]models.Anime, error) 
 		FROM animes
 		WHERE metadata_synced_at IS NULL
 		AND mal_anime_id IS NOT NULL
-		AND sync_status != 'failed'
+		AND sync_status != $1
 		ORDER BY created_at DESC
 		LIMIT 100
 	`
 
-	rows, err := s.annictClient.DB.Query(query)
+	rows, err := s.annictClient.DB.Query(query, string(constants.SyncStatusFailed))
 	if err != nil {
 		return nil, err
 	}
@@ -642,6 +643,10 @@ func (s *AnimeSyncScheduler) getAnimesWithoutMetadata() ([]models.Anime, error) 
 			continue
 		}
 		animes = append(animes, anime)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating anime rows: %w", err)
 	}
 
 	return animes, nil
@@ -676,6 +681,10 @@ func (s *AnimeSyncScheduler) getAiringAnimes() ([]models.Anime, error) {
 		animes = append(animes, anime)
 	}
 
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating anime rows: %w", err)
+	}
+
 	return animes, nil
 }
 
@@ -690,12 +699,12 @@ func (s *AnimeSyncScheduler) getAnimesWithStaleMetadata(staleDuration time.Durat
 		FROM animes
 		WHERE metadata_synced_at < $1
 		AND mal_anime_id IS NOT NULL
-		AND sync_status != 'failed'
+		AND sync_status != $2
 		ORDER BY metadata_synced_at ASC
 		LIMIT 50
 	`
 
-	rows, err := s.annictClient.DB.Query(query, staleThreshold)
+	rows, err := s.annictClient.DB.Query(query, staleThreshold, string(constants.SyncStatusFailed))
 	if err != nil {
 		return nil, err
 	}
@@ -710,6 +719,10 @@ func (s *AnimeSyncScheduler) getAnimesWithStaleMetadata(staleDuration time.Durat
 		animes = append(animes, anime)
 	}
 
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating anime rows: %w", err)
+	}
+
 	return animes, nil
 }
 
@@ -718,10 +731,10 @@ func (s *AnimeSyncScheduler) updateMetadataSyncTime(animeID int) error {
 	_, err := s.annictClient.DB.Exec(`
 		UPDATE animes
 		SET metadata_synced_at = CURRENT_TIMESTAMP,
-			sync_status = 'synced',
+			sync_status = $1,
 			sync_error = NULL
-		WHERE id = $1
-	`, animeID)
+		WHERE id = $2
+	`, string(constants.SyncStatusSynced), animeID)
 	return err
 }
 
@@ -754,7 +767,7 @@ func (s *AnimeSyncScheduler) syncMetadataIncrementally() ([]string, int) {
 	}
 
 	// 優先度3: 古いメタデータ（月次更新）
-	staleAnimes, err := s.getAnimesWithStaleMetadata(30 * 24 * time.Hour)
+	staleAnimes, err := s.getAnimesWithStaleMetadata(constants.StaleDataThreshold)
 	if err != nil {
 		errors = append(errors, fmt.Sprintf("Failed to get stale animes: %s", err))
 	} else {
@@ -803,9 +816,6 @@ func (s *AnimeSyncScheduler) syncMetadataForAnimes(animes []models.Anime, catego
 				successCount++
 			}
 		}
-
-		// レート制限対応: 700ms待機（90req/min対応）
-		time.Sleep(700 * time.Millisecond)
 
 		// メタデータ同期日時を更新
 		if err := s.updateMetadataSyncTime(anime.ID); err != nil {
