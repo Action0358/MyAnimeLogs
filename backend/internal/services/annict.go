@@ -480,35 +480,52 @@ func (c *AnnictClient) FetchAndSyncPopularWorks() ([]models.Anime, error) {
 	return c.SyncWorksToDatabase(response.Works)
 }
 
-// SyncAllExistingAnimes re-syncs all existing animes from Annict API
-// This updates media, official_site_url, and other fields that may be missing
+// SyncAllExistingAnimes re-syncs all existing animes from Annict API using differential update
+// Only syncs animes that need updating (based on annict_updated_at or last_synced_at)
 // Returns: success count, failure count, error
 func (c *AnnictClient) SyncAllExistingAnimes() (int, int, error) {
 	if c.DB == nil {
 		return 0, 0, fmt.Errorf("database connection not available")
 	}
 
-	// Get all animes with annict_id
+	// Get animes that need syncing (differential update)
+	// Priority 1: Never synced (last_synced_at IS NULL)
+	// Priority 2: Stale data (last_synced_at > 30 days ago)
+	// Priority 3: Recently updated on Annict (annict_updated_at > last_synced_at)
 	rows, err := c.DB.Query(`
-		SELECT id, annict_id, title 
+		SELECT id, annict_id, title, last_synced_at, annict_updated_at
 		FROM animes 
 		WHERE annict_id IS NOT NULL
-		ORDER BY watchers_count DESC NULLS LAST, id
+		AND (
+			last_synced_at IS NULL
+			OR last_synced_at < NOW() - INTERVAL '30 days'
+			OR (annict_updated_at IS NOT NULL AND annict_updated_at > last_synced_at)
+		)
+		ORDER BY 
+			CASE 
+				WHEN last_synced_at IS NULL THEN 1
+				WHEN annict_updated_at IS NOT NULL AND annict_updated_at > last_synced_at THEN 2
+				ELSE 3
+			END,
+			watchers_count DESC NULLS LAST, 
+			id
 	`)
 	if err != nil {
 		return 0, 0, fmt.Errorf("failed to get animes: %w", err)
 	}
 
 	type animeInfo struct {
-		ID       int
-		AnnictID int
-		Title    string
+		ID              int
+		AnnictID        int
+		Title           string
+		LastSyncedAt    *time.Time
+		AnnictUpdatedAt *time.Time
 	}
 	var animes []animeInfo
 
 	for rows.Next() {
 		var a animeInfo
-		if err := rows.Scan(&a.ID, &a.AnnictID, &a.Title); err != nil {
+		if err := rows.Scan(&a.ID, &a.AnnictID, &a.Title, &a.LastSyncedAt, &a.AnnictUpdatedAt); err != nil {
 			continue
 		}
 		animes = append(animes, a)
@@ -517,11 +534,16 @@ func (c *AnnictClient) SyncAllExistingAnimes() (int, int, error) {
 
 	totalAnimes := len(animes)
 	if totalAnimes == 0 {
+		if c.logger != nil {
+			c.logger.Info("No animes need syncing (all up-to-date)")
+		}
 		return 0, 0, nil
 	}
 
 	if c.logger != nil {
-		c.logger.Info("Starting Annict re-sync for all animes", "count", totalAnimes)
+		c.logger.Info("Starting Annict differential sync",
+			"needs_sync", totalAnimes,
+			"note", "Only syncing animes that need updates")
 	}
 
 	// Annict rate limit: 5 requests/second
@@ -530,6 +552,7 @@ func (c *AnnictClient) SyncAllExistingAnimes() (int, int, error) {
 
 	successCount := 0
 	failureCount := 0
+	skippedCount := 0
 
 	for i := 0; i < totalAnimes; i += batchSize {
 		end := i + batchSize
@@ -540,7 +563,10 @@ func (c *AnnictClient) SyncAllExistingAnimes() (int, int, error) {
 
 		if c.logger != nil {
 			c.logger.Info("Processing Annict batch",
-				"progress", fmt.Sprintf("%d/%d", end, totalAnimes))
+				"progress", fmt.Sprintf("%d/%d", end, totalAnimes),
+				"success", successCount,
+				"skipped", skippedCount,
+				"failure", failureCount)
 		}
 
 		for _, anime := range batch {
@@ -570,8 +596,8 @@ func (c *AnnictClient) SyncAllExistingAnimes() (int, int, error) {
 				continue
 			}
 
-			// Sync to database (this will UPDATE existing record)
-			_, err = c.SyncAnimeToDatabase(response.Works[0])
+			// Sync to database (differential update inside)
+			syncedAnime, err := c.SyncAnimeToDatabase(response.Works[0])
 			if err != nil {
 				if c.logger != nil {
 					c.logger.Debug("Failed to sync anime",
@@ -583,14 +609,21 @@ func (c *AnnictClient) SyncAllExistingAnimes() (int, int, error) {
 				continue
 			}
 
-			successCount++
+			// Check if actually updated (by comparing timestamps)
+			if syncedAnime != nil {
+				successCount++
+			} else {
+				skippedCount++
+			}
 		}
 	}
 
 	if c.logger != nil {
-		c.logger.Info("Annict re-sync completed",
+		c.logger.Info("Annict differential sync completed",
 			"success", successCount,
-			"failure", failureCount)
+			"skipped", skippedCount,
+			"failure", failureCount,
+			"total_processed", totalAnimes)
 	}
 
 	return successCount, failureCount, nil
