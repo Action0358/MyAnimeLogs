@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -949,4 +950,77 @@ func (c *AnnictClient) UpdateEpisodeTitlesFromAnnict(animeID int, annictID int) 
 	}
 
 	return nil
+}
+
+// getExistingAnime - 既存のアニメデータを取得
+func (c *AnnictClient) getExistingAnime(annictID int) (*models.Anime, error) {
+	var anime models.Anime
+	err := c.DB.QueryRow(`
+		SELECT id, annict_id, title, last_synced_at, annict_updated_at, metadata_synced_at, sync_status
+		FROM animes
+		WHERE annict_id = $1
+	`, annictID).Scan(
+		&anime.ID,
+		&anime.AnnictID,
+		&anime.Title,
+		&anime.LastSyncedAt,
+		&anime.AnnictUpdatedAt,
+		&anime.MetadataSyncedAt,
+		&anime.SyncStatus,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, nil // 新規作品
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return &anime, nil
+}
+
+// needsSync - アニメ作品の同期が必要かを判定
+func (c *AnnictClient) needsSync(work models.AnnictWork, existingAnime *models.Anime) bool {
+	// 新規作品は同期必須
+	if existingAnime == nil {
+		return true
+	}
+
+	// Annict側の更新日時が新しい場合のみ同期
+	if work.UpdatedAt != "" && existingAnime.AnnictUpdatedAt != nil {
+		workUpdated, err := time.Parse(time.RFC3339, work.UpdatedAt)
+		if err == nil && workUpdated.After(*existingAnime.AnnictUpdatedAt) {
+			if c.logger != nil {
+				c.logger.Debug("Sync needed - Annict data updated",
+					"annict_id", work.ID,
+					"title", work.Title,
+					"work_updated_at", workUpdated,
+					"db_updated_at", existingAnime.AnnictUpdatedAt)
+			}
+			return true
+		}
+	}
+
+	// 一定期間同期していない場合は強制同期（30日）
+	if existingAnime.LastSyncedAt != nil {
+		if time.Since(*existingAnime.LastSyncedAt) > 30*24*time.Hour {
+			if c.logger != nil {
+				c.logger.Debug("Sync needed - stale data",
+					"annict_id", work.ID,
+					"title", work.Title,
+					"last_synced_at", existingAnime.LastSyncedAt)
+			}
+			return true
+		}
+	} else {
+		// last_synced_atがnullの場合は同期必須（マイグレーション直後）
+		return true
+	}
+
+	if c.logger != nil {
+		c.logger.Debug("Sync skipped - no changes detected",
+			"annict_id", work.ID,
+			"title", work.Title)
+	}
+	return false
 }
