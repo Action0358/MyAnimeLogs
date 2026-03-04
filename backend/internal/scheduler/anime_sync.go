@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -300,7 +301,7 @@ func (s *AnimeSyncScheduler) Stop() {
 // syncAllSeasons syncs all seasons from syncStartYear-spring to current season
 // nextSyncTime is the time of the next scheduled sync (not 24 hours from now)
 func (s *AnimeSyncScheduler) syncAllSeasons(nextSyncTime time.Time) {
-	s.logger.Info("Starting initial full sync of all seasons")
+	s.logger.Info("Starting initial full sync of all seasons (differential mode)")
 	startTime := time.Now()
 
 	// Use the provided next sync time (the first scheduled sync)
@@ -316,7 +317,7 @@ func (s *AnimeSyncScheduler) syncAllSeasons(nextSyncTime time.Time) {
 	totalAnimeCount := 0
 	var errors []string
 
-	// Sync all seasons
+	// 全シーズンを同期（差分判定により既存データはスキップ）
 	for _, season := range seasons {
 		count, err := s.syncSeason(season)
 		totalAnimeCount += count
@@ -325,9 +326,25 @@ func (s *AnimeSyncScheduler) syncAllSeasons(nextSyncTime time.Time) {
 		}
 	}
 
-	// Sync episode data (creation and title enrichment only during initial sync)
-	// Skip heavy operations (genres and episode details) to reduce startup time
-	errors = append(errors, s.syncEpisodeData(true)...)
+	// エピソード作成（新規作品のみ）
+	s.logger.Info("Syncing episodes from Jikan API")
+	episodeSuccessCount, episodeFailureCount, episodeErrors, episodeErr := s.animeService.SyncEpisodesFromJikan(nil)
+
+	if episodeErr != nil {
+		errors = append(errors, fmt.Sprintf("Episode sync from Jikan: %s", episodeErr.Error()))
+	} else {
+		s.logger.Info("Episode sync from Jikan completed",
+			"success_count", episodeSuccessCount,
+			"failure_count", episodeFailureCount)
+
+		// Add individual episode errors to the error list (limit to avoid log spam)
+		errors = appendErrorsWithLimit(errors, episodeErrors, 10, "episode")
+	}
+
+	// 初回同期時はメタデータも同期（優先度ベース）
+	s.logger.Info("Starting initial metadata sync")
+	metadataErrors := s.syncMetadataIncrementally()
+	errors = append(errors, metadataErrors...)
 
 	duration := time.Since(startTime)
 	success := len(errors) == 0
@@ -347,17 +364,17 @@ func (s *AnimeSyncScheduler) syncAllSeasons(nextSyncTime time.Time) {
 			"error_count", len(errors),
 			"errors", errors)
 	} else {
-		s.logger.Info("Initial full sync completed successfully",
+		s.logger.Info("Initial full sync completed successfully (differential mode)",
 			"duration", duration.String(),
 			"total_seasons", len(seasons),
 			"total_animes", totalAnimeCount,
-			"note", "Genre and episode details sync will run in the first scheduled sync")
+			"note", "Metadata sync completed with priority-based approach")
 	}
 }
 
 // syncCurrentSeasonAnimes syncs animes for the current and previous season
 func (s *AnimeSyncScheduler) syncCurrentSeasonAnimes() {
-	s.logger.Info("Starting scheduled anime sync")
+	s.logger.Info("Starting scheduled anime sync (differential mode)")
 	startTime := time.Now()
 
 	// Calculate next sync time (24 hours from start time)
@@ -368,7 +385,8 @@ func (s *AnimeSyncScheduler) syncCurrentSeasonAnimes() {
 	currentSeason := getSeasonForTime(startTime)
 	previousSeason := getPreviousSeasonForTime(startTime)
 
-	// Step 1: Sync anime works for current and previous seasons
+	// Step 1: 基本情報の差分同期（Annict）
+	// needsSyncメソッドにより変更があるもののみUPDATE
 	currentCount, currentErr := s.syncSeason(currentSeason)
 	previousCount, previousErr := s.syncSeason(previousSeason)
 
@@ -382,8 +400,26 @@ func (s *AnimeSyncScheduler) syncCurrentSeasonAnimes() {
 		errors = append(errors, fmt.Sprintf("Previous season (%s): %s", previousSeason, previousErr.Error()))
 	}
 
-	// Sync episode data (full sync including genres and episode details)
-	errors = append(errors, s.syncEpisodeData(false)...)
+	// Step 2: エピソード作成（新規作品のみ）
+	s.logger.Info("Syncing episodes from Jikan API")
+	episodeSuccessCount, episodeFailureCount, episodeErrors, episodeErr := s.animeService.SyncEpisodesFromJikan(nil)
+
+	if episodeErr != nil {
+		errors = append(errors, fmt.Sprintf("Episode sync from Jikan: %s", episodeErr.Error()))
+	} else {
+		s.logger.Info("Episode sync from Jikan completed",
+			"success_count", episodeSuccessCount,
+			"failure_count", episodeFailureCount)
+
+		// Add individual episode errors to the error list (limit to avoid log spam)
+		errors = appendErrorsWithLimit(errors, episodeErrors, 10, "episode")
+	}
+
+	// Step 3: メタデータの段階的同期（優先度ベース）
+	// 全作品ではなく、優先度の高いもののみ同期
+	s.logger.Info("Starting incremental metadata sync")
+	metadataErrors := s.syncMetadataIncrementally()
+	errors = append(errors, metadataErrors...)
 
 	duration := time.Since(startTime)
 	success := len(errors) == 0
@@ -406,7 +442,7 @@ func (s *AnimeSyncScheduler) syncCurrentSeasonAnimes() {
 			"previous_error", previousErr,
 			"error_count", len(errors))
 	} else {
-		s.logger.Info("Scheduled anime sync completed successfully",
+		s.logger.Info("Scheduled anime sync completed successfully (differential mode)",
 			"duration", duration.String(),
 			"current_season", currentSeason,
 			"current_count", currentCount,
@@ -569,4 +605,222 @@ func isSeasonBefore(season1, season2 string) bool {
 	// Compare season order within the same year
 	seasonIndex := map[string]int{"winter": 0, "spring": 1, "summer": 2, "autumn": 3}
 	return seasonIndex[seasonName1] < seasonIndex[seasonName2]
+}
+
+// getAnimesWithoutMetadata - メタデータ未取得作品を取得
+func (s *AnimeSyncScheduler) getAnimesWithoutMetadata() ([]models.Anime, error) {
+	var animes []models.Anime
+
+	query := `
+		SELECT id, mal_anime_id, title, annict_id
+		FROM animes
+		WHERE metadata_synced_at IS NULL
+		AND mal_anime_id IS NOT NULL
+		AND sync_status != 'failed'
+		ORDER BY created_at DESC
+		LIMIT 100
+	`
+
+	rows, err := s.annictClient.DB.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var anime models.Anime
+		if err := rows.Scan(&anime.ID, &anime.MalAnimeID, &anime.Title, &anime.AnnictID); err != nil {
+			s.logger.Warn("Failed to scan anime", "error", err)
+			continue
+		}
+		animes = append(animes, anime)
+	}
+
+	return animes, nil
+}
+
+// getAiringAnimes - 放送中作品を取得
+func (s *AnimeSyncScheduler) getAiringAnimes() ([]models.Anime, error) {
+	var animes []models.Anime
+
+	query := `
+		SELECT id, mal_anime_id, title, annict_id
+		FROM animes
+		WHERE status = 'currently_airing'
+		AND (metadata_synced_at IS NULL OR metadata_synced_at < NOW() - INTERVAL '7 days')
+		AND mal_anime_id IS NOT NULL
+		ORDER BY metadata_synced_at ASC NULLS FIRST
+		LIMIT 50
+	`
+
+	rows, err := s.annictClient.DB.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var anime models.Anime
+		if err := rows.Scan(&anime.ID, &anime.MalAnimeID, &anime.Title, &anime.AnnictID); err != nil {
+			s.logger.Warn("Failed to scan anime", "error", err)
+			continue
+		}
+		animes = append(animes, anime)
+	}
+
+	return animes, nil
+}
+
+// getAnimesWithStaleMetadata - 古いメタデータを持つ作品を取得
+func (s *AnimeSyncScheduler) getAnimesWithStaleMetadata(staleDuration time.Duration) ([]models.Anime, error) {
+	var animes []models.Anime
+
+	staleThreshold := time.Now().Add(-staleDuration)
+
+	query := `
+		SELECT id, mal_anime_id, title, annict_id
+		FROM animes
+		WHERE metadata_synced_at < $1
+		AND mal_anime_id IS NOT NULL
+		AND sync_status != 'failed'
+		ORDER BY metadata_synced_at ASC
+		LIMIT 50
+	`
+
+	rows, err := s.annictClient.DB.Query(query, staleThreshold)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var anime models.Anime
+		if err := rows.Scan(&anime.ID, &anime.MalAnimeID, &anime.Title, &anime.AnnictID); err != nil {
+			s.logger.Warn("Failed to scan anime", "error", err)
+			continue
+		}
+		animes = append(animes, anime)
+	}
+
+	return animes, nil
+}
+
+// updateMetadataSyncTime - メタデータ同期日時を更新
+func (s *AnimeSyncScheduler) updateMetadataSyncTime(animeID int) error {
+	_, err := s.annictClient.DB.Exec(`
+		UPDATE animes
+		SET metadata_synced_at = CURRENT_TIMESTAMP,
+			sync_status = 'synced',
+			sync_error = NULL
+		WHERE id = $1
+	`, animeID)
+	return err
+}
+
+// syncMetadataIncrementally - 優先度ベースでメタデータを段階的に同期
+func (s *AnimeSyncScheduler) syncMetadataIncrementally() []string {
+	var errors []string
+
+	// 優先度1: 新規作品（メタデータ未取得）
+	newAnimes, err := s.getAnimesWithoutMetadata()
+	if err != nil {
+		errors = append(errors, fmt.Sprintf("Failed to get new animes: %s", err))
+	} else {
+		s.logger.Info("Syncing metadata for new animes", "count", len(newAnimes))
+		errors = append(errors, s.syncMetadataForAnimes(newAnimes, "new")...)
+	}
+
+	// 優先度2: 放送中作品（週次更新）
+	airingAnimes, err := s.getAiringAnimes()
+	if err != nil {
+		errors = append(errors, fmt.Sprintf("Failed to get airing animes: %s", err))
+	} else {
+		s.logger.Info("Syncing metadata for airing animes", "count", len(airingAnimes))
+		errors = append(errors, s.syncMetadataForAnimes(airingAnimes, "airing")...)
+	}
+
+	// 優先度3: 古いメタデータ（月次更新）
+	staleAnimes, err := s.getAnimesWithStaleMetadata(30 * 24 * time.Hour)
+	if err != nil {
+		errors = append(errors, fmt.Sprintf("Failed to get stale animes: %s", err))
+	} else {
+		s.logger.Info("Syncing metadata for stale animes", "count", len(staleAnimes))
+		errors = append(errors, s.syncMetadataForAnimes(staleAnimes, "stale")...)
+	}
+
+	return errors
+}
+
+// syncMetadataForAnimes - アニメリストのメタデータを同期
+func (s *AnimeSyncScheduler) syncMetadataForAnimes(animes []models.Anime, category string) []string {
+	var errors []string
+	successCount := 0
+	failureCount := 0
+
+	s.logger.Info(fmt.Sprintf("Starting metadata sync for %s animes", category), "count", len(animes))
+
+	for _, anime := range animes {
+		if anime.MalAnimeID == nil || *anime.MalAnimeID == "" {
+			continue
+		}
+
+		malID := *anime.MalAnimeID
+
+		// ジャンル同期（AniList API: 90req/min = 1.5req/sec）
+		ctx := context.Background()
+		anilistClient := services.NewAniListClient()
+		genres, err := anilistClient.GetGenresByMALId(ctx, malID)
+		if err != nil {
+			s.logger.Warn("Failed to get genres",
+				"anime_id", anime.ID,
+				"mal_id", malID,
+				"error", err)
+			failureCount++
+			errors = append(errors, fmt.Sprintf("Anime %d: genre sync failed - %s", anime.ID, err))
+		} else {
+			// ジャンル保存
+			if err := s.saveGenres(anime.ID, genres); err != nil {
+				s.logger.Error("Failed to save genres", "anime_id", anime.ID, "error", err)
+				failureCount++
+			} else {
+				successCount++
+			}
+		}
+
+		// レート制限対応: 700ms待機（90req/min対応）
+		time.Sleep(700 * time.Millisecond)
+
+		// メタデータ同期日時を更新
+		if err := s.updateMetadataSyncTime(anime.ID); err != nil {
+			s.logger.Error("Failed to update metadata sync time", "anime_id", anime.ID, "error", err)
+		}
+	}
+
+	s.logger.Info(fmt.Sprintf("Metadata sync completed for %s animes", category),
+		"success", successCount,
+		"failure", failureCount)
+
+	return errors
+}
+
+// saveGenres - ジャンルをDBに保存
+func (s *AnimeSyncScheduler) saveGenres(animeID int, genres []string) error {
+	// 既存のジャンルを削除
+	_, err := s.annictClient.DB.Exec("DELETE FROM anime_genres WHERE anime_id = $1", animeID)
+	if err != nil {
+		return fmt.Errorf("failed to delete existing genres: %w", err)
+	}
+
+	// 新しいジャンルを挿入
+	for _, genre := range genres {
+		_, err := s.annictClient.DB.Exec(`
+			INSERT INTO anime_genres (anime_id, genre)
+			VALUES ($1, $2)
+		`, animeID, genre)
+		if err != nil {
+			return fmt.Errorf("failed to insert genre %s: %w", genre, err)
+		}
+	}
+
+	return nil
 }
