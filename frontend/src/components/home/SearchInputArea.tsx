@@ -46,14 +46,15 @@ const SearchInputArea: React.FC<SearchInputAreaProps> = ({ activeTab }) => {
     }
   };
 
+  const searchButtonBase = `bg-blue-600 text-white font-bold text-base
+    hover:bg-blue-700 active:bg-blue-800 transition-all duration-150
+    tracking-widest disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-blue-600`;
+
   const searchButton = (disabled = false) => (
     <button
       onClick={handleSearch}
       disabled={disabled}
-      className="px-6 md:px-10 py-4 bg-blue-600 text-white font-bold text-base
-        hover:bg-blue-700 active:bg-blue-800 transition-all duration-150
-        tracking-widest whitespace-nowrap
-        disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-blue-600"
+      className={`px-6 md:px-10 py-4 whitespace-nowrap ${searchButtonBase}`}
     >
       検 索
     </button>
@@ -155,10 +156,7 @@ const SearchInputArea: React.FC<SearchInputAreaProps> = ({ activeTab }) => {
           <button
             onClick={handleSearch}
             disabled={selectedGenres.length === 0}
-            className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold text-base
-              hover:bg-blue-700 active:bg-blue-800 transition-all duration-150
-              tracking-widest shadow-sm
-              disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-blue-600"
+            className={`w-full py-4 rounded-xl shadow-sm ${searchButtonBase}`}
           >
             検 索
           </button>

@@ -2,37 +2,52 @@
  * 検索関連の定数
  */
 
-/** シーズン順序（新しい順） */
-const SEASON_NAMES = ['冬', '秋', '夏', '春'] as const;
+/**
+ * シーズン定義（時系列順）
+ * 日本のアニメ放送クールに対応:
+ *   冬(1-3月) → 春(4-6月) → 夏(7-9月) → 秋(10-12月)
+ */
+const SEASON_NAMES = ['冬', '春', '夏', '秋'] as const;
 
-/** 同期開始年（Annict API） */
+/** 同期開始: 1979年春（Annict API: 初代ガンダム） */
 const START_YEAR = 1979;
+const START_SEASON_INDEX = 1; // 春
+
+/**
+ * 現在の月から放送年・シーズンインデックスを取得
+ *
+ * 注意: 冬クール(1-3月)はその年の冬として扱う
+ * 例: 2026年3月 → 2026年冬
+ */
+const getCurrentSeason = (): { year: number; seasonIndex: number } => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+
+  if (month <= 3) return { year, seasonIndex: 0 };  // 冬
+  if (month <= 6) return { year, seasonIndex: 1 };  // 春
+  if (month <= 9) return { year, seasonIndex: 2 };  // 夏
+  return { year, seasonIndex: 3 };                    // 秋
+};
 
 /**
  * 放送時期の選択肢を動的生成（現在のシーズン〜1979年春まで新しい順）
+ *
+ * 年+シーズンを通し番号(year*4+seasonIndex)に変換し降順ループすることで、
+ * 未来のシーズンや開始年以前のシーズンを確実に除外する
  */
 const generateSeasons = (): string[] => {
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth() + 1;
+  const { year: currentYear, seasonIndex: currentSeasonIdx } = getCurrentSeason();
 
-  // 現在の月からシーズンを判定
-  // 1-3月: 冬, 4-6月: 春, 7-9月: 夏, 10-12月: 秋
-  let currentSeasonIndex: number;
-  if (currentMonth <= 3) currentSeasonIndex = 0;      // 冬
-  else if (currentMonth <= 6) currentSeasonIndex = 3;  // 春
-  else if (currentMonth <= 9) currentSeasonIndex = 2;  // 夏
-  else currentSeasonIndex = 1;                          // 秋
+  const currentSerial = currentYear * 4 + currentSeasonIdx;
+  const startSerial = START_YEAR * 4 + START_SEASON_INDEX;
 
   const seasons: string[] = [];
 
-  for (let year = currentYear; year >= START_YEAR; year--) {
-    const startIndex = year === currentYear ? currentSeasonIndex : 0;
-    const endIndex = year === START_YEAR ? 3 : SEASON_NAMES.length - 1;
-
-    for (let i = startIndex; i <= endIndex; i++) {
-      seasons.push(`${year}年${SEASON_NAMES[i]}`);
-    }
+  for (let serial = currentSerial; serial >= startSerial; serial--) {
+    const year = Math.floor(serial / 4);
+    const seasonIdx = serial % 4;
+    seasons.push(`${year}年${SEASON_NAMES[seasonIdx]}`);
   }
 
   return seasons;
