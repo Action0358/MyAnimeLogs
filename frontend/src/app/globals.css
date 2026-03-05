@@ -17,6 +17,15 @@
   .animate-slide-in {
     animation: slide-in 0.3s ease-out;
   }
+
+  /* スクロールバー非表示 */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 body {
