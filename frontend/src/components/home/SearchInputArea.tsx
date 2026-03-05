@@ -88,7 +88,7 @@ const SearchInputArea: React.FC<SearchInputAreaProps> = ({ activeTab }) => {
                 placeholder:text-gray-400 placeholder:font-bold focus:outline-none text-base font-bold"
             />
           </div>
-          {searchButton()}
+          {searchButton(!keyword.trim())}
         </div>
       )}
 

@@ -16,18 +16,16 @@ const START_SEASON_INDEX = 1; // 春
 /**
  * 現在の月から放送年・シーズンインデックスを取得
  *
- * 注意: 冬クール(1-3月)はその年の冬として扱う
- * 例: 2026年3月 → 2026年冬
+ * SEASON_NAMES: ['冬', '春', '夏', '秋'] → index 0-3
+ * 月→インデックス: Math.floor((month % 12) / 3)
+ *   1-3月→0(冬), 4-6月→1(春), 7-9月→2(夏), 10-12月→3(秋)
  */
 const getCurrentSeason = (): { year: number; seasonIndex: number } => {
   const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth() + 1;
-
-  if (month <= 3) return { year, seasonIndex: 0 };  // 冬
-  if (month <= 6) return { year, seasonIndex: 1 };  // 春
-  if (month <= 9) return { year, seasonIndex: 2 };  // 夏
-  return { year, seasonIndex: 3 };                    // 秋
+  return {
+    year: now.getFullYear(),
+    seasonIndex: Math.floor((now.getMonth() % 12) / 3),
+  };
 };
 
 /**
