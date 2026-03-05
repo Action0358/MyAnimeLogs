@@ -10,29 +10,40 @@ interface SearchTabsProps {
 
 const SearchTabs: React.FC<SearchTabsProps> = ({ activeTab, onTabChange }) => {
   const tabs: { id: SearchTab; label: string }[] = [
-    { id: 'keyword', label: 'キーワードから探す' },
-    { id: 'season', label: '放送時期から探す' },
-    { id: 'genre', label: 'ジャンル・特徴' },
+    { id: 'keyword', label: 'キーワード' },
+    { id: 'season', label: '放送時期' },
+    { id: 'genre', label: 'ジャンル' },
   ];
 
   return (
-    <div className="flex gap-2 mb-4 flex-wrap">
-      {tabs.map((tab) => (
-        <button
-          key={tab.id}
-          onClick={() => onTabChange(tab.id)}
-          className={`
-            px-4 py-2 rounded-md text-sm md:text-base font-bold transition-colors
-            ${
-              activeTab === tab.id
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }
-          `}
-        >
-          {tab.label}
-        </button>
-      ))}
+    <div className="flex gap-1 md:gap-2">
+      {tabs.map((tab) => {
+        const isActive = activeTab === tab.id;
+        return (
+          <button
+            key={tab.id}
+            onClick={() => onTabChange(tab.id)}
+            className={`
+              relative flex-1 flex items-center justify-center gap-1.5
+              px-3 py-3 md:py-3.5 text-xs md:text-sm font-bold
+              transition-all duration-200 ease-out rounded-t-xl
+              ${
+                isActive
+                  ? 'bg-white text-blue-700 shadow-lg shadow-black/10 z-10'
+                  : 'bg-white/10 text-white/80 hover:bg-white/20 hover:text-white'
+              }
+            `}
+          >
+            <span>{tab.label}</span>
+            {/* 吹き出し三角形 */}
+            {isActive && (
+              <span
+                className="absolute left-1/2 -translate-x-1/2 -bottom-[6px] w-3 h-3 bg-white rotate-45 shadow-sm"
+              />
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 };
