@@ -46,9 +46,7 @@ const SearchInputArea: React.FC<SearchInputAreaProps> = ({ activeTab }) => {
     }
   };
 
-  const searchButtonBase = `bg-blue-600 text-white font-bold text-base
-    hover:bg-blue-700 active:bg-blue-800 transition-all duration-150
-    tracking-widest disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-blue-600`;
+  const searchButtonBase = 'bg-blue-600 text-white font-bold text-base hover:bg-blue-700 active:bg-blue-800 transition-all duration-150 tracking-widest disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-blue-600';
 
   const searchButton = (disabled = false) => (
     <button
