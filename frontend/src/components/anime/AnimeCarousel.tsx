@@ -84,7 +84,7 @@ export const AnimeCarousel: React.FC<AnimeCarouselProps> = ({
           <div
             key={anime.id}
             role="listitem"
-            className="flex-none w-[calc((100%-0.75rem)/2)] sm:w-[calc((100%-1.5rem)/3)] md:w-[calc((100%-2.25rem)/4)] lg:w-[calc((100%-3rem)/5)] xl:w-[calc((100%-3.75rem)/6)]"
+            className="flex-none w-[calc((100%-0.75rem)/2)] sm:w-[calc((100%-1.5rem)/3)] md:w-[calc((100%-3rem)/4)] lg:w-[calc((100%-4rem)/5)] xl:w-[calc((100%-5rem)/6)]"
           >
             <AnimeCard anime={anime} size="medium" />
           </div>
@@ -132,7 +132,7 @@ export const CarouselSkeleton: React.FC = () => (
     {Array.from({ length: 6 }).map((_, i) => (
       <div
         key={i}
-        className="flex-none w-[calc((100%-0.75rem)/2)] sm:w-[calc((100%-1.5rem)/3)] md:w-[calc((100%-2.25rem)/4)] lg:w-[calc((100%-3rem)/5)] xl:w-[calc((100%-3.75rem)/6)]"
+        className="flex-none w-[calc((100%-0.75rem)/2)] sm:w-[calc((100%-1.5rem)/3)] md:w-[calc((100%-3rem)/4)] lg:w-[calc((100%-4rem)/5)] xl:w-[calc((100%-5rem)/6)]"
       >
         <SkeletonCard />
       </div>
