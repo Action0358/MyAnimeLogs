@@ -5,11 +5,14 @@ import Link from 'next/link'
 import type { Route } from 'next'
 import { useQuery } from '@tanstack/react-query'
 import { Button } from '@/components/ui'
-import { AnimeCard } from './AnimeCard'
+import { AnimeCard, type AnimeCardData } from './AnimeCard'
 import { AnimeCarousel, CarouselSkeleton } from './AnimeCarousel'
 import { SkeletonCard } from './SkeletonCard'
 import type { DBAnime } from '@/lib/api/annict'
-import type { Anime, AnimeStatus } from '@/lib/api/generated/myanimelogs'
+import type { AnimeStatus } from '@/lib/api/generated/myanimelogs'
+
+/** グリッド表示の定数 */
+const GRID_ITEM_COUNT = 6
 
 interface AnimeSectionProps {
   title: string
@@ -24,7 +27,7 @@ interface AnimeSectionProps {
 }
 
 // DBAnimeをAnimeCard用の型に変換
-const convertToAnimeCardFormat = (anime: DBAnime): Anime & { id: number } => {
+const convertToAnimeCardFormat = (anime: DBAnime): AnimeCardData => {
   let status: AnimeStatus | undefined = undefined
   if (anime.status === 'airing' || anime.status === 'finished') {
     status = anime.status
@@ -80,7 +83,7 @@ const AnimeSection: React.FC<AnimeSectionProps> = ({
           <CarouselSkeleton />
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {Array.from({ length: 6 }).map((_, i) => (
+            {Array.from({ length: GRID_ITEM_COUNT }).map((_, i) => (
               <SkeletonCard key={i} />
             ))}
           </div>
@@ -115,7 +118,7 @@ const AnimeSection: React.FC<AnimeSectionProps> = ({
         <AnimeCarousel animes={cardAnimes} />
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-          {cardAnimes.slice(0, 6).map((anime) => (
+          {cardAnimes.slice(0, GRID_ITEM_COUNT).map((anime) => (
             <AnimeCard key={anime.id} anime={anime} size="medium" />
           ))}
         </div>

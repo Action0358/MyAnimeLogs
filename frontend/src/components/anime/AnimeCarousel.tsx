@@ -3,12 +3,23 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { AnimeCard } from './AnimeCard'
+import { AnimeCard, type AnimeCardData } from './AnimeCard'
 import { SkeletonCard } from './SkeletonCard'
-import type { Anime } from '@/lib/api/generated/myanimelogs'
+
+/** カルーセルの定数 */
+const CAROUSEL_CONSTANTS = {
+  /** スクロール判定の閾値（px） */
+  SCROLL_THRESHOLD: 4,
+  /** スクロール量の係数（コンテナ幅に対する割合） */
+  SCROLL_AMOUNT_RATIO: 0.75,
+  /** プログレスバーの最小幅（%） */
+  MIN_PROGRESS_WIDTH: 8,
+  /** スケルトン表示数 */
+  SKELETON_COUNT: 6,
+} as const
 
 interface AnimeCarouselProps {
-  animes: (Anime & { id: number })[]
+  animes: AnimeCardData[]
   className?: string
 }
 
@@ -25,8 +36,8 @@ export const AnimeCarousel: React.FC<AnimeCarouselProps> = ({
     const el = scrollRef.current
     if (!el) return
     const { scrollLeft, scrollWidth, clientWidth } = el
-    setCanScrollLeft(scrollLeft > 4)
-    setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 4)
+    setCanScrollLeft(scrollLeft > CAROUSEL_CONSTANTS.SCROLL_THRESHOLD)
+    setCanScrollRight(scrollLeft < scrollWidth - clientWidth - CAROUSEL_CONSTANTS.SCROLL_THRESHOLD)
     const maxScroll = scrollWidth - clientWidth
     setScrollProgress(maxScroll > 0 ? (scrollLeft / maxScroll) * 100 : 0)
   }, [])
@@ -47,7 +58,7 @@ export const AnimeCarousel: React.FC<AnimeCarouselProps> = ({
   const scroll = (dir: 'left' | 'right') => {
     const el = scrollRef.current
     if (!el) return
-    const amount = el.clientWidth * 0.75
+    const amount = el.clientWidth * CAROUSEL_CONSTANTS.SCROLL_AMOUNT_RATIO
     el.scrollBy({ left: dir === 'left' ? -amount : amount, behavior: 'smooth' })
   }
 
@@ -78,7 +89,8 @@ export const AnimeCarousel: React.FC<AnimeCarouselProps> = ({
         ref={scrollRef}
         role="list"
         aria-label="アニメ一覧"
-        className="flex gap-3 md:gap-4 overflow-x-auto scrollbar-hide scroll-smooth pb-2"
+        tabIndex={0}
+        className="flex gap-3 md:gap-4 overflow-x-auto scrollbar-hide scroll-smooth pb-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-lg"
       >
         {animes.map((anime) => (
           <div
@@ -117,7 +129,7 @@ export const AnimeCarousel: React.FC<AnimeCarouselProps> = ({
           <div className="w-24 h-1 bg-gray-200 rounded-full overflow-hidden">
             <div
               className="h-full bg-blue-500 rounded-full transition-all duration-150"
-              style={{ width: `${Math.max(scrollProgress, 8)}%` }}
+              style={{ width: `${Math.max(scrollProgress, CAROUSEL_CONSTANTS.MIN_PROGRESS_WIDTH)}%` }}
             />
           </div>
         </div>
@@ -129,7 +141,7 @@ export const AnimeCarousel: React.FC<AnimeCarouselProps> = ({
 /** カルーセル用スケルトン */
 export const CarouselSkeleton: React.FC = () => (
   <div className="flex gap-3 md:gap-4 overflow-hidden">
-    {Array.from({ length: 6 }).map((_, i) => (
+    {Array.from({ length: CAROUSEL_CONSTANTS.SKELETON_COUNT }).map((_, i) => (
       <div
         key={i}
         className="flex-none w-[calc((100%-0.75rem)/2)] sm:w-[calc((100%-1.5rem)/3)] md:w-[calc((100%-3rem)/4)] lg:w-[calc((100%-4rem)/5)] xl:w-[calc((100%-5rem)/6)]"
