@@ -8,12 +8,15 @@ import { formatSeason } from '@/utils/formatSeason'
 import { getAnimeStatusLabel, type BroadcastStatusLabel } from '@/utils/animeStatus'
 import type { Anime } from '@/lib/api/generated/myanimelogs'
 
+/** AnimeCard用の共有型定義 */
+export type AnimeCardData = Anime & { id: number }
+
 export interface AnimeCardProps {
-  anime: Anime & { id: number }
+  anime: AnimeCardData
   showProgress?: boolean
   showFavoriteStatus?: boolean
   size?: 'small' | 'medium' | 'large'
-  onClick?: (anime: Anime & { id: number }) => void
+  onClick?: (anime: AnimeCardData) => void
   className?: string
 }
 

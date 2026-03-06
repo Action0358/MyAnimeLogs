@@ -5,10 +5,14 @@ import Link from 'next/link'
 import type { Route } from 'next'
 import { useQuery } from '@tanstack/react-query'
 import { Button } from '@/components/ui'
-import { AnimeCard } from './AnimeCard'
+import { AnimeCard, type AnimeCardData } from './AnimeCard'
+import { AnimeCarousel, CarouselSkeleton } from './AnimeCarousel'
 import { SkeletonCard } from './SkeletonCard'
 import type { DBAnime } from '@/lib/api/annict'
-import type { Anime, AnimeStatus } from '@/lib/api/generated/myanimelogs'
+import type { AnimeStatus } from '@/lib/api/generated/myanimelogs'
+
+/** グリッド表示の定数 */
+const GRID_ITEM_COUNT = 6
 
 interface AnimeSectionProps {
   title: string
@@ -18,12 +22,12 @@ interface AnimeSectionProps {
   linkText?: string
   emptyMessage: string
   errorMessage: string
+  displayMode?: 'grid' | 'carousel'
   className?: string
 }
 
 // DBAnimeをAnimeCard用の型に変換
-const convertToAnimeCardFormat = (anime: DBAnime): Anime & { id: number } => {
-  // statusをAnimeStatus型に変換
+const convertToAnimeCardFormat = (anime: DBAnime): AnimeCardData => {
   let status: AnimeStatus | undefined = undefined
   if (anime.status === 'airing' || anime.status === 'finished') {
     status = anime.status
@@ -49,28 +53,41 @@ const AnimeSection: React.FC<AnimeSectionProps> = ({
   linkText = 'もっと見る',
   emptyMessage,
   errorMessage,
+  displayMode = 'grid',
   className = '',
 }) => {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey,
     queryFn,
-    staleTime: 1000 * 60 * 15, // 15分間キャッシュを有効（バックエンドと同期）
-    gcTime: 1000 * 60 * 30, // 30分間ガベージコレクション猶予
+    staleTime: 1000 * 60 * 15,
+    gcTime: 1000 * 60 * 30,
   })
 
   const animes = data?.animes ?? []
+  const isCarousel = displayMode === 'carousel'
+
+  const SectionHeader = (
+    <div className="flex items-center justify-between mb-6">
+      <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
+      <Button variant="outline-gray" size="sm" asChild className="font-bold">
+        <Link href={linkHref as Route}>{linkText}</Link>
+      </Button>
+    </div>
+  )
 
   if (isLoading) {
     return (
       <div className={className}>
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <SkeletonCard key={i} />
-          ))}
-        </div>
+        {SectionHeader}
+        {isCarousel ? (
+          <CarouselSkeleton />
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            {Array.from({ length: GRID_ITEM_COUNT }).map((_, i) => (
+              <SkeletonCard key={i} />
+            ))}
+          </div>
+        )}
       </div>
     )
   }
@@ -78,9 +95,7 @@ const AnimeSection: React.FC<AnimeSectionProps> = ({
   if (error) {
     return (
       <div className={className}>
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
-        </div>
+        {SectionHeader}
         <div className="text-center py-12">
           <p className="text-red-600 mb-4">
             {error instanceof Error ? error.message : errorMessage}
@@ -93,31 +108,21 @@ const AnimeSection: React.FC<AnimeSectionProps> = ({
     )
   }
 
+  const cardAnimes = animes.map(convertToAnimeCardFormat)
+
   return (
     <div className={className}>
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
-        <Button
-          variant="outline-gray"
-          size="sm"
-          asChild
-          className="font-bold"
-        >
-          <Link href={linkHref as Route}>
-            {linkText}
-          </Link>
-        </Button>
-      </div>
+      {SectionHeader}
 
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-        {animes.slice(0, 6).map((anime) => (
-          <AnimeCard
-            key={anime.id}
-            anime={convertToAnimeCardFormat(anime)}
-            size="medium"
-          />
-        ))}
-      </div>
+      {isCarousel ? (
+        <AnimeCarousel animes={cardAnimes} />
+      ) : (
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+          {cardAnimes.slice(0, GRID_ITEM_COUNT).map((anime) => (
+            <AnimeCard key={anime.id} anime={anime} size="medium" />
+          ))}
+        </div>
+      )}
 
       {animes.length === 0 && (
         <div className="text-center py-12">
