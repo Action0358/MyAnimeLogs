@@ -12,7 +12,7 @@ const HomePage: React.FC = () => {
       <HeroSection />
 
       {/* 既存のコンテンツ */}
-      <Container className="py-12">
+      <Container size="xl" className="py-12">
         {/* 今期アニメセクション */}
         <div id="current-season" className="mb-16 scroll-mt-24">
           <CurrentSeasonAnime />
