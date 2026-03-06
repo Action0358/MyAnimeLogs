@@ -66,6 +66,10 @@ const AnimeSection: React.FC<AnimeSectionProps> = ({
   const animes = data?.animes ?? []
   const isCarousel = displayMode === 'carousel'
 
+  // グリッド表示の場合は先にsliceしてパフォーマンス改善
+  const displayAnimes = isCarousel ? animes : animes.slice(0, GRID_ITEM_COUNT)
+  const cardAnimes = displayAnimes.map(convertToAnimeCardFormat)
+
   const SectionHeader = (
     <div className="flex items-center justify-between mb-6">
       <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
@@ -108,8 +112,6 @@ const AnimeSection: React.FC<AnimeSectionProps> = ({
     )
   }
 
-  const cardAnimes = animes.map(convertToAnimeCardFormat)
-
   return (
     <div className={className}>
       {SectionHeader}
@@ -118,7 +120,7 @@ const AnimeSection: React.FC<AnimeSectionProps> = ({
         <AnimeCarousel animes={cardAnimes} />
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-          {cardAnimes.slice(0, GRID_ITEM_COUNT).map((anime) => (
+          {cardAnimes.map((anime) => (
             <AnimeCard key={anime.id} anime={anime} size="medium" />
           ))}
         </div>

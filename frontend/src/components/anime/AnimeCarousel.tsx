@@ -18,6 +18,10 @@ const CAROUSEL_CONSTANTS = {
   SKELETON_COUNT: 6,
 } as const
 
+/** カルーセルアイテムの幅計算クラス（レスポンシブ対応） */
+const CAROUSEL_ITEM_WIDTH_CLASSES =
+  'flex-none w-[calc((100%-0.75rem)/2)] sm:w-[calc((100%-1.5rem)/3)] md:w-[calc((100%-3rem)/4)] lg:w-[calc((100%-4rem)/5)] xl:w-[calc((100%-5rem)/6)]'
+
 interface AnimeCarouselProps {
   animes: AnimeCardData[]
   className?: string
@@ -42,18 +46,25 @@ export const AnimeCarousel: React.FC<AnimeCarouselProps> = ({
     setScrollProgress(maxScroll > 0 ? (scrollLeft / maxScroll) * 100 : 0)
   }, [])
 
+  // イベントリスナーの登録（初回のみ）
   useEffect(() => {
-    checkScroll()
     const el = scrollRef.current
     if (!el) return
+
     el.addEventListener('scroll', checkScroll, { passive: true })
     const ro = new ResizeObserver(checkScroll)
     ro.observe(el)
+
     return () => {
       el.removeEventListener('scroll', checkScroll)
       ro.disconnect()
     }
-  }, [checkScroll, animes])
+  }, [checkScroll])
+
+  // animes変更時のスクロール状態チェック
+  useEffect(() => {
+    checkScroll()
+  }, [animes, checkScroll])
 
   const scroll = (dir: 'left' | 'right') => {
     const el = scrollRef.current
@@ -96,7 +107,7 @@ export const AnimeCarousel: React.FC<AnimeCarouselProps> = ({
           <div
             key={anime.id}
             role="listitem"
-            className="flex-none w-[calc((100%-0.75rem)/2)] sm:w-[calc((100%-1.5rem)/3)] md:w-[calc((100%-3rem)/4)] lg:w-[calc((100%-4rem)/5)] xl:w-[calc((100%-5rem)/6)]"
+            className={CAROUSEL_ITEM_WIDTH_CLASSES}
           >
             <AnimeCard anime={anime} size="medium" />
           </div>
@@ -142,10 +153,7 @@ export const AnimeCarousel: React.FC<AnimeCarouselProps> = ({
 export const CarouselSkeleton: React.FC = () => (
   <div className="flex gap-3 md:gap-4 overflow-hidden">
     {Array.from({ length: CAROUSEL_CONSTANTS.SKELETON_COUNT }).map((_, i) => (
-      <div
-        key={i}
-        className="flex-none w-[calc((100%-0.75rem)/2)] sm:w-[calc((100%-1.5rem)/3)] md:w-[calc((100%-3rem)/4)] lg:w-[calc((100%-4rem)/5)] xl:w-[calc((100%-5rem)/6)]"
-      >
+      <div key={i} className={CAROUSEL_ITEM_WIDTH_CLASSES}>
         <SkeletonCard />
       </div>
     ))}
