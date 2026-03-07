@@ -95,23 +95,37 @@ export const AnimeCarousel: React.FC<AnimeCarouselProps> = ({
         </button>
       )}
 
-      {/* スクロールコンテナ */}
-      <div
-        ref={scrollRef}
-        role="list"
-        aria-label="アニメ一覧"
-        tabIndex={0}
-        className="flex gap-3 md:gap-4 overflow-x-auto scrollbar-hide scroll-smooth pb-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-lg"
-      >
-        {animes.map((anime) => (
+      {/* スクロールコンテナのラッパー（右端透過表示用） */}
+      <div className="relative overflow-hidden">
+        {/* スクロールコンテナ */}
+        <div
+          ref={scrollRef}
+          role="list"
+          aria-label="アニメ一覧"
+          tabIndex={0}
+          className="flex gap-3 md:gap-4 overflow-x-auto scrollbar-hide scroll-smooth pb-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-lg"
+        >
+          {animes.map((anime) => (
+            <div
+              key={anime.id}
+              role="listitem"
+              className={CAROUSEL_ITEM_WIDTH_CLASSES}
+            >
+              <AnimeCard anime={anime} size="medium" />
+            </div>
+          ))}
+        </div>
+
+        {/* 右端グラデーションマスク（スクロール可能を示唆） */}
+        {canScrollRight && (
           <div
-            key={anime.id}
-            role="listitem"
-            className={CAROUSEL_ITEM_WIDTH_CLASSES}
-          >
-            <AnimeCard anime={anime} size="medium" />
-          </div>
-        ))}
+            className="absolute top-0 right-0 bottom-2 w-16 md:w-20 pointer-events-none"
+            style={{
+              background: 'linear-gradient(to left, rgb(249, 250, 251) 0%, transparent 100%)',
+            }}
+            aria-hidden="true"
+          />
+        )}
       </div>
 
       {/* 右ナビゲーション */}
