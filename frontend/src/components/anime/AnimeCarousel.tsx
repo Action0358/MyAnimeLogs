@@ -119,10 +119,7 @@ export const AnimeCarousel: React.FC<AnimeCarouselProps> = ({
         {/* 右端グラデーションマスク（スクロール可能を示唆） */}
         {canScrollRight && (
           <div
-            className="absolute top-0 right-0 bottom-2 w-16 md:w-20 pointer-events-none"
-            style={{
-              background: 'linear-gradient(to left, rgb(249, 250, 251) 0%, transparent 100%)',
-            }}
+            className="absolute top-0 right-0 bottom-2 w-16 md:w-20 bg-gradient-to-l from-gray-50 to-transparent pointer-events-none"
             aria-hidden="true"
           />
         )}
