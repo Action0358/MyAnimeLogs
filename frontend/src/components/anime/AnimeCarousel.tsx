@@ -22,6 +22,10 @@ const CAROUSEL_CONSTANTS = {
 const CAROUSEL_ITEM_WIDTH_CLASSES =
   'flex-none w-[calc((100%-0.75rem)/2)] sm:w-[calc((100%-1.5rem)/3)] md:w-[calc((100%-3rem)/4)] lg:w-[calc((100%-4rem)/5)] xl:w-[calc((100%-5rem)/6)]'
 
+/** グラデーションマスクの共通クラス */
+const GRADIENT_MASK_CLASSES =
+  'absolute top-0 bottom-2 w-16 md:w-20 from-gray-50 to-transparent pointer-events-none z-[1]'
+
 interface AnimeCarouselProps {
   animes: AnimeCardData[]
   className?: string
@@ -95,23 +99,42 @@ export const AnimeCarousel: React.FC<AnimeCarouselProps> = ({
         </button>
       )}
 
-      {/* スクロールコンテナ */}
-      <div
-        ref={scrollRef}
-        role="list"
-        aria-label="アニメ一覧"
-        tabIndex={0}
-        className="flex gap-3 md:gap-4 overflow-x-auto scrollbar-hide scroll-smooth pb-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-lg"
-      >
-        {animes.map((anime) => (
+      {/* スクロールコンテナのラッパー（左右端透過表示用） */}
+      <div className="relative overflow-hidden">
+        {/* 左端グラデーションマスク（スクロール可能を示唆） */}
+        {canScrollLeft && (
           <div
-            key={anime.id}
-            role="listitem"
-            className={CAROUSEL_ITEM_WIDTH_CLASSES}
-          >
-            <AnimeCard anime={anime} size="medium" />
-          </div>
-        ))}
+            className={cn(GRADIENT_MASK_CLASSES, 'left-0 bg-gradient-to-r')}
+            aria-hidden="true"
+          />
+        )}
+
+        {/* スクロールコンテナ */}
+        <div
+          ref={scrollRef}
+          role="list"
+          aria-label="アニメ一覧"
+          tabIndex={0}
+          className="flex gap-3 md:gap-4 overflow-x-auto scrollbar-hide scroll-smooth pb-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-lg"
+        >
+          {animes.map((anime) => (
+            <div
+              key={anime.id}
+              role="listitem"
+              className={CAROUSEL_ITEM_WIDTH_CLASSES}
+            >
+              <AnimeCard anime={anime} size="medium" />
+            </div>
+          ))}
+        </div>
+
+        {/* 右端グラデーションマスク（スクロール可能を示唆） */}
+        {canScrollRight && (
+          <div
+            className={cn(GRADIENT_MASK_CLASSES, 'right-0 bg-gradient-to-l')}
+            aria-hidden="true"
+          />
+        )}
       </div>
 
       {/* 右ナビゲーション */}
