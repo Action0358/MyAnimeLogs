@@ -25,11 +25,14 @@ const CAROUSEL_ITEM_WIDTH_CLASSES =
 interface AnimeCarouselProps {
   animes: AnimeCardData[]
   className?: string
+  /** グラデーションマスクの背景色（Tailwindカラークラス、例: 'gray-50', 'white'） */
+  gradientFromColor?: string
 }
 
 export const AnimeCarousel: React.FC<AnimeCarouselProps> = ({
   animes,
   className,
+  gradientFromColor = 'gray-50',
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [canScrollLeft, setCanScrollLeft] = useState(false)
@@ -95,23 +98,48 @@ export const AnimeCarousel: React.FC<AnimeCarouselProps> = ({
         </button>
       )}
 
-      {/* スクロールコンテナ */}
-      <div
-        ref={scrollRef}
-        role="list"
-        aria-label="アニメ一覧"
-        tabIndex={0}
-        className="flex gap-3 md:gap-4 overflow-x-auto scrollbar-hide scroll-smooth pb-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-lg"
-      >
-        {animes.map((anime) => (
+      {/* スクロールコンテナのラッパー（左右端透過表示用） */}
+      <div className="relative overflow-hidden">
+        {/* 左端グラデーションマスク（スクロール可能を示唆） */}
+        {canScrollLeft && (
           <div
-            key={anime.id}
-            role="listitem"
-            className={CAROUSEL_ITEM_WIDTH_CLASSES}
-          >
-            <AnimeCard anime={anime} size="medium" />
-          </div>
-        ))}
+            className={cn(
+              'absolute top-0 left-0 bottom-2 w-16 md:w-20 bg-gradient-to-r to-transparent pointer-events-none z-[1]',
+              `from-${gradientFromColor}`
+            )}
+            aria-hidden="true"
+          />
+        )}
+
+        {/* スクロールコンテナ */}
+        <div
+          ref={scrollRef}
+          role="list"
+          aria-label="アニメ一覧"
+          tabIndex={0}
+          className="flex gap-3 md:gap-4 overflow-x-auto scrollbar-hide scroll-smooth pb-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-lg"
+        >
+          {animes.map((anime) => (
+            <div
+              key={anime.id}
+              role="listitem"
+              className={CAROUSEL_ITEM_WIDTH_CLASSES}
+            >
+              <AnimeCard anime={anime} size="medium" />
+            </div>
+          ))}
+        </div>
+
+        {/* 右端グラデーションマスク（スクロール可能を示唆） */}
+        {canScrollRight && (
+          <div
+            className={cn(
+              'absolute top-0 right-0 bottom-2 w-16 md:w-20 bg-gradient-to-l to-transparent pointer-events-none z-[1]',
+              `from-${gradientFromColor}`
+            )}
+            aria-hidden="true"
+          />
+        )}
       </div>
 
       {/* 右ナビゲーション */}
