@@ -22,17 +22,18 @@ const CAROUSEL_CONSTANTS = {
 const CAROUSEL_ITEM_WIDTH_CLASSES =
   'flex-none w-[calc((100%-0.75rem)/2)] sm:w-[calc((100%-1.5rem)/3)] md:w-[calc((100%-3rem)/4)] lg:w-[calc((100%-4rem)/5)] xl:w-[calc((100%-5rem)/6)]'
 
+/** グラデーションマスクの共通クラス */
+const GRADIENT_MASK_CLASSES =
+  'absolute top-0 bottom-2 w-16 md:w-20 from-gray-50 to-transparent pointer-events-none z-[1]'
+
 interface AnimeCarouselProps {
   animes: AnimeCardData[]
   className?: string
-  /** グラデーションマスクの背景色（Tailwindカラークラス、例: 'gray-50', 'white'） */
-  gradientFromColor?: string
 }
 
 export const AnimeCarousel: React.FC<AnimeCarouselProps> = ({
   animes,
   className,
-  gradientFromColor = 'gray-50',
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [canScrollLeft, setCanScrollLeft] = useState(false)
@@ -103,10 +104,7 @@ export const AnimeCarousel: React.FC<AnimeCarouselProps> = ({
         {/* 左端グラデーションマスク（スクロール可能を示唆） */}
         {canScrollLeft && (
           <div
-            className={cn(
-              'absolute top-0 left-0 bottom-2 w-16 md:w-20 bg-gradient-to-r to-transparent pointer-events-none z-[1]',
-              `from-${gradientFromColor}`
-            )}
+            className={cn(GRADIENT_MASK_CLASSES, 'left-0 bg-gradient-to-r')}
             aria-hidden="true"
           />
         )}
@@ -133,10 +131,7 @@ export const AnimeCarousel: React.FC<AnimeCarouselProps> = ({
         {/* 右端グラデーションマスク（スクロール可能を示唆） */}
         {canScrollRight && (
           <div
-            className={cn(
-              'absolute top-0 right-0 bottom-2 w-16 md:w-20 bg-gradient-to-l to-transparent pointer-events-none z-[1]',
-              `from-${gradientFromColor}`
-            )}
+            className={cn(GRADIENT_MASK_CLASSES, 'right-0 bg-gradient-to-l')}
             aria-hidden="true"
           />
         )}
