@@ -203,10 +203,15 @@ export const EpisodeList: React.FC<EpisodeListProps> = ({
 
               {/* エピソード情報 */}
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-sm font-medium text-gray-500">
                     第{episode.episode_number}話
                   </span>
+                  {episode.duration_minutes && (
+                    <span className="text-xs text-gray-500">
+                      ({episode.duration_minutes}分)
+                    </span>
+                  )}
                   {isWatched && (
                     <span className="text-xs text-green-600 font-medium">視聴済み</span>
                   )}

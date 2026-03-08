@@ -1703,6 +1703,11 @@ components:
           nullable: true
           description: タイムゾーン（例：Asia/Tokyo）
           example: "Asia/Tokyo"
+        duration_minutes:
+          type: integer
+          nullable: true
+          description: 映画作品の上映時間（分）。TVアニメの場合はnull。
+          example: 120
         user_favorite:
           $ref: "#/components/schemas/Favorite"
           nullable: true
