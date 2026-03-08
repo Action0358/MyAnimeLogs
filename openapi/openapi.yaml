@@ -1636,7 +1636,7 @@ components:
           type: string
         status:
           type: string
-          enum: ["airing", "finished", "not_yet_aired"]
+          enum: ["airing", "finished", "not_yet_aired", "upcoming"]
         media:
           type: string
           nullable: true

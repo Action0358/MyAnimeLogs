@@ -72,6 +72,7 @@ export const AnimeStatus = {
   airing: 'airing',
   finished: 'finished',
   not_yet_aired: 'not_yet_aired',
+  upcoming: 'upcoming',
 } as const;
 
 /**
