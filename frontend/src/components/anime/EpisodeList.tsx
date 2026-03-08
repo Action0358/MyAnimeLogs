@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from 'react'
 import { cn } from '@/lib/utils'
 import { Pagination } from '@/components/ui/Pagination'
+import { formatEpisodeDuration } from '@/utils/duration'
 import type { Episode } from '@/lib/api/generated/myanimelogs'
 
 // 1ページあたりのエピソード数
@@ -203,10 +204,15 @@ export const EpisodeList: React.FC<EpisodeListProps> = ({
 
               {/* エピソード情報 */}
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-sm font-medium text-gray-500">
                     第{episode.episode_number}話
                   </span>
+                  {episode.duration_minutes && episode.duration_minutes > 0 && (
+                    <span className="text-xs text-gray-500">
+                      ({formatEpisodeDuration(episode.duration_minutes)})
+                    </span>
+                  )}
                   {isWatched && (
                     <span className="text-xs text-green-600 font-medium">視聴済み</span>
                   )}
