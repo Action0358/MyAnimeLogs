@@ -543,8 +543,9 @@ func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int
 	animes := []models.AnimeWithUserData{}
 	for rows.Next() {
 		var anime models.Anime
-		err := rows.Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount, &anime.CoverImageExtraLarge, &anime.CoverImageLarge, &anime.CoverImageMedium)
+		err := rows.Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount, &anime.CoverImageExtraLarge, &anime.CoverImageLarge, &anime.CoverImageMedium, &anime.ReleasedOn)
 		if err != nil {
+			s.logger.Warn("Failed to scan anime row in SearchAnimes", "error", err)
 			continue
 		}
 
@@ -632,9 +633,10 @@ func (s *AnimeService) AdvancedSearchAnimes(params models.AdvancedSearchParams, 
 		       a.mal_anime_id, a.annict_id, a.created_at, a.updated_at, a.watchers_count,
 		       COALESCE(a.cover_image_extra_large, '') as cover_image_extra_large,
 		       COALESCE(a.cover_image_large, '') as cover_image_large,
-		       COALESCE(a.cover_image_medium, '') as cover_image_medium
+		       COALESCE(a.cover_image_medium, '') as cover_image_medium,
+		       a.released_on
 		%s %s
-		GROUP BY a.id, a.title, a.image_url, a.season, a.computed_status, a.mal_anime_id, a.annict_id, a.created_at, a.updated_at, a.watchers_count, a.cover_image_extra_large, a.cover_image_large, a.cover_image_medium
+		GROUP BY a.id, a.title, a.image_url, a.season, a.computed_status, a.mal_anime_id, a.annict_id, a.created_at, a.updated_at, a.watchers_count, a.cover_image_extra_large, a.cover_image_large, a.cover_image_medium, a.released_on
 		%s
 		LIMIT $%d OFFSET $%d
 	`, baseQuery, whereClause, orderBy, argIndex, argIndex+1)
@@ -650,8 +652,9 @@ func (s *AnimeService) AdvancedSearchAnimes(params models.AdvancedSearchParams, 
 	animes := []models.AnimeWithUserData{}
 	for rows.Next() {
 		var anime models.Anime
-		err := rows.Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount, &anime.CoverImageExtraLarge, &anime.CoverImageLarge, &anime.CoverImageMedium)
+		err := rows.Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount, &anime.CoverImageExtraLarge, &anime.CoverImageLarge, &anime.CoverImageMedium, &anime.ReleasedOn)
 		if err != nil {
+			s.logger.Warn("Failed to scan anime row in AdvancedSearchAnimes", "error", err)
 			continue
 		}
 
