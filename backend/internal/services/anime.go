@@ -25,23 +25,21 @@ var (
 
 // animeSelectColumns - アニメ取得用の共通SELECT句
 // animes_with_computed_status VIEWを使用してステータスを動的に計算
+// VIEWでcover_image_*カラムに対してCOALESCEが適用済み
 const animeSelectColumns = `
 	id, title, image_url, season, computed_status as status,
 	mal_anime_id, annict_id, created_at, updated_at, watchers_count,
-	COALESCE(cover_image_extra_large, '') as cover_image_extra_large,
-	COALESCE(cover_image_large, '') as cover_image_large,
-	COALESCE(cover_image_medium, '') as cover_image_medium,
+	cover_image_extra_large, cover_image_large, cover_image_medium,
 	released_on
 `
 
 // aliasedAnimeSelectColumns - テーブルエイリアス付きアニメ取得用SELECT句
 // AdvancedSearchAnimesなどのJOINを含むクエリで使用
+// VIEWでcover_image_*カラムに対してCOALESCEが適用済み
 const aliasedAnimeSelectColumns = `
 	a.id, a.title, a.image_url, a.season, a.computed_status as status,
 	a.mal_anime_id, a.annict_id, a.created_at, a.updated_at, a.watchers_count,
-	COALESCE(a.cover_image_extra_large, '') as cover_image_extra_large,
-	COALESCE(a.cover_image_large, '') as cover_image_large,
-	COALESCE(a.cover_image_medium, '') as cover_image_medium,
+	a.cover_image_extra_large, a.cover_image_large, a.cover_image_medium,
 	a.released_on
 `
 
@@ -716,9 +714,7 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 	err := s.db.QueryRow(`
 		SELECT id, title, image_url, season, computed_status as status,
 		       mal_anime_id, annict_id, created_at, updated_at, watchers_count,
-		       COALESCE(cover_image_extra_large, '') as cover_image_extra_large,
-		       COALESCE(cover_image_large, '') as cover_image_large,
-		       COALESCE(cover_image_medium, '') as cover_image_medium,
+		       cover_image_extra_large, cover_image_large, cover_image_medium,
 		       description, media, released_on, official_site_url, title_kana, title_en, episodes_count,
 		       series_title, series_tmdb_id,
 		       broadcast_day, broadcast_time, broadcast_timezone, duration_minutes
