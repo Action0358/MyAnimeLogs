@@ -37,6 +37,9 @@ type Anime struct {
 	BroadcastTime     *string `json:"broadcast_time,omitempty" db:"broadcast_time"`         // 放送時間（例: "23:30"）
 	BroadcastTimezone *string `json:"broadcast_timezone,omitempty" db:"broadcast_timezone"` // タイムゾーン（例: "Asia/Tokyo"）
 
+	// 映画作品の上映時間（Jikan APIから取得）
+	DurationMinutes *int `json:"duration_minutes,omitempty" db:"duration_minutes"` // 映画の上映時間（分）
+
 	// 差分同期用トラッキングフィールド
 	LastSyncedAt     *time.Time `json:"last_synced_at,omitempty" db:"last_synced_at"`         // 最終同期日時
 	AnnictUpdatedAt  *time.Time `json:"annict_updated_at,omitempty" db:"annict_updated_at"`   // Annict側の更新日時

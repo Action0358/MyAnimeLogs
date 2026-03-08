@@ -141,6 +141,30 @@ export interface Anime {
   cover_image_large?: string;
   /** AniList API から取得した中サイズのカバー画像URL */
   cover_image_medium?: string;
+  /** シリーズ名（正規化後、内部識別用） */
+  series_title?: string;
+  /** シリーズ代表のTMDB ID（あらすじ・配信サービス取得用） */
+  series_tmdb_id?: number;
+  /**
+   * 放送曜日（例：Fridays）
+   * @nullable
+   */
+  broadcast_day?: string | null;
+  /**
+   * 放送時間（例：23:30）
+   * @nullable
+   */
+  broadcast_time?: string | null;
+  /**
+   * タイムゾーン（例：Asia/Tokyo）
+   * @nullable
+   */
+  broadcast_timezone?: string | null;
+  /**
+   * 映画作品の上映時間（分）。TVアニメの場合はnull。
+   * @nullable
+   */
+  duration_minutes?: number | null;
   /**
    * ユーザーのお気に入り情報（認証時のみ）
    * @nullable
@@ -166,21 +190,6 @@ export interface Anime {
   rating_distribution?: AnimeRatingDistribution;
   /** 配信サービス一覧 */
   watch_providers?: WatchProvider[];
-  /**
-   * 放送曜日（例：Fridays）
-   * @nullable
-   */
-  broadcast_day?: string | null;
-  /**
-   * 放送時間（例：23:30）
-   * @nullable
-   */
-  broadcast_time?: string | null;
-  /**
-   * タイムゾーン（例：Asia/Tokyo）
-   * @nullable
-   */
-  broadcast_timezone?: string | null;
   created_at?: string;
   updated_at?: string;
 }

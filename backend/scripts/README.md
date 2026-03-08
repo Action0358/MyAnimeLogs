@@ -72,8 +72,7 @@
 | `test-migration.sh`       | ローカルでお試し   | 10 秒    | 🟢 安全       |
 | `validate-sql.sh`         | SQL 構文チェック   | 5 秒     | 🟢 安全       |
 | `check-schema-diff.sh`    | スキーマ確認       | 3 秒     | 🟢 安全       |
-| `migrate-staging.sh`      | ステージングに適用 | 30 秒    | 🟡 注意       |
-| `migrate-production.sh`   | 本番に適用         | 30 秒    | 🔴 慎重に     |
+| `manual_full_sync.go`     | データ同期         | 5-15 分  | 🟡 注意       |
 | `sync-staging-data.sh`    | アニメデータ取得   | 1 分     | 🟡 注意       |
 | `sync-production-data.sh` | 本番データ取得     | 1 分     | 🔴 慎重に     |
 | `verify-deployment.sh`    | 動作確認           | 10 秒    | 🟢 安全       |
@@ -86,10 +85,10 @@
 | やりたいこと                                   | 使うスクリプト                                     | 環境              |
 | ---------------------------------------------- | -------------------------------------------------- | ----------------- |
 | マイグレーションをテストしたい                 | `test-migration.sh`                                | ローカル          |
-| ステージング環境にマイグレーションを適用したい | `migrate-staging.sh`                               | ステージング      |
-| 本番環境にマイグレーションを適用したい         | `migrate-production.sh`                            | 本番              |
+| ステージング環境にマイグレーションを適用したい | Fly.io経由: `flyctl ssh console -C "/app/migrate.sh"` | ステージング      |
+| 本番環境にマイグレーションを適用したい         | Fly.io経由: `flyctl ssh console -C "/app/migrate.sh"` | 本番              |
 | スキーマの差分を確認したい                     | `check-schema-diff.sh`                             | 全環境            |
-| アニメデータを同期したい                       | `sync-staging-data.sh` / `sync-production-data.sh` | ステージング/本番 |
+| アニメデータを同期したい                       | `manual_full_sync.go` / `sync-*-data.sh`           | ステージング/本番 |
 | デプロイ後の動作を確認したい                   | `verify-deployment.sh`                             | ステージング/本番 |
 
 ---
@@ -98,60 +97,7 @@
 
 ### 🗄️ データベースマイグレーション
 
-<details>
-<summary><strong>migrate-staging.sh</strong> - ステージング環境へのマイグレーション</summary>
 
-**いつ使う？**
-
-- ステージング環境にデータベース変更を適用するとき
-
-**何をする？**
-
-1. `.env.staging`から接続情報を読み込み
-2. `migrations/`フォルダ内の SQL ファイルを順番に実行
-3. 実行結果を表示
-
-**使い方**
-
-```bash
-./scripts/migrate-staging.sh
-```
-
-**注意点**
-
-- ✅ 何度実行しても安全（冪等性）
-- ✅ エラーが起きたら自動停止
-
-</details>
-
-<details>
-<summary><strong>migrate-production.sh</strong> - 本番環境へのマイグレーション</summary>
-
-**いつ使う？**
-
-- 本番環境にデータベース変更を適用するとき
-
-**何をする？**
-
-1. 「本当に実行しますか？」と確認
-2. `.env.production`から接続情報を読み込み
-3. **自動でバックアップを作成**（重要！）
-4. `migrations/`フォルダ内の SQL ファイルを順番に実行
-5. 実行結果を表示
-
-**使い方**
-
-```bash
-./scripts/migrate-production.sh
-```
-
-**注意点**
-
-- ⚠️ 本番環境なので慎重に！
-- ✅ バックアップは`backups/`フォルダに保存される
-- ✅ 確認プロンプトあり
-
-</details>
 
 <details>
 <summary><strong>migrate.go</strong> - Go言語版マイグレーション（代替手段）</summary>
@@ -454,8 +400,8 @@ go run scripts/reset-migrations.go
 # スキーマを確認
 ./scripts/check-schema-diff.sh staging
 
-# マイグレーションを実行
-./scripts/migrate-staging.sh
+# マイグレーションを実行（Fly.io経由）
+flyctl ssh console -a myanimelogs-staging -C "/app/migrate.sh"
 ```
 
 **何が起こる？**
@@ -481,15 +427,14 @@ go run scripts/reset-migrations.go
 # 本番環境のスキーマを確認
 ./scripts/check-schema-diff.sh production
 
-# 本番環境にマイグレーションを適用
-./scripts/migrate-production.sh
+# 本番環境にマイグレーションを適用（Fly.io経由）
+flyctl ssh console -a myanimelogs-production -C "/app/migrate.sh"
 ```
 
 **何が起こる？**
 
-- 「本当に実行しますか？」と聞かれる → `yes`と入力
-- 自動でバックアップが作られる
 - 本番環境のデータベースが更新される
+- 新しいカラムやテーブルが追加される
 
 ---
 
@@ -503,14 +448,14 @@ go run scripts/reset-migrations.go
 
 # 2. ステージング環境で確認
 ./scripts/check-schema-diff.sh staging
-./scripts/migrate-staging.sh
+flyctl ssh console -a myanimelogs-staging -C "/app/migrate.sh"
 
 # 3. 動作確認
 ./scripts/verify-deployment.sh staging
 
 # 4. 本番環境に適用
 ./scripts/check-schema-diff.sh production
-./scripts/migrate-production.sh
+flyctl ssh console -a myanimelogs-production -C "/app/migrate.sh"
 
 # 5. 動作確認
 ./scripts/verify-deployment.sh production
@@ -711,19 +656,19 @@ Fly.io 経由でのマイグレーション実行を改善中です。詳細は�
 # ローカルでテスト
 ./scripts/test-migration.sh
 
-# ステージングに適用
-./scripts/migrate-staging.sh
+# ステージングに適用（Fly.io経由）
+flyctl ssh console -a myanimelogs-staging -C "/app/migrate.sh"
 
-# 本番に適用
-./scripts/migrate-production.sh
+# 本番に適用（Fly.io経由）
+flyctl ssh console -a myanimelogs-production -C "/app/migrate.sh"
 ```
 
 ✅ **マイグレーション実行順序を守る**
 
 1. ローカルテスト（`test-migration.sh`）
-2. ステージング環境（`migrate-staging.sh`）
+2. ステージング環境（Fly.io経由: `flyctl ssh console -C "/app/migrate.sh"`）
 3. 動作確認（`verify-deployment.sh staging`）
-4. 本番環境（`migrate-production.sh`）
+4. 本番環境（Fly.io経由: `flyctl ssh console -C "/app/migrate.sh"`）
 5. 動作確認（`verify-deployment.sh production`）
 
 ✅ **マイグレーションファイルは必ず Git にコミット**

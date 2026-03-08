@@ -196,7 +196,7 @@ func TestAnimeService_BuildBaseQuery(t *testing.T) {
 			params: models.AdvancedSearchParams{},
 			userID: nil,
 			shouldContain: []string{
-				"FROM animes a",
+				"FROM animes_with_computed_status a",
 			},
 			shouldNotContain: []string{
 				"LEFT JOIN anime_genres",
@@ -211,7 +211,7 @@ func TestAnimeService_BuildBaseQuery(t *testing.T) {
 			},
 			userID: nil,
 			shouldContain: []string{
-				"FROM animes a",
+				"FROM animes_with_computed_status a",
 				"LEFT JOIN anime_genres ag",
 			},
 		},
@@ -222,7 +222,7 @@ func TestAnimeService_BuildBaseQuery(t *testing.T) {
 			},
 			userID: nil,
 			shouldContain: []string{
-				"FROM animes a",
+				"FROM animes_with_computed_status a",
 				"LEFT JOIN (",
 				"SELECT anime_id, AVG(rating) as avg_rating",
 				"FROM user_ratings",
