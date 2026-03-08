@@ -23,6 +23,34 @@ var (
 	ErrSearchHistoryNotFound = errors.New("search history item not found")
 )
 
+// animeSelectColumns - アニメ取得用の共通SELECT句
+// animes_with_computed_status VIEWを使用してステータスを動的に計算
+// VIEWでcover_image_*カラムに対してCOALESCEが適用済み
+const animeSelectColumns = `
+	id, title, image_url, season, computed_status as status,
+	mal_anime_id, annict_id, created_at, updated_at, watchers_count,
+	cover_image_extra_large, cover_image_large, cover_image_medium,
+	released_on
+`
+
+// aliasedAnimeSelectColumns - テーブルエイリアス付きアニメ取得用SELECT句
+// AdvancedSearchAnimesなどのJOINを含むクエリで使用
+// VIEWでcover_image_*カラムに対してCOALESCEが適用済み
+const aliasedAnimeSelectColumns = `
+	a.id, a.title, a.image_url, a.season, a.computed_status as status,
+	a.mal_anime_id, a.annict_id, a.created_at, a.updated_at, a.watchers_count,
+	a.cover_image_extra_large, a.cover_image_large, a.cover_image_medium,
+	a.released_on
+`
+
+// aliasedAnimeGroupByColumns - テーブルエイリアス付きGROUP BY句
+// AdvancedSearchAnimesなどのJOINを含むクエリで使用
+const aliasedAnimeGroupByColumns = `
+	a.id, a.title, a.image_url, a.season, a.computed_status,
+	a.mal_anime_id, a.annict_id, a.created_at, a.updated_at, a.watchers_count,
+	a.cover_image_extra_large, a.cover_image_large, a.cover_image_medium, a.released_on
+`
+
 // GetCurrentSeasonAnimes returns animes for the current season from the database
 func (s *AnimeService) GetCurrentSeasonAnimes(limit int) ([]models.Anime, error) {
 	if limit <= 0 {
@@ -42,14 +70,10 @@ func (s *AnimeService) GetCurrentSeasonAnimes(limit int) ([]models.Anime, error)
 		return cachedAnimes, nil
 	}
 
-	// DBから取得
+	// DBから取得（VIEWを使用してステータスを動的に計算）
 	animes, err := s.getAnimesByQuery(
-		`SELECT id, title, image_url, season, status, mal_anime_id, annict_id, created_at, updated_at, watchers_count,
-		        COALESCE(cover_image_extra_large, '') as cover_image_extra_large,
-		        COALESCE(cover_image_large, '') as cover_image_large,
-		        COALESCE(cover_image_medium, '') as cover_image_medium,
-		        released_on
-		FROM animes
+		`SELECT `+animeSelectColumns+`
+		FROM animes_with_computed_status
 		WHERE season = $1
 		ORDER BY watchers_count DESC NULLS LAST, title
 		LIMIT $2`,
@@ -84,14 +108,10 @@ func (s *AnimeService) GetPopularAnimes(limit int) ([]models.Anime, error) {
 		return cachedAnimes, nil
 	}
 
-	// DBから取得
+	// DBから取得（VIEWを使用してステータスを動的に計算）
 	animes, err := s.getAnimesByQuery(
-		`SELECT id, title, image_url, season, status, mal_anime_id, annict_id, created_at, updated_at, watchers_count,
-		        COALESCE(cover_image_extra_large, '') as cover_image_extra_large,
-		        COALESCE(cover_image_large, '') as cover_image_large,
-		        COALESCE(cover_image_medium, '') as cover_image_medium,
-		        released_on
-		FROM animes
+		`SELECT `+animeSelectColumns+`
+		FROM animes_with_computed_status
 		WHERE watchers_count > 0
 		ORDER BY watchers_count DESC, title
 		LIMIT $1`,
@@ -511,7 +531,7 @@ func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int
 	}
 
 	// Count total results
-	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM animes %s", whereClause)
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM animes_with_computed_status %s", whereClause)
 	var total int
 	err := s.db.QueryRow(countQuery, args...).Scan(&total)
 	if err != nil {
@@ -522,13 +542,10 @@ func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int
 	offset := (params.Page - 1) * params.PerPage
 	totalPages := (total + params.PerPage - 1) / params.PerPage
 
-	// Get animes
+	// Get animes（VIEWを使用してステータスを動的に計算）
 	query := fmt.Sprintf(`
-		SELECT id, title, image_url, season, status, mal_anime_id, annict_id, created_at, updated_at, watchers_count,
-		       COALESCE(cover_image_extra_large, '') as cover_image_extra_large,
-		       COALESCE(cover_image_large, '') as cover_image_large,
-		       COALESCE(cover_image_medium, '') as cover_image_medium
-		FROM animes %s %s
+		SELECT `+animeSelectColumns+`
+		FROM animes_with_computed_status %s %s
 		LIMIT $%d OFFSET $%d
 	`, whereClause, orderBy, argIndex, argIndex+1)
 
@@ -543,8 +560,9 @@ func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int
 	animes := []models.AnimeWithUserData{}
 	for rows.Next() {
 		var anime models.Anime
-		err := rows.Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount, &anime.CoverImageExtraLarge, &anime.CoverImageLarge, &anime.CoverImageMedium)
+		err := rows.Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount, &anime.CoverImageExtraLarge, &anime.CoverImageLarge, &anime.CoverImageMedium, &anime.ReleasedOn)
 		if err != nil {
+			s.logger.Warn("Failed to scan anime row in SearchAnimes", "error", err)
 			continue
 		}
 
@@ -626,17 +644,14 @@ func (s *AnimeService) AdvancedSearchAnimes(params models.AdvancedSearchParams, 
 	offset := (params.Page - 1) * params.PerPage
 	totalPages := (total + params.PerPage - 1) / params.PerPage
 
-	// Get animes
+	// Get animes（VIEWを使用してステータスを動的に計算）
 	query := fmt.Sprintf(`
-		SELECT a.id, a.title, a.image_url, a.season, a.status, a.mal_anime_id, a.annict_id, a.created_at, a.updated_at, a.watchers_count,
-		       COALESCE(a.cover_image_extra_large, '') as cover_image_extra_large,
-		       COALESCE(a.cover_image_large, '') as cover_image_large,
-		       COALESCE(a.cover_image_medium, '') as cover_image_medium
+		SELECT %s
 		%s %s
-		GROUP BY a.id, a.title, a.image_url, a.season, a.status, a.mal_anime_id, a.annict_id, a.created_at, a.updated_at, a.watchers_count, a.cover_image_extra_large, a.cover_image_large, a.cover_image_medium
+		GROUP BY %s
 		%s
 		LIMIT $%d OFFSET $%d
-	`, baseQuery, whereClause, orderBy, argIndex, argIndex+1)
+	`, aliasedAnimeSelectColumns, baseQuery, whereClause, aliasedAnimeGroupByColumns, orderBy, argIndex, argIndex+1)
 
 	args = append(args, params.PerPage, offset)
 
@@ -649,8 +664,9 @@ func (s *AnimeService) AdvancedSearchAnimes(params models.AdvancedSearchParams, 
 	animes := []models.AnimeWithUserData{}
 	for rows.Next() {
 		var anime models.Anime
-		err := rows.Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount, &anime.CoverImageExtraLarge, &anime.CoverImageLarge, &anime.CoverImageMedium)
+		err := rows.Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount, &anime.CoverImageExtraLarge, &anime.CoverImageLarge, &anime.CoverImageMedium, &anime.ReleasedOn)
 		if err != nil {
+			s.logger.Warn("Failed to scan anime row in AdvancedSearchAnimes", "error", err)
 			continue
 		}
 
@@ -693,20 +709,19 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 	var anime models.Anime
 	var description, media, officialSiteURL, titleKana, titleEn, releasedOn, seriesTitle sql.NullString
 	var broadcastDay, broadcastTime, broadcastTimezone sql.NullString
-	var episodesCount, seriesTMDBID sql.NullInt64
+	var episodesCount, seriesTMDBID, durationMinutes sql.NullInt64
 
 	err := s.db.QueryRow(`
-		SELECT id, title, image_url, season, status, mal_anime_id, annict_id, created_at, updated_at, watchers_count,
-		       COALESCE(cover_image_extra_large, '') as cover_image_extra_large,
-		       COALESCE(cover_image_large, '') as cover_image_large,
-		       COALESCE(cover_image_medium, '') as cover_image_medium,
+		SELECT id, title, image_url, season, computed_status as status,
+		       mal_anime_id, annict_id, created_at, updated_at, watchers_count,
+		       cover_image_extra_large, cover_image_large, cover_image_medium,
 		       description, media, released_on, official_site_url, title_kana, title_en, episodes_count,
 		       series_title, series_tmdb_id,
-		       broadcast_day, broadcast_time, broadcast_timezone
-		FROM animes WHERE id = $1
+		       broadcast_day, broadcast_time, broadcast_timezone, duration_minutes
+		FROM animes_with_computed_status WHERE id = $1
 	`, animeID).Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount, &anime.CoverImageExtraLarge, &anime.CoverImageLarge, &anime.CoverImageMedium,
 		&description, &media, &releasedOn, &officialSiteURL, &titleKana, &titleEn, &episodesCount, &seriesTitle, &seriesTMDBID,
-		&broadcastDay, &broadcastTime, &broadcastTimezone)
+		&broadcastDay, &broadcastTime, &broadcastTimezone, &durationMinutes)
 
 	// Check error immediately after Scan - accessing scanned variables before error check is undefined behavior
 	if err != nil {
@@ -755,6 +770,10 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 	if broadcastTimezone.Valid {
 		anime.BroadcastTimezone = &broadcastTimezone.String
 	}
+	if durationMinutes.Valid {
+		duration := int(durationMinutes.Int64)
+		anime.DurationMinutes = &duration
+	}
 
 	// DBキャッシュがない場合、またはextraLargeがない場合はAniListから画像を取得
 	if anime.CoverImageExtraLarge == "" || anime.CoverImageLarge == "" {
@@ -777,6 +796,11 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 	// 放送情報がない場合はJikan APIから取得
 	if anime.BroadcastDay == nil {
 		s.enrichAnimeWithBroadcastInfo(&anime)
+	}
+
+	// 映画の上映時間がない場合はJikan APIから取得
+	if anime.Media != nil && *anime.Media == "movie" && anime.DurationMinutes == nil {
+		s.enrichAnimeWithMovieDuration(&anime)
 	}
 
 	animeWithData := &models.AnimeWithUserData{Anime: anime}
@@ -2246,6 +2270,66 @@ func (s *AnimeService) enrichAnimeWithReleasedOn(anime *models.Anime) {
 	})
 }
 
+// enrichAnimeWithMovieDuration - Jikan APIから映画の上映時間を取得してアニメ情報を拡張
+// 映画作品でduration_minutesがない場合のみAPIを呼び出す
+func (s *AnimeService) enrichAnimeWithMovieDuration(anime *models.Anime) {
+	// 既に上映時間がある場合はスキップ
+	if anime.DurationMinutes != nil {
+		return
+	}
+
+	// 映画作品でない場合はスキップ
+	if anime.Media == nil || *anime.Media != "movie" {
+		return
+	}
+
+	// MAL IDがない場合は取得できない
+	if anime.MalAnimeID == nil || *anime.MalAnimeID == "" {
+		return
+	}
+
+	// Jikan APIから上映時間を取得
+	duration, err := s.jikanClient.GetAnimeDuration(*anime.MalAnimeID)
+	if err != nil {
+		s.logger.Debug("Failed to get movie duration from Jikan",
+			"error", err,
+			"mal_anime_id", *anime.MalAnimeID,
+			"anime_title", anime.Title)
+		return
+	}
+
+	if duration <= 0 {
+		return
+	}
+
+	// アニメ情報に設定
+	anime.DurationMinutes = &duration
+
+	// DBに保存（非同期）
+	malID := *anime.MalAnimeID
+	animeID := anime.ID
+	s.enqueueBackgroundTask(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), constants.BackgroundTaskDBTimeout)
+		defer cancel()
+
+		_, saveErr := s.db.ExecContext(ctx, `
+			UPDATE animes 
+			SET duration_minutes = $1
+			WHERE id = $2
+		`, duration, animeID)
+		if saveErr != nil {
+			s.logger.Warn("Failed to save movie duration to DB",
+				"error", saveErr,
+				"mal_anime_id", malID,
+				"anime_id", animeID)
+		} else {
+			s.logger.Debug("Saved movie duration from Jikan to DB",
+				"anime_id", animeID,
+				"duration_minutes", duration)
+		}
+	})
+}
+
 // enrichAnimeWithBroadcastInfo - Jikan APIから放送情報を取得してアニメ情報を拡張
 // DBにbroadcast_dayがない場合のみAPIを呼び出す
 func (s *AnimeService) enrichAnimeWithBroadcastInfo(anime *models.Anime) {
@@ -2421,7 +2505,7 @@ func (s *AnimeService) setSearchDefaults(params *models.AdvancedSearchParams) {
 func (s *AnimeService) buildBaseQuery(params models.AdvancedSearchParams, userID *int) string {
 	const SortByRating = "rating"
 
-	baseQuery := "FROM animes a"
+	baseQuery := "FROM animes_with_computed_status a"
 
 	// Track which JOINs are needed
 	needGenreJoin := len(params.Genres) > 0
