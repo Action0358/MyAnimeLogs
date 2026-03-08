@@ -23,6 +23,17 @@ var (
 	ErrSearchHistoryNotFound = errors.New("search history item not found")
 )
 
+// animeSelectColumns - アニメ取得用の共通SELECT句
+// animes_with_computed_status VIEWを使用してステータスを動的に計算
+const animeSelectColumns = `
+	id, title, image_url, season, computed_status as status,
+	mal_anime_id, annict_id, created_at, updated_at, watchers_count,
+	COALESCE(cover_image_extra_large, '') as cover_image_extra_large,
+	COALESCE(cover_image_large, '') as cover_image_large,
+	COALESCE(cover_image_medium, '') as cover_image_medium,
+	released_on
+`
+
 // GetCurrentSeasonAnimes returns animes for the current season from the database
 func (s *AnimeService) GetCurrentSeasonAnimes(limit int) ([]models.Anime, error) {
 	if limit <= 0 {
@@ -42,20 +53,10 @@ func (s *AnimeService) GetCurrentSeasonAnimes(limit int) ([]models.Anime, error)
 		return cachedAnimes, nil
 	}
 
-	// DBから取得
+	// DBから取得（VIEWを使用してステータスを動的に計算）
 	animes, err := s.getAnimesByQuery(
-		`SELECT id, title, image_url, season,
-		        CASE 
-		            WHEN released_on IS NOT NULL AND released_on != '' AND released_on::date > CURRENT_DATE THEN 'upcoming'
-		            WHEN released_on IS NOT NULL AND released_on != '' AND released_on::date <= CURRENT_DATE AND status = 'not_yet_aired' THEN 'airing'
-		            ELSE status
-		        END as status,
-		        mal_anime_id, annict_id, created_at, updated_at, watchers_count,
-		        COALESCE(cover_image_extra_large, '') as cover_image_extra_large,
-		        COALESCE(cover_image_large, '') as cover_image_large,
-		        COALESCE(cover_image_medium, '') as cover_image_medium,
-		        released_on
-		FROM animes
+		`SELECT `+animeSelectColumns+`
+		FROM animes_with_computed_status
 		WHERE season = $1
 		ORDER BY watchers_count DESC NULLS LAST, title
 		LIMIT $2`,
@@ -90,20 +91,10 @@ func (s *AnimeService) GetPopularAnimes(limit int) ([]models.Anime, error) {
 		return cachedAnimes, nil
 	}
 
-	// DBから取得
+	// DBから取得（VIEWを使用してステータスを動的に計算）
 	animes, err := s.getAnimesByQuery(
-		`SELECT id, title, image_url, season,
-		        CASE 
-		            WHEN released_on IS NOT NULL AND released_on != '' AND released_on::date > CURRENT_DATE THEN 'upcoming'
-		            WHEN released_on IS NOT NULL AND released_on != '' AND released_on::date <= CURRENT_DATE AND status = 'not_yet_aired' THEN 'airing'
-		            ELSE status
-		        END as status,
-		        mal_anime_id, annict_id, created_at, updated_at, watchers_count,
-		        COALESCE(cover_image_extra_large, '') as cover_image_extra_large,
-		        COALESCE(cover_image_large, '') as cover_image_large,
-		        COALESCE(cover_image_medium, '') as cover_image_medium,
-		        released_on
-		FROM animes
+		`SELECT `+animeSelectColumns+`
+		FROM animes_with_computed_status
 		WHERE watchers_count > 0
 		ORDER BY watchers_count DESC, title
 		LIMIT $1`,
@@ -523,7 +514,7 @@ func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int
 	}
 
 	// Count total results
-	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM animes %s", whereClause)
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM animes_with_computed_status %s", whereClause)
 	var total int
 	err := s.db.QueryRow(countQuery, args...).Scan(&total)
 	if err != nil {
@@ -534,19 +525,10 @@ func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int
 	offset := (params.Page - 1) * params.PerPage
 	totalPages := (total + params.PerPage - 1) / params.PerPage
 
-	// Get animes
+	// Get animes（VIEWを使用してステータスを動的に計算）
 	query := fmt.Sprintf(`
-		SELECT id, title, image_url, season,
-		       CASE 
-		           WHEN released_on IS NOT NULL AND released_on != '' AND released_on::date > CURRENT_DATE THEN 'upcoming'
-		           WHEN released_on IS NOT NULL AND released_on != '' AND released_on::date <= CURRENT_DATE AND status = 'not_yet_aired' THEN 'airing'
-		           ELSE status
-		       END as status,
-		       mal_anime_id, annict_id, created_at, updated_at, watchers_count,
-		       COALESCE(cover_image_extra_large, '') as cover_image_extra_large,
-		       COALESCE(cover_image_large, '') as cover_image_large,
-		       COALESCE(cover_image_medium, '') as cover_image_medium
-		FROM animes %s %s
+		SELECT `+animeSelectColumns+`
+		FROM animes_with_computed_status %s %s
 		LIMIT $%d OFFSET $%d
 	`, whereClause, orderBy, argIndex, argIndex+1)
 
@@ -644,20 +626,15 @@ func (s *AnimeService) AdvancedSearchAnimes(params models.AdvancedSearchParams, 
 	offset := (params.Page - 1) * params.PerPage
 	totalPages := (total + params.PerPage - 1) / params.PerPage
 
-	// Get animes
+	// Get animes（VIEWを使用してステータスを動的に計算）
 	query := fmt.Sprintf(`
-		SELECT a.id, a.title, a.image_url, a.season,
-		       CASE 
-		           WHEN a.released_on IS NOT NULL AND a.released_on != '' AND a.released_on::date > CURRENT_DATE THEN 'upcoming'
-		           WHEN a.released_on IS NOT NULL AND a.released_on != '' AND a.released_on::date <= CURRENT_DATE AND a.status = 'not_yet_aired' THEN 'airing'
-		           ELSE a.status
-		       END as status,
+		SELECT a.id, a.title, a.image_url, a.season, a.computed_status as status,
 		       a.mal_anime_id, a.annict_id, a.created_at, a.updated_at, a.watchers_count,
 		       COALESCE(a.cover_image_extra_large, '') as cover_image_extra_large,
 		       COALESCE(a.cover_image_large, '') as cover_image_large,
 		       COALESCE(a.cover_image_medium, '') as cover_image_medium
 		%s %s
-		GROUP BY a.id, a.title, a.image_url, a.season, a.status, a.released_on, a.mal_anime_id, a.annict_id, a.created_at, a.updated_at, a.watchers_count, a.cover_image_extra_large, a.cover_image_large, a.cover_image_medium
+		GROUP BY a.id, a.title, a.image_url, a.season, a.computed_status, a.mal_anime_id, a.annict_id, a.created_at, a.updated_at, a.watchers_count, a.cover_image_extra_large, a.cover_image_large, a.cover_image_medium
 		%s
 		LIMIT $%d OFFSET $%d
 	`, baseQuery, whereClause, orderBy, argIndex, argIndex+1)
@@ -720,12 +697,7 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 	var episodesCount, seriesTMDBID, durationMinutes sql.NullInt64
 
 	err := s.db.QueryRow(`
-		SELECT id, title, image_url, season,
-		       CASE 
-		           WHEN released_on IS NOT NULL AND released_on != '' AND released_on::date > CURRENT_DATE THEN 'upcoming'
-		           WHEN released_on IS NOT NULL AND released_on != '' AND released_on::date <= CURRENT_DATE AND status = 'not_yet_aired' THEN 'airing'
-		           ELSE status
-		       END as status,
+		SELECT id, title, image_url, season, computed_status as status,
 		       mal_anime_id, annict_id, created_at, updated_at, watchers_count,
 		       COALESCE(cover_image_extra_large, '') as cover_image_extra_large,
 		       COALESCE(cover_image_large, '') as cover_image_large,
@@ -733,7 +705,7 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 		       description, media, released_on, official_site_url, title_kana, title_en, episodes_count,
 		       series_title, series_tmdb_id,
 		       broadcast_day, broadcast_time, broadcast_timezone, duration_minutes
-		FROM animes WHERE id = $1
+		FROM animes_with_computed_status WHERE id = $1
 	`, animeID).Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount, &anime.CoverImageExtraLarge, &anime.CoverImageLarge, &anime.CoverImageMedium,
 		&description, &media, &releasedOn, &officialSiteURL, &titleKana, &titleEn, &episodesCount, &seriesTitle, &seriesTMDBID,
 		&broadcastDay, &broadcastTime, &broadcastTimezone, &durationMinutes)
@@ -2520,7 +2492,7 @@ func (s *AnimeService) setSearchDefaults(params *models.AdvancedSearchParams) {
 func (s *AnimeService) buildBaseQuery(params models.AdvancedSearchParams, userID *int) string {
 	const SortByRating = "rating"
 
-	baseQuery := "FROM animes a"
+	baseQuery := "FROM animes_with_computed_status a"
 
 	// Track which JOINs are needed
 	needGenreJoin := len(params.Genres) > 0
