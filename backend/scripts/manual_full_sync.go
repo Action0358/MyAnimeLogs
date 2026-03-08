@@ -167,7 +167,7 @@ func run(logger *common.Logger, env string) error {
 	startTime := time.Now()
 
 	// Step 1: Re-sync all animes from Annict (with differential update)
-	logger.Info("Step 1/4: Re-syncing animes from Annict API (differential mode)...")
+	logger.Info("Step 1/5: Re-syncing animes from Annict API (differential mode)...")
 	annictSuccess, annictFailure, err := annictClient.SyncAllExistingAnimes()
 	if err != nil {
 		logger.Warn("Failed to re-sync animes from Annict", "error", err)
@@ -178,7 +178,7 @@ func run(logger *common.Logger, env string) error {
 	}
 
 	// Step 2: Sync episodes from Jikan API (creates new episodes only)
-	logger.Info("Step 2/4: Syncing episodes from Jikan API...")
+	logger.Info("Step 2/5: Syncing episodes from Jikan API...")
 	episodeSuccess, episodeFailure, episodeErrors, err := animeService.SyncEpisodesFromJikan(nil)
 	if err != nil {
 		return fmt.Errorf("failed to sync episodes from Jikan: %w", err)
@@ -198,7 +198,7 @@ func run(logger *common.Logger, env string) error {
 	}
 
 	// Step 3: Sync descriptions from TMDB (only for animes without description)
-	logger.Info("Step 3/4: Syncing descriptions from TMDB (differential mode)...")
+	logger.Info("Step 3/5: Syncing descriptions from TMDB (differential mode)...")
 	tmdbAPIKey := os.Getenv("TMDB_API_KEY")
 	if tmdbAPIKey == "" {
 		logger.Warn("TMDB_API_KEY not set, skipping description sync")
@@ -215,7 +215,7 @@ func run(logger *common.Logger, env string) error {
 	}
 
 	// Step 4: Sync released_on from Jikan API (only for animes without released_on)
-	logger.Info("Step 4/4: Syncing release dates from Jikan API (differential mode)...")
+	logger.Info("Step 4/5: Syncing release dates from Jikan API (differential mode)...")
 	releasedSuccess, releasedNotFound, releasedFailure, err := animeService.SyncReleasedOnFromJikan()
 	if err != nil {
 		logger.Warn("Failed to sync released_on from Jikan", "error", err)
@@ -224,6 +224,17 @@ func run(logger *common.Logger, env string) error {
 			"success", releasedSuccess,
 			"not_found", releasedNotFound,
 			"failure", releasedFailure)
+	}
+
+	// Step 5: Sync anime statuses (airing/finished/upcoming)
+	logger.Info("Step 5/5: Syncing anime statuses...")
+	statusSuccess, statusFailure, err := animeService.SyncAllAnimeStatuses()
+	if err != nil {
+		logger.Warn("Failed to sync anime statuses", "error", err)
+	} else {
+		logger.Info("Anime status sync completed",
+			"success", statusSuccess,
+			"failure", statusFailure)
 	}
 
 	duration := time.Since(startTime)
