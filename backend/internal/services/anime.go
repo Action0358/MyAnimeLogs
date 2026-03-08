@@ -34,6 +34,25 @@ const animeSelectColumns = `
 	released_on
 `
 
+// aliasedAnimeSelectColumns - テーブルエイリアス付きアニメ取得用SELECT句
+// AdvancedSearchAnimesなどのJOINを含むクエリで使用
+const aliasedAnimeSelectColumns = `
+	a.id, a.title, a.image_url, a.season, a.computed_status as status,
+	a.mal_anime_id, a.annict_id, a.created_at, a.updated_at, a.watchers_count,
+	COALESCE(a.cover_image_extra_large, '') as cover_image_extra_large,
+	COALESCE(a.cover_image_large, '') as cover_image_large,
+	COALESCE(a.cover_image_medium, '') as cover_image_medium,
+	a.released_on
+`
+
+// aliasedAnimeGroupByColumns - テーブルエイリアス付きGROUP BY句
+// AdvancedSearchAnimesなどのJOINを含むクエリで使用
+const aliasedAnimeGroupByColumns = `
+	a.id, a.title, a.image_url, a.season, a.computed_status,
+	a.mal_anime_id, a.annict_id, a.created_at, a.updated_at, a.watchers_count,
+	a.cover_image_extra_large, a.cover_image_large, a.cover_image_medium, a.released_on
+`
+
 // GetCurrentSeasonAnimes returns animes for the current season from the database
 func (s *AnimeService) GetCurrentSeasonAnimes(limit int) ([]models.Anime, error) {
 	if limit <= 0 {
@@ -629,17 +648,12 @@ func (s *AnimeService) AdvancedSearchAnimes(params models.AdvancedSearchParams, 
 
 	// Get animes（VIEWを使用してステータスを動的に計算）
 	query := fmt.Sprintf(`
-		SELECT a.id, a.title, a.image_url, a.season, a.computed_status as status,
-		       a.mal_anime_id, a.annict_id, a.created_at, a.updated_at, a.watchers_count,
-		       COALESCE(a.cover_image_extra_large, '') as cover_image_extra_large,
-		       COALESCE(a.cover_image_large, '') as cover_image_large,
-		       COALESCE(a.cover_image_medium, '') as cover_image_medium,
-		       a.released_on
+		SELECT %s
 		%s %s
-		GROUP BY a.id, a.title, a.image_url, a.season, a.computed_status, a.mal_anime_id, a.annict_id, a.created_at, a.updated_at, a.watchers_count, a.cover_image_extra_large, a.cover_image_large, a.cover_image_medium, a.released_on
+		GROUP BY %s
 		%s
 		LIMIT $%d OFFSET $%d
-	`, baseQuery, whereClause, orderBy, argIndex, argIndex+1)
+	`, aliasedAnimeSelectColumns, baseQuery, whereClause, aliasedAnimeGroupByColumns, orderBy, argIndex, argIndex+1)
 
 	args = append(args, params.PerPage, offset)
 

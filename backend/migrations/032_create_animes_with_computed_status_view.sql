@@ -9,20 +9,17 @@ SELECT
     season,
     -- ステータスを動的に計算（正規表現でYYYY-MM-DD形式を検証してからキャスト）
     CASE 
-        -- released_onがYYYY-MM-DD形式で、未来の日付の場合は'upcoming'
-        WHEN released_on IS NOT NULL 
-             AND released_on != '' 
-             AND released_on ~ '^\d{4}-\d{2}-\d{2}$'
-             AND released_on::date > CURRENT_DATE 
-        THEN 'upcoming'
-        -- released_onがYYYY-MM-DD形式で、過去の日付でnot_yet_airedの場合は'airing'
-        WHEN released_on IS NOT NULL 
-             AND released_on != '' 
-             AND released_on ~ '^\d{4}-\d{2}-\d{2}$'
-             AND released_on::date <= CURRENT_DATE 
-             AND status = 'not_yet_aired' 
-        THEN 'airing'
-        -- それ以外はデータベースのstatusをそのまま使用
+        -- released_onが有効な日付形式の場合のみ処理
+        WHEN released_on ~ '^\d{4}-\d{2}-\d{2}$' THEN
+            CASE
+                -- 未来の日付の場合は'upcoming'
+                WHEN released_on::date > CURRENT_DATE THEN 'upcoming'
+                -- 過去の日付でnot_yet_airedの場合は'airing'
+                WHEN released_on::date <= CURRENT_DATE AND status = 'not_yet_aired' THEN 'airing'
+                -- それ以外はデータベースのstatusをそのまま使用
+                ELSE status
+            END
+        -- released_onが無効または存在しない場合はデータベースのstatusをそのまま使用
         ELSE status
     END as computed_status,
     status as original_status,
