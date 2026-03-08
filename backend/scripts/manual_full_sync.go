@@ -215,7 +215,7 @@ func run(logger *common.Logger, env string) error {
 	}
 
 	// Step 4: Sync released_on from Jikan API (only for animes without released_on)
-	logger.Info("Step 4/4: Syncing release dates from Jikan API (differential mode)...")
+	logger.Info("Step 4/5: Syncing release dates from Jikan API (differential mode)...")
 	releasedSuccess, releasedNotFound, releasedFailure, err := animeService.SyncReleasedOnFromJikan()
 	if err != nil {
 		logger.Warn("Failed to sync released_on from Jikan", "error", err)
@@ -224,6 +224,17 @@ func run(logger *common.Logger, env string) error {
 			"success", releasedSuccess,
 			"not_found", releasedNotFound,
 			"failure", releasedFailure)
+	}
+
+	// Step 5: Sync anime statuses (airing/finished/upcoming)
+	logger.Info("Step 5/5: Syncing anime statuses...")
+	statusSuccess, statusFailure, err := animeService.SyncAllAnimeStatuses()
+	if err != nil {
+		logger.Warn("Failed to sync anime statuses", "error", err)
+	} else {
+		logger.Info("Anime status sync completed",
+			"success", statusSuccess,
+			"failure", statusFailure)
 	}
 
 	duration := time.Since(startTime)
