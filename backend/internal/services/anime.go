@@ -543,8 +543,9 @@ func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int
 	animes := []models.AnimeWithUserData{}
 	for rows.Next() {
 		var anime models.Anime
-		err := rows.Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount, &anime.CoverImageExtraLarge, &anime.CoverImageLarge, &anime.CoverImageMedium)
+		err := rows.Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount, &anime.CoverImageExtraLarge, &anime.CoverImageLarge, &anime.CoverImageMedium, &anime.ReleasedOn)
 		if err != nil {
+			s.logger.Warn("Failed to scan anime row in SearchAnimes", "error", err)
 			continue
 		}
 
@@ -652,6 +653,7 @@ func (s *AnimeService) AdvancedSearchAnimes(params models.AdvancedSearchParams, 
 		var anime models.Anime
 		err := rows.Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount, &anime.CoverImageExtraLarge, &anime.CoverImageLarge, &anime.CoverImageMedium)
 		if err != nil {
+			s.logger.Warn("Failed to scan anime row in AdvancedSearchAnimes", "error", err)
 			continue
 		}
 
