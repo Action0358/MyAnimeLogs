@@ -10,7 +10,7 @@ const SearchContainer: React.FC = () => {
   const [activeTab, setActiveTab] = useState<SearchTab>('keyword');
 
   return (
-    <div className="w-full max-w-[800px] relative z-0">
+    <div className="w-full max-w-[800px]">
       <SearchTabs activeTab={activeTab} onTabChange={setActiveTab} />
       <SearchInputArea activeTab={activeTab} />
     </div>
