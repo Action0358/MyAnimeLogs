@@ -8,6 +8,11 @@ import { HERO_LOGO_PATH } from '@/lib/constants';
 const HeroSection: React.FC = () => {
   return (
     <section className="relative flex flex-col items-center bg-gradient-to-br from-blue-600 to-blue-800 text-white px-4 pt-44 pb-24 md:pt-52 md:pb-32 z-0">
+      {/* 
+        z-0: モバイルメニュー（z-40, z-50）より低い階層に配置するため、
+        新しいスタッキングコンテキストを作成。
+        これにより、子要素のz-index（タブのz-10など）がモバイルメニューに影響を与えなくなります。
+      */}
       {/* キャッチコピー */}
       <h2 className="text-base md:text-xl text-center mb-4 md:mb-6 font-bold">
         あなたのアニメ視聴体験を記録・管理しよう
