@@ -16,7 +16,7 @@ const SearchTabs: React.FC<SearchTabsProps> = ({ activeTab, onTabChange }) => {
   ];
 
   return (
-    <div className="flex gap-1 md:gap-2">
+    <div className="flex gap-1 md:gap-2 relative z-0">
       {tabs.map((tab) => {
         const isActive = activeTab === tab.id;
         return (
@@ -29,7 +29,7 @@ const SearchTabs: React.FC<SearchTabsProps> = ({ activeTab, onTabChange }) => {
               transition-all duration-200 ease-out rounded-t-xl
               ${
                 isActive
-                  ? 'bg-white text-blue-700 shadow-lg shadow-black/10 z-10'
+                  ? 'bg-white text-blue-700 shadow-lg shadow-black/10'
                   : 'bg-white/10 text-white/80 hover:bg-white/20 hover:text-white'
               }
             `}
