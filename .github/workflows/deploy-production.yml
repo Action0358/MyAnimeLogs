@@ -22,7 +22,7 @@ jobs:
           go mod download
           go test -v ./...
 
-  deploy-production:
+  deploy-backend-production:
     needs: test
     runs-on: ubuntu-latest
     environment: production
@@ -33,7 +33,7 @@ jobs:
       - name: Setup Fly.io CLI
         uses: superfly/flyctl-actions/setup-flyctl@master
 
-      - name: Deploy to Fly.io Production
+      - name: Deploy Backend to Fly.io Production
         run: flyctl deploy -c fly.toml -a myanimelogs-production --ha=false
         working-directory: ./backend
         env:
@@ -100,3 +100,36 @@ jobs:
           
           echo "Data sync completed"
         working-directory: ./backend
+
+  deploy-frontend-production:
+    needs: test
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: ./frontend
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL_PRODUCTION }}
+          NODE_ENV: production
+
+      - name: Deploy to Cloudflare Pages (Production)
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy frontend/out --project-name=myanimelogs --branch=main
