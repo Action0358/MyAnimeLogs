@@ -4,21 +4,21 @@ import React from 'react'
 import { cn } from '@/lib/utils'
 import type { MediaType } from '@/utils/mediaFilter'
 
+export interface MediaTabDefinition {
+  id: MediaType
+  label: string
+}
+
 interface MediaTabsProps {
+  tabs: MediaTabDefinition[]
   activeTab: MediaType
   onTabChange: (tab: MediaType) => void
   counts?: { all: number; tv: number; web: number; movie: number }
   className?: string
 }
 
-const tabs: { id: MediaType; label: string }[] = [
-  { id: 'all', label: '全て' },
-  { id: 'tv', label: 'TV' },
-  { id: 'web', label: 'Web' },
-  { id: 'movie', label: '映画' },
-]
-
 export const MediaTabs: React.FC<MediaTabsProps> = ({
+  tabs,
   activeTab,
   onTabChange,
   counts,
