@@ -12,7 +12,7 @@ export default function PopularAnimePage() {
       queryFn={() => animeApi.getPopularAnimes(POPULAR_ANIME_LIMIT)}
       emptyMessage="人気アニメが見つかりませんでした"
       errorMessage="人気アニメの取得に失敗しました"
-      totalLabel={(total) => `人気Top${total}`}
+      showMediaTabs
     />
   )
 }
