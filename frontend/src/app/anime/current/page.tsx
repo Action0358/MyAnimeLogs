@@ -12,6 +12,7 @@ export default function CurrentSeasonPage() {
       queryFn={() => animeApi.getCurrentSeasonAnimes(CURRENT_SEASON_ANIME_LIMIT)}
       emptyMessage="今期アニメが見つかりませんでした"
       errorMessage="今期アニメの取得に失敗しました"
+      showMediaTabs
     />
   )
 }
