@@ -14,6 +14,13 @@ import { filterAnimesByMedia, countAnimesByMedia, type MediaType } from '@/utils
 const STALE_TIME = 1000 * 60 * 30 // 30分
 const GC_TIME = 1000 * 60 * 60 // 60分
 
+// メディアタイプ別の表示ラベル
+const mediaTabLabels: Record<Exclude<MediaType, 'all'>, string> = {
+  tv: 'TVアニメ',
+  web: 'Web配信アニメ',
+  movie: '映画',
+}
+
 // 1ページあたりの表示件数
 const PAGE_SIZE = 24
 
@@ -133,7 +140,7 @@ export const AnimeListPage: React.FC<AnimeListPageProps> = ({
           isLoading={isLoading}
           emptyMessage={
             showMediaTabs && activeMediaTab !== 'all'
-              ? `${activeMediaTab === 'tv' ? 'TVアニメ' : activeMediaTab === 'web' ? 'Web配信アニメ' : '映画'}が見つかりませんでした`
+              ? `${mediaTabLabels[activeMediaTab]}が見つかりませんでした`
               : emptyMessage
           }
           columns={{ mobile: 2, tablet: 3, desktop: 4, wide: 6 }}
