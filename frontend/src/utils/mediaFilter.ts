@@ -2,13 +2,6 @@ import type { DBAnime } from '@/lib/api/annict'
 
 export type MediaType = 'all' | 'tv' | 'web' | 'movie'
 
-/** メディアタイプとDBのmedia値のマッピング */
-const mediaValueMap: Record<Exclude<MediaType, 'all'>, string> = {
-  tv: 'tv',
-  web: 'web',
-  movie: 'movie',
-}
-
 /** メディアタイプでアニメをフィルタリング */
 export const filterAnimesByMedia = (
   animes: DBAnime[],
@@ -16,8 +9,7 @@ export const filterAnimesByMedia = (
 ): DBAnime[] => {
   if (mediaType === 'all') return animes
 
-  const targetMedia = mediaValueMap[mediaType]
-  return animes.filter((anime) => anime.media?.toLowerCase() === targetMedia)
+  return animes.filter((anime) => anime.media?.toLowerCase() === mediaType)
 }
 
 /** メディアタイプ別の件数を集計 */
