@@ -8,7 +8,7 @@ import { MediaTabs, type MediaTabDefinition } from '@/components/anime/MediaTabs
 import { Pagination } from '@/components/ui'
 import type { DBAnime, DBAnimeResponse } from '@/lib/api/annict'
 import { toAnimeStatus } from '@/lib/constants'
-import { filterAnimesByMedia, countAnimesByMedia, type MediaType } from '@/utils/mediaFilter'
+import { filterAnimesByMedia, type MediaType } from '@/utils/mediaFilter'
 
 // キャッシュ時間の定数（バックエンドのCurrentSeasonAnimeCacheTTL/PopularAnimeCacheTTLと同期）
 const STALE_TIME = 1000 * 60 * 30 // 30分
@@ -17,8 +17,8 @@ const GC_TIME = 1000 * 60 * 60 // 60分
 // メディアタイプタブの定義（タブ表示・空メッセージの両方で使用）
 const MEDIA_TABS: MediaTabDefinition[] = [
   { id: 'all', label: '全て' },
-  { id: 'tv', label: 'TVアニメ' },
-  { id: 'web', label: 'Web配信アニメ' },
+  { id: 'tv', label: 'TV' },
+  { id: 'web', label: 'Web' },
   { id: 'movie', label: '映画' },
 ]
 
@@ -77,12 +77,6 @@ export const AnimeListPage: React.FC<AnimeListPageProps> = ({
     return filterAnimesByMedia(allAnimes, activeMediaTab)
   }, [data?.animes, activeMediaTab, showMediaTabs])
 
-  // メディアタイプ別の件数
-  const mediaCounts = useMemo(() => {
-    if (!showMediaTabs || !data?.animes) return undefined
-    return countAnimesByMedia(data.animes)
-  }, [data?.animes, showMediaTabs])
-
   // クライアントサイドページネーション
   const { paginatedAnimes, totalPages, total } = useMemo(() => {
     const total = filteredAnimes.length
@@ -131,7 +125,6 @@ export const AnimeListPage: React.FC<AnimeListPageProps> = ({
               tabs={MEDIA_TABS}
               activeTab={activeMediaTab}
               onTabChange={handleMediaTabChange}
-              counts={mediaCounts}
             />
           </div>
         )}
