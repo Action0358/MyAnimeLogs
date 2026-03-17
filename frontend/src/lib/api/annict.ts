@@ -60,6 +60,7 @@ export interface DBAnime {
   watchers_count: number;
   mal_anime_id?: string;
   annict_id?: number;
+  media?: string;
   created_at: string;
   updated_at: string;
   cover_image_large?: string;

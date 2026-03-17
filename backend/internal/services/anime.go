@@ -30,7 +30,7 @@ const animeSelectColumns = `
 	id, title, image_url, season, computed_status as status,
 	mal_anime_id, annict_id, created_at, updated_at, watchers_count,
 	cover_image_extra_large, cover_image_large, cover_image_medium,
-	released_on
+	released_on, media
 `
 
 // aliasedAnimeSelectColumns - テーブルエイリアス付きアニメ取得用SELECT句
@@ -40,7 +40,7 @@ const aliasedAnimeSelectColumns = `
 	a.id, a.title, a.image_url, a.season, a.computed_status as status,
 	a.mal_anime_id, a.annict_id, a.created_at, a.updated_at, a.watchers_count,
 	a.cover_image_extra_large, a.cover_image_large, a.cover_image_medium,
-	a.released_on
+	a.released_on, a.media
 `
 
 // aliasedAnimeGroupByColumns - テーブルエイリアス付きGROUP BY句
@@ -48,7 +48,7 @@ const aliasedAnimeSelectColumns = `
 const aliasedAnimeGroupByColumns = `
 	a.id, a.title, a.image_url, a.season, a.computed_status,
 	a.mal_anime_id, a.annict_id, a.created_at, a.updated_at, a.watchers_count,
-	a.cover_image_extra_large, a.cover_image_large, a.cover_image_medium, a.released_on
+	a.cover_image_extra_large, a.cover_image_large, a.cover_image_medium, a.released_on, a.media
 `
 
 // GetCurrentSeasonAnimes returns animes for the current season from the database
@@ -131,6 +131,19 @@ func (s *AnimeService) GetPopularAnimes(limit int) ([]models.Anime, error) {
 }
 
 // getAnimesByQuery is a helper function to execute anime queries with proper error handling
+// scanAnime - rows.Scanの共通ヘルパー関数
+// カラム追加時の修正漏れを防ぐため、スキャン処理を一箇所に集約
+func scanAnime(rows *sql.Rows) (models.Anime, error) {
+	var anime models.Anime
+	err := rows.Scan(
+		&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status,
+		&anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount,
+		&anime.CoverImageExtraLarge, &anime.CoverImageLarge, &anime.CoverImageMedium,
+		&anime.ReleasedOn, &anime.Media,
+	)
+	return anime, err
+}
+
 func (s *AnimeService) getAnimesByQuery(query string, args []interface{}, queryName string) ([]models.Anime, error) {
 	rows, err := s.db.Query(query, args...)
 	if err != nil {
@@ -140,8 +153,7 @@ func (s *AnimeService) getAnimesByQuery(query string, args []interface{}, queryN
 
 	animes := []models.Anime{}
 	for rows.Next() {
-		var anime models.Anime
-		err := rows.Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount, &anime.CoverImageExtraLarge, &anime.CoverImageLarge, &anime.CoverImageMedium, &anime.ReleasedOn)
+		anime, err := scanAnime(rows)
 		if err != nil {
 			s.logger.Warn("Failed to scan anime row", "query", queryName, "error", err)
 			continue
@@ -559,8 +571,7 @@ func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int
 
 	animes := []models.AnimeWithUserData{}
 	for rows.Next() {
-		var anime models.Anime
-		err := rows.Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount, &anime.CoverImageExtraLarge, &anime.CoverImageLarge, &anime.CoverImageMedium, &anime.ReleasedOn)
+		anime, err := scanAnime(rows)
 		if err != nil {
 			s.logger.Warn("Failed to scan anime row in SearchAnimes", "error", err)
 			continue
@@ -663,8 +674,7 @@ func (s *AnimeService) AdvancedSearchAnimes(params models.AdvancedSearchParams, 
 
 	animes := []models.AnimeWithUserData{}
 	for rows.Next() {
-		var anime models.Anime
-		err := rows.Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount, &anime.CoverImageExtraLarge, &anime.CoverImageLarge, &anime.CoverImageMedium, &anime.ReleasedOn)
+		anime, err := scanAnime(rows)
 		if err != nil {
 			s.logger.Warn("Failed to scan anime row in AdvancedSearchAnimes", "error", err)
 			continue

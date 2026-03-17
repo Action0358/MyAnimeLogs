@@ -8,6 +8,8 @@ export { AnimeGrid } from './AnimeGrid';
 export { EpisodeList } from './EpisodeList';
 export { SkeletonCard } from './SkeletonCard';
 export { WatchProviders } from './WatchProviders';
+export { MediaTabs } from './MediaTabs';
+export type { MediaTabDefinition } from './MediaTabs';
 export type { AnimeCardProps, AnimeCardData } from './AnimeCard';
 export type { AnimeGridProps } from './AnimeGrid';
 export type { EpisodeListProps } from './EpisodeList';

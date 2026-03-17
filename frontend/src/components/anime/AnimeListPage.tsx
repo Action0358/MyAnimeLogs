@@ -1,16 +1,31 @@
 'use client'
 
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Container } from '@/components/layout'
 import { AnimeGrid } from '@/components/anime'
+import { MediaTabs, type MediaTabDefinition } from '@/components/anime/MediaTabs'
 import { Pagination } from '@/components/ui'
 import type { DBAnime, DBAnimeResponse } from '@/lib/api/annict'
 import { toAnimeStatus } from '@/lib/constants'
+import { filterAnimesByMedia, countAnimesByMedia, type MediaType } from '@/utils/mediaFilter'
 
 // キャッシュ時間の定数（バックエンドのCurrentSeasonAnimeCacheTTL/PopularAnimeCacheTTLと同期）
 const STALE_TIME = 1000 * 60 * 30 // 30分
 const GC_TIME = 1000 * 60 * 60 // 60分
+
+// メディアタイプタブの定義（タブ表示・空メッセージの両方で使用）
+const MEDIA_TABS: MediaTabDefinition[] = [
+  { id: 'all', label: '全て' },
+  { id: 'tv', label: 'TVアニメ' },
+  { id: 'web', label: 'Web配信アニメ' },
+  { id: 'movie', label: '映画' },
+]
+
+// タブIDからラベルを取得するマップ
+const mediaTabLabelMap = Object.fromEntries(
+  MEDIA_TABS.map((tab) => [tab.id, tab.label])
+) as Record<MediaType, string>
 
 // 1ページあたりの表示件数
 const PAGE_SIZE = 24
@@ -22,6 +37,7 @@ interface AnimeListPageProps {
   emptyMessage: string
   errorMessage: string
   totalLabel?: (total: number) => string
+  showMediaTabs?: boolean
 }
 
 export const AnimeListPage: React.FC<AnimeListPageProps> = ({
@@ -31,8 +47,21 @@ export const AnimeListPage: React.FC<AnimeListPageProps> = ({
   emptyMessage,
   errorMessage,
   totalLabel = (total) => `${total}件のアニメ`,
+  showMediaTabs = false,
 }) => {
   const [currentPage, setCurrentPage] = useState(1)
+  const [activeMediaTab, setActiveMediaTab] = useState<MediaType>('all')
+  const isInitialRender = useRef(true)
+
+  // タブ変更・ページ変更時のスクロール処理（副作用をuseEffectで管理）
+  useEffect(() => {
+    // 初回レンダリング時はスクロールしない
+    if (isInitialRender.current) {
+      isInitialRender.current = false
+      return
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [activeMediaTab, currentPage])
 
   const { data, isLoading, error, isFetching } = useQuery({
     queryKey,
@@ -41,21 +70,32 @@ export const AnimeListPage: React.FC<AnimeListPageProps> = ({
     gcTime: GC_TIME,
   })
 
+  // メディアタイプでフィルタリング
+  const filteredAnimes = useMemo(() => {
+    const allAnimes = data?.animes ?? []
+    if (!showMediaTabs) return allAnimes
+    return filterAnimesByMedia(allAnimes, activeMediaTab)
+  }, [data?.animes, activeMediaTab, showMediaTabs])
+
+  // メディアタイプ別の件数
+  const mediaCounts = useMemo(() => {
+    if (!showMediaTabs || !data?.animes) return undefined
+    return countAnimesByMedia(data.animes)
+  }, [data?.animes, showMediaTabs])
+
   // クライアントサイドページネーション
   const { paginatedAnimes, totalPages, total } = useMemo(() => {
-    const allAnimes = data?.animes ?? []
-    const total = allAnimes.length
+    const total = filteredAnimes.length
     const totalPages = Math.ceil(total / PAGE_SIZE)
     const startIndex = (currentPage - 1) * PAGE_SIZE
-    const paginatedAnimes = allAnimes.slice(startIndex, startIndex + PAGE_SIZE)
-
+    const paginatedAnimes = filteredAnimes.slice(startIndex, startIndex + PAGE_SIZE)
     return { paginatedAnimes, totalPages, total }
-  }, [data?.animes, currentPage])
+  }, [filteredAnimes, currentPage])
 
-  // ページ変更時にスクロールトップ
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+  // タブ変更時にページをリセット
+  const handleMediaTabChange = (tab: MediaType) => {
+    setActiveMediaTab(tab)
+    setCurrentPage(1)
   }
 
   if (error) {
@@ -72,7 +112,7 @@ export const AnimeListPage: React.FC<AnimeListPageProps> = ({
     <Container className="py-8">
       <div className="max-w-7xl mx-auto">
         {/* ヘッダー */}
-        <div className="mb-8">
+        <div className="mb-6">
           <div className="flex items-center gap-2">
             <h1 className="text-3xl font-bold text-gray-900">{title}</h1>
             {isFetching && !isLoading && (
@@ -80,9 +120,21 @@ export const AnimeListPage: React.FC<AnimeListPageProps> = ({
             )}
           </div>
           <p className="text-gray-600 mt-1">
-            {total > 0 ? totalLabel(total) : 'アニメを読み込み中...'}
+            {isLoading ? 'アニメを読み込み中...' : totalLabel(total)}
           </p>
         </div>
+
+        {/* メディアタイプタブ */}
+        {showMediaTabs && (
+          <div className="mb-6">
+            <MediaTabs
+              tabs={MEDIA_TABS}
+              activeTab={activeMediaTab}
+              onTabChange={handleMediaTabChange}
+              counts={mediaCounts}
+            />
+          </div>
+        )}
 
         {/* アニメグリッド */}
         <AnimeGrid
@@ -97,7 +149,11 @@ export const AnimeListPage: React.FC<AnimeListPageProps> = ({
             cover_image_medium: anime.cover_image_medium,
           }))}
           isLoading={isLoading}
-          emptyMessage={emptyMessage}
+          emptyMessage={
+            showMediaTabs && activeMediaTab !== 'all'
+              ? `${mediaTabLabelMap[activeMediaTab]}が見つかりませんでした`
+              : emptyMessage
+          }
           columns={{ mobile: 2, tablet: 3, desktop: 4, wide: 6 }}
         />
 
@@ -107,7 +163,7 @@ export const AnimeListPage: React.FC<AnimeListPageProps> = ({
             <Pagination
               currentPage={currentPage}
               totalPages={totalPages}
-              onPageChange={handlePageChange}
+              onPageChange={setCurrentPage}
             />
           </div>
         )}
