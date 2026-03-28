@@ -1050,9 +1050,15 @@ func (s *AnimeService) SyncAnimeStatus(animeID int, clearCache bool) error {
 // SyncAllAnimeStatuses - 全アニメのステータスを更新
 // 処理に時間がかかるため、バックグラウンドで実行することを推奨
 func (s *AnimeService) SyncAllAnimeStatuses() (int, int, error) {
+	// 差分フィルタ: 放送中・未放送・ステータス未設定の作品のみ対象
+	// 完了作品はステータスが変わらないため除外
 	rows, err := s.db.Query(`
         SELECT id, season FROM animes
-        WHERE series_tmdb_id IS NOT NULL OR season IS NOT NULL
+        WHERE (series_tmdb_id IS NOT NULL OR season IS NOT NULL)
+        AND (
+            status IN ('currently_airing', 'not_yet_aired', 'upcoming')
+            OR status IS NULL
+        )
     `)
 	if err != nil {
 		s.logger.Error("Failed to query animes for status sync", "error", err)
@@ -1072,17 +1078,16 @@ func (s *AnimeService) SyncAllAnimeStatuses() (int, int, error) {
 			failureCount++
 			continue
 		}
-		// seasonが有効でなければ、determineStatusBySeasonが"finished"を返すため問題なし
 		animeIDs = append(animeIDs, animeID)
 	}
 
 	totalAnimes := len(animeIDs)
 	if totalAnimes == 0 {
-		s.logger.Info("No animes found with TMDB ID or season for status sync.")
+		s.logger.Info("No animes found requiring status sync (all completed or no TMDB/season data).")
 		return 0, 0, nil
 	}
 
-	s.logger.Info("Starting status sync for all animes", "total_animes", totalAnimes)
+	s.logger.Info("Starting status sync for animes (differential mode)", "total_animes", totalAnimes)
 
 	// レート制限対策 (TMDB API呼び出しを考慮)
 	// TMDBの制限は 40 req / 10 sec なので、余裕を持って 250ms (4 req / sec) とする
@@ -1110,7 +1115,7 @@ func (s *AnimeService) SyncAllAnimeStatuses() (int, int, error) {
 		s.ClearAnimeCache()
 	}
 
-	s.logger.Info("Anime status sync completed", "success", successCount, "failure", failureCount)
+	s.logger.Info("Anime status sync completed (differential mode)", "success", successCount, "failure", failureCount)
 	return successCount, failureCount, nil
 }
 
@@ -2957,6 +2962,24 @@ func (s *AnimeService) CreateEpisodesFromJikan(animeID int, malAnimeID string) (
 		return 0, nil
 	}
 
+	// 既存エピソード数を取得（安全チェック用）
+	var existingCount int
+	err = s.db.QueryRow(
+		"SELECT COUNT(*) FROM episodes WHERE anime_id = $1", animeID,
+	).Scan(&existingCount)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count existing episodes: %w", err)
+	}
+
+	// 安全チェック: Jikan APIの返却数が既存数より少ない場合はログ出力
+	// （放送中アニメでJikanが放送済み分のみ返す場合の保護 - DELETEしない）
+	if existingCount > 0 && len(jikanEpisodes) < existingCount {
+		s.logger.Info("Jikan returned fewer episodes than existing, using UPSERT only (no delete)",
+			"anime_id", animeID,
+			"existing_count", existingCount,
+			"jikan_count", len(jikanEpisodes))
+	}
+
 	// Start transaction
 	tx, err := s.db.Begin()
 	if err != nil {
@@ -2964,18 +2987,10 @@ func (s *AnimeService) CreateEpisodesFromJikan(animeID int, malAnimeID string) (
 	}
 	defer tx.Rollback()
 
-	// Delete existing episodes for this anime (to recreate with accurate data)
-	_, err = tx.Exec("DELETE FROM episodes WHERE anime_id = $1", animeID)
-	if err != nil {
-		return 0, fmt.Errorf("failed to delete existing episodes: %w", err)
-	}
-
-	// Insert episodes from Jikan API
-	// All inserts must succeed for atomicity - if any fails, rollback entire transaction
-	insertedCount := 0
+	// UPSERT: 既存エピソードは更新、新規エピソードは挿入（DELETEしない）
+	upsertedCount := 0
 	for _, ep := range jikanEpisodes {
 		// Skip episodes with invalid episode number (0 or negative)
-		// Some anime have episode 0 as a special/preview which violates DB constraint
 		if ep.MalID <= 0 {
 			s.logger.Debug("Skipping episode with invalid number",
 				"anime_id", animeID,
@@ -3001,21 +3016,33 @@ func (s *AnimeService) CreateEpisodesFromJikan(animeID int, malAnimeID string) (
 			}
 		}
 
-		// Insert episode - fail entire transaction if any insert fails
+		// UPSERT: ON CONFLICT で既存エピソードを更新、新規は挿入
+		// titleは既存値がデフォルト（「第N話」）の場合のみ上書き（Annictタイトル保護）
 		_, err := tx.Exec(`
 			INSERT INTO episodes (
-				anime_id, episode_number, title, 
-				is_special, filler, recap, 
+				anime_id, episode_number, title,
+				is_special, filler, recap,
 				duration_minutes, air_date,
 				created_at, updated_at
 			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+			ON CONFLICT ON CONSTRAINT unique_anime_episode_type
+			DO UPDATE SET
+				is_special = EXCLUDED.is_special,
+				filler = EXCLUDED.filler,
+				recap = EXCLUDED.recap,
+				duration_minutes = COALESCE(EXCLUDED.duration_minutes, episodes.duration_minutes),
+				air_date = COALESCE(EXCLUDED.air_date, episodes.air_date),
+				title = CASE
+					WHEN episodes.title LIKE '第%話' THEN EXCLUDED.title
+					ELSE episodes.title
+				END,
+				updated_at = CURRENT_TIMESTAMP
 		`, animeID, ep.MalID, title, isSpecial, ep.Filler, ep.Recap, ep.Duration, airDate)
 
 		if err != nil {
-			// Return error to trigger rollback via defer, preserving original episode data
-			return 0, fmt.Errorf("failed to insert episode %d: %w", ep.MalID, err)
+			return 0, fmt.Errorf("failed to upsert episode %d: %w", ep.MalID, err)
 		}
-		insertedCount++
+		upsertedCount++
 	}
 
 	// Commit transaction
@@ -3023,12 +3050,13 @@ func (s *AnimeService) CreateEpisodesFromJikan(animeID int, malAnimeID string) (
 		return 0, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
-	s.logger.Info("Created episodes from Jikan API",
+	s.logger.Info("Upserted episodes from Jikan API",
 		"anime_id", animeID,
 		"mal_anime_id", malAnimeID,
-		"episode_count", insertedCount)
+		"upserted_count", upsertedCount,
+		"existing_count", existingCount)
 
-	return insertedCount, nil
+	return upsertedCount, nil
 }
 
 // SyncEpisodesFromJikan synchronizes episodes for all animes using Jikan API
@@ -3037,6 +3065,7 @@ func (s *AnimeService) SyncEpisodesFromJikan(animeID *int) (int, int, []string, 
 	const (
 		progressLogInterval = 50
 		rateLimitWait       = 400 * time.Millisecond
+		staleDays           = 30 // 30日以上同期していない作品を再同期
 	)
 
 	// Get animes with MAL ID
@@ -3050,6 +3079,19 @@ func (s *AnimeService) SyncEpisodesFromJikan(animeID *int) (int, int, []string, 
 	if animeID != nil {
 		query += " AND a.id = $1"
 		args = append(args, *animeID)
+	} else {
+		// 差分フィルタ: 以下の作品のみ対象
+		query += `
+			AND (
+				-- エピソードが未作成
+				NOT EXISTS (SELECT 1 FROM episodes e WHERE e.anime_id = a.id)
+				-- 放送中アニメ（エピソードが増える可能性）
+				OR a.status = 'currently_airing'
+				-- 一定期間同期していない
+				OR a.episodes_synced_at IS NULL
+				OR a.episodes_synced_at < NOW() - INTERVAL '30 days'
+			)
+		`
 	}
 
 	query += " ORDER BY a.id"
@@ -3075,7 +3117,7 @@ func (s *AnimeService) SyncEpisodesFromJikan(animeID *int) (int, int, []string, 
 		animes = append(animes, anime)
 	}
 
-	s.logger.Info("Starting episode sync from Jikan API", "total_animes", len(animes))
+	s.logger.Info("Starting episode sync from Jikan API (differential mode)", "total_animes", len(animes))
 
 	successCount := 0
 	errorCount := 0
@@ -3091,7 +3133,7 @@ func (s *AnimeService) SyncEpisodesFromJikan(animeID *int) (int, int, []string, 
 				"errors", errorCount)
 		}
 
-		// Create episodes from Jikan API
+		// Create/update episodes from Jikan API (UPSERT)
 		_, err := s.CreateEpisodesFromJikan(anime.ID, anime.MalAnimeID)
 		if err != nil {
 			errorCount++
@@ -3103,13 +3145,129 @@ func (s *AnimeService) SyncEpisodesFromJikan(animeID *int) (int, int, []string, 
 				"error", err)
 		} else {
 			successCount++
+			// 同期成功時にepisodes_synced_atを更新
+			_, _ = s.db.Exec(
+				"UPDATE animes SET episodes_synced_at = CURRENT_TIMESTAMP WHERE id = $1",
+				anime.ID,
+			)
 		}
 
 		// Rate limiting
 		time.Sleep(rateLimitWait)
 	}
 
-	s.logger.Info("Episode sync from Jikan API completed",
+	s.logger.Info("Episode sync from Jikan API completed (differential mode)",
+		"total_animes", len(animes),
+		"success", successCount,
+		"errors", errorCount)
+
+	return successCount, errorCount, errorMessages, nil
+}
+
+// SyncEpisodesFromJikanWithContext はコンテキスト対応版のエピソード同期
+// タイムアウトやキャンセルに対応し、スケジューラーから呼び出される
+func (s *AnimeService) SyncEpisodesFromJikanWithContext(ctx context.Context, animeID *int) (int, int, []string, error) {
+	const (
+		progressLogInterval = 50
+		rateLimitWait       = 400 * time.Millisecond
+	)
+
+	// Get animes with MAL ID (差分フィルタ付き)
+	query := `
+		SELECT a.id, a.mal_anime_id, a.title
+		FROM animes a
+		WHERE a.mal_anime_id IS NOT NULL AND a.mal_anime_id != ''
+	`
+	args := []interface{}{}
+
+	if animeID != nil {
+		query += " AND a.id = $1"
+		args = append(args, *animeID)
+	} else {
+		query += `
+			AND (
+				NOT EXISTS (SELECT 1 FROM episodes e WHERE e.anime_id = a.id)
+				OR a.status = 'currently_airing'
+				OR a.episodes_synced_at IS NULL
+				OR a.episodes_synced_at < NOW() - INTERVAL '30 days'
+			)
+		`
+	}
+
+	query += " ORDER BY a.id"
+
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return 0, 0, nil, fmt.Errorf("failed to query animes: %w", err)
+	}
+	defer rows.Close()
+
+	type animeInfo struct {
+		ID         int
+		MalAnimeID string
+		Title      string
+	}
+	var animes []animeInfo
+
+	for rows.Next() {
+		var anime animeInfo
+		if err := rows.Scan(&anime.ID, &anime.MalAnimeID, &anime.Title); err != nil {
+			continue
+		}
+		animes = append(animes, anime)
+	}
+
+	s.logger.Info("Starting episode sync from Jikan API with context (differential mode)", "total_animes", len(animes))
+
+	successCount := 0
+	errorCount := 0
+	errorMessages := []string{}
+
+	for i, anime := range animes {
+		// タイムアウト・キャンセル確認
+		select {
+		case <-ctx.Done():
+			s.logger.Warn("Episode sync interrupted by context cancellation",
+				"processed", i,
+				"total", len(animes),
+				"success", successCount,
+				"errors", errorCount)
+			return successCount, errorCount, errorMessages, ctx.Err()
+		default:
+		}
+
+		// Log progress
+		if i > 0 && i%progressLogInterval == 0 {
+			s.logger.Info("Episode sync progress",
+				"processed", i,
+				"total", len(animes),
+				"success", successCount,
+				"errors", errorCount)
+		}
+
+		// Create/update episodes from Jikan API (UPSERT)
+		_, err := s.CreateEpisodesFromJikan(anime.ID, anime.MalAnimeID)
+		if err != nil {
+			errorCount++
+			errMsg := fmt.Sprintf("anime_id=%d (%s): %v", anime.ID, anime.Title, err)
+			errorMessages = append(errorMessages, errMsg)
+			s.logger.Warn("Failed to sync episodes",
+				"anime_id", anime.ID,
+				"title", anime.Title,
+				"error", err)
+		} else {
+			successCount++
+			_, _ = s.db.Exec(
+				"UPDATE animes SET episodes_synced_at = CURRENT_TIMESTAMP WHERE id = $1",
+				anime.ID,
+			)
+		}
+
+		// Rate limiting
+		time.Sleep(rateLimitWait)
+	}
+
+	s.logger.Info("Episode sync from Jikan API completed with context (differential mode)",
 		"total_animes", len(animes),
 		"success", successCount,
 		"errors", errorCount)
