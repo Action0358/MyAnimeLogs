@@ -2986,7 +2986,7 @@ func (s *AnimeService) CreateEpisodesFromAnnict(animeID int, annictID int) (int,
 	})
 
 	// 非整数エピソード（特別編等: 1.5など）を除外してからインデックスベースで番号を振る
-	var filteredEpisodes []AnnictEpisode
+	filteredEpisodes := make([]AnnictEpisode, 0, len(annictEpisodes))
 	for _, ep := range annictEpisodes {
 		if ep.Number > 0 && ep.Number != float64(int(ep.Number)) {
 			s.logger.Debug("Skipping non-integer episode number",
@@ -3196,6 +3196,10 @@ func (s *AnimeService) UpdateEpisodesFromJikan(animeID int, malAnimeID string) (
 	updatedCount := 0
 	for _, ep := range jikanEpisodes {
 		if ep.MalID <= 0 {
+			s.logger.Debug("Skipping episode with invalid number",
+				"anime_id", animeID,
+				"episode_number", ep.MalID,
+				"title", ep.Title)
 			continue
 		}
 
