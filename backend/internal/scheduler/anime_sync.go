@@ -25,6 +25,9 @@ const syncStartYear = 1979
 // syncTimeout is the maximum duration for the entire sync operation
 const syncTimeout = 6 * time.Hour
 
+// episodeSyncTimeout is the maximum duration for episode sync operations
+const episodeSyncTimeout = 3 * time.Hour
+
 // appendErrorsWithLimit appends errors to the error list with a maximum limit
 // to prevent log spam. Returns the updated error list.
 func appendErrorsWithLimit(errors []string, newErrors []string, maxErrors int, errorType string) []string {
@@ -387,7 +390,9 @@ func (s *AnimeSyncScheduler) syncAllSeasons(nextSyncTime time.Time) {
 func (s *AnimeSyncScheduler) checkSyncTimeout(ctx context.Context, stepName string, startTime time.Time, totalAnimeCount int, errors []string) bool {
 	select {
 	case <-ctx.Done():
-		s.logger.Warn("Sync timed out after "+stepName, "elapsed", time.Since(startTime).String())
+		s.logger.Warn("Sync timed out",
+			"step", stepName,
+			"elapsed", time.Since(startTime).String())
 		s.statusTracker.EndSync(false, totalAnimeCount, time.Since(startTime), append(errors, "sync timed out after "+stepName))
 		return true
 	default:
@@ -517,7 +522,7 @@ func (s *AnimeSyncScheduler) syncEpisodeData(isInitialSync bool) []string {
 	var errors []string
 
 	// エピソード同期にタイムアウト付きコンテキストを使用（3時間）
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Hour)
+	ctx, cancel := context.WithTimeout(context.Background(), episodeSyncTimeout)
 	defer cancel()
 
 	// Step 1: Annictからエピソード作成（主軸）
