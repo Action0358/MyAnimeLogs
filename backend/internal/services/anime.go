@@ -2985,8 +2985,8 @@ func (s *AnimeService) CreateEpisodesFromAnnict(animeID int, annictID int) (int,
 		return annictEpisodes[i].SortNumber < annictEpisodes[j].SortNumber
 	})
 
-	// 非整数エピソード（特別編等: 1.5など）を除外してからインデックスベースで番号を振る
-	filteredEpisodes := make([]AnnictEpisode, 0, len(annictEpisodes))
+	// 非整数エピソード（特別編等: 1.5など）をインプレースフィルターで除外
+	n := 0
 	for _, ep := range annictEpisodes {
 		if ep.Number > 0 && ep.Number != float64(int(ep.Number)) {
 			s.logger.Debug("Skipping non-integer episode number",
@@ -2996,11 +2996,13 @@ func (s *AnimeService) CreateEpisodesFromAnnict(animeID int, annictID int) (int,
 				"title", ep.Title)
 			continue
 		}
-		filteredEpisodes = append(filteredEpisodes, ep)
+		annictEpisodes[n] = ep
+		n++
 	}
+	annictEpisodes = annictEpisodes[:n]
 
 	upsertedCount := 0
-	for i, ep := range filteredEpisodes {
+	for i, ep := range annictEpisodes {
 		// エピソード番号: 常にインデックスベース（1, 2, 3...）を使用
 		// Annictのnumberフィールドは通算話数の場合があるため使用しない
 		episodeNumber := i + 1
@@ -3231,7 +3233,14 @@ func (s *AnimeService) UpdateEpisodesFromJikan(animeID int, malAnimeID string) (
 			continue
 		}
 
-		rowsAffected, _ := result.RowsAffected()
+		rowsAffected, err := result.RowsAffected()
+		if err != nil {
+			s.logger.Warn("Failed to get rows affected",
+				"anime_id", animeID,
+				"episode_number", ep.MalID,
+				"error", err)
+			continue
+		}
 		if rowsAffected > 0 {
 			updatedCount++
 		}
