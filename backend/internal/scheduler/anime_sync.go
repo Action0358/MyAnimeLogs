@@ -378,6 +378,19 @@ func (s *AnimeSyncScheduler) syncAllSeasons(nextSyncTime time.Time) {
 	}
 }
 
+// checkSyncTimeout checks if the context has been cancelled and handles timeout logging/status update.
+// Returns true if timed out (caller should return), false if OK to continue.
+func (s *AnimeSyncScheduler) checkSyncTimeout(ctx context.Context, stepName string, startTime time.Time, totalAnimeCount int, errors []string) bool {
+	select {
+	case <-ctx.Done():
+		s.logger.Warn("Sync timed out after "+stepName, "elapsed", time.Since(startTime).String())
+		s.statusTracker.EndSync(false, totalAnimeCount, time.Since(startTime), append(errors, "sync timed out after "+stepName))
+		return true
+	default:
+		return false
+	}
+}
+
 // syncCurrentSeasonAnimes syncs animes for the current and previous season
 func (s *AnimeSyncScheduler) syncCurrentSeasonAnimes() {
 	// 処理全体のタイムアウト: 6時間
@@ -411,12 +424,8 @@ func (s *AnimeSyncScheduler) syncCurrentSeasonAnimes() {
 	}
 
 	// タイムアウト確認
-	select {
-	case <-ctx.Done():
-		s.logger.Warn("Sync timed out after Step 1", "elapsed", time.Since(startTime).String())
-		s.statusTracker.EndSync(false, totalAnimeCount, time.Since(startTime), append(errors, "sync timed out after step 1"))
+	if s.checkSyncTimeout(ctx, "Step 1", startTime, totalAnimeCount, errors) {
 		return
-	default:
 	}
 
 	// Step 2: エピソード作成（コンテキスト対応版・差分フィルタ付き）
@@ -435,12 +444,8 @@ func (s *AnimeSyncScheduler) syncCurrentSeasonAnimes() {
 	}
 
 	// タイムアウト確認
-	select {
-	case <-ctx.Done():
-		s.logger.Warn("Sync timed out after Step 2", "elapsed", time.Since(startTime).String())
-		s.statusTracker.EndSync(false, totalAnimeCount, time.Since(startTime), append(errors, "sync timed out after step 2"))
+	if s.checkSyncTimeout(ctx, "Step 2", startTime, totalAnimeCount, errors) {
 		return
-	default:
 	}
 
 	// Step 3: メタデータの段階的同期（優先度ベース）

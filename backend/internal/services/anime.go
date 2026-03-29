@@ -3081,7 +3081,7 @@ func (s *AnimeService) SyncEpisodesFromJikan(animeID *int) (int, int, []string, 
 		args = append(args, *animeID)
 	} else {
 		// 差分フィルタ: 以下の作品のみ対象
-		query += `
+		query += fmt.Sprintf(`
 			AND (
 				-- エピソードが未作成
 				NOT EXISTS (SELECT 1 FROM episodes e WHERE e.anime_id = a.id)
@@ -3089,9 +3089,9 @@ func (s *AnimeService) SyncEpisodesFromJikan(animeID *int) (int, int, []string, 
 				OR a.status = 'currently_airing'
 				-- 一定期間同期していない
 				OR a.episodes_synced_at IS NULL
-				OR a.episodes_synced_at < NOW() - INTERVAL '30 days'
+				OR a.episodes_synced_at < NOW() - INTERVAL '%d days'
 			)
-		`
+		`, staleDays)
 	}
 
 	query += " ORDER BY a.id"
@@ -3170,6 +3170,7 @@ func (s *AnimeService) SyncEpisodesFromJikanWithContext(ctx context.Context, ani
 	const (
 		progressLogInterval = 50
 		rateLimitWait       = 400 * time.Millisecond
+		staleDays           = 30 // 30日以上同期していない作品を再同期
 	)
 
 	// Get animes with MAL ID (差分フィルタ付き)
@@ -3184,14 +3185,14 @@ func (s *AnimeService) SyncEpisodesFromJikanWithContext(ctx context.Context, ani
 		query += " AND a.id = $1"
 		args = append(args, *animeID)
 	} else {
-		query += `
+		query += fmt.Sprintf(`
 			AND (
 				NOT EXISTS (SELECT 1 FROM episodes e WHERE e.anime_id = a.id)
 				OR a.status = 'currently_airing'
 				OR a.episodes_synced_at IS NULL
-				OR a.episodes_synced_at < NOW() - INTERVAL '30 days'
+				OR a.episodes_synced_at < NOW() - INTERVAL '%d days'
 			)
-		`
+		`, staleDays)
 	}
 
 	query += " ORDER BY a.id"
