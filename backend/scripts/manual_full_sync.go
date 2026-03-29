@@ -74,6 +74,10 @@ func initServices(logger *common.Logger, env string) (*database.DB, *services.An
 	annictClient := services.NewAnnictClientWithDB(annictToken, db, logger)
 	animeService := services.NewAnimeService(db, logger)
 
+	// 循環参照回避のため後から相互設定
+	annictClient.SetAnimeService(animeService)
+	animeService.SetAnnictClient(annictClient)
+
 	return db, annictClient, animeService, nil
 }
 
@@ -177,8 +181,28 @@ func run(logger *common.Logger, env string) error {
 			"failure", annictFailure)
 	}
 
-	// Step 2: Sync episodes from Jikan API (creates new episodes only)
-	logger.Info("Step 2/5: Syncing episodes from Jikan API...")
+	// Step 2: Sync episodes from Annict API (primary - creates episode records)
+	logger.Info("Step 2/6: Syncing episodes from Annict API (primary)...")
+	annictEpSuccess, annictEpFailure, annictEpErrors, err := animeService.SyncEpisodesFromAnnict(nil)
+	if err != nil {
+		logger.Warn("Failed to sync episodes from Annict", "error", err)
+	} else {
+		logger.Info("Annict episode sync completed",
+			"success", annictEpSuccess,
+			"failure", annictEpFailure)
+		if len(annictEpErrors) > 0 {
+			sampleSize := 5
+			if len(annictEpErrors) < sampleSize {
+				sampleSize = len(annictEpErrors)
+			}
+			logger.Warn("Annict episode sync errors occurred",
+				"error_count", len(annictEpErrors),
+				"sample_errors", annictEpErrors[:sampleSize])
+		}
+	}
+
+	// Step 3: Sync episodes from Jikan API (supplemental - adds duration/air_date/filler/recap)
+	logger.Info("Step 3/6: Syncing episodes from Jikan API (supplemental)...")
 	episodeSuccess, episodeFailure, episodeErrors, err := animeService.SyncEpisodesFromJikan(nil)
 	if err != nil {
 		return fmt.Errorf("failed to sync episodes from Jikan: %w", err)
@@ -197,8 +221,8 @@ func run(logger *common.Logger, env string) error {
 			"sample_errors", episodeErrors[:sampleSize])
 	}
 
-	// Step 3: Sync descriptions from TMDB (only for animes without description)
-	logger.Info("Step 3/5: Syncing descriptions from TMDB (differential mode)...")
+	// Step 4: Sync descriptions from TMDB (only for animes without description)
+	logger.Info("Step 4/6: Syncing descriptions from TMDB (differential mode)...")
 	tmdbAPIKey := os.Getenv("TMDB_API_KEY")
 	if tmdbAPIKey == "" {
 		logger.Warn("TMDB_API_KEY not set, skipping description sync")
@@ -214,8 +238,8 @@ func run(logger *common.Logger, env string) error {
 		}
 	}
 
-	// Step 4: Sync released_on from Jikan API (only for animes without released_on)
-	logger.Info("Step 4/5: Syncing release dates from Jikan API (differential mode)...")
+	// Step 5: Sync released_on from Jikan API (only for animes without released_on)
+	logger.Info("Step 5/6: Syncing release dates from Jikan API (differential mode)...")
 	releasedSuccess, releasedNotFound, releasedFailure, err := animeService.SyncReleasedOnFromJikan()
 	if err != nil {
 		logger.Warn("Failed to sync released_on from Jikan", "error", err)
@@ -226,8 +250,8 @@ func run(logger *common.Logger, env string) error {
 			"failure", releasedFailure)
 	}
 
-	// Step 5: Sync anime statuses (airing/finished/upcoming)
-	logger.Info("Step 5/5: Syncing anime statuses...")
+	// Step 6: Sync anime statuses (airing/finished/upcoming)
+	logger.Info("Step 6/6: Syncing anime statuses...")
 	statusSuccess, statusFailure, err := animeService.SyncAllAnimeStatuses()
 	if err != nil {
 		logger.Warn("Failed to sync anime statuses", "error", err)

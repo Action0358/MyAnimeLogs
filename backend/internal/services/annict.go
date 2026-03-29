@@ -382,8 +382,23 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork, existingAnime
 		}
 	}
 
-	// Note: Episode creation is now handled by AnimeService.createEpisodesForAnime
-	// This avoids code duplication and centralizes episode management
+	// Annictからエピソードを作成（主軸）
+	// AnimeServiceのCreateEpisodesFromAnnictを使用してエピソードレコードを作成
+	if c.animeService != nil && work.EpisodesCount > 0 {
+		animeID := anime.ID
+		annictID := work.ID
+		c.animeService.enqueueBackgroundTask(func() {
+			_, err := c.animeService.CreateEpisodesFromAnnict(animeID, annictID)
+			if err != nil {
+				if c.logger != nil {
+					c.logger.Warn("Failed to create episodes from Annict",
+						"anime_id", animeID,
+						"annict_id", annictID,
+						"error", err)
+				}
+			}
+		})
+	}
 
 	// Sync genres synchronously if MAL ID is available
 	// Note: Must be synchronous to respect AniList rate limiter (90 req/min).
