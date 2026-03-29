@@ -147,6 +147,7 @@ func (s *AnimeSyncScheduler) runBackgroundSync() {
 
 // AnimeService defines the interface for anime-related operations needed by the scheduler
 type AnimeService interface {
+	SyncEpisodesFromAnnict(animeID *int) (int, int, []string, error)
 	SyncEpisodesFromJikan(animeID *int) (int, int, []string, error)
 	SyncEpisodesFromJikanWithContext(ctx context.Context, animeID *int) (int, int, []string, error)
 	SyncGenresForAllAnimes() (int, int, []string, error)
@@ -419,8 +420,30 @@ func (s *AnimeSyncScheduler) syncCurrentSeasonAnimes() {
 	default:
 	}
 
-	// Step 2: エピソード作成（コンテキスト対応版・差分フィルタ付き）
-	s.logger.Info("Syncing episodes from Jikan API (with context)")
+	// Step 2: エピソード作成 - Annict（主軸）→ Jikan（補完）
+	// Step 2a: Annictからエピソード作成（主軸・エピソードレコード作成）
+	s.logger.Info("Syncing episodes from Annict API (primary)")
+	annictEpSuccess, annictEpFailure, annictEpErrors, annictEpErr := s.animeService.SyncEpisodesFromAnnict(nil)
+	if annictEpErr != nil {
+		errors = append(errors, fmt.Sprintf("Episode sync from Annict: %s", annictEpErr.Error()))
+	} else {
+		s.logger.Info("Episode sync from Annict completed",
+			"success_count", annictEpSuccess,
+			"failure_count", annictEpFailure)
+		errors = appendErrorsWithLimit(errors, annictEpErrors, 10, "annict-episode")
+	}
+
+	// タイムアウト確認
+	select {
+	case <-ctx.Done():
+		s.logger.Warn("Sync timed out after Step 2a", "elapsed", time.Since(startTime).String())
+		s.statusTracker.EndSync(false, totalAnimeCount, time.Since(startTime), append(errors, "sync timed out after step 2a"))
+		return
+	default:
+	}
+
+	// Step 2b: Jikanからエピソード補完（duration/air_date/filler/recap追加）
+	s.logger.Info("Syncing episodes from Jikan API (supplemental, with context)")
 	episodeSuccessCount, episodeFailureCount, episodeErrors, episodeErr := s.animeService.SyncEpisodesFromJikanWithContext(ctx, nil)
 
 	if episodeErr != nil {
@@ -493,8 +516,20 @@ func (s *AnimeSyncScheduler) syncEpisodeData(isInitialSync bool) []string {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Hour)
 	defer cancel()
 
-	// Step 1: Sync episodes from Jikan API (creates/updates episodes with UPSERT)
-	s.logger.Info("Syncing episodes from Jikan API (with context)")
+	// Step 1: Annictからエピソード作成（主軸）
+	s.logger.Info("Syncing episodes from Annict API (primary)")
+	annictSuccess, annictFailure, annictErrors, annictErr := s.animeService.SyncEpisodesFromAnnict(nil)
+	if annictErr != nil {
+		errors = append(errors, fmt.Sprintf("Episode sync from Annict: %s", annictErr.Error()))
+	} else {
+		s.logger.Info("Episode sync from Annict completed",
+			"success_count", annictSuccess,
+			"failure_count", annictFailure)
+		errors = appendErrorsWithLimit(errors, annictErrors, 10, "annict-episode")
+	}
+
+	// Step 2: Jikanからエピソード補完（duration/air_date/filler/recap）
+	s.logger.Info("Syncing episodes from Jikan API (supplemental, with context)")
 	episodeSuccessCount, episodeFailureCount, episodeErrors, episodeErr := s.animeService.SyncEpisodesFromJikanWithContext(ctx, nil)
 
 	if episodeErr != nil {
