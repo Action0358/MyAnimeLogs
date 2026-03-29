@@ -44,6 +44,7 @@ type Anime struct {
 	LastSyncedAt     *time.Time `json:"last_synced_at,omitempty" db:"last_synced_at"`         // 最終同期日時
 	AnnictUpdatedAt  *time.Time `json:"annict_updated_at,omitempty" db:"annict_updated_at"`   // Annict側の更新日時
 	MetadataSyncedAt *time.Time `json:"metadata_synced_at,omitempty" db:"metadata_synced_at"` // メタデータの最終同期日時
+	EpisodesSyncedAt *time.Time `json:"episodes_synced_at,omitempty" db:"episodes_synced_at"` // エピソード同期の最終日時
 	SyncStatus       string     `json:"sync_status" db:"sync_status"`                         // pending/synced/failed
 	SyncError        *string    `json:"sync_error,omitempty" db:"sync_error"`                 // エラー内容
 }

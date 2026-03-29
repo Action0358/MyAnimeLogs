@@ -123,6 +123,9 @@ func main() {
 	// AnnictClientにAnimeServiceを設定（循環参照回避のため後から設定）
 	annictClient.SetAnimeService(animeService)
 
+	// AnimeServiceにAnnictClientを設定（エピソード作成でAnnict APIを使用）
+	animeService.SetAnnictClient(annictClient)
+
 	// Initialize and start anime sync scheduler
 	animeSyncScheduler, err := scheduler.NewAnimeSyncScheduler(
 		annictClient,

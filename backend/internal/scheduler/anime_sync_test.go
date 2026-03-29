@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"context"
 	"io"
 	"log/slog"
 	"sync"
@@ -29,7 +30,15 @@ func newTestAnnictClient() *services.AnnictClient {
 // mockAnimeService is a mock implementation of AnimeService for testing
 type mockAnimeService struct{}
 
+func (m *mockAnimeService) SyncEpisodesFromAnnict(animeID *int) (int, int, []string, error) {
+	return 0, 0, nil, nil
+}
+
 func (m *mockAnimeService) SyncEpisodesFromJikan(animeID *int) (int, int, []string, error) {
+	return 0, 0, nil, nil
+}
+
+func (m *mockAnimeService) SyncEpisodesFromJikanWithContext(ctx context.Context, animeID *int) (int, int, []string, error) {
 	return 0, 0, nil, nil
 }
 
@@ -285,7 +294,15 @@ type mockAnimeServiceWithDelay struct {
 	syncDelay time.Duration
 }
 
+func (m *mockAnimeServiceWithDelay) SyncEpisodesFromAnnict(animeID *int) (int, int, []string, error) {
+	return 0, 0, nil, nil
+}
+
 func (m *mockAnimeServiceWithDelay) SyncEpisodesFromJikan(animeID *int) (int, int, []string, error) {
+	return 0, 0, nil, nil
+}
+
+func (m *mockAnimeServiceWithDelay) SyncEpisodesFromJikanWithContext(ctx context.Context, animeID *int) (int, int, []string, error) {
 	return 0, 0, nil, nil
 }
 
