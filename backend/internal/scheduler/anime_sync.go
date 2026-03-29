@@ -148,6 +148,7 @@ func (s *AnimeSyncScheduler) runBackgroundSync() {
 // AnimeService defines the interface for anime-related operations needed by the scheduler
 type AnimeService interface {
 	SyncEpisodesFromJikan(animeID *int) (int, int, []string, error)
+	SyncEpisodesFromJikanWithContext(ctx context.Context, animeID *int) (int, int, []string, error)
 	SyncGenresForAllAnimes() (int, int, []string, error)
 	SyncEpisodeDetailsForAllAnimes() (int, int, []string, error)
 	SyncCoverImagesForAllAnimes() (int, int, []string, error)
@@ -377,9 +378,26 @@ func (s *AnimeSyncScheduler) syncAllSeasons(nextSyncTime time.Time) {
 	}
 }
 
+// checkSyncTimeout checks if the context has been cancelled and handles timeout logging/status update.
+// Returns true if timed out (caller should return), false if OK to continue.
+func (s *AnimeSyncScheduler) checkSyncTimeout(ctx context.Context, stepName string, startTime time.Time, totalAnimeCount int, errors []string) bool {
+	select {
+	case <-ctx.Done():
+		s.logger.Warn("Sync timed out after "+stepName, "elapsed", time.Since(startTime).String())
+		s.statusTracker.EndSync(false, totalAnimeCount, time.Since(startTime), append(errors, "sync timed out after "+stepName))
+		return true
+	default:
+		return false
+	}
+}
+
 // syncCurrentSeasonAnimes syncs animes for the current and previous season
 func (s *AnimeSyncScheduler) syncCurrentSeasonAnimes() {
-	s.logger.Info("Starting scheduled anime sync (differential mode)")
+	// 処理全体のタイムアウト: 6時間
+	ctx, cancel := context.WithTimeout(context.Background(), 6*time.Hour)
+	defer cancel()
+
+	s.logger.Info("Starting scheduled anime sync (differential mode with timeout)")
 	startTime := time.Now()
 
 	// Calculate next sync time (24 hours from start time)
@@ -405,9 +423,14 @@ func (s *AnimeSyncScheduler) syncCurrentSeasonAnimes() {
 		errors = append(errors, fmt.Sprintf("Previous season (%s): %s", previousSeason, previousErr.Error()))
 	}
 
-	// Step 2: エピソード作成（新規作品のみ）
-	s.logger.Info("Syncing episodes from Jikan API")
-	episodeSuccessCount, episodeFailureCount, episodeErrors, episodeErr := s.animeService.SyncEpisodesFromJikan(nil)
+	// タイムアウト確認
+	if s.checkSyncTimeout(ctx, "Step 1", startTime, totalAnimeCount, errors) {
+		return
+	}
+
+	// Step 2: エピソード作成（コンテキスト対応版・差分フィルタ付き）
+	s.logger.Info("Syncing episodes from Jikan API (with context)")
+	episodeSuccessCount, episodeFailureCount, episodeErrors, episodeErr := s.animeService.SyncEpisodesFromJikanWithContext(ctx, nil)
 
 	if episodeErr != nil {
 		errors = append(errors, fmt.Sprintf("Episode sync from Jikan: %s", episodeErr.Error()))
@@ -418,6 +441,11 @@ func (s *AnimeSyncScheduler) syncCurrentSeasonAnimes() {
 
 		// Add individual episode errors to the error list (limit to avoid log spam)
 		errors = appendErrorsWithLimit(errors, episodeErrors, 10, "episode")
+	}
+
+	// タイムアウト確認
+	if s.checkSyncTimeout(ctx, "Step 2", startTime, totalAnimeCount, errors) {
+		return
 	}
 
 	// Step 3: メタデータの段階的同期（優先度ベース）
@@ -433,7 +461,6 @@ func (s *AnimeSyncScheduler) syncCurrentSeasonAnimes() {
 	s.statusTracker.EndSync(success, totalAnimeCount, duration, errors)
 
 	// Record sync stats
-	// Note: updated/skipped counts are not tracked yet (will be implemented in future)
 	s.recordSyncStats("incremental", startTime, totalAnimeCount, 0, 0, episodeFailureCount, metadataSyncedCount, success, len(errors))
 
 	// Clear cache after sync to reflect new data
@@ -467,9 +494,13 @@ func (s *AnimeSyncScheduler) syncCurrentSeasonAnimes() {
 func (s *AnimeSyncScheduler) syncEpisodeData(isInitialSync bool) []string {
 	var errors []string
 
-	// Step 1: Sync episodes from Jikan API (creates/updates episodes with accurate data)
-	s.logger.Info("Syncing episodes from Jikan API")
-	episodeSuccessCount, episodeFailureCount, episodeErrors, episodeErr := s.animeService.SyncEpisodesFromJikan(nil)
+	// エピソード同期にタイムアウト付きコンテキストを使用（3時間）
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Hour)
+	defer cancel()
+
+	// Step 1: Sync episodes from Jikan API (creates/updates episodes with UPSERT)
+	s.logger.Info("Syncing episodes from Jikan API (with context)")
+	episodeSuccessCount, episodeFailureCount, episodeErrors, episodeErr := s.animeService.SyncEpisodesFromJikanWithContext(ctx, nil)
 
 	if episodeErr != nil {
 		errors = append(errors, fmt.Sprintf("Episode sync from Jikan: %s", episodeErr.Error()))
