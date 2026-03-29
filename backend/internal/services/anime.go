@@ -2984,6 +2984,15 @@ func (s *AnimeService) CreateEpisodesFromAnnict(animeID int, annictID int) (int,
 		// エピソード番号を決定: Annictのsort_numberベースでインデックス+1をフォールバック
 		episodeNumber := i + 1
 		if ep.Number > 0 {
+			// 整数でないエピソード番号（特別編等: 1.5など）はスキップ
+			if ep.Number != float64(int(ep.Number)) {
+				s.logger.Debug("Skipping non-integer episode number",
+					"anime_id", animeID,
+					"annict_id", annictID,
+					"episode_number", ep.Number,
+					"title", ep.Title)
+				continue
+			}
 			episodeNumber = int(ep.Number)
 		}
 

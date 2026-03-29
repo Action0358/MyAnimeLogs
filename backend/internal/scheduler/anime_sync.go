@@ -22,6 +22,9 @@ const backgroundSyncDelay = 30 * time.Second
 // 1979 is chosen as it marks the start of Mobile Suit Gundam, a landmark in anime history
 const syncStartYear = 1979
 
+// syncTimeout is the maximum duration for the entire sync operation
+const syncTimeout = 6 * time.Hour
+
 // appendErrorsWithLimit appends errors to the error list with a maximum limit
 // to prevent log spam. Returns the updated error list.
 func appendErrorsWithLimit(errors []string, newErrors []string, maxErrors int, errorType string) []string {
@@ -395,7 +398,7 @@ func (s *AnimeSyncScheduler) checkSyncTimeout(ctx context.Context, stepName stri
 // syncCurrentSeasonAnimes syncs animes for the current and previous season
 func (s *AnimeSyncScheduler) syncCurrentSeasonAnimes() {
 	// 処理全体のタイムアウト: 6時間
-	ctx, cancel := context.WithTimeout(context.Background(), 6*time.Hour)
+	ctx, cancel := context.WithTimeout(context.Background(), syncTimeout)
 	defer cancel()
 
 	s.logger.Info("Starting scheduled anime sync (differential mode with timeout)")
