@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -2979,22 +2980,32 @@ func (s *AnimeService) CreateEpisodesFromAnnict(animeID int, annictID int) (int,
 	}
 	defer tx.Rollback()
 
+	// Annictエピソードをsort_numberでソート（通算話数の順序を保証）
+	sort.Slice(annictEpisodes, func(i, j int) bool {
+		return annictEpisodes[i].SortNumber < annictEpisodes[j].SortNumber
+	})
+
+	// 非整数エピソード（特別編等: 1.5など）をインプレースフィルターで除外
+	n := 0
+	for _, ep := range annictEpisodes {
+		if ep.Number > 0 && ep.Number != float64(int(ep.Number)) {
+			s.logger.Debug("Skipping non-integer episode number",
+				"anime_id", animeID,
+				"annict_id", annictID,
+				"episode_number", ep.Number,
+				"title", ep.Title)
+			continue
+		}
+		annictEpisodes[n] = ep
+		n++
+	}
+	annictEpisodes = annictEpisodes[:n]
+
 	upsertedCount := 0
 	for i, ep := range annictEpisodes {
-		// エピソード番号を決定: Annictのsort_numberベースでインデックス+1をフォールバック
+		// エピソード番号: 常にインデックスベース（1, 2, 3...）を使用
+		// Annictのnumberフィールドは通算話数の場合があるため使用しない
 		episodeNumber := i + 1
-		if ep.Number > 0 {
-			// 整数でないエピソード番号（特別編等: 1.5など）はスキップ
-			if ep.Number != float64(int(ep.Number)) {
-				s.logger.Debug("Skipping non-integer episode number",
-					"anime_id", animeID,
-					"annict_id", annictID,
-					"episode_number", ep.Number,
-					"title", ep.Title)
-				continue
-			}
-			episodeNumber = int(ep.Number)
-		}
 
 		// タイトルが空の場合はデフォルトタイトルを設定
 		title := ep.Title
@@ -3140,9 +3151,10 @@ func (s *AnimeService) SyncEpisodesFromAnnict(animeID *int) (int, int, []string,
 	return successCount, errorCount, errorMessages, nil
 }
 
-// CreateEpisodesFromJikan creates episodes for an anime using Jikan API as the primary source
-// This provides more accurate episode numbering and filler/recap flags
-func (s *AnimeService) CreateEpisodesFromJikan(animeID int, malAnimeID string) (int, error) {
+// UpdateEpisodesFromJikan updates existing episodes with supplemental data from Jikan API
+// Jikan provides duration_minutes, air_date, filler, recap flags
+// Episode creation (INSERT) is Annict's responsibility - Jikan only updates existing episodes
+func (s *AnimeService) UpdateEpisodesFromJikan(animeID int, malAnimeID string) (int, error) {
 	if malAnimeID == "" {
 		return 0, fmt.Errorf("mal_anime_id is required")
 	}
@@ -3158,7 +3170,7 @@ func (s *AnimeService) CreateEpisodesFromJikan(animeID int, malAnimeID string) (
 		return 0, nil
 	}
 
-	// 既存エピソード数を取得（安全チェック用）
+	// 既存エピソード数を取得（エピソード未作成の場合はスキップ）
 	var existingCount int
 	err = s.db.QueryRow(
 		"SELECT COUNT(*) FROM episodes WHERE anime_id = $1", animeID,
@@ -3167,13 +3179,11 @@ func (s *AnimeService) CreateEpisodesFromJikan(animeID int, malAnimeID string) (
 		return 0, fmt.Errorf("failed to count existing episodes: %w", err)
 	}
 
-	// 安全チェック: Jikan APIの返却数が既存数より少ない場合はログ出力
-	// （放送中アニメでJikanが放送済み分のみ返す場合の保護 - DELETEしない）
-	if existingCount > 0 && len(jikanEpisodes) < existingCount {
-		s.logger.Info("Jikan returned fewer episodes than existing, using UPSERT only (no delete)",
+	if existingCount == 0 {
+		s.logger.Debug("No existing episodes to update, skipping Jikan sync (Annict should create episodes first)",
 			"anime_id", animeID,
-			"existing_count", existingCount,
-			"jikan_count", len(jikanEpisodes))
+			"mal_anime_id", malAnimeID)
+		return 0, nil
 	}
 
 	// Start transaction
@@ -3183,10 +3193,10 @@ func (s *AnimeService) CreateEpisodesFromJikan(animeID int, malAnimeID string) (
 	}
 	defer tx.Rollback()
 
-	// UPSERT: 既存エピソードは更新、新規エピソードは挿入（DELETEしない）
-	upsertedCount := 0
+	// UPDATE ONLY: 既存エピソードのduration_minutes, air_date, filler, recapを補完
+	// エピソード作成（INSERT）はAnnictの責務。Jikanは補完データのみ更新する。
+	updatedCount := 0
 	for _, ep := range jikanEpisodes {
-		// Skip episodes with invalid episode number (0 or negative)
 		if ep.MalID <= 0 {
 			s.logger.Debug("Skipping episode with invalid number",
 				"anime_id", animeID,
@@ -3194,15 +3204,6 @@ func (s *AnimeService) CreateEpisodesFromJikan(animeID int, malAnimeID string) (
 				"title", ep.Title)
 			continue
 		}
-
-		// Use Japanese title if available, otherwise fall back to English title
-		title := ep.Title
-		if ep.TitleJapanese != nil && *ep.TitleJapanese != "" {
-			title = *ep.TitleJapanese
-		}
-
-		// Determine if this is a special episode based on filler/recap flags
-		isSpecial := ep.Filler || ep.Recap
 
 		// Parse air date if available
 		var airDate *time.Time
@@ -3212,47 +3213,50 @@ func (s *AnimeService) CreateEpisodesFromJikan(animeID int, malAnimeID string) (
 			}
 		}
 
-		// UPSERT: ON CONFLICT で既存エピソードを更新、新規は挿入
-		// titleは既存値がデフォルト（「第N話」）の場合のみ上書き（Annictタイトル保護）
-		_, err := tx.Exec(`
-			INSERT INTO episodes (
-				anime_id, episode_number, title,
-				is_special, filler, recap,
-				duration_minutes, air_date,
-				created_at, updated_at
-			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-			ON CONFLICT ON CONSTRAINT unique_anime_episode_type
-			DO UPDATE SET
-				is_special = EXCLUDED.is_special,
-				filler = EXCLUDED.filler,
-				recap = EXCLUDED.recap,
-				duration_minutes = COALESCE(EXCLUDED.duration_minutes, episodes.duration_minutes),
-				air_date = COALESCE(EXCLUDED.air_date, episodes.air_date),
-				title = CASE
-					WHEN episodes.title LIKE '第%話' THEN EXCLUDED.title
-					ELSE episodes.title
-				END,
+		// 既存エピソードのみ更新（INSERTしない）
+		result, err := tx.Exec(`
+			UPDATE episodes SET
+				is_special = $1,
+				filler = $2,
+				recap = $3,
+				duration_minutes = COALESCE($4, duration_minutes),
+				air_date = COALESCE($5, air_date),
 				updated_at = CURRENT_TIMESTAMP
-		`, animeID, ep.MalID, title, isSpecial, ep.Filler, ep.Recap, ep.Duration, airDate)
+			WHERE anime_id = $6 AND episode_number = $7
+		`, ep.Filler || ep.Recap, ep.Filler, ep.Recap, ep.Duration, airDate, animeID, ep.MalID)
 
 		if err != nil {
-			return 0, fmt.Errorf("failed to upsert episode %d: %w", ep.MalID, err)
+			s.logger.Warn("Failed to update episode from Jikan",
+				"anime_id", animeID,
+				"episode_number", ep.MalID,
+				"error", err)
+			continue
 		}
-		upsertedCount++
+
+		rowsAffected, err := result.RowsAffected()
+		if err != nil {
+			s.logger.Warn("Failed to get rows affected",
+				"anime_id", animeID,
+				"episode_number", ep.MalID,
+				"error", err)
+			continue
+		}
+		if rowsAffected > 0 {
+			updatedCount++
+		}
 	}
 
-	// Commit transaction
 	if err := tx.Commit(); err != nil {
 		return 0, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
-	s.logger.Info("Upserted episodes from Jikan API",
+	s.logger.Info("Updated episodes from Jikan API (supplemental data only)",
 		"anime_id", animeID,
 		"mal_anime_id", malAnimeID,
-		"upserted_count", upsertedCount,
+		"updated_count", updatedCount,
 		"existing_count", existingCount)
 
-	return upsertedCount, nil
+	return updatedCount, nil
 }
 
 // SyncEpisodesFromJikan synchronizes episodes for all animes using Jikan API
@@ -3343,8 +3347,8 @@ func (s *AnimeService) SyncEpisodesFromJikanWithContext(ctx context.Context, ani
 				"errors", errorCount)
 		}
 
-		// Create/update episodes from Jikan API (UPSERT)
-		_, err := s.CreateEpisodesFromJikan(anime.ID, anime.MalAnimeID)
+		// Update existing episodes with supplemental data from Jikan API (duration/air_date/filler/recap)
+		_, err := s.UpdateEpisodesFromJikan(anime.ID, anime.MalAnimeID)
 		if err != nil {
 			errorCount++
 			errMsg := fmt.Sprintf("anime_id=%d (%s): %v", anime.ID, anime.Title, err)
@@ -4475,7 +4479,7 @@ func (s *AnimeService) SyncPriorityAnimeData(animeIDs []int) error {
 		if !ok || info.MalAnimeID == nil {
 			continue
 		}
-		_, err := s.CreateEpisodesFromJikan(id, *info.MalAnimeID)
+		_, err := s.UpdateEpisodesFromJikan(id, *info.MalAnimeID)
 		if err != nil {
 			s.logger.Debug("Failed to sync episodes", "anime_id", id, "error", err)
 			epFail++
