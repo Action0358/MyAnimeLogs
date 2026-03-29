@@ -3109,10 +3109,14 @@ func (s *AnimeService) SyncEpisodesFromAnnict(animeID *int) (int, int, []string,
 		} else {
 			successCount++
 			// Annict同期成功時にepisodes_synced_atを更新
-			_, _ = s.db.Exec(
+			if _, err := s.db.Exec(
 				"UPDATE animes SET episodes_synced_at = CURRENT_TIMESTAMP WHERE id = $1",
 				anime.ID,
-			)
+			); err != nil {
+				s.logger.Warn("Failed to update episodes_synced_at",
+					"anime_id", anime.ID,
+					"error", err)
+			}
 		}
 
 		time.Sleep(rateLimitWait)
@@ -3328,10 +3332,14 @@ func (s *AnimeService) SyncEpisodesFromJikan(animeID *int) (int, int, []string, 
 		} else {
 			successCount++
 			// 同期成功時にepisodes_synced_atを更新
-			_, _ = s.db.Exec(
+			if _, err := s.db.Exec(
 				"UPDATE animes SET episodes_synced_at = CURRENT_TIMESTAMP WHERE id = $1",
 				anime.ID,
-			)
+			); err != nil {
+				s.logger.Warn("Failed to update episodes_synced_at",
+					"anime_id", anime.ID,
+					"error", err)
+			}
 		}
 
 		// Rate limiting
@@ -3439,10 +3447,14 @@ func (s *AnimeService) SyncEpisodesFromJikanWithContext(ctx context.Context, ani
 				"error", err)
 		} else {
 			successCount++
-			_, _ = s.db.Exec(
+			if _, err := s.db.Exec(
 				"UPDATE animes SET episodes_synced_at = CURRENT_TIMESTAMP WHERE id = $1",
 				anime.ID,
-			)
+			); err != nil {
+				s.logger.Warn("Failed to update episodes_synced_at",
+					"anime_id", anime.ID,
+					"error", err)
+			}
 		}
 
 		// Rate limiting
@@ -4478,6 +4490,7 @@ func (s *AnimeService) SyncPriorityAnimeData(animeIDs []int) error {
 		Description *string
 		ReleasedOn  *string
 		MalAnimeID  *string
+		AnnictID    *int
 	}
 	animeMap := make(map[int]*animeInfo, len(animeIDs))
 
@@ -4493,7 +4506,7 @@ func (s *AnimeService) SyncPriorityAnimeData(animeIDs []int) error {
 	}
 
 	rows, err := s.db.Query(fmt.Sprintf(`
-		SELECT id, title, description, released_on, mal_anime_id
+		SELECT id, title, description, released_on, mal_anime_id, annict_id
 		FROM animes WHERE id IN (%s)
 	`, placeholders), args...)
 	if err != nil {
@@ -4504,7 +4517,8 @@ func (s *AnimeService) SyncPriorityAnimeData(animeIDs []int) error {
 	for rows.Next() {
 		var info animeInfo
 		var desc, relOn, malID sql.NullString
-		if err := rows.Scan(&info.ID, &info.Title, &desc, &relOn, &malID); err != nil {
+		var annictID sql.NullInt64
+		if err := rows.Scan(&info.ID, &info.Title, &desc, &relOn, &malID, &annictID); err != nil {
 			s.logger.Warn("Failed to scan anime info", "error", err)
 			continue
 		}
@@ -4517,6 +4531,10 @@ func (s *AnimeService) SyncPriorityAnimeData(animeIDs []int) error {
 		if malID.Valid && malID.String != "" {
 			info.MalAnimeID = &malID.String
 		}
+		if annictID.Valid && annictID.Int64 > 0 {
+			aid := int(annictID.Int64)
+			info.AnnictID = &aid
+		}
 		animeMap[info.ID] = &info
 	}
 
@@ -4526,13 +4544,11 @@ func (s *AnimeService) SyncPriorityAnimeData(animeIDs []int) error {
 	s.logger.Info("Priority sync: episodes from Annict (primary)...")
 	annictEpSuccess, annictEpFail := 0, 0
 	for _, id := range animeIDs {
-		// annict_idを取得
-		var annictID sql.NullInt64
-		err := s.db.QueryRow("SELECT annict_id FROM animes WHERE id = $1", id).Scan(&annictID)
-		if err != nil || !annictID.Valid || annictID.Int64 <= 0 {
+		info, ok := animeMap[id]
+		if !ok || info.AnnictID == nil {
 			continue
 		}
-		_, err = s.CreateEpisodesFromAnnict(id, int(annictID.Int64))
+		_, err := s.CreateEpisodesFromAnnict(id, *info.AnnictID)
 		if err != nil {
 			s.logger.Debug("Failed to sync episodes from Annict", "anime_id", id, "error", err)
 			annictEpFail++
