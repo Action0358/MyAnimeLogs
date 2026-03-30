@@ -4,6 +4,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -16,6 +17,9 @@ import (
 
 	"github.com/joho/godotenv"
 )
+
+// jikanSyncTimeout is the maximum duration for Jikan episode sync operations
+const jikanSyncTimeout = 3 * time.Hour
 
 func main() {
 	// Parse command line arguments
@@ -202,8 +206,10 @@ func run(logger *common.Logger, env string) error {
 	}
 
 	// Step 3: Sync episodes from Jikan API (supplemental - adds duration/air_date/filler/recap)
-	logger.Info("Step 3/6: Syncing episodes from Jikan API (supplemental)...")
-	episodeSuccess, episodeFailure, episodeErrors, err := animeService.SyncEpisodesFromJikan(nil)
+	logger.Info("Step 3/6: Syncing episodes from Jikan API (supplemental, with timeout)...")
+	jikanCtx, jikanCancel := context.WithTimeout(context.Background(), jikanSyncTimeout)
+	defer jikanCancel()
+	episodeSuccess, episodeFailure, episodeErrors, err := animeService.SyncEpisodesFromJikanWithContext(jikanCtx, nil)
 	if err != nil {
 		return fmt.Errorf("failed to sync episodes from Jikan: %w", err)
 	}

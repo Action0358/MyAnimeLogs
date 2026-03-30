@@ -28,6 +28,9 @@ const syncTimeout = 6 * time.Hour
 // episodeSyncTimeout is the maximum duration for episode sync operations
 const episodeSyncTimeout = 3 * time.Hour
 
+// initialSyncTimeout is the maximum duration for the initial full sync operation
+const initialSyncTimeout = 12 * time.Hour
+
 // appendErrorsWithLimit appends errors to the error list with a maximum limit
 // to prevent log spam. Returns the updated error list.
 func appendErrorsWithLimit(errors []string, newErrors []string, maxErrors int, errorType string) []string {
@@ -311,6 +314,10 @@ func (s *AnimeSyncScheduler) Stop() {
 // syncAllSeasons syncs all seasons from syncStartYear-spring to current season
 // nextSyncTime is the time of the next scheduled sync (not 24 hours from now)
 func (s *AnimeSyncScheduler) syncAllSeasons(nextSyncTime time.Time) {
+	// 初回フル同期にタイムアウト制御を適用（12時間）
+	ctx, cancel := context.WithTimeout(context.Background(), initialSyncTimeout)
+	defer cancel()
+
 	s.logger.Info("Starting initial full sync of all seasons (differential mode)")
 	startTime := time.Now()
 
@@ -336,19 +343,18 @@ func (s *AnimeSyncScheduler) syncAllSeasons(nextSyncTime time.Time) {
 		}
 	}
 
-	// エピソード作成（新規作品のみ）
-	s.logger.Info("Syncing episodes from Jikan API")
-	episodeSuccessCount, episodeFailureCount, episodeErrors, episodeErr := s.animeService.SyncEpisodesFromJikan(nil)
+	// タイムアウト確認
+	if s.checkSyncTimeout(ctx, "season sync", startTime, totalAnimeCount, errors) {
+		return
+	}
 
-	if episodeErr != nil {
-		errors = append(errors, fmt.Sprintf("Episode sync from Jikan: %s", episodeErr.Error()))
-	} else {
-		s.logger.Info("Episode sync from Jikan completed",
-			"success_count", episodeSuccessCount,
-			"failure_count", episodeFailureCount)
+	// エピソード同期: syncEpisodeDataを使用（Annict→Jikan順序 + タイムアウト）
+	episodeFailureCount, episodeErrors := s.syncEpisodeData(true)
+	errors = append(errors, episodeErrors...)
 
-		// Add individual episode errors to the error list (limit to avoid log spam)
-		errors = appendErrorsWithLimit(errors, episodeErrors, 10, "episode")
+	// タイムアウト確認
+	if s.checkSyncTimeout(ctx, "episode sync", startTime, totalAnimeCount, errors) {
+		return
 	}
 
 	// 初回同期時はメタデータも同期（優先度ベース）
@@ -518,8 +524,9 @@ func (s *AnimeSyncScheduler) syncCurrentSeasonAnimes() {
 // syncEpisodeData syncs episodes from Jikan API
 // Returns a slice of error messages if any errors occur
 // If isInitialSync is true, skips heavy operations (genres and episode details)
-func (s *AnimeSyncScheduler) syncEpisodeData(isInitialSync bool) []string {
+func (s *AnimeSyncScheduler) syncEpisodeData(isInitialSync bool) (int, []string) {
 	var errors []string
+	totalFailureCount := 0
 
 	// エピソード同期にタイムアウト付きコンテキストを使用（3時間）
 	ctx, cancel := context.WithTimeout(context.Background(), episodeSyncTimeout)
@@ -534,6 +541,7 @@ func (s *AnimeSyncScheduler) syncEpisodeData(isInitialSync bool) []string {
 		s.logger.Info("Episode sync from Annict completed",
 			"success_count", annictSuccess,
 			"failure_count", annictFailure)
+		totalFailureCount += annictFailure
 		errors = appendErrorsWithLimit(errors, annictErrors, 10, "annict-episode")
 	}
 
@@ -547,6 +555,7 @@ func (s *AnimeSyncScheduler) syncEpisodeData(isInitialSync bool) []string {
 		s.logger.Info("Episode sync from Jikan completed",
 			"success_count", episodeSuccessCount,
 			"failure_count", episodeFailureCount)
+		totalFailureCount += episodeFailureCount
 
 		// Add individual episode errors to the error list (limit to avoid log spam)
 		errors = appendErrorsWithLimit(errors, episodeErrors, 10, "episode")
@@ -555,13 +564,13 @@ func (s *AnimeSyncScheduler) syncEpisodeData(isInitialSync bool) []string {
 	// Skip heavy operations during initial sync to reduce startup time
 	if isInitialSync {
 		s.logger.Info("Skipping genre and episode details sync during initial sync (will run in background)")
-		return errors
+		return totalFailureCount, errors
 	}
 
 	// Try to acquire sync lock
 	if !s.tryAcquireSyncLock() {
 		s.logger.Warn("Skipping genre and episode details sync: another sync is already in progress")
-		return errors
+		return totalFailureCount, errors
 	}
 	defer s.releaseSyncLock()
 
@@ -569,7 +578,7 @@ func (s *AnimeSyncScheduler) syncEpisodeData(isInitialSync bool) []string {
 	heavySyncErrors := s.syncGenresAndEpisodeDetails()
 	errors = append(errors, heavySyncErrors...)
 
-	return errors
+	return totalFailureCount, errors
 }
 
 // syncSeason syncs animes for a specific season
