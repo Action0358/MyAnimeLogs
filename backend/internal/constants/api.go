@@ -106,6 +106,13 @@ const (
 	CoverImageSyncWorkerPoolSize = 5
 )
 
+// 同期処理タイムアウト関連の定数
+const (
+	// EpisodeSyncTimeout - エピソード同期処理の最大実行時間
+	// Annict + Jikan両方のエピソード同期に適用
+	EpisodeSyncTimeout = 3 * time.Hour
+)
+
 // 検索履歴関連の定数
 const (
 	// SearchHistoryMaxItems - ユーザーごとの検索履歴の最大保持件数
