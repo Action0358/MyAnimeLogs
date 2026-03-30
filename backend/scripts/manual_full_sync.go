@@ -18,9 +18,6 @@ import (
 	"github.com/joho/godotenv"
 )
 
-// jikanSyncTimeout is the maximum duration for Jikan episode sync operations
-const jikanSyncTimeout = 3 * time.Hour
-
 func main() {
 	// Parse command line arguments
 	env := flag.String("env", "local", "Environment to use: local, staging, production")
@@ -186,8 +183,10 @@ func run(logger *common.Logger, env string) error {
 	}
 
 	// Step 2: Sync episodes from Annict API (primary - creates episode records)
-	logger.Info("Step 2/6: Syncing episodes from Annict API (primary)...")
-	annictEpSuccess, annictEpFailure, annictEpErrors, err := animeService.SyncEpisodesFromAnnict(nil)
+	logger.Info("Step 2/6: Syncing episodes from Annict API (primary, with timeout)...")
+	episodeSyncCtx, episodeSyncCancel := context.WithTimeout(context.Background(), constants.EpisodeSyncTimeout)
+	defer episodeSyncCancel()
+	annictEpSuccess, annictEpFailure, annictEpErrors, err := animeService.SyncEpisodesFromAnnictWithContext(episodeSyncCtx, nil)
 	if err != nil {
 		logger.Warn("Failed to sync episodes from Annict", "error", err)
 	} else {
@@ -207,7 +206,7 @@ func run(logger *common.Logger, env string) error {
 
 	// Step 3: Sync episodes from Jikan API (supplemental - adds duration/air_date/filler/recap)
 	logger.Info("Step 3/6: Syncing episodes from Jikan API (supplemental, with timeout)...")
-	jikanCtx, jikanCancel := context.WithTimeout(context.Background(), jikanSyncTimeout)
+	jikanCtx, jikanCancel := context.WithTimeout(context.Background(), constants.EpisodeSyncTimeout)
 	defer jikanCancel()
 	episodeSuccess, episodeFailure, episodeErrors, err := animeService.SyncEpisodesFromJikanWithContext(jikanCtx, nil)
 	if err != nil {

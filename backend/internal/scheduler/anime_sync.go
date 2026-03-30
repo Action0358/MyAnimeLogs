@@ -25,8 +25,8 @@ const syncStartYear = 1979
 // syncTimeout is the maximum duration for the entire sync operation
 const syncTimeout = 6 * time.Hour
 
-// episodeSyncTimeout is the maximum duration for episode sync operations
-const episodeSyncTimeout = 3 * time.Hour
+// episodeSyncTimeout is the maximum duration for episode sync operations (uses shared constant)
+var episodeSyncTimeout = constants.EpisodeSyncTimeout
 
 // initialSyncTimeout is the maximum duration for the initial full sync operation
 const initialSyncTimeout = 12 * time.Hour
@@ -157,6 +157,7 @@ func (s *AnimeSyncScheduler) runBackgroundSync() {
 // AnimeService defines the interface for anime-related operations needed by the scheduler
 type AnimeService interface {
 	SyncEpisodesFromAnnict(animeID *int) (int, int, []string, error)
+	SyncEpisodesFromAnnictWithContext(ctx context.Context, animeID *int) (int, int, []string, error)
 	SyncEpisodesFromJikan(animeID *int) (int, int, []string, error)
 	SyncEpisodesFromJikanWithContext(ctx context.Context, animeID *int) (int, int, []string, error)
 	SyncGenresForAllAnimes() (int, int, []string, error)
@@ -446,7 +447,7 @@ func (s *AnimeSyncScheduler) syncCurrentSeasonAnimes() {
 	// Step 2: エピソード作成 - Annict（主軸）→ Jikan（補完）
 	// Step 2a: Annictからエピソード作成（主軸・エピソードレコード作成）
 	s.logger.Info("Syncing episodes from Annict API (primary)")
-	annictEpSuccess, annictEpFailure, annictEpErrors, annictEpErr := s.animeService.SyncEpisodesFromAnnict(nil)
+	annictEpSuccess, annictEpFailure, annictEpErrors, annictEpErr := s.animeService.SyncEpisodesFromAnnictWithContext(ctx, nil)
 	if annictEpErr != nil {
 		errors = append(errors, fmt.Sprintf("Episode sync from Annict: %s", annictEpErr.Error()))
 	} else {
@@ -534,7 +535,7 @@ func (s *AnimeSyncScheduler) syncEpisodeData(isInitialSync bool) (int, []string)
 
 	// Step 1: Annictからエピソード作成（主軸）
 	s.logger.Info("Syncing episodes from Annict API (primary)")
-	annictSuccess, annictFailure, annictErrors, annictErr := s.animeService.SyncEpisodesFromAnnict(nil)
+	annictSuccess, annictFailure, annictErrors, annictErr := s.animeService.SyncEpisodesFromAnnictWithContext(ctx, nil)
 	if annictErr != nil {
 		errors = append(errors, fmt.Sprintf("Episode sync from Annict: %s", annictErr.Error()))
 	} else {
