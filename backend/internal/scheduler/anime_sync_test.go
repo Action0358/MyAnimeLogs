@@ -34,6 +34,10 @@ func (m *mockAnimeService) SyncEpisodesFromAnnict(animeID *int) (int, int, []str
 	return 0, 0, nil, nil
 }
 
+func (m *mockAnimeService) SyncEpisodesFromAnnictWithContext(ctx context.Context, animeID *int) (int, int, []string, error) {
+	return 0, 0, nil, nil
+}
+
 func (m *mockAnimeService) SyncEpisodesFromJikan(animeID *int) (int, int, []string, error) {
 	return 0, 0, nil, nil
 }
@@ -295,6 +299,10 @@ type mockAnimeServiceWithDelay struct {
 }
 
 func (m *mockAnimeServiceWithDelay) SyncEpisodesFromAnnict(animeID *int) (int, int, []string, error) {
+	return 0, 0, nil, nil
+}
+
+func (m *mockAnimeServiceWithDelay) SyncEpisodesFromAnnictWithContext(ctx context.Context, animeID *int) (int, int, []string, error) {
 	return 0, 0, nil, nil
 }
 

@@ -3050,6 +3050,11 @@ func (s *AnimeService) CreateEpisodesFromAnnict(animeID int, annictID int) (int,
 // SyncEpisodesFromAnnict syncs episodes from Annict API for all animes that have annict_id.
 // This is the primary episode creation path. Jikan is used afterwards for supplemental data.
 func (s *AnimeService) SyncEpisodesFromAnnict(animeID *int) (int, int, []string, error) {
+	return s.SyncEpisodesFromAnnictWithContext(context.Background(), animeID)
+}
+
+// SyncEpisodesFromAnnictWithContext syncs episodes from Annict API with context for timeout/cancellation support.
+func (s *AnimeService) SyncEpisodesFromAnnictWithContext(ctx context.Context, animeID *int) (int, int, []string, error) {
 	const (
 		progressLogInterval = 50
 		rateLimitWait       = 250 * time.Millisecond // Annict: 5 req/s
@@ -3110,6 +3115,18 @@ func (s *AnimeService) SyncEpisodesFromAnnict(animeID *int) (int, int, []string,
 	var errorMessages []string
 
 	for i, anime := range animes {
+		// タイムアウト・キャンセル確認
+		select {
+		case <-ctx.Done():
+			s.logger.Warn("Annict episode sync interrupted by context cancellation",
+				"processed", i,
+				"total", len(animes),
+				"success", successCount,
+				"errors", errorCount)
+			return successCount, errorCount, errorMessages, ctx.Err()
+		default:
+		}
+
 		if i > 0 && i%progressLogInterval == 0 {
 			s.logger.Info("Annict episode sync progress",
 				"processed", i,
