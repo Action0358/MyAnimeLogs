@@ -737,15 +737,15 @@ func (s *AnimeSyncScheduler) getAnimesWithoutMetadata() ([]models.Anime, error) 
 
 // getAiringAnimes - 放送中作品を取得
 func (s *AnimeSyncScheduler) getAiringAnimes() ([]models.Anime, error) {
-	return s.getAnimesByQuery(`
+	return s.getAnimesByQuery(fmt.Sprintf(`
 		SELECT id, mal_anime_id, title, annict_id
 		FROM animes
-		WHERE status = 'airing'
+		WHERE status = '%s'
 		AND (metadata_synced_at IS NULL OR metadata_synced_at < NOW() - INTERVAL '7 days')
 		AND mal_anime_id IS NOT NULL
 		ORDER BY metadata_synced_at ASC NULLS FIRST
 		LIMIT 50
-	`)
+	`, constants.AnimeStatusAiring))
 }
 
 // getAnimesWithStaleMetadata - 古いメタデータを持つ作品を取得
