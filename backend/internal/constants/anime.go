@@ -38,3 +38,20 @@ const (
 
 // StaleDataThreshold - データが古いと判定する閾値（30日）
 const StaleDataThreshold = 30 * 24 * time.Hour
+
+// AnimeStatus - アニメ放送ステータスの型
+type AnimeStatus string
+
+const (
+	// AnimeStatusAiring - 放送中
+	AnimeStatusAiring AnimeStatus = "airing"
+	// AnimeStatusFinished - 完結
+	AnimeStatusFinished AnimeStatus = "finished"
+	// AnimeStatusUpcoming - 放送予定
+	AnimeStatusUpcoming AnimeStatus = "upcoming"
+)
+
+// String returns the string representation of AnimeStatus
+func (s AnimeStatus) String() string {
+	return string(s)
+}
