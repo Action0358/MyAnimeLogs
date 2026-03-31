@@ -1063,7 +1063,7 @@ func (s *AnimeService) SyncAllAnimeStatuses() (int, int, error) {
         SELECT id, season FROM animes
         WHERE (series_tmdb_id IS NOT NULL OR season IS NOT NULL)
         AND (
-            status IN ('currently_airing', 'not_yet_aired', 'upcoming')
+            status IN ('airing', 'upcoming')
             OR status IS NULL
         )
     `)
@@ -3079,7 +3079,7 @@ func (s *AnimeService) SyncEpisodesFromAnnictWithContext(ctx context.Context, an
 		query += fmt.Sprintf(`
 			AND (
 				NOT EXISTS (SELECT 1 FROM episodes e WHERE e.anime_id = a.id)
-				OR a.status = 'currently_airing'
+				OR a.status = 'airing'
 				OR a.episodes_synced_at IS NULL
 				OR a.episodes_synced_at < NOW() - INTERVAL '%d days'
 			)
@@ -3306,7 +3306,7 @@ func (s *AnimeService) SyncEpisodesFromJikanWithContext(ctx context.Context, ani
 		query += fmt.Sprintf(`
 			AND (
 				NOT EXISTS (SELECT 1 FROM episodes e WHERE e.anime_id = a.id)
-				OR a.status = 'currently_airing'
+				OR a.status = 'airing'
 				OR a.episodes_synced_at IS NULL
 				OR a.episodes_synced_at < NOW() - INTERVAL '%d days'
 			)
