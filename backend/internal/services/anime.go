@@ -1059,14 +1059,14 @@ func (s *AnimeService) SyncAnimeStatus(animeID int, clearCache bool) error {
 func (s *AnimeService) SyncAllAnimeStatuses() (int, int, error) {
 	// 差分フィルタ: 放送中・未放送・ステータス未設定の作品のみ対象
 	// 完了作品はステータスが変わらないため除外
-	rows, err := s.db.Query(fmt.Sprintf(`
+	rows, err := s.db.Query(`
         SELECT id, season FROM animes
         WHERE (series_tmdb_id IS NOT NULL OR season IS NOT NULL)
         AND (
-            status IN ('%s', '%s')
+            status IN ($1, $2)
             OR status IS NULL
         )
-    `, constants.AnimeStatusAiring, constants.AnimeStatusUpcoming))
+    `, constants.AnimeStatusAiring.String(), constants.AnimeStatusUpcoming.String())
 	if err != nil {
 		s.logger.Error("Failed to query animes for status sync", "error", err)
 		return 0, 0, fmt.Errorf("failed to query animes for status sync: %w", err)
@@ -3079,11 +3079,12 @@ func (s *AnimeService) SyncEpisodesFromAnnictWithContext(ctx context.Context, an
 		query += fmt.Sprintf(`
 			AND (
 				NOT EXISTS (SELECT 1 FROM episodes e WHERE e.anime_id = a.id)
-				OR a.status = '%s'
+				OR a.status = $1
 				OR a.episodes_synced_at IS NULL
 				OR a.episodes_synced_at < NOW() - INTERVAL '%d days'
 			)
-		`, constants.AnimeStatusAiring, staleDays)
+		`, staleDays)
+		args = append(args, constants.AnimeStatusAiring.String())
 	}
 	query += " ORDER BY a.id"
 
@@ -3306,11 +3307,12 @@ func (s *AnimeService) SyncEpisodesFromJikanWithContext(ctx context.Context, ani
 		query += fmt.Sprintf(`
 			AND (
 				NOT EXISTS (SELECT 1 FROM episodes e WHERE e.anime_id = a.id)
-				OR a.status = '%s'
+				OR a.status = $1
 				OR a.episodes_synced_at IS NULL
 				OR a.episodes_synced_at < NOW() - INTERVAL '%d days'
 			)
-		`, constants.AnimeStatusAiring, staleDays)
+		`, staleDays)
+		args = append(args, constants.AnimeStatusAiring.String())
 	}
 
 	query += " ORDER BY a.id"
