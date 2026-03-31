@@ -298,7 +298,7 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork, existingAnime
 	season := work.SeasonName
 
 	// デフォルトステータスを設定（後でSyncAnimeStatusで更新される）
-	status := "finished"
+	status := constants.AnimeStatusFinished.String()
 
 	var anime models.Anime
 
