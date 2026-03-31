@@ -1006,7 +1006,7 @@ func (s *AnimeService) SyncAnimeStatus(animeID int, clearCache bool) error {
 				if parseErr == nil {
 					today := time.Now().UTC().Truncate(24 * time.Hour)
 					if releaseDate.After(today) {
-						status = "upcoming"
+						status = constants.AnimeStatusUpcoming.String()
 					}
 				}
 			}
@@ -1063,10 +1063,10 @@ func (s *AnimeService) SyncAllAnimeStatuses() (int, int, error) {
         SELECT id, season FROM animes
         WHERE (series_tmdb_id IS NOT NULL OR season IS NOT NULL)
         AND (
-            status IN ('currently_airing', 'not_yet_aired', 'upcoming')
+            status IN ($1, $2)
             OR status IS NULL
         )
-    `)
+    `, constants.AnimeStatusAiring.String(), constants.AnimeStatusUpcoming.String())
 	if err != nil {
 		s.logger.Error("Failed to query animes for status sync", "error", err)
 		return 0, 0, fmt.Errorf("failed to query animes for status sync: %w", err)
@@ -3079,11 +3079,12 @@ func (s *AnimeService) SyncEpisodesFromAnnictWithContext(ctx context.Context, an
 		query += fmt.Sprintf(`
 			AND (
 				NOT EXISTS (SELECT 1 FROM episodes e WHERE e.anime_id = a.id)
-				OR a.status = 'currently_airing'
+				OR a.status = $1
 				OR a.episodes_synced_at IS NULL
 				OR a.episodes_synced_at < NOW() - INTERVAL '%d days'
 			)
 		`, staleDays)
+		args = append(args, constants.AnimeStatusAiring.String())
 	}
 	query += " ORDER BY a.id"
 
@@ -3306,11 +3307,12 @@ func (s *AnimeService) SyncEpisodesFromJikanWithContext(ctx context.Context, ani
 		query += fmt.Sprintf(`
 			AND (
 				NOT EXISTS (SELECT 1 FROM episodes e WHERE e.anime_id = a.id)
-				OR a.status = 'currently_airing'
+				OR a.status = $1
 				OR a.episodes_synced_at IS NULL
 				OR a.episodes_synced_at < NOW() - INTERVAL '%d days'
 			)
 		`, staleDays)
+		args = append(args, constants.AnimeStatusAiring.String())
 	}
 
 	query += " ORDER BY a.id"
@@ -4705,13 +4707,13 @@ func determineStatusBySeason(seasonName string, releasedOn *string) string {
 		if err == nil {
 			today := time.Now().UTC().Truncate(24 * time.Hour)
 			if releaseDate.After(today) {
-				return "upcoming"
+				return constants.AnimeStatusUpcoming.String()
 			}
 		}
 	}
 
 	if seasonName == "" {
-		return "finished"
+		return constants.AnimeStatusFinished.String()
 	}
 
 	// シーズン名（例: "YYYY-season"）をパース
@@ -4719,7 +4721,7 @@ func determineStatusBySeason(seasonName string, releasedOn *string) string {
 	var seasonStr string
 	_, err := fmt.Sscanf(seasonName, "%d-%s", &seasonYear, &seasonStr)
 	if err != nil {
-		return "finished" // パース失敗時は完結とみなす
+		return constants.AnimeStatusFinished.String() // パース失敗時は完結とみなす
 	}
 
 	now := time.Now().UTC()
@@ -4742,28 +4744,28 @@ func determineStatusBySeason(seasonName string, releasedOn *string) string {
 		seasonStartMonth = 10
 		seasonEndMonth = 12
 	default:
-		return "finished" // 未知のシーズン名は完結とみなす
+		return constants.AnimeStatusFinished.String() // 未知のシーズン名は完結とみなす
 	}
 
 	// 判定ロジック
 	if seasonYear > currentYear {
 		// 未来のシーズン → 放送予定
-		return "upcoming"
+		return constants.AnimeStatusUpcoming.String()
 	} else if seasonYear == currentYear {
 		// 同じ年のシーズン
 		if currentMonth < seasonStartMonth {
 			// シーズン開始月より前 → 放送予定
-			return "upcoming"
+			return constants.AnimeStatusUpcoming.String()
 		} else if currentMonth <= seasonEndMonth {
 			// シーズン期間中 → 放送中
-			return "airing"
+			return constants.AnimeStatusAiring.String()
 		} else {
 			// シーズン終了月以後 → 完結
-			return "finished"
+			return constants.AnimeStatusFinished.String()
 		}
 	} else {
 		// 過去のシーズン → 完結
-		return "finished"
+		return constants.AnimeStatusFinished.String()
 	}
 }
 
@@ -4771,12 +4773,12 @@ func determineStatusBySeason(seasonName string, releasedOn *string) string {
 func mapTMDBStatus(tmdbStatus string) string {
 	switch tmdbStatus {
 	case "Returning Series", "In Production":
-		return "airing"
+		return constants.AnimeStatusAiring.String()
 	case "Planned":
-		return "upcoming"
+		return constants.AnimeStatusUpcoming.String()
 	case "Ended", "Canceled":
-		return "finished"
+		return constants.AnimeStatusFinished.String()
 	default:
-		return "finished" // デフォルトは完結とみなす
+		return constants.AnimeStatusFinished.String() // デフォルトは完結とみなす
 	}
 }
