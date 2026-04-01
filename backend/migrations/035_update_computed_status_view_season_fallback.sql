@@ -2,7 +2,11 @@
 -- VIEWを更新: released_onがNULLの場合にシーズン情報からステータスを動的に計算
 -- これにより、released_onが未取得の今期作品でも正しい放送状態ラベルが表示される
 -- not_yet_airedはairingとして扱う（NULLIF + COALESCEパターン）
-CREATE OR REPLACE VIEW animes_with_computed_status AS
+-- 注意: COALESCE/NULLIFの結果がtext型になるため、CREATE OR REPLACEではvarchar→textの型変更エラーが発生する
+-- そのため一度DROPしてから再作成する
+DROP VIEW IF EXISTS animes_with_computed_status;
+
+CREATE VIEW animes_with_computed_status AS
 SELECT 
     id,
     title,
@@ -87,8 +91,10 @@ FROM animes;
 COMMENT ON VIEW animes_with_computed_status IS 'アニメテーブルのVIEW。released_onおよびseasonを考慮してステータスを動的に計算する。released_onがある場合は日付ベース、ない場合はシーズンベースでフォールバック判定を行う。not_yet_airedはairingとして扱う。';
 
 -- +migrate Down
--- 元のVIEW定義に戻す
-CREATE OR REPLACE VIEW animes_with_computed_status AS
+-- 元のVIEW定義に戻す（DROP + CREATE で型の不整合を回避）
+DROP VIEW IF EXISTS animes_with_computed_status;
+
+CREATE VIEW animes_with_computed_status AS
 SELECT 
     id,
     title,
