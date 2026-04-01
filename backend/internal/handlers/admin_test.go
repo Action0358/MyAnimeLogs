@@ -170,6 +170,11 @@ func (m *MockAnimeService) SyncAllAnimeStatuses() (int, int, error) {
 	return args.Int(0), args.Int(1), args.Error(2)
 }
 
+func (m *MockAnimeService) SyncReleasedOnFromJikan() (int, int, int, error) {
+	args := m.Called()
+	return args.Int(0), args.Int(1), args.Int(2), args.Error(3)
+}
+
 func TestAdminHandler_SyncEpisodeDurations(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	logger := common.NewLogger(common.LogLevelDebug, "text")
