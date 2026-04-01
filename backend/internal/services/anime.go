@@ -4488,12 +4488,12 @@ func (s *AnimeService) SyncReleasedOnForCurrentSeason(ctx context.Context, curre
 				"title", anime.Title,
 				"error", err)
 			failureCount++
-			time.Sleep(350 * time.Millisecond) // Jikan: 3req/sec
+			time.Sleep(constants.JikanRateLimitDelay)
 			continue
 		}
 
 		if releasedOn == "" {
-			time.Sleep(350 * time.Millisecond)
+			time.Sleep(constants.JikanRateLimitDelay)
 			continue
 		}
 
@@ -4505,7 +4505,7 @@ func (s *AnimeService) SyncReleasedOnForCurrentSeason(ctx context.Context, curre
 			s.logger.Warn("Failed to save released_on for current season anime",
 				"anime_id", anime.ID, "error", err)
 			failureCount++
-			time.Sleep(350 * time.Millisecond)
+			time.Sleep(constants.JikanRateLimitDelay)
 			continue
 		}
 
@@ -4521,7 +4521,7 @@ func (s *AnimeService) SyncReleasedOnForCurrentSeason(ctx context.Context, curre
 		}
 
 		successCount++
-		time.Sleep(350 * time.Millisecond) // Jikan: 3req/sec
+		time.Sleep(constants.JikanRateLimitDelay)
 	}
 
 	// キャッシュをクリア
