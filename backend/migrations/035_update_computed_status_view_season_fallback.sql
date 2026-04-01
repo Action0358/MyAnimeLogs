@@ -1,6 +1,7 @@
 -- +migrate Up
 -- VIEWを更新: released_onがNULLの場合にシーズン情報からステータスを動的に計算
 -- これにより、released_onが未取得の今期作品でも正しい放送状態ラベルが表示される
+-- not_yet_airedはairingとして扱う（NULLIF + COALESCEパターン）
 CREATE OR REPLACE VIEW animes_with_computed_status AS
 SELECT 
     id,
@@ -22,36 +23,36 @@ SELECT
                 -- シーズン年を抽出
                 WHEN CAST(SUBSTRING(season FROM '^\d{4}') AS int) > EXTRACT(YEAR FROM CURRENT_DATE) THEN 'upcoming'
                 WHEN CAST(SUBSTRING(season FROM '^\d{4}') AS int) < EXTRACT(YEAR FROM CURRENT_DATE) THEN
-                    COALESCE(status, 'finished')
+                    COALESCE(NULLIF(status, 'not_yet_aired'), 'finished')
                 -- 同じ年の場合: シーズンの月範囲で判定
+                -- 冬シーズン（1-3月）: 同じ年なら必ずシーズン期間中（年を跨ぐ場合は前段の年比較で判定済み）
                 WHEN season ~ '-winter$' THEN
                     CASE
-                        WHEN EXTRACT(MONTH FROM CURRENT_DATE) < 1 THEN 'upcoming'
-                        WHEN EXTRACT(MONTH FROM CURRENT_DATE) <= 3 THEN COALESCE(status, 'airing')
-                        ELSE COALESCE(status, 'finished')
+                        WHEN EXTRACT(MONTH FROM CURRENT_DATE) <= 3 THEN COALESCE(NULLIF(status, 'not_yet_aired'), 'airing')
+                        ELSE COALESCE(NULLIF(status, 'not_yet_aired'), 'finished')
                     END
                 WHEN season ~ '-spring$' THEN
                     CASE
                         WHEN EXTRACT(MONTH FROM CURRENT_DATE) < 4 THEN 'upcoming'
-                        WHEN EXTRACT(MONTH FROM CURRENT_DATE) <= 6 THEN COALESCE(status, 'airing')
-                        ELSE COALESCE(status, 'finished')
+                        WHEN EXTRACT(MONTH FROM CURRENT_DATE) <= 6 THEN COALESCE(NULLIF(status, 'not_yet_aired'), 'airing')
+                        ELSE COALESCE(NULLIF(status, 'not_yet_aired'), 'finished')
                     END
                 WHEN season ~ '-summer$' THEN
                     CASE
                         WHEN EXTRACT(MONTH FROM CURRENT_DATE) < 7 THEN 'upcoming'
-                        WHEN EXTRACT(MONTH FROM CURRENT_DATE) <= 9 THEN COALESCE(status, 'airing')
-                        ELSE COALESCE(status, 'finished')
+                        WHEN EXTRACT(MONTH FROM CURRENT_DATE) <= 9 THEN COALESCE(NULLIF(status, 'not_yet_aired'), 'airing')
+                        ELSE COALESCE(NULLIF(status, 'not_yet_aired'), 'finished')
                     END
                 WHEN season ~ '-autumn$' THEN
                     CASE
                         WHEN EXTRACT(MONTH FROM CURRENT_DATE) < 10 THEN 'upcoming'
-                        WHEN EXTRACT(MONTH FROM CURRENT_DATE) <= 12 THEN COALESCE(status, 'airing')
-                        ELSE COALESCE(status, 'finished')
+                        WHEN EXTRACT(MONTH FROM CURRENT_DATE) <= 12 THEN COALESCE(NULLIF(status, 'not_yet_aired'), 'airing')
+                        ELSE COALESCE(NULLIF(status, 'not_yet_aired'), 'finished')
                     END
-                ELSE COALESCE(status, 'finished')
+                ELSE COALESCE(NULLIF(status, 'not_yet_aired'), 'finished')
             END
         -- 3. released_onもseasonもない場合: statusをそのまま返す
-        ELSE COALESCE(status, 'finished')
+        ELSE COALESCE(NULLIF(status, 'not_yet_aired'), 'finished')
     END as computed_status,
     status as original_status,
     mal_anime_id,
@@ -83,7 +84,7 @@ SELECT
     sync_error
 FROM animes;
 
-COMMENT ON VIEW animes_with_computed_status IS 'アニメテーブルのVIEW。released_onおよびseasonを考慮してステータスを動的に計算する。released_onがある場合は日付ベース、ない場合はシーズンベースでフォールバック判定を行う。';
+COMMENT ON VIEW animes_with_computed_status IS 'アニメテーブルのVIEW。released_onおよびseasonを考慮してステータスを動的に計算する。released_onがある場合は日付ベース、ない場合はシーズンベースでフォールバック判定を行う。not_yet_airedはairingとして扱う。';
 
 -- +migrate Down
 -- 元のVIEW定義に戻す

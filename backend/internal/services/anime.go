@@ -819,6 +819,10 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 			if releaseDate.After(today) {
 				upcomingStatus := constants.AnimeStatusUpcoming.String()
 				anime.Status = &upcomingStatus
+			} else if anime.Status != nil && (*anime.Status == constants.AnimeStatusUpcoming.String() || *anime.Status == "not_yet_aired") {
+				// released_onが今日以前なのにupcoming/not_yet_airedの場合はairingに補正
+				airingStatus := constants.AnimeStatusAiring.String()
+				anime.Status = &airingStatus
 			}
 		}
 	}
