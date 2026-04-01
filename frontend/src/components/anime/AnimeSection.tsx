@@ -29,7 +29,7 @@ interface AnimeSectionProps {
 // DBAnimeをAnimeCard用の型に変換
 const convertToAnimeCardFormat = (anime: DBAnime): AnimeCardData => {
   let status: AnimeStatus | undefined = undefined
-  if (anime.status === 'airing' || anime.status === 'finished') {
+  if (anime.status === 'airing' || anime.status === 'finished' || anime.status === 'upcoming') {
     status = anime.status
   }
 
@@ -40,6 +40,7 @@ const convertToAnimeCardFormat = (anime: DBAnime): AnimeCardData => {
     image_url: anime.image_url,
     season: anime.season,
     status,
+    released_on: anime.released_on,
     cover_image_large: anime.cover_image_large,
     cover_image_medium: anime.cover_image_medium,
   }

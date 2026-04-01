@@ -58,6 +58,8 @@ const determineBroadcastStatus = (
 
   if (isUpcoming) {
     return 'upcoming'
+  } else if (status === 'upcoming') {
+    return 'upcoming'
   } else if (status === 'airing') {
     return 'airing'
   } else if (status === 'finished') {

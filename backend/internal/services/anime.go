@@ -810,6 +810,23 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 		s.enrichAnimeWithReleasedOn(&anime)
 	}
 
+	// released_on取得後にステータスを補正（VIEWはDB時点のreleased_onで計算するため、
+	// enrichAnimeWithReleasedOnでオンデマンド取得した場合はstatusが未反映）
+	if anime.ReleasedOn != nil && *anime.ReleasedOn != "" {
+		releaseDate, parseErr := time.ParseInLocation("2006-01-02", *anime.ReleasedOn, time.UTC)
+		if parseErr == nil {
+			today := time.Now().UTC().Truncate(24 * time.Hour)
+			if releaseDate.After(today) {
+				upcomingStatus := constants.AnimeStatusUpcoming.String()
+				anime.Status = &upcomingStatus
+			} else if anime.Status != nil && (*anime.Status == constants.AnimeStatusUpcoming.String() || *anime.Status == "not_yet_aired") {
+				// released_onが今日以前なのにupcoming/not_yet_airedの場合はairingに補正
+				airingStatus := constants.AnimeStatusAiring.String()
+				anime.Status = &airingStatus
+			}
+		}
+	}
+
 	// 放送情報がない場合はJikan APIから取得
 	if anime.BroadcastDay == nil {
 		s.enrichAnimeWithBroadcastInfo(&anime)
@@ -4284,12 +4301,12 @@ func (s *AnimeService) SyncReleasedOnFromJikan() (int, int, int, error) {
 	s.logger.Info("Starting Jikan released_on sync")
 
 	// Get animes that need released_on update:
-	// 1. No released_on (NULL only - DATE type cannot be empty string)
+	// 1. No released_on (NULL or empty string)
 	// 2. Has MAL ID (required for Jikan API)
 	rows, err := s.db.Query(`
 		SELECT id, title, mal_anime_id 
 		FROM animes 
-		WHERE released_on IS NULL
+		WHERE (released_on IS NULL OR released_on = '')
 		  AND mal_anime_id IS NOT NULL AND mal_anime_id != ''
 		ORDER BY watchers_count DESC NULLS LAST, id
 	`)
@@ -4403,6 +4420,120 @@ func (s *AnimeService) SyncReleasedOnFromJikan() (int, int, int, error) {
 		"failure", failureCount)
 
 	return successCount, notFoundCount, failureCount, nil
+}
+
+// SyncReleasedOnForCurrentSeason syncs released_on from Jikan API for current and previous season animes
+// that have released_on=NULL, then re-evaluates their status.
+// This ensures that animes within the current season period are correctly labeled as "upcoming" vs "airing".
+func (s *AnimeService) SyncReleasedOnForCurrentSeason(ctx context.Context, currentSeason, previousSeason string) (int, int, error) {
+	s.logger.Info("Syncing released_on for current season animes without release date",
+		"current_season", currentSeason,
+		"previous_season", previousSeason)
+
+	// released_onがNULLまたは空文字の今期・前期作品を取得
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, title, mal_anime_id
+		FROM animes
+		WHERE season IN ($1, $2)
+		AND (released_on IS NULL OR released_on = '')
+		AND mal_anime_id IS NOT NULL AND mal_anime_id != ''
+	`, currentSeason, previousSeason)
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to query animes for released_on sync: %w", err)
+	}
+	defer rows.Close()
+
+	type animeInfo struct {
+		ID    int
+		Title string
+		MalID string
+	}
+	var animes []animeInfo
+
+	for rows.Next() {
+		var a animeInfo
+		if err := rows.Scan(&a.ID, &a.Title, &a.MalID); err != nil {
+			s.logger.Warn("Failed to scan anime for released_on sync", "error", err)
+			continue
+		}
+		animes = append(animes, a)
+	}
+
+	totalAnimes := len(animes)
+	if totalAnimes == 0 {
+		s.logger.Info("All current/previous season animes already have released_on")
+		return 0, 0, nil
+	}
+
+	s.logger.Info("Found current/previous season animes without released_on", "count", totalAnimes)
+
+	successCount := 0
+	failureCount := 0
+
+	for _, anime := range animes {
+		// コンテキストのキャンセル・タイムアウトを確認
+		select {
+		case <-ctx.Done():
+			s.logger.Warn("SyncReleasedOnForCurrentSeason cancelled",
+				"success", successCount, "failure", failureCount)
+			return successCount, failureCount, ctx.Err()
+		default:
+		}
+
+		releasedOn, err := s.jikanClient.GetAnimeAiredDate(anime.MalID)
+		if err != nil {
+			s.logger.Debug("Failed to get aired date from Jikan for current season anime",
+				"anime_id", anime.ID,
+				"mal_id", anime.MalID,
+				"title", anime.Title,
+				"error", err)
+			failureCount++
+			time.Sleep(constants.JikanRateLimitDelay)
+			continue
+		}
+
+		if releasedOn == "" {
+			time.Sleep(constants.JikanRateLimitDelay)
+			continue
+		}
+
+		// released_onをDBに保存
+		_, err = s.db.ExecContext(ctx, `
+			UPDATE animes SET released_on = $1 WHERE id = $2
+		`, releasedOn, anime.ID)
+		if err != nil {
+			s.logger.Warn("Failed to save released_on for current season anime",
+				"anime_id", anime.ID, "error", err)
+			failureCount++
+			time.Sleep(constants.JikanRateLimitDelay)
+			continue
+		}
+
+		s.logger.Debug("Saved released_on for current season anime",
+			"anime_id", anime.ID,
+			"title", anime.Title,
+			"released_on", releasedOn)
+
+		// released_on設定後にステータスを再判定
+		if syncErr := s.SyncAnimeStatus(anime.ID, false); syncErr != nil {
+			s.logger.Warn("Failed to re-evaluate status after released_on update",
+				"anime_id", anime.ID, "error", syncErr)
+		}
+
+		successCount++
+		time.Sleep(constants.JikanRateLimitDelay)
+	}
+
+	// キャッシュをクリア
+	if successCount > 0 {
+		s.ClearAnimeCache()
+	}
+
+	s.logger.Info("Current season released_on sync completed",
+		"success", successCount,
+		"failure", failureCount)
+
+	return successCount, failureCount, nil
 }
 
 // SyncPriorityAnimeData syncs episodes, descriptions, and released_on for specific anime IDs.

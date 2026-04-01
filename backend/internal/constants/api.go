@@ -111,6 +111,10 @@ const (
 	// EpisodeSyncTimeout - エピソード同期処理の最大実行時間
 	// Annict + Jikan両方のエピソード同期に適用
 	EpisodeSyncTimeout = 3 * time.Hour
+
+	// JikanRateLimitDelay - Jikan APIのレート制限対策の待機時間
+	// Jikan APIは3リクエスト/秒の制限があるため、約2.8req/secに抑える
+	JikanRateLimitDelay = 350 * time.Millisecond
 )
 
 // 検索履歴関連の定数
