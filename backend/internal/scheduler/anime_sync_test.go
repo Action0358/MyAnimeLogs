@@ -58,6 +58,10 @@ func (m *mockAnimeService) SyncCoverImagesForAllAnimes() (int, int, []string, er
 	return 0, 0, nil, nil
 }
 
+func (m *mockAnimeService) SyncReleasedOnForCurrentSeason(ctx context.Context, currentSeason, previousSeason string) (int, int, error) {
+	return 0, 0, nil
+}
+
 func (m *mockAnimeService) ClearAnimeCache() {
 	// No-op for testing
 }
@@ -333,6 +337,10 @@ func (m *mockAnimeServiceWithDelay) SyncCoverImagesForAllAnimes() (int, int, []s
 		time.Sleep(m.syncDelay)
 	}
 	return 10, 0, nil, nil
+}
+
+func (m *mockAnimeServiceWithDelay) SyncReleasedOnForCurrentSeason(ctx context.Context, currentSeason, previousSeason string) (int, int, error) {
+	return 0, 0, nil
 }
 
 func (m *mockAnimeServiceWithDelay) ClearAnimeCache() {

@@ -51,6 +51,11 @@ func (m *MockAdminAnimeServiceForGenres) SyncAllAnimeStatuses() (int, int, error
 	return args.Int(0), args.Int(1), args.Error(2)
 }
 
+func (m *MockAdminAnimeServiceForGenres) SyncReleasedOnFromJikan() (int, int, int, error) {
+	args := m.Called()
+	return args.Int(0), args.Int(1), args.Int(2), args.Error(3)
+}
+
 func TestSyncGenresForAllAnimes_Success(t *testing.T) {
 	// Setup
 	gin.SetMode(gin.TestMode)
