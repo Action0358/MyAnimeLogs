@@ -163,7 +163,7 @@ type AnimeService interface {
 	SyncGenresForAllAnimes() (int, int, []string, error)
 	SyncEpisodeDetailsForAllAnimes() (int, int, []string, error)
 	SyncCoverImagesForAllAnimes() (int, int, []string, error)
-	SyncReleasedOnForCurrentSeason(currentSeason, previousSeason string) (int, int, error)
+	SyncReleasedOnForCurrentSeason(ctx context.Context, currentSeason, previousSeason string) (int, int, error)
 	ClearAnimeCache() // キャッシュクリア
 }
 
@@ -353,7 +353,7 @@ func (s *AnimeSyncScheduler) syncAllSeasons(nextSyncTime time.Time) {
 	// 今期・前期作品のreleased_on同期（Jikan API）
 	previousSeason := getPreviousSeasonForTime(startTime)
 	s.logger.Info("Syncing released_on for current/previous season animes (initial sync)")
-	releasedOnSuccess, releasedOnFailure, releasedOnErr := s.animeService.SyncReleasedOnForCurrentSeason(currentSeason, previousSeason)
+	releasedOnSuccess, releasedOnFailure, releasedOnErr := s.animeService.SyncReleasedOnForCurrentSeason(ctx, currentSeason, previousSeason)
 	if releasedOnErr != nil {
 		errors = append(errors, fmt.Sprintf("Released_on sync: %s", releasedOnErr.Error()))
 	} else {
@@ -465,7 +465,7 @@ func (s *AnimeSyncScheduler) syncCurrentSeasonAnimes() {
 	// Step 1.5: 今期・前期作品のreleased_on同期（Jikan API）
 	// released_onがNULLの作品に対してJikanから放送開始日を取得し、ステータスを再判定
 	s.logger.Info("Syncing released_on for current/previous season animes")
-	releasedOnSuccess, releasedOnFailure, releasedOnErr := s.animeService.SyncReleasedOnForCurrentSeason(currentSeason, previousSeason)
+	releasedOnSuccess, releasedOnFailure, releasedOnErr := s.animeService.SyncReleasedOnForCurrentSeason(ctx, currentSeason, previousSeason)
 	if releasedOnErr != nil {
 		errors = append(errors, fmt.Sprintf("Released_on sync: %s", releasedOnErr.Error()))
 	} else {

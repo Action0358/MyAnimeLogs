@@ -4425,13 +4425,13 @@ func (s *AnimeService) SyncReleasedOnFromJikan() (int, int, int, error) {
 // SyncReleasedOnForCurrentSeason syncs released_on from Jikan API for current and previous season animes
 // that have released_on=NULL, then re-evaluates their status.
 // This ensures that animes within the current season period are correctly labeled as "upcoming" vs "airing".
-func (s *AnimeService) SyncReleasedOnForCurrentSeason(currentSeason, previousSeason string) (int, int, error) {
+func (s *AnimeService) SyncReleasedOnForCurrentSeason(ctx context.Context, currentSeason, previousSeason string) (int, int, error) {
 	s.logger.Info("Syncing released_on for current season animes without release date",
 		"current_season", currentSeason,
 		"previous_season", previousSeason)
 
 	// released_onがNULLまたは空文字の今期・前期作品を取得
-	rows, err := s.db.Query(`
+	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, title, mal_anime_id
 		FROM animes
 		WHERE season IN ($1, $2)
@@ -4441,6 +4441,7 @@ func (s *AnimeService) SyncReleasedOnForCurrentSeason(currentSeason, previousSea
 	if err != nil {
 		return 0, 0, fmt.Errorf("failed to query animes for released_on sync: %w", err)
 	}
+	defer rows.Close()
 
 	type animeInfo struct {
 		ID    int
@@ -4457,7 +4458,6 @@ func (s *AnimeService) SyncReleasedOnForCurrentSeason(currentSeason, previousSea
 		}
 		animes = append(animes, a)
 	}
-	rows.Close()
 
 	totalAnimes := len(animes)
 	if totalAnimes == 0 {
@@ -4471,6 +4471,15 @@ func (s *AnimeService) SyncReleasedOnForCurrentSeason(currentSeason, previousSea
 	failureCount := 0
 
 	for _, anime := range animes {
+		// コンテキストのキャンセル・タイムアウトを確認
+		select {
+		case <-ctx.Done():
+			s.logger.Warn("SyncReleasedOnForCurrentSeason cancelled",
+				"success", successCount, "failure", failureCount)
+			return successCount, failureCount, ctx.Err()
+		default:
+		}
+
 		releasedOn, err := s.jikanClient.GetAnimeAiredDate(anime.MalID)
 		if err != nil {
 			s.logger.Debug("Failed to get aired date from Jikan for current season anime",
@@ -4479,19 +4488,17 @@ func (s *AnimeService) SyncReleasedOnForCurrentSeason(currentSeason, previousSea
 				"title", anime.Title,
 				"error", err)
 			failureCount++
-			// Jikan: 3req/sec
-			time.Sleep(350 * time.Millisecond)
+			time.Sleep(350 * time.Millisecond) // Jikan: 3req/sec
 			continue
 		}
 
 		if releasedOn == "" {
-			// Jikanにもデータがない場合はスキップ
 			time.Sleep(350 * time.Millisecond)
 			continue
 		}
 
 		// released_onをDBに保存
-		_, err = s.db.Exec(`
+		_, err = s.db.ExecContext(ctx, `
 			UPDATE animes SET released_on = $1 WHERE id = $2
 		`, releasedOn, anime.ID)
 		if err != nil {
@@ -4514,8 +4521,7 @@ func (s *AnimeService) SyncReleasedOnForCurrentSeason(currentSeason, previousSea
 		}
 
 		successCount++
-		// Jikan: 3req/sec
-		time.Sleep(350 * time.Millisecond)
+		time.Sleep(350 * time.Millisecond) // Jikan: 3req/sec
 	}
 
 	// キャッシュをクリア
