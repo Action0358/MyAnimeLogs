@@ -19,7 +19,8 @@ type AdminAnimeService interface {
 	GetEpisodeSyncStatus(animeID int) (*models.EpisodeSyncStatus, error)
 	SyncGenresForAllAnimes() (int, int, []string, error)
 	ClearAnimeCache() // キャッシュクリア
-    SyncAllAnimeStatuses() (int, int, error) // <-- 追加
+	SyncAllAnimeStatuses() (int, int, error)
+	SyncReleasedOnFromJikan() (int, int, int, error)
 }
 
 // SyncScheduler defines the interface for sync scheduler
@@ -255,5 +256,25 @@ func (h *AdminHandler) SyncAnimeStatuses(c *gin.Context) {
 		"success_count": successCount,
 		"failure_count": failureCount,
 		"message":       fmt.Sprintf("ステータス同期完了: 成功 %d件, 失敗 %d件", successCount, failureCount),
+	})
+}
+
+// SyncReleasedOn - Jikan APIからreleased_onを一括取得
+// POST /api/admin/sync/released-on
+func (h *AdminHandler) SyncReleasedOn(c *gin.Context) {
+	h.logger.Info("Starting released_on sync from Jikan API via admin API")
+
+	successCount, notFoundCount, failureCount, err := h.animeService.SyncReleasedOnFromJikan()
+	if err != nil {
+		h.logger.Error("Failed to sync released_on", "error", err)
+		h.response.InternalServerError(c, "released_on同期に失敗しました")
+		return
+	}
+
+	h.response.Success(c, gin.H{
+		"success_count":   successCount,
+		"not_found_count": notFoundCount,
+		"failure_count":   failureCount,
+		"message":         fmt.Sprintf("released_on同期完了: 成功 %d件, 未検出 %d件, 失敗 %d件", successCount, notFoundCount, failureCount),
 	})
 }
