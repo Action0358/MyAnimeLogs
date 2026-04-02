@@ -67,9 +67,5 @@ myanimelogs_sql_validation
 *.tsbuildinfo
 backend/server
 
-# gitingest
-.ai/
-.ai_legacy
-
 # issues for MyAnimeLogs Backlog
 .issues/
