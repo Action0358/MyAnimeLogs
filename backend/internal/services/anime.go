@@ -792,8 +792,19 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 		anime.DurationMinutes = &duration
 	}
 
-	// DBキャッシュがない場合、またはextraLargeがない場合はAniListから画像を取得
-	if anime.CoverImageExtraLarge == "" || anime.CoverImageLarge == "" {
+	// DBキャッシュがない場合、TTL期限切れの場合はAniListから画像を取得
+	needsCoverImageRefresh := anime.CoverImageExtraLarge == "" || anime.CoverImageLarge == ""
+	if !needsCoverImageRefresh {
+		// 画像はあるがTTL期限切れかチェック
+		var coverImageUpdatedAt sql.NullTime
+		_ = s.db.QueryRow(
+			"SELECT cover_image_updated_at FROM animes WHERE id = $1", anime.ID,
+		).Scan(&coverImageUpdatedAt)
+		if !coverImageUpdatedAt.Valid || time.Since(coverImageUpdatedAt.Time) > constants.CoverImageCacheTTL {
+			needsCoverImageRefresh = true
+		}
+	}
+	if needsCoverImageRefresh {
 		s.enrichAnimeWithCoverImage(&anime)
 	}
 
