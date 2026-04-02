@@ -792,10 +792,8 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 		anime.DurationMinutes = &duration
 	}
 
-	// DBキャッシュがない場合、またはextraLargeがない場合はAniListから画像を取得
-	if anime.CoverImageExtraLarge == "" || anime.CoverImageLarge == "" {
-		s.enrichAnimeWithCoverImage(&anime)
-	}
+	// カバー画像の取得・TTL更新（enrichAnimeWithCoverImage内部でキャッシュ判定を行う）
+	s.enrichAnimeWithCoverImage(&anime)
 
 	// descriptionがない場合はAniList APIから取得
 	if anime.Description == nil || *anime.Description == "" {
