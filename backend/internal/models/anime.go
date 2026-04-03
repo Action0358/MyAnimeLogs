@@ -24,9 +24,10 @@ type Anime struct {
 	UpdatedAt       time.Time `json:"updated_at" db:"updated_at"`
 
 	// AniList から取得する画像（DBにキャッシュ）
-	CoverImageExtraLarge string `json:"cover_image_extra_large,omitempty" db:"cover_image_extra_large"`
-	CoverImageLarge      string `json:"cover_image_large,omitempty" db:"cover_image_large"`
-	CoverImageMedium     string `json:"cover_image_medium,omitempty" db:"cover_image_medium"`
+	CoverImageExtraLarge string     `json:"cover_image_extra_large,omitempty" db:"cover_image_extra_large"`
+	CoverImageLarge      string     `json:"cover_image_large,omitempty" db:"cover_image_large"`
+	CoverImageMedium     string     `json:"cover_image_medium,omitempty" db:"cover_image_medium"`
+	CoverImageUpdatedAt  *time.Time `json:"-" db:"cover_image_updated_at"` // TTL判定用（APIレスポンスには含めない）
 
 	// シリーズ作品の統合管理用（内部識別用）
 	SeriesTitle  *string `json:"series_title,omitempty" db:"series_title"`     // 正規化後のシリーズ名
