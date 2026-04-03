@@ -727,16 +727,19 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 	var description, media, officialSiteURL, titleKana, titleEn, releasedOn, seriesTitle sql.NullString
 	var broadcastDay, broadcastTime, broadcastTimezone sql.NullString
 	var episodesCount, seriesTMDBID, durationMinutes sql.NullInt64
+	var coverImageUpdatedAt sql.NullTime
 
 	err := s.db.QueryRow(`
 		SELECT id, title, image_url, season, computed_status as status,
 		       mal_anime_id, annict_id, created_at, updated_at, watchers_count,
 		       cover_image_extra_large, cover_image_large, cover_image_medium,
+		       cover_image_updated_at,
 		       description, media, released_on, official_site_url, title_kana, title_en, episodes_count,
 		       series_title, series_tmdb_id,
 		       broadcast_day, broadcast_time, broadcast_timezone, duration_minutes
 		FROM animes_with_computed_status WHERE id = $1
 	`, animeID).Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount, &anime.CoverImageExtraLarge, &anime.CoverImageLarge, &anime.CoverImageMedium,
+		&coverImageUpdatedAt,
 		&description, &media, &releasedOn, &officialSiteURL, &titleKana, &titleEn, &episodesCount, &seriesTitle, &seriesTMDBID,
 		&broadcastDay, &broadcastTime, &broadcastTimezone, &durationMinutes)
 
@@ -791,9 +794,15 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 		duration := int(durationMinutes.Int64)
 		anime.DurationMinutes = &duration
 	}
+	if coverImageUpdatedAt.Valid {
+		anime.CoverImageUpdatedAt = &coverImageUpdatedAt.Time
+	}
 
-	// カバー画像の取得・TTL更新（enrichAnimeWithCoverImage内部でキャッシュ判定を行う）
-	s.enrichAnimeWithCoverImage(&anime)
+	// カバー画像が未取得、またはTTL期限切れの場合のみAniListから取得
+	if anime.CoverImageExtraLarge == "" || anime.CoverImageLarge == "" ||
+		anime.CoverImageUpdatedAt == nil || time.Since(*anime.CoverImageUpdatedAt) > constants.CoverImageCacheTTL {
+		s.enrichAnimeWithCoverImage(&anime)
+	}
 
 	// descriptionがない場合はAniList APIから取得
 	if anime.Description == nil || *anime.Description == "" {
