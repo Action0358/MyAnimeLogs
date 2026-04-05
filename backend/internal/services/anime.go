@@ -1022,8 +1022,17 @@ func (s *AnimeService) SyncAnimeStatus(animeID int, clearCache bool) error {
 		ctx := context.Background()
 		details, err := s.tmdbClient.GetTVDetails(ctx, *anime.SeriesTMDBID, "ja-JP")
 		if err == nil {
-			status = mapTMDBStatus(details.Status)
-			// TMDBがairingを返しても、released_onが未来ならupcomingに上書き
+			tmdbStatus := mapTMDBStatus(details.Status)
+
+			// シーズン情報で補正: 過去シーズンの作品は "finished"
+			// TMDBが "airing" でも、この作品のシーズンが過去なら完結済み
+			if tmdbStatus == constants.AnimeStatusAiring.String() && isPastSeason(seasonStr) {
+				status = constants.AnimeStatusFinished.String()
+			} else {
+				status = tmdbStatus
+			}
+
+			// released_onが未来ならupcomingに上書き（既存ロジック維持）
 			if releasedOnPtr != nil && *releasedOnPtr != "" {
 				// UTCでパースして比較（サーバーのタイムゾーンに依存しないようにする）
 				releaseDate, parseErr := time.ParseInLocation("2006-01-02", *releasedOnPtr, time.UTC)
@@ -4905,6 +4914,15 @@ func determineStatusBySeason(seasonName string, releasedOn *string) string {
 		// 過去のシーズン → 完結
 		return constants.AnimeStatusFinished.String()
 	}
+}
+
+// isPastSeason はシーズン文字列が過去のシーズンかどうかを判定する
+// determineStatusBySeason を再利用して正確な時系列比較を行う
+func isPastSeason(season string) bool {
+	if season == "" {
+		return false
+	}
+	return determineStatusBySeason(season, nil) == constants.AnimeStatusFinished.String()
 }
 
 // mapTMDBStatus はTMDBのステータス文字列を内部の放送状態文字列にマッピングします。
