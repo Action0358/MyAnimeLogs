@@ -524,7 +524,7 @@ func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int
 	}
 
 	if params.Status != "" {
-		whereClauses = append(whereClauses, fmt.Sprintf("status = $%d", argIndex))
+		whereClauses = append(whereClauses, fmt.Sprintf("computed_status = $%d", argIndex))
 		args = append(args, params.Status)
 		argIndex++
 	}
@@ -2620,9 +2620,9 @@ func (s *AnimeService) buildWhereClause(params models.AdvancedSearchParams, user
 		}
 	}
 
-	// ステータス検索
+	// ステータス検索（VIEWのcomputed_statusを使用）
 	if params.Status != "" {
-		whereClauses = append(whereClauses, fmt.Sprintf("a.status = $%d", argIndex))
+		whereClauses = append(whereClauses, fmt.Sprintf("a.computed_status = $%d", argIndex))
 		args = append(args, params.Status)
 		argIndex++
 	}
