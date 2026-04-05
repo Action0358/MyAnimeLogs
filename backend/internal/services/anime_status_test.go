@@ -1,7 +1,6 @@
 package services
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -10,37 +9,27 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestIsPastSeason(t *testing.T) {
+// fixedNow はテスト用の固定時刻（2025年5月15日 = spring シーズン中）
+var fixedNow = time.Date(2025, 5, 15, 12, 0, 0, 0, time.UTC)
+
+func TestIsPastSeasonAt(t *testing.T) {
 	tests := []struct {
 		name     string
 		season   string
 		expected bool
 	}{
-		{
-			name:     "過去シーズン（2016-spring）は true",
-			season:   "2016-spring",
-			expected: true,
-		},
-		{
-			name:     "過去シーズン（2024-autumn）は true",
-			season:   "2024-autumn",
-			expected: true,
-		},
-		{
-			name:     "未来シーズンは false",
-			season:   "2099-winter",
-			expected: false,
-		},
-		{
-			name:     "空文字列は false",
-			season:   "",
-			expected: false,
-		},
+		{"過去シーズン（2016-spring）は true", "2016-spring", true},
+		{"過去シーズン（2024-autumn）は true", "2024-autumn", true},
+		{"過去シーズン（2025-winter）は true", "2025-winter", true},
+		{"現在シーズン（2025-spring）は false", "2025-spring", false},
+		{"未来シーズン（2025-summer）は false", "2025-summer", false},
+		{"未来シーズン（2099-winter）は false", "2099-winter", false},
+		{"空文字列は false", "", false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := isPastSeason(tt.season)
+			result := isPastSeasonAt(tt.season, fixedNow)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -92,7 +81,7 @@ func TestGetSeasonStringFromTime(t *testing.T) {
 	}
 }
 
-func TestDetermineStatusBySeason(t *testing.T) {
+func TestDetermineStatusBySeasonAt(t *testing.T) {
 	futureDate := "2099-01-01"
 	pastDate := "2020-01-01"
 
@@ -107,88 +96,86 @@ func TestDetermineStatusBySeason(t *testing.T) {
 		{"未来シーズン → upcoming", "2099-spring", nil, constants.AnimeStatusUpcoming.String()},
 		{"空シーズン → finished", "", nil, constants.AnimeStatusFinished.String()},
 		{"不正シーズン → finished", "invalid", nil, constants.AnimeStatusFinished.String()},
+		{"現在シーズン → airing", "2025-spring", nil, constants.AnimeStatusAiring.String()},
+		{"今年の過去シーズン → finished", "2025-winter", nil, constants.AnimeStatusFinished.String()},
+		{"今年の未来シーズン → upcoming", "2025-autumn", nil, constants.AnimeStatusUpcoming.String()},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := determineStatusBySeason(tt.seasonName, tt.releasedOn)
+			result := determineStatusBySeasonAt(tt.seasonName, tt.releasedOn, fixedNow)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
 
-// TestIsPastSeason_SeasonComparisonLogic はシーズン文字列の比較ロジックを検証する
-// issueの核心: TMDBが "Returning Series" を返しても、過去シーズンの作品は finished になるべき
-func TestIsPastSeason_SeasonComparisonLogic(t *testing.T) {
-	// 現在のシーズンを取得
-	currentSeason := getSeasonStringFromTime(time.Now())
-
+// TestIsPastSeasonAt_SeasonComparisonLogic はissueの核心シナリオを固定時刻で検証する
+func TestIsPastSeasonAt_SeasonComparisonLogic(t *testing.T) {
 	tests := []struct {
 		name     string
 		season   string
 		expected bool
 	}{
-		{
-			name:     "このすば1期(2016-winter)は過去シーズン",
-			season:   "2016-winter",
-			expected: true,
-		},
-		{
-			name:     "このすば2期(2017-winter)は過去シーズン",
-			season:   "2017-winter",
-			expected: true,
-		},
-		{
-			name:     "現在のシーズンは過去ではない",
-			season:   currentSeason,
-			expected: false,
-		},
+		{"このすば1期(2016-winter)は過去シーズン", "2016-winter", true},
+		{"このすば2期(2017-winter)は過去シーズン", "2017-winter", true},
+		{"現在のシーズン(2025-spring)は過去ではない", "2025-spring", false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := isPastSeason(tt.season)
+			result := isPastSeasonAt(tt.season, fixedNow)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
 
-// TestIsPastSeason_SameYearSeasonOrder は同じ年内のシーズン順序が正しく判定されることを検証する
-// アルファベット順（autumn < spring < summer < winter）と時系列順（winter < spring < summer < autumn）が
-// 異なるため、文字列比較ではなく正確な時系列比較が必要
-func TestIsPastSeason_SameYearSeasonOrder(t *testing.T) {
-	now := time.Now()
-	currentYear := now.Year()
-	currentMonth := int(now.Month())
-
-	// 現在の月から各シーズンが過去かどうかを正確に判定
-	type seasonInfo struct {
-		name       string
-		startMonth int
-		endMonth   int
-	}
-	seasons := []seasonInfo{
-		{"winter", 1, 3},
-		{"spring", 4, 6},
-		{"summer", 7, 9},
-		{"autumn", 10, 12},
+// TestIsPastSeasonAt_SameYearSeasonOrder は同じ年内のシーズン順序が正しく判定されることを検証する
+// 固定時刻: 2025年5月15日（springシーズン中）
+func TestIsPastSeasonAt_SameYearSeasonOrder(t *testing.T) {
+	tests := []struct {
+		name     string
+		season   string
+		expected bool
+	}{
+		{"2025-winter（1-3月）→ 過去", "2025-winter", true},
+		{"2025-spring（4-6月）→ 現在（過去ではない）", "2025-spring", false},
+		{"2025-summer（7-9月）→ 未来（過去ではない）", "2025-summer", false},
+		{"2025-autumn（10-12月）→ 未来（過去ではない）", "2025-autumn", false},
 	}
 
-	for _, s := range seasons {
-		seasonStr := fmt.Sprintf("%d-%s", currentYear, s.name)
-		// 現在月がシーズン終了月より後なら過去シーズン
-		expectedPast := currentMonth > s.endMonth
-
-		t.Run(fmt.Sprintf("今年の%sシーズン", s.name), func(t *testing.T) {
-			result := isPastSeason(seasonStr)
-			assert.Equal(t, expectedPast, result,
-				"season=%s, currentMonth=%d, endMonth=%d", seasonStr, currentMonth, s.endMonth)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isPastSeasonAt(tt.season, fixedNow)
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }
 
-// TestStatusCorrectionForPastSeason はissueのシナリオを再現する統合的なテスト
-// TMDBが "Returning Series" を返した場合に、過去シーズンの作品が finished になることを検証
+// TestIsPastSeasonAt_SeasonBoundaries はシーズン境界での判定を検証する
+func TestIsPastSeasonAt_SeasonBoundaries(t *testing.T) {
+	tests := []struct {
+		name     string
+		now      time.Time
+		season   string
+		expected bool
+	}{
+		{"3月末: 2025-winterは現在", time.Date(2025, 3, 31, 23, 59, 0, 0, time.UTC), "2025-winter", false},
+		{"4月初: 2025-winterは過去", time.Date(2025, 4, 1, 0, 0, 0, 0, time.UTC), "2025-winter", true},
+		{"6月末: 2025-springは現在", time.Date(2025, 6, 30, 23, 59, 0, 0, time.UTC), "2025-spring", false},
+		{"7月初: 2025-springは過去", time.Date(2025, 7, 1, 0, 0, 0, 0, time.UTC), "2025-spring", true},
+		{"12月末: 2025-autumnは現在", time.Date(2025, 12, 31, 23, 59, 0, 0, time.UTC), "2025-autumn", false},
+		{"翌年1月: 2025-autumnは過去", time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), "2025-autumn", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isPastSeasonAt(tt.season, tt.now)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// TestStatusCorrectionForPastSeason はissueのシナリオを固定時刻で再現する統合テスト
 func TestStatusCorrectionForPastSeason(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -196,36 +183,12 @@ func TestStatusCorrectionForPastSeason(t *testing.T) {
 		season         string
 		expectedStatus string
 	}{
-		{
-			name:           "過去シーズン + Returning Series → finished",
-			tmdbStatus:     "Returning Series",
-			season:         "2016-winter",
-			expectedStatus: constants.AnimeStatusFinished.String(),
-		},
-		{
-			name:           "未来シーズン + Returning Series → airing",
-			tmdbStatus:     "Returning Series",
-			season:         "2099-spring",
-			expectedStatus: constants.AnimeStatusAiring.String(),
-		},
-		{
-			name:           "過去シーズン + Ended → finished",
-			tmdbStatus:     "Ended",
-			season:         "2020-spring",
-			expectedStatus: constants.AnimeStatusFinished.String(),
-		},
-		{
-			name:           "過去シーズン + In Production → finished",
-			tmdbStatus:     "In Production",
-			season:         "2020-spring",
-			expectedStatus: constants.AnimeStatusFinished.String(),
-		},
-		{
-			name:           "シーズン情報なし + Returning Series → airing（補正しない）",
-			tmdbStatus:     "Returning Series",
-			season:         "",
-			expectedStatus: constants.AnimeStatusAiring.String(),
-		},
+		{"過去シーズン + Returning Series → finished", "Returning Series", "2016-winter", constants.AnimeStatusFinished.String()},
+		{"未来シーズン + Returning Series → airing", "Returning Series", "2099-spring", constants.AnimeStatusAiring.String()},
+		{"過去シーズン + Ended → finished", "Ended", "2020-spring", constants.AnimeStatusFinished.String()},
+		{"過去シーズン + In Production → finished", "In Production", "2020-spring", constants.AnimeStatusFinished.String()},
+		{"シーズン情報なし + Returning Series → airing（補正しない）", "Returning Series", "", constants.AnimeStatusAiring.String()},
+		{"現在シーズン + Returning Series → airing", "Returning Series", "2025-spring", constants.AnimeStatusAiring.String()},
 	}
 
 	for _, tt := range tests {
@@ -233,7 +196,7 @@ func TestStatusCorrectionForPastSeason(t *testing.T) {
 			tmdbStatus := mapTMDBStatus(tt.tmdbStatus)
 
 			var status string
-			if tmdbStatus == constants.AnimeStatusAiring.String() && isPastSeason(tt.season) {
+			if tmdbStatus == constants.AnimeStatusAiring.String() && isPastSeasonAt(tt.season, fixedNow) {
 				status = constants.AnimeStatusFinished.String()
 			} else {
 				status = tmdbStatus

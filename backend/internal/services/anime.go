@@ -4847,12 +4847,18 @@ func (s *AnimeService) enrichAnimeWithWatchProviders(animeWithData *models.Anime
 // determineStatusBySeason はシーズンと放送開始日を考慮してアニメの放送状態を判定します。
 // TMDBの情報が利用できない場合のフォールバックとして使用されます。
 func determineStatusBySeason(seasonName string, releasedOn *string) string {
+	return determineStatusBySeasonAt(seasonName, releasedOn, time.Now().UTC())
+}
+
+// determineStatusBySeasonAt はシーズンと放送開始日を考慮してアニメの放送状態を判定します。
+// 基準時刻を引数で受け取ることでテスタビリティを確保しています。
+func determineStatusBySeasonAt(seasonName string, releasedOn *string, now time.Time) string {
 	// released_onが未来の日付なら放送予定
 	if releasedOn != nil && *releasedOn != "" {
 		// UTCで比較してサーバータイムゾーンの影響を排除
 		releaseDate, err := time.ParseInLocation("2006-01-02", *releasedOn, time.UTC)
 		if err == nil {
-			today := time.Now().UTC().Truncate(24 * time.Hour)
+			today := now.Truncate(24 * time.Hour)
 			if releaseDate.After(today) {
 				return constants.AnimeStatusUpcoming.String()
 			}
@@ -4871,7 +4877,6 @@ func determineStatusBySeason(seasonName string, releasedOn *string) string {
 		return constants.AnimeStatusFinished.String() // パース失敗時は完結とみなす
 	}
 
-	now := time.Now().UTC()
 	currentYear := now.Year()
 	currentMonth := int(now.Month())
 
@@ -4919,10 +4924,15 @@ func determineStatusBySeason(seasonName string, releasedOn *string) string {
 // isPastSeason はシーズン文字列が過去のシーズンかどうかを判定する
 // determineStatusBySeason を再利用して正確な時系列比較を行う
 func isPastSeason(season string) bool {
+	return isPastSeasonAt(season, time.Now().UTC())
+}
+
+// isPastSeasonAt はシーズン文字列が指定時刻において過去のシーズンかどうかを判定する
+func isPastSeasonAt(season string, now time.Time) bool {
 	if season == "" {
 		return false
 	}
-	return determineStatusBySeason(season, nil) == constants.AnimeStatusFinished.String()
+	return determineStatusBySeasonAt(season, nil, now) == constants.AnimeStatusFinished.String()
 }
 
 // mapTMDBStatus はTMDBのステータス文字列を内部の放送状態文字列にマッピングします。
