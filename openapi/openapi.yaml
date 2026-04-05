@@ -1496,6 +1496,319 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /logout:
+    post:
+      summary: ログアウト
+      description: リフレッシュトークンを使用してセッションを削除します
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refresh_token:
+                  type: string
+                  description: リフレッシュトークン
+              required:
+                - refresh_token
+      responses:
+        "200":
+          description: ログアウト成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "ログアウトしました"
+        "400":
+          description: バリデーションエラー
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /auth/refresh:
+    post:
+      summary: アクセストークンのリフレッシュ
+      description: リフレッシュトークンを使用して新しいアクセストークンを取得します
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refresh_token:
+                  type: string
+                  description: リフレッシュトークン
+              required:
+                - refresh_token
+      responses:
+        "200":
+          description: トークンリフレッシュ成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                    example: "eyJ..."
+                  token_type:
+                    type: string
+                    example: "Bearer"
+        "400":
+          description: バリデーションエラー
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          description: 無効なリフレッシュトークン
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /users/me/sessions:
+    get:
+      summary: アクティブセッション一覧取得
+      description: 現在のユーザーの全アクティブセッションを取得します
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: セッション一覧
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Session"
+        "401":
+          description: 認証が必要です
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /users/me/sessions/{id}:
+    delete:
+      summary: 特定のセッションを削除
+      description: セッションIDを指定して特定のセッションを削除します
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: セッションID
+      responses:
+        "200":
+          description: セッション削除成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "セッションを削除しました"
+        "401":
+          description: 認証が必要です
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: セッションが見つかりません
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /users/me/logout-all:
+    post:
+      summary: 全デバイスからログアウト
+      description: 現在のユーザーの全セッションを削除します
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: 全デバイスからのログアウト成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "全てのデバイスからログアウトしました"
+        "401":
+          description: 認証が必要です
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /animes/current:
+    get:
+      summary: 今期アニメ取得
+      description: 現在放送中のシーズンのアニメ一覧をDBから取得します
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 12
+            maximum: 100
+          description: 取得件数
+      responses:
+        "200":
+          description: 今期アニメ一覧
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  animes:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Anime"
+                  total:
+                    type: integer
+                    description: 返却されたアニメ数
+  /animes/popular:
+    get:
+      summary: 人気アニメ取得
+      description: 視聴者数順の人気アニメ一覧をDBから取得します
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 12
+            maximum: 100
+          description: 取得件数
+      responses:
+        "200":
+          description: 人気アニメ一覧
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  animes:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Anime"
+                  total:
+                    type: integer
+                    description: 返却されたアニメ数
+  /admin/sync/statuses:
+    post:
+      summary: 全アニメのステータスを同期
+      description: TMDBからステータスを取得し、シーズン情報で補正して全アニメのステータスを更新します。過去シーズンの作品はTMDBが"Returning Series"でも"finished"に補正されます。
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: ステータス同期完了
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success_count:
+                    type: integer
+                    description: 成功したアニメ数
+                    example: 95
+                  failure_count:
+                    type: integer
+                    description: 失敗したアニメ数
+                    example: 5
+                  message:
+                    type: string
+                    example: "ステータス同期完了: 成功 95件, 失敗 5件"
+        "401":
+          description: 認証エラー
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: サーバーエラー
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /admin/sync/released-on:
+    post:
+      summary: 放送開始日をJikan APIから同期
+      description: Jikan APIから放送開始日を取得して全アニメのreleased_onフィールドを更新します
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: 放送開始日同期完了
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success_count:
+                    type: integer
+                    description: 成功したアニメ数
+                    example: 80
+                  not_found_count:
+                    type: integer
+                    description: Jikan APIで見つからなかったアニメ数
+                    example: 10
+                  failure_count:
+                    type: integer
+                    description: 失敗したアニメ数
+                    example: 5
+                  message:
+                    type: string
+                    example: "released_on同期完了: 成功 80件, 未検出 10件, 失敗 5件"
+        "401":
+          description: 認証エラー
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: サーバーエラー
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /admin/cache/clear:
+    post:
+      summary: キャッシュクリア
+      description: アニメ関連のキャッシュ（フィルター情報、人気検索、今期アニメ等）をクリアします
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: キャッシュクリア成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Cache cleared successfully"
+        "401":
+          description: 認証エラー
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /health:
     get:
       summary: ヘルスチェック
@@ -2023,3 +2336,36 @@ components:
           format: date-time
           description: 検索日時
           example: "2025-01-15T12:30:00Z"
+    Session:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: セッションID
+          example: 1
+        user_agent:
+          type: string
+          nullable: true
+          description: ユーザーエージェント
+          example: "Mozilla/5.0 ..."
+        ip_address:
+          type: string
+          nullable: true
+          description: IPアドレス
+          example: "192.168.1.1"
+        created_at:
+          type: string
+          format: date-time
+          description: セッション作成日時
+        last_activity_at:
+          type: string
+          format: date-time
+          description: 最終アクティビティ日時
+        expires_at:
+          type: string
+          format: date-time
+          description: セッション有効期限
+        is_current:
+          type: boolean
+          description: 現在のセッションかどうか
+          example: true
