@@ -34,7 +34,7 @@ jobs:
         uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy Backend to Fly.io Production
-        run: flyctl deploy -c fly.toml -a myanimelogs-production --ha=false
+        run: flyctl deploy -c fly.toml -a myanimelogs-production --ha=false --wait-timeout=600 --depot=false
         working-directory: ./backend
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_PRODUCTION }}
@@ -129,7 +129,7 @@ jobs:
 
       - name: Deploy to Cloudflare Pages (Production)
         working-directory: ./frontend
-        run: npx wrangler@3 pages deploy out --project-name=myanimelogs --branch=main
+        run: npx wrangler@3 pages deploy out --project-name=myanimelogs --branch=main --commit-message="Deploy production $(date -u +%Y-%m-%dT%H:%M:%SZ)"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

@@ -1435,3 +1435,53 @@ Authorization: Bearer {{login.response.body.access_token}}
 #    - フィルター条件（JSON形式）
 #    - 検索結果件数
 #    - 検索日時
+
+
+### ===== アニメステータス同期API =====
+
+### 181. 管理者API - 全アニメのステータスを同期
+# TMDBからステータスを取得し、シーズン情報で補正して更新
+# 過去シーズンの作品は "Returning Series" でも "finished" に補正される
+POST {{baseUrl}}/api/admin/sync/statuses
+Content-Type: {{contentType}}
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 182. 管理者API - ステータス同期（認証なし）
+# エラー: 401 Unauthorized
+POST {{baseUrl}}/api/admin/sync/statuses
+Content-Type: {{contentType}}
+
+### ===== 放送開始日同期API =====
+
+### 183. 管理者API - 全アニメの放送開始日を同期
+# Jikan APIから放送開始日を取得して更新
+POST {{baseUrl}}/api/admin/sync/released-on
+Content-Type: {{contentType}}
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 184. 管理者API - 放送開始日同期（認証なし）
+# エラー: 401 Unauthorized
+POST {{baseUrl}}/api/admin/sync/released-on
+Content-Type: {{contentType}}
+
+### ===== ステータス同期統合テストシナリオ =====
+
+### 185. シナリオ1: ステータス同期実行
+# 全アニメのステータスをTMDB + シーズン情報で更新
+POST {{baseUrl}}/api/admin/sync/statuses
+Content-Type: {{contentType}}
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 186. シナリオ2: 同期後のアニメ詳細確認
+# 過去シーズンの作品が "finished" になっていることを確認
+GET {{baseUrl}}/api/animes/1
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 187. シナリオ3: ステータスフィルターで検索
+# 放送中のアニメのみ取得
+GET {{baseUrl}}/api/search/advanced?status=airing
+Authorization: Bearer {{login.response.body.access_token}}
+
+### 188. シナリオ4: 完結済みアニメの検索
+GET {{baseUrl}}/api/search/advanced?status=finished
+Authorization: Bearer {{login.response.body.access_token}}
