@@ -1,6 +1,7 @@
 package database
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
@@ -47,7 +48,10 @@ func NewWithConfig(databaseURL string, config ConnectionConfig) (*DB, error) {
 		db.SetConnMaxLifetime(time.Duration(config.ConnMaxLifetime) * time.Minute)
 		db.SetConnMaxIdleTime(time.Duration(config.ConnMaxIdleTime) * time.Minute)
 
-		err = db.Ping()
+		// Ping with timeout to avoid hanging on unreachable databases
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		err = db.PingContext(ctx)
+		cancel()
 		if err == nil {
 			// Connection successful
 			log.Println("Successfully connected to the database with connection pool configured.")
@@ -57,6 +61,7 @@ func NewWithConfig(databaseURL string, config ConnectionConfig) (*DB, error) {
 		}
 
 		log.Printf("Failed to ping database (attempt %d/%d): %v. Retrying in 5 seconds...", i+1, maxRetries, err)
+		db.Close()
 		time.Sleep(5 * time.Second)
 	}
 
