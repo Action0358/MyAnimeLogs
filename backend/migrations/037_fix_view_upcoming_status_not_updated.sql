@@ -23,7 +23,7 @@ SELECT
             CASE
                 WHEN CAST(SUBSTRING(season FROM '^\d{4}') AS int) > EXTRACT(YEAR FROM CURRENT_DATE) THEN 'upcoming'
                 WHEN CAST(SUBSTRING(season FROM '^\d{4}') AS int) < EXTRACT(YEAR FROM CURRENT_DATE) THEN
-                    COALESCE(NULLIF(status, 'not_yet_aired'), 'finished')
+                    COALESCE(NULLIF(NULLIF(status, 'not_yet_aired'), 'upcoming'), 'finished')
                 WHEN season ~ '-winter$' THEN
                     CASE
                         WHEN EXTRACT(MONTH FROM CURRENT_DATE) <= 3 THEN COALESCE(NULLIF(NULLIF(status, 'not_yet_aired'), 'upcoming'), 'airing')
