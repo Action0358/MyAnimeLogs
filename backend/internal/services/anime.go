@@ -1023,10 +1023,11 @@ func (s *AnimeService) SyncAnimeStatus(animeID int, clearCache bool) error {
 		details, err := s.tmdbClient.GetTVDetails(ctx, *anime.SeriesTMDBID, "ja-JP")
 		if err == nil {
 			tmdbStatus := mapTMDBStatus(details.Status)
+			now := time.Now().UTC()
 
 			// シーズン情報で補正: 過去シーズンの作品は "finished"
-			// TMDBが "airing" でも、この作品のシーズンが過去なら完結済み
-			if tmdbStatus == constants.AnimeStatusAiring.String() && isPastSeason(seasonStr) {
+			// TMDBが "airing" や "upcoming" でも、この作品のシーズンが過去なら完結済み
+			if (tmdbStatus == constants.AnimeStatusAiring.String() || tmdbStatus == constants.AnimeStatusUpcoming.String()) && isPastSeasonAt(seasonStr, now) {
 				status = constants.AnimeStatusFinished.String()
 			} else {
 				status = tmdbStatus
@@ -1037,7 +1038,7 @@ func (s *AnimeService) SyncAnimeStatus(animeID int, clearCache bool) error {
 				// UTCでパースして比較（サーバーのタイムゾーンに依存しないようにする）
 				releaseDate, parseErr := time.ParseInLocation("2006-01-02", *releasedOnPtr, time.UTC)
 				if parseErr == nil {
-					today := time.Now().UTC().Truncate(24 * time.Hour)
+					today := now.Truncate(24 * time.Hour)
 					if releaseDate.After(today) {
 						status = constants.AnimeStatusUpcoming.String()
 					}

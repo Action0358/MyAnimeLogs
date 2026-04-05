@@ -187,7 +187,10 @@ func TestStatusCorrectionForPastSeason(t *testing.T) {
 		{"未来シーズン + Returning Series → airing", "Returning Series", "2099-spring", constants.AnimeStatusAiring.String()},
 		{"過去シーズン + Ended → finished", "Ended", "2020-spring", constants.AnimeStatusFinished.String()},
 		{"過去シーズン + In Production → finished", "In Production", "2020-spring", constants.AnimeStatusFinished.String()},
+		{"過去シーズン + Planned → finished", "Planned", "2020-spring", constants.AnimeStatusFinished.String()},
+		{"未来シーズン + Planned → upcoming", "Planned", "2099-spring", constants.AnimeStatusUpcoming.String()},
 		{"シーズン情報なし + Returning Series → airing（補正しない）", "Returning Series", "", constants.AnimeStatusAiring.String()},
+		{"シーズン情報なし + Planned → upcoming（補正しない）", "Planned", "", constants.AnimeStatusUpcoming.String()},
 		{"現在シーズン + Returning Series → airing", "Returning Series", "2025-spring", constants.AnimeStatusAiring.String()},
 	}
 
@@ -196,7 +199,7 @@ func TestStatusCorrectionForPastSeason(t *testing.T) {
 			tmdbStatus := mapTMDBStatus(tt.tmdbStatus)
 
 			var status string
-			if tmdbStatus == constants.AnimeStatusAiring.String() && isPastSeasonAt(tt.season, fixedNow) {
+			if (tmdbStatus == constants.AnimeStatusAiring.String() || tmdbStatus == constants.AnimeStatusUpcoming.String()) && isPastSeasonAt(tt.season, fixedNow) {
 				status = constants.AnimeStatusFinished.String()
 			} else {
 				status = tmdbStatus
