@@ -1,5 +1,17 @@
 import { getAnimeStatusLabel, getAnimeBroadcastStatusConfig } from '../animeStatus'
 
+// 固定時刻: 2025年5月15日 12:00:00 UTC
+const FIXED_NOW = new Date('2025-05-15T12:00:00Z')
+
+beforeEach(() => {
+  jest.useFakeTimers()
+  jest.setSystemTime(FIXED_NOW)
+})
+
+afterEach(() => {
+  jest.useRealTimers()
+})
+
 describe('getAnimeStatusLabel', () => {
   it('should return null label for null/undefined status', () => {
     expect(getAnimeStatusLabel(null)).toEqual({ label: null, className: '' })
@@ -17,11 +29,7 @@ describe('getAnimeStatusLabel', () => {
   })
 
   it('should return "放送予定" when released_on is in the future', () => {
-    const futureDate = new Date()
-    futureDate.setDate(futureDate.getDate() + 30)
-    const futureDateStr = futureDate.toISOString().split('T')[0]
-
-    const result = getAnimeStatusLabel('airing', futureDateStr)
+    const result = getAnimeStatusLabel('airing', '2025-06-15')
     expect(result.label).toBe('放送予定')
   })
 
@@ -31,12 +39,13 @@ describe('getAnimeStatusLabel', () => {
   })
 
   it('should return "放送予定" when released_on is in the future regardless of status', () => {
-    const futureDate = new Date()
-    futureDate.setDate(futureDate.getDate() + 30)
-    const futureDateStr = futureDate.toISOString().split('T')[0]
-
-    const result = getAnimeStatusLabel('finished', futureDateStr)
+    const result = getAnimeStatusLabel('finished', '2025-06-15')
     expect(result.label).toBe('放送予定')
+  })
+
+  it('should return "放送中" when released_on is today', () => {
+    const result = getAnimeStatusLabel('airing', '2025-05-15')
+    expect(result.label).toBe('放送中')
   })
 })
 
