@@ -15,6 +15,7 @@ primary_region = 'nrt'
   # and database access is controlled by DATABASE_URL credentials, not OS user.
   # This is a safe configuration for database migrations.
   release_command = '/app/migrate'
+  release_command_timeout = '300s'
 
 [http_service]
   internal_port = 8080

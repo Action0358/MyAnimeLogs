@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"os/signal"
 	"syscall"
@@ -14,10 +16,11 @@ import (
 )
 
 func main() {
-	log.Println("Migration process starting...")
+	log.Println("=== Migration process starting ===")
+	log.Printf("PID: %d", os.Getpid())
 
-	// 全体タイムアウト: 5分でマイグレーションが完了しなければ強制終了
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	// 全体タイムアウト: 3分でマイグレーションが完了しなければ強制終了
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 
 	// シグナルハンドリング
@@ -32,9 +35,24 @@ func main() {
 		}
 	}()
 
+	// 強制終了タイマー: 4分後にos.Exit（コンテキストキャンセルが効かない場合の保険）
+	go func() {
+		time.Sleep(4 * time.Minute)
+		log.Fatal("FATAL: Hard timeout reached (4 min). Force exiting.")
+	}()
+
 	// 設定を読み込む
 	cfg := config.New()
 	log.Printf("Environment: %s", cfg.Environment)
+
+	// DATABASE_URLのホスト情報をログ出力（パスワードは除く）
+	if dbURL := os.Getenv("DATABASE_URL"); dbURL != "" {
+		if parsed, err := url.Parse(dbURL); err == nil {
+			log.Printf("Database host: %s, port: %s", parsed.Hostname(), parsed.Port())
+		}
+	} else {
+		log.Println("DATABASE_URL not set, using fallback config")
+	}
 
 	// データベースに接続
 	log.Println("Connecting to database...")
@@ -44,7 +62,7 @@ func main() {
 		log.Fatalf("Failed to connect to database (took %v): %v", time.Since(connectStart), err)
 	}
 	defer db.Close()
-	log.Printf("Database connected (took %v)", time.Since(connectStart))
+	log.Printf("Database connected successfully (took %v)", time.Since(connectStart))
 
 	// コンテキストがキャンセルされていないか確認
 	if ctx.Err() != nil {
@@ -54,11 +72,18 @@ func main() {
 	// Migratorを作成
 	migrator := migration.NewMigrator(db, "migrations")
 
+	// 実行済みマイグレーションを確認
+	executed, err := migrator.GetExecutedMigrations()
+	if err != nil {
+		log.Printf("Warning: could not get executed migrations: %v", err)
+	} else {
+		log.Printf("Already executed migrations: %d", len(executed))
+	}
+
 	// マイグレーションを実行
 	log.Println("Running migrations...")
 	migrateStart := time.Now()
 
-	// マイグレーションをgoroutineで実行し、タイムアウトを監視
 	doneCh := make(chan error, 1)
 	go func() {
 		doneCh <- migrator.RunMigrations()
@@ -70,8 +95,9 @@ func main() {
 			log.Fatalf("Failed to run migrations (took %v): %v", time.Since(migrateStart), err)
 		}
 	case <-ctx.Done():
-		log.Fatalf("Migration timed out after %v", time.Since(migrateStart))
+		log.Fatalf("Migration timed out after %v (context: %v)", time.Since(migrateStart), ctx.Err())
 	}
 
-	log.Printf("All migrations completed successfully! (took %v)", time.Since(migrateStart))
+	log.Printf("=== All migrations completed successfully! (took %v) ===", time.Since(migrateStart))
+	fmt.Println("Migration done.") // stdoutにも出力（Fly.ioのログ取得用）
 }
