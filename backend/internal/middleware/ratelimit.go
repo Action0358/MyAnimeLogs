@@ -5,8 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"myanimelogs/internal/common"
+
+	"github.com/gin-gonic/gin"
 )
 
 type RateLimiter struct {
@@ -14,14 +15,63 @@ type RateLimiter struct {
 	mutex    sync.RWMutex
 	limit    int
 	window   time.Duration
+	stopCh   chan struct{}
 }
 
 func NewRateLimiter(limit int, window time.Duration) *RateLimiter {
-	return &RateLimiter{
+	if window <= 0 {
+		window = time.Second
+	}
+	rl := &RateLimiter{
 		requests: make(map[string][]time.Time),
 		limit:    limit,
 		window:   window,
+		stopCh:   make(chan struct{}),
 	}
+	go rl.cleanup()
+	return rl
+}
+
+// cleanup は定期的に期限切れのキーをマップから削除してメモリリークを防ぐ
+func (rl *RateLimiter) cleanup() {
+	ticker := time.NewTicker(rl.window * 2)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			rl.mutex.Lock()
+			now := time.Now()
+			windowStart := now.Add(-rl.window)
+			for key, requests := range rl.requests {
+				valid := requests[:0]
+				for _, t := range requests {
+					if t.After(windowStart) {
+						valid = append(valid, t)
+					}
+				}
+				if len(valid) == 0 {
+					delete(rl.requests, key)
+				} else {
+					rl.requests[key] = valid
+				}
+			}
+			rl.mutex.Unlock()
+		case <-rl.stopCh:
+			return
+		}
+	}
+}
+
+// Stop はクリーンアップgoroutineを停止する
+func (rl *RateLimiter) Stop() {
+	close(rl.stopCh)
+}
+
+// Len はテスト用: 現在追跡中のキー数を返す
+func (rl *RateLimiter) Len() int {
+	rl.mutex.RLock()
+	defer rl.mutex.RUnlock()
+	return len(rl.requests)
 }
 
 func (rl *RateLimiter) Allow(key string) bool {
