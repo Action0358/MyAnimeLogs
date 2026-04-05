@@ -524,7 +524,7 @@ func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int
 	}
 
 	if params.Status != "" {
-		whereClauses = append(whereClauses, fmt.Sprintf("status = $%d", argIndex))
+		whereClauses = append(whereClauses, fmt.Sprintf("computed_status = $%d", argIndex))
 		args = append(args, params.Status)
 		argIndex++
 	}
