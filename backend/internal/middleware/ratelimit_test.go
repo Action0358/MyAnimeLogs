@@ -74,3 +74,15 @@ func TestRateLimiter_Cleanup_RemovesExpiredKeys(t *testing.T) {
 	// クリーンアップ後、期限切れキーが削除されている
 	assert.Equal(t, 0, rl.Len(), "期限切れのキーがクリーンアップされていない")
 }
+
+func TestNewRateLimiter_ZeroWindow(t *testing.T) {
+	rl := NewRateLimiter(10, 0)
+	defer rl.Stop()
+	assert.Equal(t, time.Second, rl.window, "windowが0の場合はデフォルト1秒になるべき")
+}
+
+func TestNewRateLimiter_NegativeWindow(t *testing.T) {
+	rl := NewRateLimiter(10, -time.Minute)
+	defer rl.Stop()
+	assert.Equal(t, time.Second, rl.window, "windowが負の場合はデフォルト1秒になるべき")
+}

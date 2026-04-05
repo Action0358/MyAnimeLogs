@@ -19,6 +19,9 @@ type RateLimiter struct {
 }
 
 func NewRateLimiter(limit int, window time.Duration) *RateLimiter {
+	if window <= 0 {
+		window = time.Second
+	}
 	rl := &RateLimiter{
 		requests: make(map[string][]time.Time),
 		limit:    limit,
