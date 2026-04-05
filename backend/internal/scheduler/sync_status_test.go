@@ -79,6 +79,6 @@ func TestSyncStatusTracker_GetStatus_IncludesSeasons(t *testing.T) {
 	now := time.Date(2025, 4, 15, 0, 0, 0, 0, time.UTC)
 
 	status := tracker.GetStatus(now)
-	assert.NotEmpty(t, status.CurrentSeason)
-	assert.NotEmpty(t, status.PreviousSeason)
+	assert.Equal(t, "2025-spring", status.CurrentSeason)
+	assert.Equal(t, "2025-winter", status.PreviousSeason)
 }
