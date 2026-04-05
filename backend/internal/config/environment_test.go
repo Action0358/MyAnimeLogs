@@ -1,7 +1,6 @@
 package config
 
 import (
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -22,12 +21,7 @@ func TestGetEnvironment(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.envValue != "" {
-				os.Setenv("ENVIRONMENT", tt.envValue)
-				defer os.Unsetenv("ENVIRONMENT")
-			} else {
-				os.Unsetenv("ENVIRONMENT")
-			}
+			t.Setenv("ENVIRONMENT", tt.envValue)
 			result := GetEnvironment()
 			assert.Equal(t, tt.expected, result)
 		})
