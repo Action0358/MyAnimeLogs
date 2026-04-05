@@ -128,7 +128,7 @@ jobs:
 
       - name: Deploy to Cloudflare Pages (Staging)
         working-directory: ./frontend
-        run: npx wrangler@3 pages deploy out --project-name=myanimelogs-staging --branch=staging
+        run: npx wrangler@3 pages deploy out --project-name=myanimelogs-staging --branch=staging --commit-message="Deploy staging $(date -u +%Y-%m-%dT%H:%M:%SZ)"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
