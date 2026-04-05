@@ -4917,13 +4917,12 @@ func determineStatusBySeason(seasonName string, releasedOn *string) string {
 }
 
 // isPastSeason はシーズン文字列が過去のシーズンかどうかを判定する
+// determineStatusBySeason を再利用して正確な時系列比較を行う
 func isPastSeason(season string) bool {
-	currentSeason := getSeasonStringFromTime(time.Now())
-	if season == "" || currentSeason == "" {
+	if season == "" {
 		return false
 	}
-	// 文字列比較で判定可能（"2024-autumn" < "2026-spring"）
-	return season < currentSeason
+	return determineStatusBySeason(season, nil) == constants.AnimeStatusFinished.String()
 }
 
 // mapTMDBStatus はTMDBのステータス文字列を内部の放送状態文字列にマッピングします。

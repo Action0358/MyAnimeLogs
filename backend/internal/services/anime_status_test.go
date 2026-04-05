@@ -1,6 +1,7 @@
 package services
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -148,6 +149,40 @@ func TestIsPastSeason_SeasonComparisonLogic(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := isPastSeason(tt.season)
 			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+// TestIsPastSeason_SameYearSeasonOrder は同じ年内のシーズン順序が正しく判定されることを検証する
+// アルファベット順（autumn < spring < summer < winter）と時系列順（winter < spring < summer < autumn）が
+// 異なるため、文字列比較ではなく正確な時系列比較が必要
+func TestIsPastSeason_SameYearSeasonOrder(t *testing.T) {
+	now := time.Now()
+	currentYear := now.Year()
+	currentMonth := int(now.Month())
+
+	// 現在の月から各シーズンが過去かどうかを正確に判定
+	type seasonInfo struct {
+		name       string
+		startMonth int
+		endMonth   int
+	}
+	seasons := []seasonInfo{
+		{"winter", 1, 3},
+		{"spring", 4, 6},
+		{"summer", 7, 9},
+		{"autumn", 10, 12},
+	}
+
+	for _, s := range seasons {
+		seasonStr := fmt.Sprintf("%d-%s", currentYear, s.name)
+		// 現在月がシーズン終了月より後なら過去シーズン
+		expectedPast := currentMonth > s.endMonth
+
+		t.Run(fmt.Sprintf("今年の%sシーズン", s.name), func(t *testing.T) {
+			result := isPastSeason(seasonStr)
+			assert.Equal(t, expectedPast, result,
+				"season=%s, currentMonth=%d, endMonth=%d", seasonStr, currentMonth, s.endMonth)
 		})
 	}
 }
