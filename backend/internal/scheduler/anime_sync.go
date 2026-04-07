@@ -164,7 +164,7 @@ type AnimeService interface {
 	SyncEpisodeDetailsForAllAnimes() (int, int, []string, error)
 	SyncCoverImagesForAllAnimes() (int, int, []string, error)
 	SyncReleasedOnForCurrentSeason(ctx context.Context, currentSeason, previousSeason string) (int, int, error)
-	SyncAllAnimeStatuses() (int, int, error)
+	SyncAllAnimeStatuses(ctx context.Context) (int, int, error)
 	ClearAnimeCache() // キャッシュクリア
 }
 
@@ -370,7 +370,7 @@ func (s *AnimeSyncScheduler) syncAllSeasons(nextSyncTime time.Time) {
 
 	// アニメステータス同期（TMDB + シーズン情報で補正）
 	s.logger.Info("Syncing anime statuses (initial sync)")
-	statusSuccess, statusFailure, statusErr := s.animeService.SyncAllAnimeStatuses()
+	statusSuccess, statusFailure, statusErr := s.animeService.SyncAllAnimeStatuses(ctx)
 	if statusErr != nil {
 		errors = append(errors, fmt.Sprintf("Status sync: %s", statusErr.Error()))
 	} else {
@@ -499,7 +499,7 @@ func (s *AnimeSyncScheduler) syncCurrentSeasonAnimes() {
 	// Step 1.6: アニメステータス同期（TMDB + シーズン情報で補正）
 	// 過去シーズンの作品を finished に、released_on が未来の作品を upcoming に更新
 	s.logger.Info("Syncing anime statuses")
-	statusSuccess, statusFailure, statusErr := s.animeService.SyncAllAnimeStatuses()
+	statusSuccess, statusFailure, statusErr := s.animeService.SyncAllAnimeStatuses(ctx)
 	if statusErr != nil {
 		errors = append(errors, fmt.Sprintf("Status sync: %s", statusErr.Error()))
 	} else {

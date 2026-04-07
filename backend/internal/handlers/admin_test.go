@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -165,7 +166,7 @@ func (m *MockAnimeService) ClearAnimeCache() {
 	m.Called()
 }
 
-func (m *MockAnimeService) SyncAllAnimeStatuses() (int, int, error) {
+func (m *MockAnimeService) SyncAllAnimeStatuses(ctx context.Context) (int, int, error) {
 	args := m.Called()
 	return args.Int(0), args.Int(1), args.Error(2)
 }

@@ -257,7 +257,7 @@ func run(logger *common.Logger, env string) error {
 
 	// Step 6: Sync anime statuses (airing/finished/upcoming)
 	logger.Info("Step 6/6: Syncing anime statuses...")
-	statusSuccess, statusFailure, err := animeService.SyncAllAnimeStatuses()
+	statusSuccess, statusFailure, err := animeService.SyncAllAnimeStatuses(context.Background())
 	if err != nil {
 		logger.Warn("Failed to sync anime statuses", "error", err)
 	} else {

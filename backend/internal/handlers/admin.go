@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -19,7 +20,7 @@ type AdminAnimeService interface {
 	GetEpisodeSyncStatus(animeID int) (*models.EpisodeSyncStatus, error)
 	SyncGenresForAllAnimes() (int, int, []string, error)
 	ClearAnimeCache() // キャッシュクリア
-	SyncAllAnimeStatuses() (int, int, error)
+	SyncAllAnimeStatuses(ctx context.Context) (int, int, error)
 	SyncReleasedOnFromJikan() (int, int, int, error)
 }
 
@@ -245,7 +246,7 @@ func (h *AdminHandler) ClearCache(c *gin.Context) {
 func (h *AdminHandler) SyncAnimeStatuses(c *gin.Context) {
 	h.logger.Info("Starting anime status sync via admin API")
 
-	successCount, failureCount, err := h.animeService.SyncAllAnimeStatuses()
+	successCount, failureCount, err := h.animeService.SyncAllAnimeStatuses(c.Request.Context())
 	if err != nil {
 		h.logger.Error("Failed to sync anime statuses", "error", err)
 		h.response.InternalServerError(c, "ステータス同期に失敗しました")
