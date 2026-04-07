@@ -1058,7 +1058,7 @@ func (s *AnimeService) SyncAnimeStatus(ctx context.Context, animeID int, clearCa
 
 	// 既存のステータスと比較して変更がなければ更新しない
 	var currentStatus sql.NullString
-	err = s.db.QueryRow("SELECT status FROM animes WHERE id = $1", animeID).Scan(&currentStatus)
+	err = s.db.QueryRowContext(ctx, "SELECT status FROM animes WHERE id = $1", animeID).Scan(&currentStatus)
 	if err != nil && err != sql.ErrNoRows {
 		return fmt.Errorf("failed to get current status for anime %d: %w", animeID, err)
 	}
@@ -1069,7 +1069,7 @@ func (s *AnimeService) SyncAnimeStatus(ctx context.Context, animeID int, clearCa
 	}
 
 	// ステータスを更新
-	_, err = s.db.Exec(`
+	_, err = s.db.ExecContext(ctx, `
 		UPDATE animes
 		SET status = $1, updated_at = CURRENT_TIMESTAMP
 		WHERE id = $2
