@@ -1137,13 +1137,13 @@ func (s *AnimeService) SyncAllAnimeStatuses(ctx context.Context) (int, int, erro
 	for i, animeID := range animeIDs {
 		// コンテキストキャンセルチェック
 		if ctx.Err() != nil {
-			s.logger.Warn("Status sync cancelled", "progress", fmt.Sprintf("%d/%d", i, totalAnimes), "reason", ctx.Err())
+			s.logger.Warn("Status sync cancelled", "progress", fmt.Sprintf("%d/%d", i+1, totalAnimes), "reason", ctx.Err())
 			return successCount, failureCount, ctx.Err()
 		}
 
 		// 進行状況のロギング
 		if i > 0 && i%50 == 0 { // 50件ごとにログ出力
-			s.logger.Info("Processing anime status sync", "progress", fmt.Sprintf("%d/%d", i, totalAnimes))
+			s.logger.Info("Processing anime status sync", "progress", fmt.Sprintf("%d/%d", i+1, totalAnimes))
 		}
 
 		// バッチ処理内では個別のキャッシュクリアを無効化 (false)
