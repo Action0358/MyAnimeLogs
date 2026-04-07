@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -46,7 +47,7 @@ func (m *MockAdminAnimeServiceForGenres) ClearAnimeCache() {
 	m.Called()
 }
 
-func (m *MockAdminAnimeServiceForGenres) SyncAllAnimeStatuses() (int, int, error) {
+func (m *MockAdminAnimeServiceForGenres) SyncAllAnimeStatuses(ctx context.Context) (int, int, error) {
 	args := m.Called()
 	return args.Int(0), args.Int(1), args.Error(2)
 }
