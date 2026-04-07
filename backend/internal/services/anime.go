@@ -979,15 +979,15 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 
 // SyncAnimeStatus - TMDBからステータスを取得して更新
 func (s *AnimeService) SyncAnimeStatus(ctx context.Context, animeID int, clearCache bool) error {
-	// アニメ情報を取得（released_on, mediaも含める）
+	// アニメ情報を取得（status, released_on, mediaも含める）
 	var anime models.Anime
-	var releasedOn, media sql.NullString
+	var currentStatus, releasedOn, media sql.NullString
 	var seriesTMDBID sql.NullInt64
 	err := s.db.QueryRowContext(ctx, `
-		SELECT id, series_tmdb_id, season, released_on, media
+		SELECT id, series_tmdb_id, season, released_on, media, status
 		FROM animes
 		WHERE id = $1
-	`, animeID).Scan(&anime.ID, &seriesTMDBID, &anime.Season, &releasedOn, &media)
+	`, animeID).Scan(&anime.ID, &seriesTMDBID, &anime.Season, &releasedOn, &media, &currentStatus)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -1057,19 +1057,13 @@ func (s *AnimeService) SyncAnimeStatus(ctx context.Context, animeID int, clearCa
 	}
 
 	// 既存のステータスと比較して変更がなければ更新しない
-	var currentStatus sql.NullString
-	err = s.db.QueryRow("SELECT status FROM animes WHERE id = $1", animeID).Scan(&currentStatus)
-	if err != nil && err != sql.ErrNoRows {
-		return fmt.Errorf("failed to get current status for anime %d: %w", animeID, err)
-	}
-
 	if currentStatus.Valid && currentStatus.String == status {
 		// ステータスに変更がなければ何もしない
 		return nil
 	}
 
 	// ステータスを更新
-	_, err = s.db.Exec(`
+	_, err = s.db.ExecContext(ctx, `
 		UPDATE animes
 		SET status = $1, updated_at = CURRENT_TIMESTAMP
 		WHERE id = $2
