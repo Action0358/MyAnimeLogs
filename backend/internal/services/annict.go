@@ -437,7 +437,7 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork, existingAnime
 	if c.animeService != nil {
 		animeID := anime.ID
 		c.animeService.enqueueBackgroundTask(func() {
-			err := c.animeService.SyncAnimeStatus(animeID, true)
+			err := c.animeService.SyncAnimeStatus(context.Background(), animeID, true)
 			if err != nil {
 				c.logger.Error("Failed to sync anime status after Annict sync",
 					"anime_id", animeID,

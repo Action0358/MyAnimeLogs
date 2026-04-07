@@ -978,12 +978,12 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 }
 
 // SyncAnimeStatus - TMDBからステータスを取得して更新
-func (s *AnimeService) SyncAnimeStatus(animeID int, clearCache bool) error {
+func (s *AnimeService) SyncAnimeStatus(ctx context.Context, animeID int, clearCache bool) error {
 	// アニメ情報を取得（released_on, mediaも含める）
 	var anime models.Anime
 	var releasedOn, media sql.NullString
 	var seriesTMDBID sql.NullInt64
-	err := s.db.QueryRow(`
+	err := s.db.QueryRowContext(ctx, `
 		SELECT id, series_tmdb_id, season, released_on, media
 		FROM animes
 		WHERE id = $1
@@ -1019,7 +1019,6 @@ func (s *AnimeService) SyncAnimeStatus(animeID int, clearCache bool) error {
 		// 映画はreleased_on + シーズンベースで判定
 		status = determineStatusBySeason(seasonStr, releasedOnPtr)
 	} else if anime.SeriesTMDBID != nil && s.tmdbClient != nil && s.tmdbClient.IsEnabled() {
-		ctx := context.Background()
 		details, err := s.tmdbClient.GetTVDetails(ctx, *anime.SeriesTMDBID, "ja-JP")
 		if err == nil {
 			tmdbStatus := mapTMDBStatus(details.Status)
@@ -1093,7 +1092,7 @@ func (s *AnimeService) SyncAnimeStatus(animeID int, clearCache bool) error {
 func (s *AnimeService) SyncAllAnimeStatuses(ctx context.Context) (int, int, error) {
 	// 差分フィルタ: 放送中・未放送・ステータス未設定の作品のみ対象
 	// 完了作品はステータスが変わらないため除外
-	rows, err := s.db.Query(`
+	rows, err := s.db.QueryContext(ctx, `
         SELECT id, season FROM animes
         WHERE (series_tmdb_id IS NOT NULL OR season IS NOT NULL)
         AND (
@@ -1147,7 +1146,7 @@ func (s *AnimeService) SyncAllAnimeStatuses(ctx context.Context) (int, int, erro
 		}
 
 		// バッチ処理内では個別のキャッシュクリアを無効化 (false)
-		if err := s.SyncAnimeStatus(animeID, false); err != nil {
+		if err := s.SyncAnimeStatus(ctx, animeID, false); err != nil {
 			s.logger.Warn("Failed to sync anime status", "anime_id", animeID, "error", err)
 			failureCount++
 		} else {
@@ -4538,7 +4537,7 @@ func (s *AnimeService) SyncReleasedOnForCurrentSeason(ctx context.Context, curre
 			"released_on", releasedOn)
 
 		// released_on設定後にステータスを再判定
-		if syncErr := s.SyncAnimeStatus(anime.ID, false); syncErr != nil {
+		if syncErr := s.SyncAnimeStatus(ctx, anime.ID, false); syncErr != nil {
 			s.logger.Warn("Failed to re-evaluate status after released_on update",
 				"anime_id", anime.ID, "error", syncErr)
 		}
