@@ -979,15 +979,14 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 
 // SyncAnimeStatus - TMDBからステータスを取得して更新
 func (s *AnimeService) SyncAnimeStatus(ctx context.Context, animeID int, clearCache bool) error {
-	// アニメ情報を取得（status, released_on, mediaも含める）
-	var anime models.Anime
-	var currentStatus, releasedOn, media sql.NullString
-	var seriesTMDBID sql.NullInt64
+	// アニメ情報を取得（status, season, released_onを含める）
+	var currentStatus, releasedOn sql.NullString
+	var season *string
 	err := s.db.QueryRowContext(ctx, `
-		SELECT id, series_tmdb_id, season, released_on, media, status
+		SELECT season, released_on, status
 		FROM animes
 		WHERE id = $1
-	`, animeID).Scan(&anime.ID, &seriesTMDBID, &anime.Season, &releasedOn, &media, &currentStatus)
+	`, animeID).Scan(&season, &releasedOn, &currentStatus)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -996,69 +995,16 @@ func (s *AnimeService) SyncAnimeStatus(ctx context.Context, animeID int, clearCa
 		return fmt.Errorf("failed to get anime for status sync: %w", err)
 	}
 
-	// NullableフィールドをGoポインタに変換
-	if seriesTMDBID.Valid {
-		id := int(seriesTMDBID.Int64)
-		anime.SeriesTMDBID = &id
-	}
 	var releasedOnPtr *string
 	if releasedOn.Valid {
 		releasedOnPtr = &releasedOn.String
 	}
 
-	var status string
-	var seasonStr string
-	if anime.Season != nil {
-		seasonStr = *anime.Season
-	}
-
-	// TMDBからステータスを取得
-	// 映画（movie）の場合はTMDB TV APIが使えないため、released_onベースで判定
-	isMovie := media.Valid && media.String == "movie"
-	if isMovie {
-		// 映画はreleased_on + シーズンベースで判定
-		status = determineStatusBySeason(seasonStr, releasedOnPtr)
-	} else if anime.SeriesTMDBID != nil && s.tmdbClient != nil && s.tmdbClient.IsEnabled() {
-		details, err := s.tmdbClient.GetTVDetails(ctx, *anime.SeriesTMDBID, "ja-JP")
-		if err == nil {
-			tmdbStatus := mapTMDBStatus(details.Status)
-			now := time.Now().UTC()
-
-			// シーズン情報で補正: 過去シーズンの作品は "finished"
-			// TMDBが "airing" や "upcoming" でも、この作品のシーズンが過去なら完結済み
-			if (tmdbStatus == constants.AnimeStatusAiring.String() || tmdbStatus == constants.AnimeStatusUpcoming.String()) && isPastSeasonAt(seasonStr, now) {
-				status = constants.AnimeStatusFinished.String()
-			} else {
-				status = tmdbStatus
-			}
-
-			// released_onが未来ならupcomingに上書き（既存ロジック維持）
-			if releasedOnPtr != nil && *releasedOnPtr != "" {
-				// UTCでパースして比較（サーバーのタイムゾーンに依存しないようにする）
-				releaseDate, parseErr := time.ParseInLocation("2006-01-02", *releasedOnPtr, time.UTC)
-				if parseErr == nil {
-					today := now.Truncate(24 * time.Hour)
-					if releaseDate.After(today) {
-						status = constants.AnimeStatusUpcoming.String()
-					}
-				}
-			}
-		} else {
-			s.logger.Warn("Failed to get TMDB TV details for status sync, falling back to season-based status",
-				"anime_id", animeID,
-				"series_tmdb_id", *anime.SeriesTMDBID,
-				"error", err)
-			// フォールバック
-			status = determineStatusBySeason(seasonStr, releasedOnPtr)
-		}
-	} else {
-		// TMDB IDがない、またはTMDBクライアントが利用できない場合はシーズンベース
-		status = determineStatusBySeason(seasonStr, releasedOnPtr)
-	}
+	// season + released_on ベースでステータスを判定
+	status := determineStatusBySeason(season, releasedOnPtr)
 
 	// 既存のステータスと比較して変更がなければ更新しない
 	if currentStatus.Valid && currentStatus.String == status {
-		// ステータスに変更がなければ何もしない
 		return nil
 	}
 
@@ -1072,7 +1018,6 @@ func (s *AnimeService) SyncAnimeStatus(ctx context.Context, animeID int, clearCa
 		return fmt.Errorf("failed to update anime status for anime %d to %s: %w", animeID, status, err)
 	}
 
-	// キャッシュをクリア（バッチ処理の場合は最後にまとめてクリアするため false を指定可能）
 	if clearCache {
 		s.ClearAnimeCache()
 	}
@@ -1082,13 +1027,13 @@ func (s *AnimeService) SyncAnimeStatus(ctx context.Context, animeID int, clearCa
 }
 
 // SyncAllAnimeStatuses - 全アニメのステータスを更新
-// 処理に時間がかかるため、バックグラウンドで実行することを推奨
+// season + released_on ベースで判定するため、外部API呼び出しなしで高速に処理可能
 func (s *AnimeService) SyncAllAnimeStatuses(ctx context.Context) (int, int, error) {
 	// 差分フィルタ: 放送中・未放送・ステータス未設定の作品のみ対象
 	// 完了作品はステータスが変わらないため除外
 	rows, err := s.db.QueryContext(ctx, `
-        SELECT id, season FROM animes
-        WHERE (series_tmdb_id IS NOT NULL OR season IS NOT NULL)
+        SELECT id FROM animes
+        WHERE season IS NOT NULL
         AND (
             status IN ($1, $2)
             OR status IS NULL
@@ -1106,9 +1051,8 @@ func (s *AnimeService) SyncAllAnimeStatuses(ctx context.Context) (int, int, erro
 	var animeIDs []int
 	for rows.Next() {
 		var animeID int
-		var season sql.NullString // seasonがNULLの場合もあるのでsql.NullStringで受け取る
-		if err := rows.Scan(&animeID, &season); err != nil {
-			s.logger.Warn("Failed to scan anime ID or season for status sync", "error", err)
+		if err := rows.Scan(&animeID); err != nil {
+			s.logger.Warn("Failed to scan anime ID for status sync", "error", err)
 			failureCount++
 			continue
 		}
@@ -1117,15 +1061,11 @@ func (s *AnimeService) SyncAllAnimeStatuses(ctx context.Context) (int, int, erro
 
 	totalAnimes := len(animeIDs)
 	if totalAnimes == 0 {
-		s.logger.Info("No animes found requiring status sync (all completed or no TMDB/season data).")
+		s.logger.Info("No animes found requiring status sync.")
 		return 0, 0, nil
 	}
 
-	s.logger.Info("Starting status sync for animes (differential mode)", "total_animes", totalAnimes)
-
-	// レート制限対策 (TMDB API呼び出しを考慮)
-	// TMDBの制限は 40 req / 10 sec なので、余裕を持って 250ms (4 req / sec) とする
-	const delay = 250 * time.Millisecond
+	s.logger.Info("Starting status sync for animes", "total_animes", totalAnimes)
 
 	for i, animeID := range animeIDs {
 		// コンテキストキャンセルチェック
@@ -1135,19 +1075,16 @@ func (s *AnimeService) SyncAllAnimeStatuses(ctx context.Context) (int, int, erro
 		}
 
 		// 進行状況のロギング
-		if i > 0 && i%50 == 0 { // 50件ごとにログ出力
+		if i > 0 && i%100 == 0 {
 			s.logger.Info("Processing anime status sync", "progress", fmt.Sprintf("%d/%d", i+1, totalAnimes))
 		}
 
-		// バッチ処理内では個別のキャッシュクリアを無効化 (false)
 		if err := s.SyncAnimeStatus(ctx, animeID, false); err != nil {
 			s.logger.Warn("Failed to sync anime status", "anime_id", animeID, "error", err)
 			failureCount++
 		} else {
 			successCount++
 		}
-
-		time.Sleep(delay)
 	}
 
 	// 全ての更新が完了した後に一度だけキャッシュをクリア
@@ -1155,7 +1092,7 @@ func (s *AnimeService) SyncAllAnimeStatuses(ctx context.Context) (int, int, erro
 		s.ClearAnimeCache()
 	}
 
-	s.logger.Info("Anime status sync completed (differential mode)", "success", successCount, "failure", failureCount)
+	s.logger.Info("Anime status sync completed", "success", successCount, "failure", failureCount)
 	return successCount, failureCount, nil
 }
 
@@ -4846,7 +4783,11 @@ func (s *AnimeService) enrichAnimeWithWatchProviders(animeWithData *models.Anime
 
 // determineStatusBySeason はシーズンと放送開始日を考慮してアニメの放送状態を判定します。
 // TMDBの情報が利用できない場合のフォールバックとして使用されます。
-func determineStatusBySeason(seasonName string, releasedOn *string) string {
+func determineStatusBySeason(season *string, releasedOn *string) string {
+	var seasonName string
+	if season != nil {
+		seasonName = *season
+	}
 	return determineStatusBySeasonAt(seasonName, releasedOn, time.Now().UTC())
 }
 
@@ -4918,33 +4859,5 @@ func determineStatusBySeasonAt(seasonName string, releasedOn *string, now time.T
 	} else {
 		// 過去のシーズン → 完結
 		return constants.AnimeStatusFinished.String()
-	}
-}
-
-// isPastSeason はシーズン文字列が過去のシーズンかどうかを判定する
-// determineStatusBySeason を再利用して正確な時系列比較を行う
-func isPastSeason(season string) bool {
-	return isPastSeasonAt(season, time.Now().UTC())
-}
-
-// isPastSeasonAt はシーズン文字列が指定時刻において過去のシーズンかどうかを判定する
-func isPastSeasonAt(season string, now time.Time) bool {
-	if season == "" {
-		return false
-	}
-	return determineStatusBySeasonAt(season, nil, now) == constants.AnimeStatusFinished.String()
-}
-
-// mapTMDBStatus はTMDBのステータス文字列を内部の放送状態文字列にマッピングします。
-func mapTMDBStatus(tmdbStatus string) string {
-	switch tmdbStatus {
-	case "Returning Series", "In Production":
-		return constants.AnimeStatusAiring.String()
-	case "Planned":
-		return constants.AnimeStatusUpcoming.String()
-	case "Ended", "Canceled":
-		return constants.AnimeStatusFinished.String()
-	default:
-		return constants.AnimeStatusFinished.String() // デフォルトは完結とみなす
 	}
 }

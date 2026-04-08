@@ -368,7 +368,7 @@ func (s *AnimeSyncScheduler) syncAllSeasons(nextSyncTime time.Time) {
 		return
 	}
 
-	// アニメステータス同期（TMDB + シーズン情報で補正）
+	// アニメステータス同期（season + released_on ベース）
 	s.logger.Info("Syncing anime statuses (initial sync)")
 	statusSuccess, statusFailure, statusErr := s.animeService.SyncAllAnimeStatuses(ctx)
 	if statusErr != nil {
@@ -496,7 +496,7 @@ func (s *AnimeSyncScheduler) syncCurrentSeasonAnimes() {
 		return
 	}
 
-	// Step 1.6: アニメステータス同期（TMDB + シーズン情報で補正）
+	// Step 1.6: アニメステータス同期（season + released_on ベース）
 	// 過去シーズンの作品を finished に、released_on が未来の作品を upcoming に更新
 	s.logger.Info("Syncing anime statuses")
 	statusSuccess, statusFailure, statusErr := s.animeService.SyncAllAnimeStatuses(ctx)
