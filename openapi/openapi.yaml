@@ -1711,7 +1711,7 @@ paths:
   /admin/sync/statuses:
     post:
       summary: 全アニメのステータスを同期
-      description: TMDBからステータスを取得し、シーズン情報で補正して全アニメのステータスを更新します。過去シーズンの作品はTMDBが"Returning Series"でも"finished"に補正されます。
+      description: season（放送シーズン）とreleased_on（放送開始日）に基づいて全アニメのステータスを更新します。外部API呼び出しなしでDB内のデータのみで判定するため高速に処理されます。
       security:
         - bearerAuth: []
       responses:
