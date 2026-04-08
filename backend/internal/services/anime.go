@@ -1031,18 +1031,6 @@ func (s *AnimeService) SyncAnimeStatus(ctx context.Context, animeID int, clearCa
 			} else {
 				status = tmdbStatus
 			}
-
-			// released_onが未来ならupcomingに上書き（既存ロジック維持）
-			if releasedOnPtr != nil && *releasedOnPtr != "" {
-				// UTCでパースして比較（サーバーのタイムゾーンに依存しないようにする）
-				releaseDate, parseErr := time.ParseInLocation("2006-01-02", *releasedOnPtr, time.UTC)
-				if parseErr == nil {
-					today := now.Truncate(24 * time.Hour)
-					if releaseDate.After(today) {
-						status = constants.AnimeStatusUpcoming.String()
-					}
-				}
-			}
 		} else {
 			s.logger.Warn("Failed to get TMDB TV details for status sync, falling back to season-based status",
 				"anime_id", animeID,
@@ -1054,6 +1042,18 @@ func (s *AnimeService) SyncAnimeStatus(ctx context.Context, animeID int, clearCa
 	} else {
 		// TMDB IDがない、またはTMDBクライアントが利用できない場合はシーズンベース
 		status = determineStatusBySeason(seasonStr, releasedOnPtr)
+	}
+
+	// released_onが未来ならupcomingに上書き（全判定パスに共通で適用）
+	// TMDBが "Ended" でも、released_onが未来なら放送予定として扱う
+	if releasedOnPtr != nil && *releasedOnPtr != "" {
+		releaseDate, parseErr := time.ParseInLocation("2006-01-02", *releasedOnPtr, time.UTC)
+		if parseErr == nil {
+			today := time.Now().UTC().Truncate(24 * time.Hour)
+			if releaseDate.After(today) {
+				status = constants.AnimeStatusUpcoming.String()
+			}
+		}
 	}
 
 	// 既存のステータスと比較して変更がなければ更新しない

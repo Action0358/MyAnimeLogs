@@ -181,23 +181,28 @@ func TestStatusCorrectionForPastSeason(t *testing.T) {
 		name           string
 		tmdbStatus     string
 		season         string
+		releasedOn     *string
 		expectedStatus string
 	}{
-		{"過去シーズン + Returning Series → finished", "Returning Series", "2016-winter", constants.AnimeStatusFinished.String()},
-		{"未来シーズン + Returning Series → airing", "Returning Series", "2099-spring", constants.AnimeStatusAiring.String()},
-		{"過去シーズン + Ended → finished", "Ended", "2020-spring", constants.AnimeStatusFinished.String()},
-		{"過去シーズン + In Production → finished", "In Production", "2020-spring", constants.AnimeStatusFinished.String()},
-		{"過去シーズン + Planned → finished", "Planned", "2020-spring", constants.AnimeStatusFinished.String()},
-		{"未来シーズン + Planned → upcoming", "Planned", "2099-spring", constants.AnimeStatusUpcoming.String()},
-		{"シーズン情報なし + Returning Series → airing（補正しない）", "Returning Series", "", constants.AnimeStatusAiring.String()},
-		{"シーズン情報なし + Planned → upcoming（補正しない）", "Planned", "", constants.AnimeStatusUpcoming.String()},
-		{"現在シーズン + Returning Series → airing", "Returning Series", "2025-spring", constants.AnimeStatusAiring.String()},
+		{"過去シーズン + Returning Series → finished", "Returning Series", "2016-winter", nil, constants.AnimeStatusFinished.String()},
+		{"未来シーズン + Returning Series → airing", "Returning Series", "2099-spring", nil, constants.AnimeStatusAiring.String()},
+		{"過去シーズン + Ended → finished", "Ended", "2020-spring", nil, constants.AnimeStatusFinished.String()},
+		{"過去シーズン + In Production → finished", "In Production", "2020-spring", nil, constants.AnimeStatusFinished.String()},
+		{"過去シーズン + Planned → finished", "Planned", "2020-spring", nil, constants.AnimeStatusFinished.String()},
+		{"未来シーズン + Planned → upcoming", "Planned", "2099-spring", nil, constants.AnimeStatusUpcoming.String()},
+		{"シーズン情報なし + Returning Series → airing（補正しない）", "Returning Series", "", nil, constants.AnimeStatusAiring.String()},
+		{"シーズン情報なし + Planned → upcoming（補正しない）", "Planned", "", nil, constants.AnimeStatusUpcoming.String()},
+		{"現在シーズン + Returning Series → airing", "Returning Series", "2025-spring", nil, constants.AnimeStatusAiring.String()},
+		{"Ended + released_on未来 → upcoming", "Ended", "2025-spring", strPtr("2025-06-15"), constants.AnimeStatusUpcoming.String()},
+		{"Canceled + released_on未来 → upcoming", "Canceled", "2025-spring", strPtr("2025-06-15"), constants.AnimeStatusUpcoming.String()},
+		{"Returning Series + released_on過去 → airing（上書きなし）", "Returning Series", "2025-spring", strPtr("2025-01-01"), constants.AnimeStatusAiring.String()},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tmdbStatus := mapTMDBStatus(tt.tmdbStatus)
 
+			// Step 1: TMDBステータス + シーズン補正
 			var status string
 			if (tmdbStatus == constants.AnimeStatusAiring.String() || tmdbStatus == constants.AnimeStatusUpcoming.String()) && isPastSeasonAt(tt.season, fixedNow) {
 				status = constants.AnimeStatusFinished.String()
@@ -205,7 +210,23 @@ func TestStatusCorrectionForPastSeason(t *testing.T) {
 				status = tmdbStatus
 			}
 
+			// Step 2: released_onが未来ならupcomingに上書き（全パス共通）
+			if tt.releasedOn != nil && *tt.releasedOn != "" {
+				releaseDate, parseErr := time.ParseInLocation("2006-01-02", *tt.releasedOn, time.UTC)
+				if parseErr == nil {
+					today := fixedNow.Truncate(24 * time.Hour)
+					if releaseDate.After(today) {
+						status = constants.AnimeStatusUpcoming.String()
+					}
+				}
+			}
+
 			assert.Equal(t, tt.expectedStatus, status)
 		})
 	}
+}
+
+// strPtr はテスト用のヘルパー関数
+func strPtr(s string) *string {
+	return &s
 }
