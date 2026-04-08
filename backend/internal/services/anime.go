@@ -1000,13 +1000,8 @@ func (s *AnimeService) SyncAnimeStatus(ctx context.Context, animeID int, clearCa
 		releasedOnPtr = &releasedOn.String
 	}
 
-	var seasonStr string
-	if season != nil {
-		seasonStr = *season
-	}
-
 	// season + released_on ベースでステータスを判定
-	status := determineStatusBySeason(seasonStr, releasedOnPtr)
+	status := determineStatusBySeason(season, releasedOnPtr)
 
 	// 既存のステータスと比較して変更がなければ更新しない
 	if currentStatus.Valid && currentStatus.String == status {
@@ -4788,7 +4783,11 @@ func (s *AnimeService) enrichAnimeWithWatchProviders(animeWithData *models.Anime
 
 // determineStatusBySeason はシーズンと放送開始日を考慮してアニメの放送状態を判定します。
 // TMDBの情報が利用できない場合のフォールバックとして使用されます。
-func determineStatusBySeason(seasonName string, releasedOn *string) string {
+func determineStatusBySeason(season *string, releasedOn *string) string {
+	var seasonName string
+	if season != nil {
+		seasonName = *season
+	}
 	return determineStatusBySeasonAt(seasonName, releasedOn, time.Now().UTC())
 }
 
@@ -4862,5 +4861,3 @@ func determineStatusBySeasonAt(seasonName string, releasedOn *string, now time.T
 		return constants.AnimeStatusFinished.String()
 	}
 }
-
-
