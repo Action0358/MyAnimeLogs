@@ -11,11 +11,11 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// newTestTMDBClient creates a TMDBClient pointing at the given test server.
+// newTestTMDBClient creates a TMDBClient with requests rewritten to the given test server.
 func newTestTMDBClient(serverURL string) *TMDBClient {
 	return &TMDBClient{
 		apiKey:     "test-key",
-		httpClient: http.DefaultClient,
+		httpClient: &http.Client{Transport: &rewriteTransport{base: serverURL}},
 	}
 }
 
@@ -49,8 +49,6 @@ func TestGetJapaneseWatchProvidersWithFallback_TVFound(t *testing.T) {
 	defer server.Close()
 
 	client := newTestTMDBClient(server.URL)
-	// Override the base URL by replacing httpClient with a transport that rewrites URLs
-	client.httpClient = &http.Client{Transport: &rewriteTransport{base: server.URL}}
 
 	providers, err := client.GetJapaneseWatchProvidersWithFallback(context.Background(), 1575337, "tv")
 	assert.NoError(t, err)
@@ -76,7 +74,6 @@ func TestGetJapaneseWatchProvidersWithFallback_TVFailsFallbackToMovie(t *testing
 	defer server.Close()
 
 	client := newTestTMDBClient(server.URL)
-	client.httpClient = &http.Client{Transport: &rewriteTransport{base: server.URL}}
 
 	providers, err := client.GetJapaneseWatchProvidersWithFallback(context.Background(), 1575337, "tv")
 	assert.NoError(t, err)
@@ -101,7 +98,6 @@ func TestGetJapaneseWatchProvidersWithFallback_MovieFailsFallbackToTV(t *testing
 	defer server.Close()
 
 	client := newTestTMDBClient(server.URL)
-	client.httpClient = &http.Client{Transport: &rewriteTransport{base: server.URL}}
 
 	providers, err := client.GetJapaneseWatchProvidersWithFallback(context.Background(), 999, "movie")
 	assert.NoError(t, err)
@@ -116,7 +112,6 @@ func TestGetJapaneseWatchProvidersWithFallback_BothEmpty(t *testing.T) {
 	defer server.Close()
 
 	client := newTestTMDBClient(server.URL)
-	client.httpClient = &http.Client{Transport: &rewriteTransport{base: server.URL}}
 
 	providers, err := client.GetJapaneseWatchProvidersWithFallback(context.Background(), 999, "tv")
 	assert.NoError(t, err)
@@ -130,7 +125,6 @@ func TestGetJapaneseWatchProvidersWithFallback_APIErrorPreserved(t *testing.T) {
 	defer server.Close()
 
 	client := newTestTMDBClient(server.URL)
-	client.httpClient = &http.Client{Transport: &rewriteTransport{base: server.URL}}
 
 	providers, err := client.GetJapaneseWatchProvidersWithFallback(context.Background(), 999, "tv")
 	assert.Error(t, err)
