@@ -546,6 +546,9 @@ func (c *TMDBClient) GetJapaneseWatchProvidersWithFallback(ctx context.Context, 
 		return providers, nil
 	}
 
+	// Preserve the last error from the primary attempt
+	lastErr := err
+
 	// Fallback to the other mediaType
 	fallbackType := "movie"
 	if mediaType == "movie" {
@@ -556,8 +559,12 @@ func (c *TMDBClient) GetJapaneseWatchProvidersWithFallback(ctx context.Context, 
 	if err == nil && len(providers) > 0 {
 		return providers, nil
 	}
+	if err != nil {
+		lastErr = err
+	}
 
-	return nil, fmt.Errorf("no watch providers found for TMDB ID %d", tmdbID)
+	// Return nil with the last API error (or nil if APIs succeeded but had no results)
+	return nil, lastErr
 }
 
 // TMDBFindResult represents the result of a find by external ID query

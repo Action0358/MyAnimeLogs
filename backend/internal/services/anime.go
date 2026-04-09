@@ -4691,13 +4691,10 @@ func (s *AnimeService) enrichAnimeWithWatchProviders(animeWithData *models.Anime
 	// Use series_tmdb_id if available (for series works)
 	if err == nil && seriesTMDBID.Valid && seriesTMDBID.Int64 > 0 {
 		tmdbID = int(seriesTMDBID.Int64)
-		// Determine mediaType from DB media field or model data
-		if dbMediaType.Valid && dbMediaType.String == "movie" {
+		// Determine mediaType from DB media field or model data (default is already "tv")
+		if (dbMediaType.Valid && dbMediaType.String == "movie") ||
+			(animeWithData.Media != nil && *animeWithData.Media == "movie") {
 			mediaType = "movie"
-		} else if animeWithData.Media != nil && *animeWithData.Media == "movie" {
-			mediaType = "movie"
-		} else {
-			mediaType = "tv" // Default to TV
 		}
 	} else if err == nil && tmdbID > 0 {
 		// Check DB media field first

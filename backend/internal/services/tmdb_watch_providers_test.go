@@ -119,9 +119,23 @@ func TestGetJapaneseWatchProvidersWithFallback_BothEmpty(t *testing.T) {
 	client.httpClient = &http.Client{Transport: &rewriteTransport{base: server.URL}}
 
 	providers, err := client.GetJapaneseWatchProvidersWithFallback(context.Background(), 999, "tv")
+	assert.NoError(t, err)
+	assert.Nil(t, providers)
+}
+
+func TestGetJapaneseWatchProvidersWithFallback_APIErrorPreserved(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusTooManyRequests)
+	}))
+	defer server.Close()
+
+	client := newTestTMDBClient(server.URL)
+	client.httpClient = &http.Client{Transport: &rewriteTransport{base: server.URL}}
+
+	providers, err := client.GetJapaneseWatchProvidersWithFallback(context.Background(), 999, "tv")
 	assert.Error(t, err)
 	assert.Nil(t, providers)
-	assert.Contains(t, err.Error(), "no watch providers found")
+	assert.Contains(t, err.Error(), "429")
 }
 
 // rewriteTransport rewrites TMDB API URLs to point at the test server.
