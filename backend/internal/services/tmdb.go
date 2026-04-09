@@ -537,6 +537,29 @@ func (c *TMDBClient) GetJapaneseWatchProviders(ctx context.Context, tmdbID int, 
 	return jpProviders.Flatrate, nil
 }
 
+// GetJapaneseWatchProvidersWithFallback searches for watch providers using the specified mediaType,
+// and falls back to the other type if no providers are found.
+func (c *TMDBClient) GetJapaneseWatchProvidersWithFallback(ctx context.Context, tmdbID int, mediaType string) ([]TMDBProvider, error) {
+	// Try the specified mediaType first
+	providers, err := c.GetJapaneseWatchProviders(ctx, tmdbID, mediaType)
+	if err == nil && len(providers) > 0 {
+		return providers, nil
+	}
+
+	// Fallback to the other mediaType
+	fallbackType := "movie"
+	if mediaType == "movie" {
+		fallbackType = "tv"
+	}
+
+	providers, err = c.GetJapaneseWatchProviders(ctx, tmdbID, fallbackType)
+	if err == nil && len(providers) > 0 {
+		return providers, nil
+	}
+
+	return nil, fmt.Errorf("no watch providers found for TMDB ID %d", tmdbID)
+}
+
 // TMDBFindResult represents the result of a find by external ID query
 type TMDBFindResult struct {
 	TVResults    []TMDBTVShow `json:"tv_results"`

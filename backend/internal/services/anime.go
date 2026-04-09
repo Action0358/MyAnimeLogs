@@ -4691,8 +4691,14 @@ func (s *AnimeService) enrichAnimeWithWatchProviders(animeWithData *models.Anime
 	// Use series_tmdb_id if available (for series works)
 	if err == nil && seriesTMDBID.Valid && seriesTMDBID.Int64 > 0 {
 		tmdbID = int(seriesTMDBID.Int64)
-		// series_tmdb_id is always for TV series
-		mediaType = "tv"
+		// Determine mediaType from DB media field or model data
+		if dbMediaType.Valid && dbMediaType.String == "movie" {
+			mediaType = "movie"
+		} else if animeWithData.Media != nil && *animeWithData.Media == "movie" {
+			mediaType = "movie"
+		} else {
+			mediaType = "tv" // Default to TV
+		}
 	} else if err == nil && tmdbID > 0 {
 		// Check DB media field first
 		if dbMediaType.Valid && dbMediaType.String == "movie" {
@@ -4753,8 +4759,8 @@ func (s *AnimeService) enrichAnimeWithWatchProviders(animeWithData *models.Anime
 		})
 	}
 
-	// Get watch providers from TMDB (use appropriate endpoint for TV or movie)
-	providers, err := s.tmdbClient.GetJapaneseWatchProviders(ctx, tmdbID, mediaType)
+	// Get watch providers from TMDB with fallback (try other mediaType if not found)
+	providers, err := s.tmdbClient.GetJapaneseWatchProvidersWithFallback(ctx, tmdbID, mediaType)
 	if err != nil {
 		s.logger.Debug("Failed to get watch providers from TMDB",
 			"anime_id", animeWithData.ID,
