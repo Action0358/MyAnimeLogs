@@ -4667,6 +4667,24 @@ func (s *AnimeService) SyncPriorityAnimeData(animeIDs []int) error {
 
 // enrichAnimeWithWatchProviders - TMDBから配信サービス情報を取得してアニメ情報を拡張
 // series_tmdb_idがある場合はそれを優先的に使用（シリーズ作品の統合管理）
+// determineMediaType determines the TMDB media type ("tv" or "movie") based on
+// DB media field, model data, and AniList format as a fallback.
+func (s *AnimeService) determineMediaType(ctx context.Context, dbMediaType sql.NullString, modelMedia *string, malID string) string {
+	if dbMediaType.Valid && dbMediaType.String == "movie" {
+		return "movie"
+	}
+	if modelMedia != nil && *modelMedia == "movie" {
+		return "movie"
+	}
+	if malID != "" {
+		format, err := s.anilistClient.GetMediaFormatByMALId(ctx, malID)
+		if err == nil && format == "MOVIE" {
+			return "movie"
+		}
+	}
+	return "tv"
+}
+
 func (s *AnimeService) enrichAnimeWithWatchProviders(animeWithData *models.AnimeWithUserData) {
 	if s.tmdbClient == nil || !s.tmdbClient.IsEnabled() {
 		return
@@ -4691,24 +4709,9 @@ func (s *AnimeService) enrichAnimeWithWatchProviders(animeWithData *models.Anime
 	// Use series_tmdb_id if available (for series works)
 	if err == nil && seriesTMDBID.Valid && seriesTMDBID.Int64 > 0 {
 		tmdbID = int(seriesTMDBID.Int64)
-		// Determine mediaType from DB media field or model data (default is already "tv")
-		if (dbMediaType.Valid && dbMediaType.String == "movie") ||
-			(animeWithData.Media != nil && *animeWithData.Media == "movie") {
-			mediaType = "movie"
-		}
+		mediaType = s.determineMediaType(ctx, dbMediaType, animeWithData.Media, malID)
 	} else if err == nil && tmdbID > 0 {
-		// Check DB media field first
-		if dbMediaType.Valid && dbMediaType.String == "movie" {
-			mediaType = "movie"
-		} else if animeWithData.Media != nil && *animeWithData.Media == "movie" {
-			mediaType = "movie"
-		} else if malID != "" {
-			// Fall back to AniList
-			format, formatErr := s.anilistClient.GetMediaFormatByMALId(ctx, malID)
-			if formatErr == nil && format == "MOVIE" {
-				mediaType = "movie"
-			}
-		}
+		mediaType = s.determineMediaType(ctx, dbMediaType, animeWithData.Media, malID)
 
 		// series_tmdb_idが未設定の場合、tmdb_idから設定（非同期）
 		if !seriesTMDBID.Valid || seriesTMDBID.Int64 == 0 {
