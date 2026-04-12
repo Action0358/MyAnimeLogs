@@ -38,6 +38,12 @@ interface AnimeListPageProps {
   errorMessage: string
   totalLabel?: (total: number) => string
   showMediaTabs?: boolean
+  columns?: {
+    mobile?: number
+    tablet?: number
+    desktop?: number
+    wide?: number
+  }
 }
 
 export const AnimeListPage: React.FC<AnimeListPageProps> = ({
@@ -48,6 +54,7 @@ export const AnimeListPage: React.FC<AnimeListPageProps> = ({
   errorMessage,
   totalLabel = (total) => `${total}件のアニメ`,
   showMediaTabs = false,
+  columns,
 }) => {
   const [currentPage, setCurrentPage] = useState(1)
   const [activeMediaTab, setActiveMediaTab] = useState<MediaType>('all')
@@ -147,7 +154,7 @@ export const AnimeListPage: React.FC<AnimeListPageProps> = ({
               ? `${mediaTabLabelMap[activeMediaTab]}が見つかりませんでした`
               : emptyMessage
           }
-          columns={{ mobile: 2, tablet: 3, desktop: 4, wide: 6 }}
+          columns={columns}
         />
 
         {/* ページネーション */}

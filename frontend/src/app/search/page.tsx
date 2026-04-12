@@ -196,7 +196,7 @@ function SearchContent() {
                   ? '条件に一致するアニメが見つかりませんでした'
                   : 'アニメを検索してください'
               }
-              columns={{ mobile: 2, tablet: 3, desktop: 4, wide: 4 }}
+              columns={{ mobile: 3, tablet: 3, desktop: 4, wide: 4 }}
             />
 
             {/* ページネーション */}
