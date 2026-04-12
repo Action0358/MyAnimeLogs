@@ -46,7 +46,7 @@ export const AnimeGrid: React.FC<AnimeGridProps> = ({
 
   if (isLoading && animes.length === 0) {
     return (
-      <div className={cn('grid gap-4', gridCols, className)}>
+      <div className={cn('grid gap-2 sm:gap-4', gridCols, className)}>
         {Array.from({ length: 12 }).map((_, i) => (
           <SkeletonCard key={i} />
         ))}
@@ -65,7 +65,7 @@ export const AnimeGrid: React.FC<AnimeGridProps> = ({
 
   return (
     <div className={className}>
-      <div className={cn('grid gap-4', gridCols)}>
+      <div className={cn('grid gap-2 sm:gap-4', gridCols)}>
         {animes.map((anime) => (
           <AnimeCard key={anime.id} anime={anime} size={cardSize} />
         ))}
