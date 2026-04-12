@@ -25,7 +25,7 @@ const CAROUSEL_CONSTANTS = {
  * sm以上: gap-4(1rem) で整数列表示
  */
 const CAROUSEL_ITEM_WIDTH_CLASSES =
-  'flex-none w-[calc((100%-1.5rem)/2.5)] sm:w-[calc((100%-2rem)/3)] md:w-[calc((100%-3rem)/4)] lg:w-[calc((100%-4rem)/5)] xl:w-[calc((100%-5rem)/6)]'
+  'flex-none w-[calc((100%_-_1.5rem)/2.5)] sm:w-[calc((100%_-_2rem)/3)] md:w-[calc((100%_-_3rem)/4)] lg:w-[calc((100%_-_4rem)/5)] xl:w-[calc((100%_-_5rem)/6)]'
 
 /** グラデーションマスクの共通クラス */
 const GRADIENT_MASK_CLASSES =
@@ -179,7 +179,7 @@ export const AnimeCarousel: React.FC<AnimeCarouselProps> = ({
 
 /** カルーセル用スケルトン */
 export const CarouselSkeleton: React.FC = () => (
-  <div className="flex gap-3 sm:gap-4 overflow-hidden">
+  <div className="flex gap-3 sm:gap-4 overflow-hidden pb-2">
     {Array.from({ length: CAROUSEL_CONSTANTS.SKELETON_COUNT }).map((_, i) => (
       <div key={i} className={CAROUSEL_ITEM_WIDTH_CLASSES}>
         <SkeletonCard />
