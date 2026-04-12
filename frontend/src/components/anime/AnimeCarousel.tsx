@@ -19,13 +19,13 @@ const CAROUSEL_CONSTANTS = {
 } as const
 
 /** カルーセルアイテムの幅計算クラス（レスポンシブ対応）
- * 幅計算の共通形式: (100% - gap合計) / 表示列数
- * SP版: 2.5列表示（2枚+3枚目が約37%チラ見え）
- *   gap-3(0.75rem) × 1.5(2.5列間のgap数) = 1.125rem → (100% - 1.125rem) / 2.5 = (100% - 1.125rem) * 0.4
+ * 幅計算の共通形式: (100% - gap数 × gap幅) / 表示列数
+ * SP版: 2.5列表示（2枚+3枚目が約50%チラ見え）
+ *   gap-3(0.75rem) × 2(ビューポート内のgap数) = 1.5rem
  * sm以上: gap-4(1rem) で整数列表示
  */
 const CAROUSEL_ITEM_WIDTH_CLASSES =
-  'flex-none w-[calc((100%-1.125rem)*0.4)] sm:w-[calc((100%-2rem)/3)] md:w-[calc((100%-3rem)/4)] lg:w-[calc((100%-4rem)/5)] xl:w-[calc((100%-5rem)/6)]'
+  'flex-none w-[calc((100%-1.5rem)/2.5)] sm:w-[calc((100%-2rem)/3)] md:w-[calc((100%-3rem)/4)] lg:w-[calc((100%-4rem)/5)] xl:w-[calc((100%-5rem)/6)]'
 
 /** グラデーションマスクの共通クラス */
 const GRADIENT_MASK_CLASSES =
