@@ -28,7 +28,7 @@ export const AnimeGrid: React.FC<AnimeGridProps> = ({
   hasMore = false,
   onLoadMore,
   emptyMessage = 'アニメが見つかりませんでした',
-  columns = { mobile: 2, tablet: 3, desktop: 4, wide: 6 },
+  columns = { mobile: 3, tablet: 3, desktop: 4, wide: 6 },
   cardSize = 'medium',
   className,
 }) => {
@@ -40,13 +40,14 @@ export const AnimeGrid: React.FC<AnimeGridProps> = ({
     columns.tablet === 4 && 'sm:grid-cols-4',
     columns.desktop === 4 && 'md:grid-cols-4',
     columns.desktop === 5 && 'md:grid-cols-5',
+    columns.wide === 4 && 'lg:grid-cols-4',
     columns.wide === 5 && 'lg:grid-cols-5',
     columns.wide === 6 && 'lg:grid-cols-6'
   )
 
   if (isLoading && animes.length === 0) {
     return (
-      <div className={cn('grid gap-4', gridCols, className)}>
+      <div className={cn('grid gap-2 sm:gap-4', gridCols, className)}>
         {Array.from({ length: 12 }).map((_, i) => (
           <SkeletonCard key={i} />
         ))}
@@ -65,7 +66,7 @@ export const AnimeGrid: React.FC<AnimeGridProps> = ({
 
   return (
     <div className={className}>
-      <div className={cn('grid gap-4', gridCols)}>
+      <div className={cn('grid gap-2 sm:gap-4', gridCols)}>
         {animes.map((anime) => (
           <AnimeCard key={anime.id} anime={anime} size={cardSize} />
         ))}

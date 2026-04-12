@@ -13,6 +13,7 @@ export default function PopularAnimePage() {
       emptyMessage="人気アニメが見つかりませんでした"
       errorMessage="人気アニメの取得に失敗しました"
       showMediaTabs
+      columns={{ mobile: 3, tablet: 3, desktop: 4, wide: 6 }}
     />
   )
 }

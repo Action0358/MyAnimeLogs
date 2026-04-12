@@ -22,19 +22,19 @@ export interface AnimeCardProps {
 
 const sizeConfig = {
   small: {
-    aspectRatio: 'aspect-[3/4]',
+    aspectRatio: 'aspect-[2/3]',
     titleClass: 'text-xs',
     padding: 'p-2',
-    contentHeight: 'h-[80px]',
+    contentHeight: 'h-[72px]',
   },
   medium: {
-    aspectRatio: 'aspect-[3/4]',
-    titleClass: 'text-sm',
-    padding: 'p-3',
-    contentHeight: 'h-[100px]',
+    aspectRatio: 'aspect-[2/3]',
+    titleClass: 'text-xs sm:text-sm',
+    padding: 'p-2 sm:p-3',
+    contentHeight: 'h-[72px] sm:h-[100px]',
   },
   large: {
-    aspectRatio: 'aspect-[3/4]',
+    aspectRatio: 'aspect-[2/3]',
     titleClass: 'text-base',
     padding: 'p-4',
     contentHeight: 'h-[116px]',
