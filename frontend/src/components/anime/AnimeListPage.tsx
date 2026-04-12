@@ -54,7 +54,7 @@ export const AnimeListPage: React.FC<AnimeListPageProps> = ({
   errorMessage,
   totalLabel = (total) => `${total}件のアニメ`,
   showMediaTabs = false,
-  columns = { mobile: 3, tablet: 3, desktop: 4, wide: 6 },
+  columns,
 }) => {
   const [currentPage, setCurrentPage] = useState(1)
   const [activeMediaTab, setActiveMediaTab] = useState<MediaType>('all')
