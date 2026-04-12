@@ -28,7 +28,7 @@ export const AnimeGrid: React.FC<AnimeGridProps> = ({
   hasMore = false,
   onLoadMore,
   emptyMessage = 'アニメが見つかりませんでした',
-  columns = { mobile: 2, tablet: 3, desktop: 4, wide: 6 },
+  columns = { mobile: 3, tablet: 3, desktop: 4, wide: 6 },
   cardSize = 'medium',
   className,
 }) => {
