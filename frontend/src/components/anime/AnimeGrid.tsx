@@ -40,6 +40,7 @@ export const AnimeGrid: React.FC<AnimeGridProps> = ({
     columns.tablet === 4 && 'sm:grid-cols-4',
     columns.desktop === 4 && 'md:grid-cols-4',
     columns.desktop === 5 && 'md:grid-cols-5',
+    columns.wide === 4 && 'lg:grid-cols-4',
     columns.wide === 5 && 'lg:grid-cols-5',
     columns.wide === 6 && 'lg:grid-cols-6'
   )
