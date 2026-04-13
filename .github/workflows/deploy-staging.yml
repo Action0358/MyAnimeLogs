@@ -23,7 +23,7 @@ jobs:
           go mod download
           go test -v ./...
 
-  deploy-staging:
+  deploy-backend-staging:
     needs: test
     runs-on: ubuntu-latest
     steps:
