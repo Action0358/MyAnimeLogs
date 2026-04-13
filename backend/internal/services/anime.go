@@ -2972,47 +2972,46 @@ func (s *AnimeService) CreateEpisodesFromAnnict(animeID int, annictID int) (int,
 	annictEpisodes = annictEpisodes[:n]
 
 	upsertedCount := 0
-	for i, ep := range annictEpisodes {
+	for i := range annictEpisodes {
 		// エピソード番号: 常にインデックスベース（1, 2, 3...）を使用
 		// Annictのnumberフィールドは通算話数の場合があるため使用しない
 		episodeNumber := i + 1
 
-		// タイトルが空の場合はデフォルトタイトルを設定
-		title := ep.Title
-		if title == "" {
-			title = fmt.Sprintf("第%d話", episodeNumber)
-		}
+		// タイトルは常にデフォルト「第N話」で作成
+		// 日本語タイトルの補完はJikan（title_japanese）の責務
+		title := fmt.Sprintf("第%d話", episodeNumber)
 
-		// UPSERT: ON CONFLICT で既存エピソードはタイトルのみ更新（Annict優先）
-		// duration_minutes, air_date, filler, recap はJikanが補完するため触らない
-		_, err := tx.Exec(`
+		// UPSERT: ON CONFLICT で既存エピソードは更新しない（タイトルはJikanが補完）
+		// duration_minutes, air_date, filler, recap もJikanが補完するため触らない
+		result, err := tx.Exec(`
 			INSERT INTO episodes (
 				anime_id, episode_number, title,
 				is_special, created_at, updated_at
 			) VALUES ($1, $2, $3, false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 			ON CONFLICT ON CONSTRAINT unique_anime_episode_type
-			DO UPDATE SET
-				title = CASE
-					WHEN EXCLUDED.title != '' AND EXCLUDED.title NOT LIKE '第%話' THEN EXCLUDED.title
-					ELSE episodes.title
-				END,
-				updated_at = CURRENT_TIMESTAMP
+			DO NOTHING
 		`, animeID, episodeNumber, title)
 
 		if err != nil {
 			return 0, fmt.Errorf("failed to upsert episode %d: %w", episodeNumber, err)
 		}
-		upsertedCount++
+		rowsAffected, err := result.RowsAffected()
+		if err != nil {
+			return 0, fmt.Errorf("failed to get rows affected for episode %d: %w", episodeNumber, err)
+		}
+		if rowsAffected > 0 {
+			upsertedCount++
+		}
 	}
 
 	if err := tx.Commit(); err != nil {
 		return 0, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
-	s.logger.Info("Upserted episodes from Annict API",
+	s.logger.Info("Created new episodes from Annict API",
 		"anime_id", animeID,
 		"annict_id", annictID,
-		"upserted_count", upsertedCount)
+		"inserted_count", upsertedCount)
 
 	return upsertedCount, nil
 }
@@ -3038,8 +3037,9 @@ func (s *AnimeService) SyncEpisodesFromAnnictWithContext(ctx context.Context, an
 	`
 	args := []interface{}{}
 
-	// episodes_count <= 1 の作品（劇場版・短編）はAnnictエピソード同期の対象外
-	query += " AND a.episodes_count > 1"
+	// episodes_countによるフィルタは行わない
+	// Annictのepisodes_countが不正確な作品があるため（例: 氷の城壁 episodes_count=1、実際は3話）
+	// APIが0件を返せば自然にスキップされる
 
 	if animeID != nil {
 		query += " AND a.id = $1"
@@ -3181,7 +3181,7 @@ func (s *AnimeService) UpdateEpisodesFromJikan(animeID int, malAnimeID string) (
 	}
 	defer tx.Rollback()
 
-	// UPDATE ONLY: 既存エピソードのduration_minutes, air_date, filler, recapを補完
+	// UPDATE ONLY: 既存エピソードのduration_minutes, air_date, filler, recap, titleを補完
 	// エピソード作成（INSERT）はAnnictの責務。Jikanは補完データのみ更新する。
 	updatedCount := 0
 	for _, ep := range jikanEpisodes {
@@ -3201,7 +3201,20 @@ func (s *AnimeService) UpdateEpisodesFromJikan(animeID int, malAnimeID string) (
 			}
 		}
 
+		// Jikanのtitle_japaneseを取得（nilの場合は空文字）
+		titleJapanese := ""
+		if ep.TitleJapanese != nil {
+			titleJapanese = *ep.TitleJapanese
+		}
+
+		// duration が 0 の場合は nil にして既存値を保持する
+		var duration *int
+		if ep.Duration > 0 {
+			duration = &ep.Duration
+		}
+
 		// 既存エピソードのみ更新（INSERTしない）
+		// title: 既存タイトルが「第N話」パターンの場合のみJikanのtitle_japaneseで上書き
 		result, err := tx.Exec(`
 			UPDATE episodes SET
 				is_special = $1,
@@ -3209,9 +3222,13 @@ func (s *AnimeService) UpdateEpisodesFromJikan(animeID int, malAnimeID string) (
 				recap = $3,
 				duration_minutes = COALESCE($4, duration_minutes),
 				air_date = COALESCE($5, air_date),
+				title = CASE
+					WHEN $8 != '' AND TRIM(title) ~ '^第[0-9]+話$' THEN $8
+					ELSE title
+				END,
 				updated_at = CURRENT_TIMESTAMP
 			WHERE anime_id = $6 AND episode_number = $7
-		`, ep.Filler || ep.Recap, ep.Filler, ep.Recap, ep.Duration, airDate, animeID, ep.MalID)
+		`, ep.Filler || ep.Recap, ep.Filler, ep.Recap, duration, airDate, animeID, ep.MalID, titleJapanese)
 
 		if err != nil {
 			s.logger.Warn("Failed to update episode from Jikan",
