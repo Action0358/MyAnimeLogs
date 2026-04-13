@@ -3211,7 +3211,7 @@ func (s *AnimeService) UpdateEpisodesFromJikan(animeID int, malAnimeID string) (
 				duration_minutes = COALESCE($4, duration_minutes),
 				air_date = COALESCE($5, air_date),
 				title = CASE
-					WHEN $8 != '' AND title ~ '^第[0-9]+話$' THEN $8
+					WHEN $8 != '' AND TRIM(title) ~ '^第[0-9]+話$' THEN $8
 					ELSE title
 				END,
 				updated_at = CURRENT_TIMESTAMP
