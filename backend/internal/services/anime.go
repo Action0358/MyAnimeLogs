@@ -2983,7 +2983,7 @@ func (s *AnimeService) CreateEpisodesFromAnnict(animeID int, annictID int) (int,
 
 		// UPSERT: ON CONFLICT で既存エピソードは更新しない（タイトルはJikanが補完）
 		// duration_minutes, air_date, filler, recap もJikanが補完するため触らない
-		_, err := tx.Exec(`
+		result, err := tx.Exec(`
 			INSERT INTO episodes (
 				anime_id, episode_number, title,
 				is_special, created_at, updated_at
@@ -2995,17 +2995,23 @@ func (s *AnimeService) CreateEpisodesFromAnnict(animeID int, annictID int) (int,
 		if err != nil {
 			return 0, fmt.Errorf("failed to upsert episode %d: %w", episodeNumber, err)
 		}
-		upsertedCount++
+		rowsAffected, err := result.RowsAffected()
+		if err != nil {
+			return 0, fmt.Errorf("failed to get rows affected for episode %d: %w", episodeNumber, err)
+		}
+		if rowsAffected > 0 {
+			upsertedCount++
+		}
 	}
 
 	if err := tx.Commit(); err != nil {
 		return 0, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
-	s.logger.Info("Upserted episodes from Annict API",
+	s.logger.Info("Created new episodes from Annict API",
 		"anime_id", animeID,
 		"annict_id", annictID,
-		"upserted_count", upsertedCount)
+		"inserted_count", upsertedCount)
 
 	return upsertedCount, nil
 }
