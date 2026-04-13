@@ -3201,6 +3201,12 @@ func (s *AnimeService) UpdateEpisodesFromJikan(animeID int, malAnimeID string) (
 			titleJapanese = *ep.TitleJapanese
 		}
 
+		// duration が 0 の場合は nil にして既存値を保持する
+		var duration *int
+		if ep.Duration > 0 {
+			duration = &ep.Duration
+		}
+
 		// 既存エピソードのみ更新（INSERTしない）
 		// title: 既存タイトルが「第N話」パターンの場合のみJikanのtitle_japaneseで上書き
 		result, err := tx.Exec(`
@@ -3216,7 +3222,7 @@ func (s *AnimeService) UpdateEpisodesFromJikan(animeID int, malAnimeID string) (
 				END,
 				updated_at = CURRENT_TIMESTAMP
 			WHERE anime_id = $6 AND episode_number = $7
-		`, ep.Filler || ep.Recap, ep.Filler, ep.Recap, ep.Duration, airDate, animeID, ep.MalID, titleJapanese)
+		`, ep.Filler || ep.Recap, ep.Filler, ep.Recap, duration, airDate, animeID, ep.MalID, titleJapanese)
 
 		if err != nil {
 			s.logger.Warn("Failed to update episode from Jikan",
