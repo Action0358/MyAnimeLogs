@@ -32,7 +32,7 @@ cd backend && make migrate      # マイグレーション実行
 ### エピソード同期の責務分離（変更禁止）
 
 - **INSERT**: `CreateEpisodesFromAnnict` のみ（タイトルは常に「第N話」をデフォルト）
-- **UPDATE**: `UpdateEpisodesFromJikan` のみ（タイトル補完・メタデータ補完）
+- **UPDATE**: `SyncEpisodesFromJikan`（公開メソッド）が `UpdateEpisodesFromJikan`（内部実装）を呼び出す形で補完
 - `CreateEpisodesFromJikan` は存在しない
 
 ### ステータス値（DB値）
@@ -50,7 +50,7 @@ AniList・Jikan・TMDB の横断検索キー。Annictから取得。
 | 変更内容 | 実行するスキル |
 |---------|--------------|
 | 機能実装・バグ修正・リファクタリング完了時、またはコミット前 | `/post-implementation-verification` |
-| `router.go` / `handlers/*.go` / `models/*.go` の変更 | `/api-consistency-check` |
-| `scheduler/` / `sync` / `annict` / `jikan` 関連コードの変更 | `/sync-logic-review` |
-| GitHub Actions / `fly.toml` / `_headers` / Dockerfile の変更 | `/deploy-consistency-check` |
-| `migrations/` ディレクトリへのファイル追加・変更 | `/migration-safety-check` |
+| `backend/internal/router/router.go` / `backend/internal/handlers/*.go` / `backend/internal/models/*.go` の変更 | `/api-consistency-check` |
+| `backend/internal/scheduler/` / `backend/internal/services/` の sync・annict・jikan 関連コードの変更 | `/sync-logic-review` |
+| `.github/workflows/` / `backend/fly.toml` / `frontend/public/_headers` / `Dockerfile` の変更 | `/deploy-consistency-check` |
+| `backend/migrations/` へのファイル追加・変更 | `/migration-safety-check` |
