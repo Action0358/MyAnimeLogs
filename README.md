@@ -70,8 +70,6 @@ myanimelogs/
 ├── docs/                   # 設計ドキュメント
 ├── openapi/               # API仕様書
 │   └── openapi.yaml
-├── .kiro/                 # Kiro設定・仕様書
-│   └── specs/
 └── docker-compose.yml     # 開発環境設定
 ```
 

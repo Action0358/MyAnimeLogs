@@ -52,5 +52,5 @@ AniList・Jikan・TMDB の横断検索キー。Annictから取得。
 | 機能実装・バグ修正・リファクタリング完了時、またはコミット前 | `/post-implementation-verification` |
 | `backend/internal/router/router.go` / `backend/internal/handlers/*.go` / `backend/internal/models/*.go` の変更 | `/api-consistency-check` |
 | `backend/internal/scheduler/` / `backend/internal/services/` の sync・annict・jikan 関連コードの変更 | `/sync-logic-review` |
-| `.github/workflows/` / `backend/fly.toml` / `frontend/public/_headers` / `Dockerfile` の変更 | `/deploy-consistency-check` |
+| `.github/workflows/` / `backend/fly.toml` / `frontend/public/_headers` / `**/Dockerfile` の変更 | `/deploy-consistency-check` |
 | `backend/migrations/` へのファイル追加・変更 | `/migration-safety-check` |
