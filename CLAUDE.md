@@ -11,13 +11,16 @@
 ## 開発コマンド
 
 ```bash
-cd backend && make run          # バックエンド起動
-cd frontend && npm run dev      # フロントエンド起動
+# バックエンド
+cd backend && make run          # 起動
 cd backend && go build ./...    # ビルド確認
 cd backend && go test ./...     # テスト実行
-cd frontend && npx tsc --noEmit # 型チェック
-cd frontend && npm test -- --passWithNoTests
 cd backend && make migrate      # マイグレーション実行
+
+# フロントエンド
+cd frontend && npm run dev      # 起動
+cd frontend && npx tsc --noEmit # 型チェック
+cd frontend && npm test         # テスト実行
 ```
 
 ## 外部API制約（重要）
