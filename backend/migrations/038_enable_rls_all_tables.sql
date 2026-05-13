@@ -15,6 +15,19 @@ ALTER TABLE sessions        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sync_stats      ENABLE ROW LEVEL SECURITY;
 
 -- service_roleのみ全操作を許可（PostgREST経由のanonアクセスを拒否）
+-- 冪等性確保のため既存ポリシーを先に削除してから再作成
+DROP POLICY IF EXISTS "service_role full access" ON users;
+DROP POLICY IF EXISTS "service_role full access" ON animes;
+DROP POLICY IF EXISTS "service_role full access" ON episodes;
+DROP POLICY IF EXISTS "service_role full access" ON user_favorites;
+DROP POLICY IF EXISTS "service_role full access" ON watch_statuses;
+DROP POLICY IF EXISTS "service_role full access" ON user_ratings;
+DROP POLICY IF EXISTS "service_role full access" ON watch_history;
+DROP POLICY IF EXISTS "service_role full access" ON anime_genres;
+DROP POLICY IF EXISTS "service_role full access" ON search_logs;
+DROP POLICY IF EXISTS "service_role full access" ON sessions;
+DROP POLICY IF EXISTS "service_role full access" ON sync_stats;
+
 CREATE POLICY "service_role full access" ON users           FOR ALL TO service_role USING (true) WITH CHECK (true);
 CREATE POLICY "service_role full access" ON animes          FOR ALL TO service_role USING (true) WITH CHECK (true);
 CREATE POLICY "service_role full access" ON episodes        FOR ALL TO service_role USING (true) WITH CHECK (true);
