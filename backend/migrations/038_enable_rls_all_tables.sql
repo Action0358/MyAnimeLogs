@@ -1,6 +1,8 @@
 -- +migrate Up
 -- Supabase PostgREST API経由の不正アクセスを防ぐため、全テーブルにRLSを有効化する
--- GoバックエンドはDATABASE_URL（直接PostgreSQL接続）を使用しており、RLSの影響を受けない
+-- GoバックエンドはDATABASE_URL（直接PostgreSQL接続）を使用している
+-- RLSバイパスはDB接続ユーザーがスーパーユーザー・テーブルオーナー・BYPASSRLS権限保持者である場合のみ有効
+-- 最小権限ユーザーへ移行する際はバックエンド用ポリシーの追加が必要
 
 ALTER TABLE users           ENABLE ROW LEVEL SECURITY;
 ALTER TABLE animes          ENABLE ROW LEVEL SECURITY;
@@ -13,6 +15,15 @@ ALTER TABLE anime_genres    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE search_logs     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sessions        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sync_stats      ENABLE ROW LEVEL SECURITY;
+
+-- ローカル環境（test-migration.sh等）互換性のため、未存在時のみservice_roleを作成
+-- Supabase本番環境では既存の特権ロールをそのまま使用する
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+    CREATE ROLE service_role;
+  END IF;
+END $$;
 
 -- service_roleのみ全操作を許可（PostgREST経由のanonアクセスを拒否）
 -- 冪等性確保のため既存ポリシーを先に削除してから再作成
