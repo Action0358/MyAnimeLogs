@@ -1,6 +1,11 @@
 -- +migrate Up
--- 1. migrationsテーブル（sql-migrateが管理するトラッキングテーブル）にRLSを有効化
--- GoバックエンドはDATABASE_URL（直接PostgreSQL接続）を使用しているためRLSの影響を受けない
+-- 前提: security_invoker属性はPostgreSQL 15以上で導入。本プロジェクトはローカル(postgres:16)・
+--       Supabase(PostgreSQL 15+)いずれもPG15以上のため全環境で動作する。
+
+-- 1. migrationsテーブル（カスタムmigratorが管理するトラッキングテーブル）にRLSを有効化
+-- RLSはスーパーユーザー・テーブルオーナー・BYPASSRLS権限保持者には適用されない。
+-- 現在のDATABASE_URLはSupabaseのpostgresスーパーユーザーで接続しているためバックエンドへの影響はない。
+-- ただし最小権限ユーザーへ移行する際は別途バックエンド用ポリシーの追加が必要。
 ALTER TABLE migrations ENABLE ROW LEVEL SECURITY;
 
 DO $$
