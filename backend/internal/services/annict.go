@@ -388,7 +388,7 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork, existingAnime
 		animeID := anime.ID
 		annictID := work.ID
 		c.animeService.enqueueBackgroundTask(func() {
-			_, err := c.animeService.CreateEpisodesFromAnnict(animeID, annictID)
+			_, _, err := c.animeService.CreateEpisodesFromAnnict(animeID, annictID)
 			if err != nil {
 				if c.logger != nil {
 					c.logger.Warn("Failed to create episodes from Annict",
