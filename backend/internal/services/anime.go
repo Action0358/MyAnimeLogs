@@ -3031,7 +3031,8 @@ func (s *AnimeService) SyncEpisodesFromAnnictWithContext(ctx context.Context, an
 	)
 
 	query := `
-		SELECT a.id, a.annict_id, a.title
+		SELECT a.id, a.annict_id, a.title,
+		       EXISTS (SELECT 1 FROM episodes WHERE anime_id = a.id) AS has_episodes
 		FROM animes a
 		WHERE a.annict_id IS NOT NULL AND a.annict_id > 0
 	`
@@ -3071,15 +3072,16 @@ func (s *AnimeService) SyncEpisodesFromAnnictWithContext(ctx context.Context, an
 	defer rows.Close()
 
 	type animeInfo struct {
-		ID       int
-		AnnictID int
-		Title    string
+		ID          int
+		AnnictID    int
+		Title       string
+		HasEpisodes bool
 	}
 	var animes []animeInfo
 
 	for rows.Next() {
 		var anime animeInfo
-		if err := rows.Scan(&anime.ID, &anime.AnnictID, &anime.Title); err != nil {
+		if err := rows.Scan(&anime.ID, &anime.AnnictID, &anime.Title, &anime.HasEpisodes); err != nil {
 			continue
 		}
 		animes = append(animes, anime)
@@ -3123,15 +3125,9 @@ func (s *AnimeService) SyncEpisodesFromAnnictWithContext(ctx context.Context, an
 				"error", err)
 		} else {
 			successCount++
-			// Annictが0件返却の場合、DBにエピソードが存在するか確認して更新要否を決定
+			// Annictが0件返却の場合、初期クエリで取得済みのエピソード存在フラグで判定
 			// （一時的なAPI空返却を「成功」扱いにしない）
-			shouldUpdate := upserted > 0
-			if !shouldUpdate {
-				var epCount int
-				if qErr := s.db.QueryRow("SELECT COUNT(*) FROM episodes WHERE anime_id = $1", anime.ID).Scan(&epCount); qErr == nil && epCount > 0 {
-					shouldUpdate = true
-				}
-			}
+			shouldUpdate := upserted > 0 || anime.HasEpisodes
 			if shouldUpdate {
 				if _, err := s.db.Exec(
 					"UPDATE animes SET episodes_synced_at = CURRENT_TIMESTAMP WHERE id = $1",
@@ -3297,7 +3293,8 @@ func (s *AnimeService) SyncEpisodesFromJikanWithContext(ctx context.Context, ani
 
 	// Get animes with MAL ID (差分フィルタ付き)
 	query := `
-		SELECT a.id, a.mal_anime_id, a.title
+		SELECT a.id, a.mal_anime_id, a.title,
+		       EXISTS (SELECT 1 FROM episodes WHERE anime_id = a.id) AS has_episodes
 		FROM animes a
 		WHERE a.mal_anime_id IS NOT NULL AND a.mal_anime_id != ''
 	`
@@ -3333,15 +3330,16 @@ func (s *AnimeService) SyncEpisodesFromJikanWithContext(ctx context.Context, ani
 	defer rows.Close()
 
 	type animeInfo struct {
-		ID         int
-		MalAnimeID string
-		Title      string
+		ID          int
+		MalAnimeID  string
+		Title       string
+		HasEpisodes bool
 	}
 	var animes []animeInfo
 
 	for rows.Next() {
 		var anime animeInfo
-		if err := rows.Scan(&anime.ID, &anime.MalAnimeID, &anime.Title); err != nil {
+		if err := rows.Scan(&anime.ID, &anime.MalAnimeID, &anime.Title, &anime.HasEpisodes); err != nil {
 			continue
 		}
 		animes = append(animes, anime)
@@ -3387,15 +3385,9 @@ func (s *AnimeService) SyncEpisodesFromJikanWithContext(ctx context.Context, ani
 				"error", err)
 		} else {
 			successCount++
-			// Jikanが0件返却の場合、Annictがまだエピソードを作成していない可能性があるため
-			// DBにエピソードが存在するか確認し、存在しない場合はepisodes_synced_atを更新しない
-			shouldUpdate := updated > 0
-			if !shouldUpdate {
-				var epCount int
-				if qErr := s.db.QueryRow("SELECT COUNT(*) FROM episodes WHERE anime_id = $1", anime.ID).Scan(&epCount); qErr == nil && epCount > 0 {
-					shouldUpdate = true
-				}
-			}
+			// Jikanが0件返却の場合、初期クエリで取得済みのエピソード存在フラグで判定
+			// Annictがまだエピソードを作成していない場合はepisodes_synced_atを更新しない
+			shouldUpdate := updated > 0 || anime.HasEpisodes
 			if shouldUpdate {
 				if _, err := s.db.Exec(
 					"UPDATE animes SET episodes_synced_at = CURRENT_TIMESTAMP WHERE id = $1",
