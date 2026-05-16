@@ -3127,8 +3127,8 @@ func (s *AnimeService) SyncEpisodesFromAnnictWithContext(ctx context.Context, an
 			// （一時的なAPI空返却を「成功」扱いにしない）
 			shouldUpdate := upserted > 0
 			if !shouldUpdate {
-				var epCount int
-				if qErr := s.db.QueryRow("SELECT COUNT(*) FROM episodes WHERE anime_id = $1", anime.ID).Scan(&epCount); qErr == nil && epCount > 0 {
+				var exists bool
+				if qErr := s.db.QueryRow("SELECT EXISTS (SELECT 1 FROM episodes WHERE anime_id = $1)", anime.ID).Scan(&exists); qErr == nil && exists {
 					shouldUpdate = true
 				}
 			}
@@ -3391,8 +3391,8 @@ func (s *AnimeService) SyncEpisodesFromJikanWithContext(ctx context.Context, ani
 			// DBにエピソードが存在するか確認し、存在しない場合はepisodes_synced_atを更新しない
 			shouldUpdate := updated > 0
 			if !shouldUpdate {
-				var epCount int
-				if qErr := s.db.QueryRow("SELECT COUNT(*) FROM episodes WHERE anime_id = $1", anime.ID).Scan(&epCount); qErr == nil && epCount > 0 {
+				var exists bool
+				if qErr := s.db.QueryRow("SELECT EXISTS (SELECT 1 FROM episodes WHERE anime_id = $1)", anime.ID).Scan(&exists); qErr == nil && exists {
 					shouldUpdate = true
 				}
 			}
