@@ -18,7 +18,6 @@ interface MenuItem {
 const MENU_ITEMS: MenuItem[] = [
   { label: 'マイページ', href: '/mypage' as Route },
   { label: 'お気に入り', href: '/favorites' as Route },
-  { label: '視聴統計', href: '/stats' as Route },
 ]
 
 export const UserMenu: React.FC<UserMenuProps> = ({ isOpen, onClose }) => {

@@ -71,10 +71,3 @@ type LogoutRequest struct {
 	RefreshToken string `json:"refresh_token" binding:"required"`
 }
 
-type UserStats struct {
-	TotalEpisodesWatched int      `json:"total_episodes_watched"`
-	TotalAnimesCompleted int      `json:"total_animes_completed"`
-	TotalWatchTimeHours  float64  `json:"total_watch_time_hours"`
-	FavoriteGenres       []string `json:"favorite_genres"`
-	ThisMonthEpisodes    int      `json:"this_month_episodes"`
-}
