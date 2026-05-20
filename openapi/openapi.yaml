@@ -291,10 +291,6 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/Favorite"
-                  watch_history:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/WatchHistory"
                   ratings:
                     type: array
                     items:
@@ -381,35 +377,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
-  /animes/{id}/episodes:
-    get:
-      summary: 指定アニメのエピソード一覧取得
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        "200":
-          description: エピソード一覧
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  anime_id:
-                    type: integer
-                  episodes:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/Episode"
-        "404":
-          description: アニメが見つかりません
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
   /users/me/favorites:
     get:
       summary: 自分のお気に入りアニメ一覧取得
@@ -473,58 +440,6 @@ paths:
       responses:
         "204":
           description: No Content
-  /episodes/{episode_id}/watch:
-    put:
-      summary: エピソードの視聴状態を更新
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: episode_id
-          in: path
-          required: true
-          schema:
-            type: integer
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                viewed:
-                  type: boolean
-              required:
-                - viewed
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  viewed:
-                    type: boolean
-  /users/me/recently-watched:
-    get:
-      summary: 最近視聴したエピソード一覧
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            default: 10
-      responses:
-        "200":
-          description: 最近視聴したエピソード一覧
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/RecentlyWatchedEpisode"
   /animes/{id}/rating:
     put:
       summary: アニメの評価を登録・更新
@@ -1141,133 +1056,6 @@ paths:
                 properties:
                   message:
                     type: string
-  /admin/sync/episode-durations:
-    post:
-      summary: エピソード視聴時間をJikan APIから同期
-      description: Jikan APIからエピソードの視聴時間を取得してデータベースに保存します
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                anime_id:
-                  type: integer
-                  description: 同期対象のアニメID（未指定の場合は全アニメ）
-                  example: 123
-      responses:
-        "200":
-          description: 同期完了
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  total_animes:
-                    type: integer
-                    description: 処理対象のアニメ数
-                    example: 100
-                  success_count:
-                    type: integer
-                    description: 成功した同期数
-                    example: 95
-                  failure_count:
-                    type: integer
-                    description: 失敗した同期数
-                    example: 3
-                  skipped_count:
-                    type: integer
-                    description: スキップされた同期数
-                    example: 2
-                  errors:
-                    type: array
-                    description: エラーメッセージのリスト
-                    items:
-                      type: string
-                    example: ["Anime ID 456: MAL ID not found"]
-        "400":
-          description: リクエストエラー
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "401":
-          description: 認証エラー
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "500":
-          description: サーバーエラー
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-  /admin/sync/episodes:
-    post:
-      summary: エピソード情報をJikan APIから同期
-      description: Jikan API（MyAnimeList）からエピソード情報を取得してデータベースに保存します。タイトル、放送日、再生時間、特別編フラグ（filler/recap）を同期します。
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                anime_id:
-                  type: integer
-                  description: 同期対象のアニメID（省略時は全アニメ）
-                  example: 1
-      responses:
-        "200":
-          description: エピソード同期完了
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success_count:
-                    type: integer
-                    description: 成功したアニメ数
-                    example: 92
-                  failure_count:
-                    type: integer
-                    description: 失敗したアニメ数
-                    example: 8
-                  errors:
-                    type: array
-                    description: エラーメッセージのリスト
-                    items:
-                      type: string
-                    example:
-                      - "Anime ID 29: failed to fetch episodes from Jikan: rate limit exceeded"
-                  message:
-                    type: string
-                    description: 処理結果メッセージ
-                    example: "Episode sync completed: 92 succeeded, 8 failed"
-        "400":
-          description: バリデーションエラー
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "401":
-          description: 認証エラー
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "500":
-          description: サーバーエラー
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
   /admin/sync/genres:
     post:
       summary: アニメジャンル情報をAniList APIから同期
@@ -1310,89 +1098,6 @@ paths:
                 $ref: "#/components/schemas/Error"
         "500":
           description: サーバーエラー
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-  /admin/episode-sync-status:
-    get:
-      summary: エピソード同期ステータスを取得
-      description: 特定のアニメのエピソード同期状況を取得します
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: anime_id
-          in: query
-          required: true
-          schema:
-            type: integer
-          description: 確認対象のアニメID
-          example: 1
-      responses:
-        "200":
-          description: エピソード同期ステータス
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  anime_id:
-                    type: integer
-                    description: アニメID
-                    example: 1
-                  anime_title:
-                    type: string
-                    description: アニメタイトル
-                    example: "SPY×FAMILY Season 2"
-                  annict_id:
-                    type: integer
-                    nullable: true
-                    description: Annict ID
-                    example: 7894
-                  total_episodes:
-                    type: integer
-                    description: 総エピソード数
-                    example: 12
-                  default_titles:
-                    type: integer
-                    description: デフォルトタイトル（第X話）の数
-                    example: 3
-                  custom_titles:
-                    type: integer
-                    description: カスタムタイトルの数
-                    example: 9
-                  sync_percentage:
-                    type: number
-                    format: float
-                    description: 同期率（%）
-                    example: 75.0
-                  need_sync:
-                    type: boolean
-                    description: 同期が必要かどうか
-                    example: true
-                  sample_episodes:
-                    type: array
-                    description: サンプルエピソード（最大5件）
-                    items:
-                      type: string
-                    example:
-                      - "Ep1: 白い嫉妬／イーデン校バスジャック事件"
-                      - "Ep2: 第2話"
-                      - "Ep3: 第3話"
-        "400":
-          description: バリデーションエラー
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "401":
-          description: 認証エラー
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "404":
-          description: アニメが見つかりません
           content:
             application/json:
               schema:
@@ -1923,10 +1628,6 @@ components:
           type: string
           nullable: true
           description: メディアタイプ（TV, OVA, Movie等）
-        episodes_count:
-          type: integer
-          nullable: true
-          description: 総話数
         released_on:
           type: string
           nullable: true
@@ -1998,15 +1699,6 @@ components:
           $ref: "#/components/schemas/Rating"
           nullable: true
           description: ユーザーの評価情報（認証時のみ）
-        watch_progress:
-          type: number
-          format: float
-          description: 視聴進捗率（0-100）
-        episodes:
-          type: array
-          items:
-            $ref: "#/components/schemas/Episode"
-          description: エピソード一覧
         average_rating:
           type: number
           format: float
@@ -2048,42 +1740,6 @@ components:
           type: string
           format: uri
           description: ロゴ画像URL
-    Episode:
-      type: object
-      properties:
-        id:
-          type: integer
-        anime_id:
-          type: integer
-        title:
-          type: string
-        episode_number:
-          type: integer
-        duration_minutes:
-          type: integer
-          nullable: true
-          description: エピソードの視聴時間（分）
-          example: 24
-        is_special:
-          type: boolean
-          description: 特別編かどうか
-          default: false
-        filler:
-          type: boolean
-          description: フィラーエピソードかどうか
-          default: false
-        recap:
-          type: boolean
-          description: 総集編かどうか
-          default: false
-        viewed:
-          type: boolean
-        created_at:
-          type: string
-          format: date-time
-        updated_at:
-          type: string
-          format: date-time
     Favorite:
       type: object
       properties:
@@ -2093,14 +1749,6 @@ components:
           type: string
           enum: ["watching", "completed", "planned", "dropped"]
         added_at:
-          type: string
-          format: date-time
-    WatchHistory:
-      type: object
-      properties:
-        episode_id:
-          type: integer
-        watched_at:
           type: string
           format: date-time
     Rating:
@@ -2116,18 +1764,6 @@ components:
         comment:
           type: string
         created_at:
-          type: string
-          format: date-time
-    RecentlyWatchedEpisode:
-      type: object
-      properties:
-        episode_id:
-          type: integer
-        anime_title:
-          type: string
-        episode_title:
-          type: string
-        watched_at:
           type: string
           format: date-time
     WatchlistItem:
@@ -2247,10 +1883,6 @@ components:
                 image_url:
                   type: string
                   format: uri
-        episodes_count:
-          type: integer
-          description: エピソード数
-          example: 12
         watchers_count:
           type: integer
           description: 視聴者数
@@ -2259,9 +1891,6 @@ components:
           type: integer
           description: レビュー数
           example: 50
-        no_episodes:
-          type: boolean
-          description: エピソード情報なしフラグ
         cover_image_extra_large:
           type: string
           format: uri

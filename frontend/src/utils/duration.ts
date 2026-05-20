@@ -19,15 +19,3 @@ export const formatDuration = (
     return `${mins}分`;
   }
 };
-
-/**
- * エピソードの放送時間を表示用にフォーマット
- * @param minutes - 分数
- * @returns フォーマットされた文字列（例: "24分"）
- */
-export const formatEpisodeDuration = (
-  minutes: number | null | undefined
-): string | null => {
-  if (!minutes || minutes <= 0) return null;
-  return `${minutes}分`;
-};

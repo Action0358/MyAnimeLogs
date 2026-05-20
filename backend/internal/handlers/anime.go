@@ -1,8 +1,6 @@
 package handlers
 
 import (
-	"net/http"
-	"strconv"
 	"strings"
 
 	"myanimelogs/internal/common"
@@ -82,79 +80,6 @@ func (h *AnimeHandler) GetAnime(c *gin.Context) {
 	h.response.Success(c, anime)
 }
 
-func (h *AnimeHandler) GetAnimeEpisodes(c *gin.Context) {
-	animeID, err := h.validator.ParseIDParam(c, "id")
-	if err != nil {
-		h.response.ValidationError(c, "無効なアニメIDです")
-		return
-	}
-
-	// 認証されている場合はユーザーIDを取得
-	var userID *int
-	if uid, exists := c.Get("user_id"); exists {
-		if id, ok := uid.(int); ok {
-			userID = &id
-		}
-	}
-
-	// separatedパラメータで分離表示を制御（デフォルトはfalse - Jikan API移行後は分離不要）
-	separated := c.DefaultQuery("separated", "false") == "true"
-
-	if separated {
-		// 通常エピソードと特別編を分離して取得
-		regularEpisodes, specialEpisodes, err := h.animeService.GetEpisodesSeparated(animeID, userID)
-		if err != nil {
-			if err == services.ErrAnimeNotFound {
-				h.response.NotFoundError(c, "アニメが見つかりません")
-				return
-			}
-			h.response.InternalServerError(c, "エピソード一覧の取得に失敗しました")
-			return
-		}
-
-		// 型安全なレスポンス構造体を使用
-		response := models.SeparatedEpisodesResponse{
-			AnimeID:         animeID,
-			RegularEpisodes: regularEpisodes,
-			SpecialEpisodes: specialEpisodes,
-			TotalRegular:    len(regularEpisodes),
-			TotalSpecial:    len(specialEpisodes),
-		}
-		// nilスライスを空配列に変換
-		if response.RegularEpisodes == nil {
-			response.RegularEpisodes = []models.Episode{}
-		}
-		if response.SpecialEpisodes == nil {
-			response.SpecialEpisodes = []models.Episode{}
-		}
-
-		c.JSON(http.StatusOK, response)
-		return
-	}
-
-	// 従来の形式（全エピソードを一覧で返す）
-	episodes, err := h.animeService.GetAnimeEpisodes(animeID, userID)
-	if err != nil {
-		if err == services.ErrAnimeNotFound {
-			h.response.NotFoundError(c, "アニメが見つかりません")
-			return
-		}
-		h.response.InternalServerError(c, "エピソード一覧の取得に失敗しました")
-		return
-	}
-
-	// 型安全なレスポンス構造体を使用
-	response := models.EpisodesResponse{
-		AnimeID:  animeID,
-		Episodes: episodes,
-	}
-	if response.Episodes == nil {
-		response.Episodes = []models.Episode{}
-	}
-
-	c.JSON(http.StatusOK, response)
-}
-
 func (h *AnimeHandler) GetFavorites(c *gin.Context) {
 	userID, err := h.validator.GetUserIDFromContext(c)
 	if err != nil {
@@ -231,37 +156,6 @@ func (h *AnimeHandler) DeleteFavorite(c *gin.Context) {
 	})
 }
 
-func (h *AnimeHandler) UpdateWatchStatus(c *gin.Context) {
-	userID, err := h.validator.GetUserIDFromContext(c)
-	if err != nil {
-		h.response.UnauthorizedError(c, "認証が必要です")
-		return
-	}
-
-	episodeID, err := h.validator.ParseIDParam(c, "episode_id")
-	if err != nil {
-		h.response.ValidationError(c, "無効なエピソードIDです")
-		return
-	}
-
-	var req models.WatchStatusRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		h.response.ValidationError(c, err.Error())
-		return
-	}
-
-	watchStatus, err := h.animeService.UpdateWatchStatus(userID, episodeID, req.Viewed)
-	if err != nil {
-		h.response.InternalServerError(c, "視聴状態の更新に失敗しました")
-		return
-	}
-
-	h.response.Success(c, gin.H{
-		"message":      "視聴状態を更新しました",
-		"watch_status": watchStatus,
-	})
-}
-
 func (h *AnimeHandler) UpdateRating(c *gin.Context) {
 	userID, err := h.validator.GetUserIDFromContext(c)
 	if err != nil {
@@ -319,28 +213,6 @@ func (h *AnimeHandler) DeleteRating(c *gin.Context) {
 	h.response.Success(c, gin.H{
 		"message": "評価を削除しました",
 	})
-}
-
-func (h *AnimeHandler) GetRecentlyWatched(c *gin.Context) {
-	userID, err := h.validator.GetUserIDFromContext(c)
-	if err != nil {
-		h.response.UnauthorizedError(c, "認証が必要です")
-		return
-	}
-
-	limitStr := c.DefaultQuery("limit", "10")
-	limit, err := strconv.Atoi(limitStr)
-	if err != nil || limit <= 0 {
-		limit = 10
-	}
-
-	history, err := h.animeService.GetRecentlyWatched(userID, limit)
-	if err != nil {
-		h.response.InternalServerError(c, "視聴履歴の取得に失敗しました")
-		return
-	}
-
-	h.response.Success(c, history)
 }
 
 func (h *AnimeHandler) GetWatchlist(c *gin.Context) {

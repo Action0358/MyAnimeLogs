@@ -149,48 +149,6 @@ func (h *AnnictHandler) SyncPopularWorks(c *gin.Context) {
 	})
 }
 
-// SyncEpisodes syncs episodes for a specific anime
-func (h *AnnictHandler) SyncEpisodes(c *gin.Context) {
-	animeIDStr := c.Param("anime_id")
-	animeID, err := strconv.Atoi(animeIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid anime ID"})
-		return
-	}
-
-	// For now, create sample episodes since Annict API doesn't provide episode details in the basic endpoint
-	episodes, err := h.createSampleEpisodes(animeID)
-	if err != nil {
-		h.logger.Error("Failed to create sample episodes", "anime_id", animeID, "error", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create episodes"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"status":  "success",
-		"message": fmt.Sprintf("Successfully created %d episodes for anime %d", len(episodes), animeID),
-		"data":    episodes,
-	})
-}
-
-// createSampleEpisodes creates sample episodes for an anime
-func (h *AnnictHandler) createSampleEpisodes(animeID int) ([]models.Episode, error) {
-	// This is a simplified implementation - in a real scenario, you'd fetch from Annict API
-	episodes := []models.Episode{}
-
-	// Create 12 sample episodes (typical for a season)
-	for i := 1; i <= 12; i++ {
-		episode := models.Episode{
-			AnimeID:       animeID,
-			EpisodeNumber: i,
-			Title:         fmt.Sprintf("第%d話", i),
-		}
-		episodes = append(episodes, episode)
-	}
-
-	return episodes, nil
-}
-
 // enrichWorksWithAnilistImages - Anilistから画像を取得してAnnictWorksを拡張
 func (h *AnnictHandler) enrichWorksWithAnilistImages(works []models.AnnictWork) {
 	// 最初の10件のみ同期的に取得、残りはキャッシュのみ使用

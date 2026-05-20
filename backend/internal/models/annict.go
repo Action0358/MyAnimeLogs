@@ -17,10 +17,8 @@ type AnnictWork struct {
 	TwitterHashtag  string            `json:"twitter_hashtag"`
 	MalAnimeID      *string           `json:"mal_anime_id,omitempty"`
 	Images          *AnnictWorkImages `json:"images,omitempty"`
-	EpisodesCount   int               `json:"episodes_count"`
 	WatchersCount   int               `json:"watchers_count"`
 	ReviewsCount    int               `json:"reviews_count"`
-	NoEpisodes      bool              `json:"no_episodes"`
 	UpdatedAt       string            `json:"updated_at"` // Annictの更新日時
 	// Anilist API から取得した画像（リアルタイム取得）
 	CoverImageExtraLarge string `json:"cover_image_extra_large,omitempty"`

@@ -7,12 +7,12 @@ import { useQuery } from '@tanstack/react-query'
 import { decode as heDecodeEntities } from 'he'
 import { Container } from '@/components/layout'
 import { Button } from '@/components/ui'
-import { EpisodeList, WatchProviders } from '@/components/anime'
-import { getAnimesId, getAnimesIdEpisodes } from '@/lib/api/generated/myanimelogs'
+import { WatchProviders } from '@/components/anime'
+import { getAnimesId } from '@/lib/api/generated/myanimelogs'
 import { cn } from '@/lib/utils'
 import { getAnimeStatusLabel, type BroadcastStatusLabel } from '@/utils/animeStatus'
 import { translateBroadcastDay } from '@/utils/broadcast'
-import { formatDuration, formatEpisodeDuration } from '@/utils/duration'
+import { formatDuration } from '@/utils/duration'
 
 const AnimeDetailClient: React.FC = () => {
   const params = useParams()
@@ -48,21 +48,6 @@ const AnimeDetailClient: React.FC = () => {
     },
     enabled: isValidAnimeId,
   })
-
-  const {
-    data: episodesData,
-    isLoading: isLoadingEpisodes,
-  } = useQuery({
-    queryKey: ['anime-episodes', animeId],
-    queryFn: async () => {
-      const response = await getAnimesIdEpisodes(animeId)
-      return response.data
-    },
-    enabled: isValidAnimeId,
-  })
-
-  // エピソードデータ
-  const episodes = episodesData?.episodes || []
 
   // クライアントサイドでのみ放送状態を計算（ハイドレーションミスマッチ回避）
   // 注意: フックは条件付きreturnの前に配置する必要がある（Reactのルール）
@@ -168,9 +153,6 @@ const AnimeDetailClient: React.FC = () => {
     return heDecodeEntities(text).trim()
   }
 
-  // 映画かどうかを判定（エピソード一覧・話数の表示制御に使用）
-  const isMovie = anime.media?.toLowerCase() === 'movie'
-
   return (
     <Container className="py-8">
       <div className="max-w-4xl mx-auto">
@@ -268,7 +250,7 @@ const AnimeDetailClient: React.FC = () => {
         )}
 
         {/* 作品情報セクション */}
-        {(anime.released_on || anime.media || anime.episodes_count || episodes.length > 0 || anime.official_site_url) && (
+        {(anime.released_on || anime.media || anime.official_site_url) && (
           <div className="mb-6 bg-white rounded-lg border p-4 md:p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-3">作品情報</h2>
             <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
@@ -295,14 +277,6 @@ const AnimeDetailClient: React.FC = () => {
                 <div className="flex">
                   <dt className="text-gray-500 w-24 flex-shrink-0">上映時間</dt>
                   <dd className="text-gray-900">{formatDuration(anime.duration_minutes)}</dd>
-                </div>
-              )}
-              {/* 話数 - 映画の場合は非表示（映画にエピソードの概念がないため） */}
-              {/* 実際に取得したエピソードデータの数を表示（APIのepisodes_countと異なる場合があるため） */}
-              {!isMovie && episodes.length > 0 && (
-                <div className="flex">
-                  <dt className="text-gray-500 w-24 flex-shrink-0">話数</dt>
-                  <dd className="text-gray-900">{episodes.length}話</dd>
                 </div>
               )}
               {anime.media && (
@@ -341,24 +315,6 @@ const AnimeDetailClient: React.FC = () => {
           <WatchProviders providers={anime.watch_providers} />
         )}
 
-        {/* エピソード一覧セクション - 映画の場合は非表示（映画にエピソードの概念がないため） */}
-        {!isMovie && (
-          <div id="episode-section" className="bg-white rounded-lg border overflow-hidden">
-            <h2 className="text-lg font-semibold text-gray-900 px-4 md:px-6 py-4">
-              エピソード一覧
-            </h2>
-            
-            <div className="px-4 md:px-6 pb-4 md:pb-6 border-t">
-              <div className="pt-4">
-                <EpisodeList
-                  episodes={episodes}
-                  isLoading={isLoadingEpisodes}
-                  scrollTargetId="episode-section"
-                />
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </Container>
   )
