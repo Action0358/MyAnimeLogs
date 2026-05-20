@@ -63,14 +63,6 @@ func (m *MockAuthService) UpdateUserIcon(userID int, iconURL string) (*models.Us
 	return args.Get(0).(*models.UserResponse), args.Error(1)
 }
 
-func (m *MockAuthService) GetUserStats(userID int) (*models.UserStats, error) {
-	args := m.Called(userID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*models.UserStats), args.Error(1)
-}
-
 func (m *MockAuthService) ExportUserData(userID int, format string) (interface{}, error) {
 	args := m.Called(userID, format)
 	return args.Get(0), args.Error(1)
@@ -425,47 +417,6 @@ func TestAuthHandler_UpdateMe_Success(t *testing.T) {
 	err := json.Unmarshal(w.Body.Bytes(), &response)
 	assert.NoError(t, err)
 	assert.Contains(t, response, "user")
-
-	mockService.AssertExpectations(t)
-}
-
-func TestAuthHandler_GetStats_Success(t *testing.T) {
-	handler, mockService := setupAuthHandler()
-
-	userID := 1
-	expectedStats := &models.UserStats{
-		TotalEpisodesWatched: 100,
-		TotalAnimesCompleted: 10,
-		TotalWatchTimeHours:  40.0,
-		FavoriteGenres:       []string{"Action", "Comedy"},
-		ThisMonthEpisodes:    15,
-	}
-
-	mockService.On("GetUserStats", userID).Return(expectedStats, nil)
-
-	// Setup Gin router
-	gin.SetMode(gin.TestMode)
-	router := gin.New()
-	router.GET("/auth/stats", func(c *gin.Context) {
-		c.Set("user_id", userID)
-		handler.GetStats(c)
-	})
-
-	// Create request
-	httpReq, _ := http.NewRequest("GET", "/auth/stats", nil)
-	w := httptest.NewRecorder()
-
-	// Execute request
-	router.ServeHTTP(w, httpReq)
-
-	// Assert response
-	assert.Equal(t, http.StatusOK, w.Code)
-
-	var response models.UserStats
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	assert.NoError(t, err)
-	assert.Equal(t, 100, response.TotalEpisodesWatched)
-	assert.Equal(t, 10, response.TotalAnimesCompleted)
 
 	mockService.AssertExpectations(t)
 }

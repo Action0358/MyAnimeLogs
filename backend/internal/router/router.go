@@ -130,7 +130,6 @@ func Setup(db *database.DB, cfg *config.Config, syncScheduler handlers.SyncSched
 			protected.PUT("/users/me", authHandler.UpdateMe)
 			protected.POST("/users/me/icon", authHandler.UploadIcon)
 			protected.DELETE("/users/me/icon", authHandler.DeleteIcon)
-			protected.GET("/users/me/stats", authHandler.GetStats)
 			protected.GET("/users/me/export", authHandler.ExportData)
 
 			// セッション管理

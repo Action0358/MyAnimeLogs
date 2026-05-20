@@ -33,7 +33,6 @@ var (
 type AuthService struct {
 	userRepo       UserRepositoryInterface
 	db             *database.DB // Keep for export methods temporarily
-	statsService   *StatsService
 	sessionService SessionServiceInterface
 	logger         *common.Logger
 	jwtSecret      string
@@ -44,7 +43,6 @@ func NewAuthService(db *database.DB, jwtSecret string) *AuthService {
 	return &AuthService{
 		userRepo:       nil, // Will be set by NewAuthServiceWithRepo
 		db:             db,
-		statsService:   NewStatsService(db, logger),
 		sessionService: NewSessionService(db, logger),
 		logger:         logger,
 		jwtSecret:      jwtSecret,
@@ -57,7 +55,6 @@ func NewAuthServiceWithRepo(userRepo UserRepositoryInterface, db *database.DB, j
 	return &AuthService{
 		userRepo:       userRepo,
 		db:             db,
-		statsService:   NewStatsService(db, logger),
 		sessionService: NewSessionService(db, logger),
 		logger:         logger,
 		jwtSecret:      jwtSecret,
@@ -70,7 +67,6 @@ func NewAuthServiceWithDeps(userRepo UserRepositoryInterface, db *database.DB, s
 	return &AuthService{
 		userRepo:       userRepo,
 		db:             db,
-		statsService:   NewStatsService(db, logger),
 		sessionService: sessionService,
 		logger:         logger,
 		jwtSecret:      jwtSecret,
@@ -310,11 +306,6 @@ func (s *AuthService) updateUserWithRepo(userID int, req models.UserUpdateReques
 		SnsLink:       user.SnsLink,
 		CreatedAt:     user.CreatedAt,
 	}, nil
-}
-
-func (s *AuthService) GetUserStats(userID int) (*models.UserStats, error) {
-	// Delegate to StatsService
-	return s.statsService.GetUserStats(userID)
 }
 
 func (s *AuthService) UpdateUserIcon(userID int, iconURL string) (*models.UserResponse, error) {

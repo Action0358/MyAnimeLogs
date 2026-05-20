@@ -242,22 +242,6 @@ func (h *AuthHandler) DeleteIcon(c *gin.Context) {
 	})
 }
 
-func (h *AuthHandler) GetStats(c *gin.Context) {
-	userID, err := h.validator.GetUserIDFromContext(c)
-	if err != nil {
-		h.response.UnauthorizedError(c, "認証が必要です")
-		return
-	}
-
-	stats, err := h.authService.GetUserStats(userID)
-	if err != nil {
-		h.response.InternalServerError(c, "統計情報の取得に失敗しました")
-		return
-	}
-
-	h.response.Success(c, stats)
-}
-
 func (h *AuthHandler) ExportData(c *gin.Context) {
 	userID, err := h.validator.GetUserIDFromContext(c)
 	if err != nil {

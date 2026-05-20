@@ -392,49 +392,6 @@ func TestAuthService_UpdateUser_Success(t *testing.T) {
 	mockRepo.AssertExpectations(t)
 }
 
-// Test watch time calculation logic from GetUserStats method
-func TestAuthService_WatchTimeCalculationLogic(t *testing.T) {
-	tests := []struct {
-		name                   string
-		totalEpisodesWatched   int
-		expectedWatchTimeHours float64
-	}{
-		{
-			name:                   "No episodes watched",
-			totalEpisodesWatched:   0,
-			expectedWatchTimeHours: 0.0,
-		},
-		{
-			name:                   "Single episode",
-			totalEpisodesWatched:   1,
-			expectedWatchTimeHours: 0.4,
-		},
-		{
-			name:                   "10 episodes watched",
-			totalEpisodesWatched:   10,
-			expectedWatchTimeHours: 4.0,
-		},
-		{
-			name:                   "100 episodes watched",
-			totalEpisodesWatched:   100,
-			expectedWatchTimeHours: 40.0,
-		},
-		{
-			name:                   "Large number of episodes",
-			totalEpisodesWatched:   1000,
-			expectedWatchTimeHours: 400.0,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Test the calculation logic used in GetUserStats (24 minutes = 0.4 hours per episode)
-			watchTimeHours := float64(tt.totalEpisodesWatched) * 0.4
-			assert.Equal(t, tt.expectedWatchTimeHours, watchTimeHours)
-		})
-	}
-}
-
 // Test method existence and basic structure (without database calls)
 func TestAuthService_MethodsExist(t *testing.T) {
 	service := NewAuthService(nil, "test-secret")
@@ -445,7 +402,6 @@ func TestAuthService_MethodsExist(t *testing.T) {
 	assert.NotNil(t, service.Login)
 	assert.NotNil(t, service.GetUserByID)
 	assert.NotNil(t, service.UpdateUser)
-	assert.NotNil(t, service.GetUserStats)
 	assert.NotNil(t, service.ExportUserData)
 }
 
@@ -479,9 +435,8 @@ CURRENT TEST COVERAGE:
 - Error constants and method existence verification
 
 REMAINING LIMITATIONS:
-- GetUserStats and ExportUserData still use direct database access
-- These methods require further refactoring for complete testability
-- Stats and export functionality could be moved to separate services
+- ExportUserData still uses direct database access
+- This method requires further refactoring for complete testability
 */
 
 // Test UpdateUserIcon method - Success

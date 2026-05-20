@@ -547,14 +547,6 @@ export type PutEpisodesEpisodeIdWatch200 = {
   viewed?: boolean;
 };
 
-export type GetUsersMeStats200 = {
-  total_episodes_watched?: number;
-  total_animes_completed?: number;
-  total_watch_time_hours?: number;
-  favorite_genres?: string[];
-  this_month_episodes?: number;
-};
-
 export type GetUsersMeRecentlyWatchedParams = {
 limit?: number;
 };
@@ -2024,88 +2016,6 @@ export const usePutEpisodesEpisodeIdWatch = <TError = AxiosError<unknown>,
       return useMutation(mutationOptions , queryClient);
     }
     
-/**
- * @summary ユーザーの視聴統計情報取得
- */
-export const getUsersMeStats = (
-     options?: AxiosRequestConfig
- ): Promise<AxiosResponse<GetUsersMeStats200>> => {
-    
-    
-    return axios.get(
-      `/users/me/stats`,options
-    );
-  }
-
-
-export const getGetUsersMeStatsQueryKey = () => {
-    return [`/users/me/stats`] as const;
-    }
-
-    
-export const getGetUsersMeStatsQueryOptions = <TData = Awaited<ReturnType<typeof getUsersMeStats>>, TError = AxiosError<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeStats>>, TError, TData>>, axios?: AxiosRequestConfig}
-) => {
-
-const {query: queryOptions, axios: axiosOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getGetUsersMeStatsQueryKey();
-
-  
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getUsersMeStats>>> = ({ signal }) => getUsersMeStats({ signal, ...axiosOptions });
-
-      
-
-      
-
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getUsersMeStats>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
-}
-
-export type GetUsersMeStatsQueryResult = NonNullable<Awaited<ReturnType<typeof getUsersMeStats>>>
-export type GetUsersMeStatsQueryError = AxiosError<unknown>
-
-
-export function useGetUsersMeStats<TData = Awaited<ReturnType<typeof getUsersMeStats>>, TError = AxiosError<unknown>>(
-  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeStats>>, TError, TData>> & Pick<
-        DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getUsersMeStats>>,
-          TError,
-          Awaited<ReturnType<typeof getUsersMeStats>>
-        > , 'initialData'
-      >, axios?: AxiosRequestConfig}
- , queryClient?: QueryClient
-  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-export function useGetUsersMeStats<TData = Awaited<ReturnType<typeof getUsersMeStats>>, TError = AxiosError<unknown>>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeStats>>, TError, TData>> & Pick<
-        UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getUsersMeStats>>,
-          TError,
-          Awaited<ReturnType<typeof getUsersMeStats>>
-        > , 'initialData'
-      >, axios?: AxiosRequestConfig}
- , queryClient?: QueryClient
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-export function useGetUsersMeStats<TData = Awaited<ReturnType<typeof getUsersMeStats>>, TError = AxiosError<unknown>>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeStats>>, TError, TData>>, axios?: AxiosRequestConfig}
- , queryClient?: QueryClient
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-/**
- * @summary ユーザーの視聴統計情報取得
- */
-
-export function useGetUsersMeStats<TData = Awaited<ReturnType<typeof getUsersMeStats>>, TError = AxiosError<unknown>>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeStats>>, TError, TData>>, axios?: AxiosRequestConfig}
- , queryClient?: QueryClient 
- ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
-
-  const queryOptions = getGetUsersMeStatsQueryOptions(options)
-
-  const query = useQuery(queryOptions , queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
-
-  query.queryKey = queryOptions.queryKey ;
-
-  return query;
-}
 
 
 

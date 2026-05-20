@@ -33,14 +33,6 @@ describe('MyPage', () => {
     sns_link: 'https://twitter.com/testuser',
   }
 
-  const mockStats = {
-    totalEpisodesWatched: 100,
-    totalAnimesCompleted: 10,
-    totalWatchTimeHours: 40.0,
-    favoriteGenres: ['アクション', 'コメディ', 'ドラマ'],
-    thisMonthEpisodes: 15,
-  }
-
   // 成功時のfetchモックを作成するヘルパー関数
   const createSuccessfulFetchMock = () => {
     return (url: string) => {
@@ -49,12 +41,6 @@ describe('MyPage', () => {
         return Promise.resolve({
           ok: true,
           json: async () => [],
-        })
-      }
-      if (url.endsWith('/api/users/me/stats')) {
-        return Promise.resolve({
-          ok: true,
-          json: async () => mockStats,
         })
       }
       if (url.endsWith('/api/users/me')) {
@@ -115,21 +101,6 @@ describe('MyPage', () => {
       await waitFor(() => {
         expect(screen.getByText('テストユーザー')).toBeInTheDocument()
         expect(screen.getByText('テスト説明')).toBeInTheDocument()
-      })
-    })
-
-    it('統計情報を正しく表示する', async () => {
-      ;(global.fetch as jest.Mock).mockImplementation(
-        createSuccessfulFetchMock()
-      )
-
-      render(<MyPage />)
-
-      await waitFor(() => {
-        expect(screen.getByText('視聴数')).toBeInTheDocument()
-        expect(screen.getByText('完了')).toBeInTheDocument()
-        expect(screen.getByText('100')).toBeInTheDocument()
-        expect(screen.getByText('10')).toBeInTheDocument()
       })
     })
 

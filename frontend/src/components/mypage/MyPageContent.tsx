@@ -7,11 +7,6 @@ import { Container } from '@/components/layout'
 import { Button } from '@/components/ui/Button'
 import { getUserWatchStatusConfig } from '@/utils/userWatchStatus'
 import { buildIconUrl } from '@/lib/utils'
-import {
-  DEFAULT_USER_STATS,
-  ERROR_MESSAGES,
-  type UserStats,
-} from '@/constants/stats'
 import { get, ApiClientError } from '@/lib/api/client'
 
 interface FavoriteAnime {
@@ -21,7 +16,7 @@ interface FavoriteAnime {
   imageUrl?: string
 }
 
-type TabType = 'favorites' | 'stats' | 'history'
+type TabType = 'favorites' | 'history'
 
 export const MyPageContent: React.FC = () => {
   const {
@@ -32,7 +27,6 @@ export const MyPageContent: React.FC = () => {
   } = useAuth()
   const router = useRouter()
   const [user, setUser] = useState(authUser)
-  const [stats, setStats] = useState<UserStats | null>(null)
   const [favorites, setFavorites] = useState<FavoriteAnime[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -47,16 +41,8 @@ export const MyPageContent: React.FC = () => {
 
     try {
       // 並列でデータを取得
-      const [userData, statsData, favoritesData] = await Promise.all([
+      const [userData, favoritesData] = await Promise.all([
         get('/api/users/me'),
-        get<UserStats>('/api/users/me/stats').catch((err) => {
-          // 404エラーの場合のみデフォルト値を返す
-          if (err instanceof ApiClientError && err.status === 404) {
-            return DEFAULT_USER_STATS
-          }
-          // その他のエラー（401を含む）は再スローして上位で処理
-          throw err
-        }),
         get<FavoriteAnime[]>('/api/users/me/favorites').catch((err) => {
           // 404エラーの場合のみ空配列を返す
           if (err instanceof ApiClientError && err.status === 404) {
@@ -68,7 +54,6 @@ export const MyPageContent: React.FC = () => {
       ])
 
       setUser(userData)
-      setStats(statsData)
       setFavorites(favoritesData.slice(0, 20))
     } catch (err) {
       // 401エラーの場合はグローバルハンドラーが認証状態をクリアし、
@@ -79,7 +64,7 @@ export const MyPageContent: React.FC = () => {
       
       // その他のエラーはユーザーに通知
       const errorMessage =
-        err instanceof Error ? err.message : ERROR_MESSAGES.DATA_FETCH_FAILED
+        err instanceof Error ? err.message : 'データの取得に失敗しました'
       setError(errorMessage)
       console.error('Failed to fetch data:', err)
     } finally {
@@ -196,33 +181,11 @@ export const MyPageContent: React.FC = () => {
 
                 {/* 右側: ユーザー情報とプロフィール詳細 */}
                 <div className="flex-1 w-full">
-                  {/* ユーザー名と統計 */}
+                  {/* ユーザー名 */}
                   <div className="mb-4 sm:mb-6">
                     <h1 className="text-2xl sm:text-3xl font-bold text-blue-900 mb-3 text-center sm:text-left">
                       {user?.name}
                     </h1>
-
-                    {/* 統計バッジ */}
-                    <div className="flex items-center justify-center sm:justify-start space-x-4 sm:space-x-6">
-                      <div className="flex items-center space-x-2">
-                        <span className="text-lg sm:text-xl">📺</span>
-                        <div>
-                          <p className="text-xs text-gray-500">視聴数</p>
-                          <p className="text-sm sm:text-base font-bold text-gray-900">
-                            {stats?.totalEpisodesWatched || 0}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <span className="text-lg sm:text-xl">✅</span>
-                        <div>
-                          <p className="text-xs text-gray-500">完了</p>
-                          <p className="text-sm sm:text-base font-bold text-gray-900">
-                            {stats?.totalAnimesCompleted || 0}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
                   </div>
 
                   {/* プロフィール詳細 */}
@@ -282,16 +245,6 @@ export const MyPageContent: React.FC = () => {
                 >
                   お気に入り
                   <span className="ml-1 sm:ml-2 text-xs">{favorites.length}</span>
-                </button>
-                <button
-                  onClick={() => setActiveTab('stats')}
-                  className={`py-3 sm:py-4 px-2 border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap ${
-                    activeTab === 'stats'
-                      ? 'border-blue-600 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  統計レポート
                 </button>
                 <button
                   onClick={() => setActiveTab('history')}
@@ -367,21 +320,6 @@ export const MyPageContent: React.FC = () => {
                       </Button>
                     </div>
                   )}
-                </div>
-              )}
-
-              {activeTab === 'stats' && (
-                <div className="text-center py-12">
-                  <p className="text-gray-600 mb-4">
-                    統計レポート機能は準備中です
-                  </p>
-                  <Button
-                    variant="primary"
-                    size="md"
-                    onClick={() => router.push('/stats')}
-                  >
-                    詳細統計を見る
-                  </Button>
                 </div>
               )}
 

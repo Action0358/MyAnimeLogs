@@ -66,11 +66,7 @@ Authorization: Bearer {{login.response.body.access_token}}
 DELETE {{baseUrl}}/api/users/me/icon
 Authorization: Bearer {{login.response.body.access_token}}
 
-### 5. ユーザー統計取得
-GET {{baseUrl}}/api/users/me/stats
-Authorization: Bearer {{login.response.body.access_token}}
-
-### 6. データエクスポート（JSON）
+### 5. データエクスポート（JSON）
 GET {{baseUrl}}/api/users/me/export?format=json
 Authorization: Bearer {{login.response.body.access_token}}
 
@@ -695,11 +691,6 @@ Authorization: Bearer {{login.response.body.access_token}}
   "anime_id": 1
 }
 
-### 97. ユーザー統計 - 視聴時間データを含む統計取得
-# total_watch_time_minutesに実際のエピソード視聴時間が反映される
-GET {{baseUrl}}/api/users/me/stats
-Authorization: Bearer {{login.response.body.access_token}}
-
 ### ===== Jikan API エラーケーステスト =====
 
 ### 98. 存在しないアニメIDで同期
@@ -738,12 +729,7 @@ Authorization: Bearer {{login.response.body.access_token}}
   "viewed": true
 }
 
-### 103. シナリオ4: 統計情報で視聴時間を確認
-# total_watch_time_minutesに視聴時間が反映される
-GET {{baseUrl}}/api/users/me/stats
-Authorization: Bearer {{login.response.body.access_token}}
-
-### 104. シナリオ5: 管理者による一括同期
+### 103. シナリオ4: 管理者による一括同期
 # 全アニメのエピソード視聴時間を一括で同期
 POST {{baseUrl}}/api/admin/sync/episode-durations
 Content-Type: {{contentType}}
@@ -796,10 +782,6 @@ Authorization: Bearer {{login.response.body.access_token}}
 {
   "viewed": true
 }
-
-###
-GET {{baseUrl}}/api/users/me/stats
-Authorization: Bearer {{login.response.body.access_token}}
 
 ### ===== Jikan API エピソード同期機能テスト =====
 
