@@ -12,30 +12,11 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"myanimelogs/internal/common"
-	"myanimelogs/internal/models"
 )
 
 // MockAdminAnimeServiceForGenres is a mock implementation of AdminAnimeService for genre sync tests
 type MockAdminAnimeServiceForGenres struct {
 	mock.Mock
-}
-
-func (m *MockAdminAnimeServiceForGenres) SyncEpisodeDurations(animeID *int) (int, int, int, int, []string, error) {
-	args := m.Called(animeID)
-	return args.Int(0), args.Int(1), args.Int(2), args.Int(3), args.Get(4).([]string), args.Error(5)
-}
-
-func (m *MockAdminAnimeServiceForGenres) SyncEpisodesFromJikan(animeID *int) (int, int, []string, error) {
-	args := m.Called(animeID)
-	return args.Int(0), args.Int(1), args.Get(2).([]string), args.Error(3)
-}
-
-func (m *MockAdminAnimeServiceForGenres) GetEpisodeSyncStatus(animeID int) (*models.EpisodeSyncStatus, error) {
-	args := m.Called(animeID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*models.EpisodeSyncStatus), args.Error(1)
 }
 
 func (m *MockAdminAnimeServiceForGenres) SyncGenresForAllAnimes() (int, int, []string, error) {

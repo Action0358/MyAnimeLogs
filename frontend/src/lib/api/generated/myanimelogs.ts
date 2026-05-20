@@ -107,11 +107,6 @@ export interface Anime {
    */
   media?: string | null;
   /**
-   * 総話数
-   * @nullable
-   */
-  episodes_count?: number | null;
-  /**
    * 放送開始日（YYYY-MM-DD形式）
    * @nullable
    */
@@ -175,10 +170,6 @@ export interface Anime {
    * @nullable
    */
   user_rating?: Rating;
-  /** 視聴進捗率（0-100） */
-  watch_progress?: number;
-  /** エピソード一覧 */
-  episodes?: Episode[];
   /**
    * 平均評価
    * @nullable
@@ -203,27 +194,6 @@ export interface WatchProvider {
   logo_url: string;
 }
 
-export interface Episode {
-  id?: number;
-  anime_id?: number;
-  title?: string;
-  episode_number?: number;
-  /**
-   * エピソードの視聴時間（分）
-   * @nullable
-   */
-  duration_minutes?: number | null;
-  /** 特別編かどうか */
-  is_special?: boolean;
-  /** フィラーエピソードかどうか */
-  filler?: boolean;
-  /** 総集編かどうか */
-  recap?: boolean;
-  viewed?: boolean;
-  created_at?: string;
-  updated_at?: string;
-}
-
 export type FavoriteStatus = typeof FavoriteStatus[keyof typeof FavoriteStatus];
 
 
@@ -241,11 +211,6 @@ export interface Favorite {
   added_at?: string;
 }
 
-export interface WatchHistory {
-  episode_id?: number;
-  watched_at?: string;
-}
-
 export interface Rating {
   anime_id?: number;
   /**
@@ -255,13 +220,6 @@ export interface Rating {
   rating?: number;
   comment?: string;
   created_at?: string;
-}
-
-export interface RecentlyWatchedEpisode {
-  episode_id?: number;
-  anime_title?: string;
-  episode_title?: string;
-  watched_at?: string;
 }
 
 export interface WatchlistItem {
@@ -347,14 +305,10 @@ export interface AnnictWork {
    * @nullable
    */
   images?: AnnictWorkImages;
-  /** エピソード数 */
-  episodes_count?: number;
   /** 視聴者数 */
   watchers_count?: number;
   /** レビュー数 */
   reviews_count?: number;
-  /** エピソード情報なしフラグ */
-  no_episodes?: boolean;
   /** AniList APIから取得した最高画質カバー画像URL（extraLargeサイズ） */
   cover_image_extra_large?: string;
   /** AniList APIから取得した大サイズカバー画像URL */
@@ -463,7 +417,6 @@ export const GetUsersMeExportFormat = {
 export type GetUsersMeExport200One = {
   user_info?: User;
   favorites?: Favorite[];
-  watch_history?: WatchHistory[];
   ratings?: Rating[];
 };
 
@@ -504,11 +457,6 @@ export type GetAnimes200 = {
   meta?: GetAnimes200Meta;
 };
 
-export type GetAnimesIdEpisodes200 = {
-  anime_id?: number;
-  episodes?: Episode[];
-};
-
 export type GetUsersMeFavoritesParams = {
 status?: GetUsersMeFavoritesStatus;
 };
@@ -537,18 +485,6 @@ export const PutUsersMeFavoritesAnimeIdBodyStatus = {
 
 export type PutUsersMeFavoritesAnimeIdBody = {
   status: PutUsersMeFavoritesAnimeIdBodyStatus;
-};
-
-export type PutEpisodesEpisodeIdWatchBody = {
-  viewed: boolean;
-};
-
-export type PutEpisodesEpisodeIdWatch200 = {
-  viewed?: boolean;
-};
-
-export type GetUsersMeRecentlyWatchedParams = {
-limit?: number;
 };
 
 export type PutAnimesIdRatingBody = {
@@ -869,40 +805,6 @@ export type PostAdminErrorsReset200 = {
   message?: string;
 };
 
-export type PostAdminSyncEpisodeDurationsBody = {
-  /** 同期対象のアニメID（未指定の場合は全アニメ） */
-  anime_id?: number;
-};
-
-export type PostAdminSyncEpisodeDurations200 = {
-  /** 処理対象のアニメ数 */
-  total_animes?: number;
-  /** 成功した同期数 */
-  success_count?: number;
-  /** 失敗した同期数 */
-  failure_count?: number;
-  /** スキップされた同期数 */
-  skipped_count?: number;
-  /** エラーメッセージのリスト */
-  errors?: string[];
-};
-
-export type PostAdminSyncEpisodesBody = {
-  /** 同期対象のアニメID（省略時は全アニメ） */
-  anime_id?: number;
-};
-
-export type PostAdminSyncEpisodes200 = {
-  /** 成功したアニメ数 */
-  success_count?: number;
-  /** 失敗したアニメ数 */
-  failure_count?: number;
-  /** エラーメッセージのリスト */
-  errors?: string[];
-  /** 処理結果メッセージ */
-  message?: string;
-};
-
 export type PostAdminSyncGenres200 = {
   /** 成功したアニメ数 */
   success_count?: number;
@@ -912,37 +814,6 @@ export type PostAdminSyncGenres200 = {
   errors?: string[];
   /** 処理結果メッセージ */
   message?: string;
-};
-
-export type GetAdminEpisodeSyncStatusParams = {
-/**
- * 確認対象のアニメID
- */
-anime_id: number;
-};
-
-export type GetAdminEpisodeSyncStatus200 = {
-  /** アニメID */
-  anime_id?: number;
-  /** アニメタイトル */
-  anime_title?: string;
-  /**
-   * Annict ID
-   * @nullable
-   */
-  annict_id?: number | null;
-  /** 総エピソード数 */
-  total_episodes?: number;
-  /** デフォルトタイトル（第X話）の数 */
-  default_titles?: number;
-  /** カスタムタイトルの数 */
-  custom_titles?: number;
-  /** 同期率（%） */
-  sync_percentage?: number;
-  /** 同期が必要かどうか */
-  need_sync?: boolean;
-  /** サンプルエピソード（最大5件） */
-  sample_episodes?: string[];
 };
 
 export type GetAdminSyncStatus200 = {
@@ -1656,92 +1527,6 @@ export function useGetAnimesId<TData = Awaited<ReturnType<typeof getAnimesId>>, 
 
 
 /**
- * @summary 指定アニメのエピソード一覧取得
- */
-export const getAnimesIdEpisodes = (
-    id: number, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<GetAnimesIdEpisodes200>> => {
-    
-    
-    return axios.get(
-      `/animes/${id}/episodes`,options
-    );
-  }
-
-
-export const getGetAnimesIdEpisodesQueryKey = (id?: number,) => {
-    return [`/animes/${id}/episodes`] as const;
-    }
-
-    
-export const getGetAnimesIdEpisodesQueryOptions = <TData = Awaited<ReturnType<typeof getAnimesIdEpisodes>>, TError = AxiosError<Error>>(id: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAnimesIdEpisodes>>, TError, TData>>, axios?: AxiosRequestConfig}
-) => {
-
-const {query: queryOptions, axios: axiosOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getGetAnimesIdEpisodesQueryKey(id);
-
-  
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAnimesIdEpisodes>>> = ({ signal }) => getAnimesIdEpisodes(id, { signal, ...axiosOptions });
-
-      
-
-      
-
-   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAnimesIdEpisodes>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
-}
-
-export type GetAnimesIdEpisodesQueryResult = NonNullable<Awaited<ReturnType<typeof getAnimesIdEpisodes>>>
-export type GetAnimesIdEpisodesQueryError = AxiosError<Error>
-
-
-export function useGetAnimesIdEpisodes<TData = Awaited<ReturnType<typeof getAnimesIdEpisodes>>, TError = AxiosError<Error>>(
- id: number, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAnimesIdEpisodes>>, TError, TData>> & Pick<
-        DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getAnimesIdEpisodes>>,
-          TError,
-          Awaited<ReturnType<typeof getAnimesIdEpisodes>>
-        > , 'initialData'
-      >, axios?: AxiosRequestConfig}
- , queryClient?: QueryClient
-  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-export function useGetAnimesIdEpisodes<TData = Awaited<ReturnType<typeof getAnimesIdEpisodes>>, TError = AxiosError<Error>>(
- id: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAnimesIdEpisodes>>, TError, TData>> & Pick<
-        UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getAnimesIdEpisodes>>,
-          TError,
-          Awaited<ReturnType<typeof getAnimesIdEpisodes>>
-        > , 'initialData'
-      >, axios?: AxiosRequestConfig}
- , queryClient?: QueryClient
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-export function useGetAnimesIdEpisodes<TData = Awaited<ReturnType<typeof getAnimesIdEpisodes>>, TError = AxiosError<Error>>(
- id: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAnimesIdEpisodes>>, TError, TData>>, axios?: AxiosRequestConfig}
- , queryClient?: QueryClient
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-/**
- * @summary 指定アニメのエピソード一覧取得
- */
-
-export function useGetAnimesIdEpisodes<TData = Awaited<ReturnType<typeof getAnimesIdEpisodes>>, TError = AxiosError<Error>>(
- id: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAnimesIdEpisodes>>, TError, TData>>, axios?: AxiosRequestConfig}
- , queryClient?: QueryClient 
- ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
-
-  const queryOptions = getGetAnimesIdEpisodesQueryOptions(id,options)
-
-  const query = useQuery(queryOptions , queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
-
-  query.queryKey = queryOptions.queryKey ;
-
-  return query;
-}
-
-
-
-
-/**
  * @summary 自分のお気に入りアニメ一覧取得
  */
 export const getUsersMeFavorites = (
@@ -1953,161 +1738,6 @@ export const useDeleteUsersMeFavoritesAnimeId = <TError = AxiosError<unknown>,
       return useMutation(mutationOptions , queryClient);
     }
     
-/**
- * @summary エピソードの視聴状態を更新
- */
-export const putEpisodesEpisodeIdWatch = (
-    episodeId: number,
-    putEpisodesEpisodeIdWatchBody: PutEpisodesEpisodeIdWatchBody, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<PutEpisodesEpisodeIdWatch200>> => {
-    
-    
-    return axios.put(
-      `/episodes/${episodeId}/watch`,
-      putEpisodesEpisodeIdWatchBody,options
-    );
-  }
-
-
-
-export const getPutEpisodesEpisodeIdWatchMutationOptions = <TError = AxiosError<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putEpisodesEpisodeIdWatch>>, TError,{episodeId: number;data: PutEpisodesEpisodeIdWatchBody}, TContext>, axios?: AxiosRequestConfig}
-): UseMutationOptions<Awaited<ReturnType<typeof putEpisodesEpisodeIdWatch>>, TError,{episodeId: number;data: PutEpisodesEpisodeIdWatchBody}, TContext> => {
-
-const mutationKey = ['putEpisodesEpisodeIdWatch'];
-const {mutation: mutationOptions, axios: axiosOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, axios: undefined};
-
-      
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof putEpisodesEpisodeIdWatch>>, {episodeId: number;data: PutEpisodesEpisodeIdWatchBody}> = (props) => {
-          const {episodeId,data} = props ?? {};
-
-          return  putEpisodesEpisodeIdWatch(episodeId,data,axiosOptions)
-        }
-
-        
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type PutEpisodesEpisodeIdWatchMutationResult = NonNullable<Awaited<ReturnType<typeof putEpisodesEpisodeIdWatch>>>
-    export type PutEpisodesEpisodeIdWatchMutationBody = PutEpisodesEpisodeIdWatchBody
-    export type PutEpisodesEpisodeIdWatchMutationError = AxiosError<unknown>
-
-    /**
- * @summary エピソードの視聴状態を更新
- */
-export const usePutEpisodesEpisodeIdWatch = <TError = AxiosError<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putEpisodesEpisodeIdWatch>>, TError,{episodeId: number;data: PutEpisodesEpisodeIdWatchBody}, TContext>, axios?: AxiosRequestConfig}
- , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof putEpisodesEpisodeIdWatch>>,
-        TError,
-        {episodeId: number;data: PutEpisodesEpisodeIdWatchBody},
-        TContext
-      > => {
-
-      const mutationOptions = getPutEpisodesEpisodeIdWatchMutationOptions(options);
-
-      return useMutation(mutationOptions , queryClient);
-    }
-    
-
-
-
-
-/**
- * @summary 最近視聴したエピソード一覧
- */
-export const getUsersMeRecentlyWatched = (
-    params?: GetUsersMeRecentlyWatchedParams, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<RecentlyWatchedEpisode[]>> => {
-    
-    
-    return axios.get(
-      `/users/me/recently-watched`,{
-    ...options,
-        params: {...params, ...options?.params},}
-    );
-  }
-
-
-export const getGetUsersMeRecentlyWatchedQueryKey = (params?: GetUsersMeRecentlyWatchedParams,) => {
-    return [`/users/me/recently-watched`, ...(params ? [params]: [])] as const;
-    }
-
-    
-export const getGetUsersMeRecentlyWatchedQueryOptions = <TData = Awaited<ReturnType<typeof getUsersMeRecentlyWatched>>, TError = AxiosError<unknown>>(params?: GetUsersMeRecentlyWatchedParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeRecentlyWatched>>, TError, TData>>, axios?: AxiosRequestConfig}
-) => {
-
-const {query: queryOptions, axios: axiosOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getGetUsersMeRecentlyWatchedQueryKey(params);
-
-  
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getUsersMeRecentlyWatched>>> = ({ signal }) => getUsersMeRecentlyWatched(params, { signal, ...axiosOptions });
-
-      
-
-      
-
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getUsersMeRecentlyWatched>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
-}
-
-export type GetUsersMeRecentlyWatchedQueryResult = NonNullable<Awaited<ReturnType<typeof getUsersMeRecentlyWatched>>>
-export type GetUsersMeRecentlyWatchedQueryError = AxiosError<unknown>
-
-
-export function useGetUsersMeRecentlyWatched<TData = Awaited<ReturnType<typeof getUsersMeRecentlyWatched>>, TError = AxiosError<unknown>>(
- params: undefined |  GetUsersMeRecentlyWatchedParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeRecentlyWatched>>, TError, TData>> & Pick<
-        DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getUsersMeRecentlyWatched>>,
-          TError,
-          Awaited<ReturnType<typeof getUsersMeRecentlyWatched>>
-        > , 'initialData'
-      >, axios?: AxiosRequestConfig}
- , queryClient?: QueryClient
-  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-export function useGetUsersMeRecentlyWatched<TData = Awaited<ReturnType<typeof getUsersMeRecentlyWatched>>, TError = AxiosError<unknown>>(
- params?: GetUsersMeRecentlyWatchedParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeRecentlyWatched>>, TError, TData>> & Pick<
-        UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getUsersMeRecentlyWatched>>,
-          TError,
-          Awaited<ReturnType<typeof getUsersMeRecentlyWatched>>
-        > , 'initialData'
-      >, axios?: AxiosRequestConfig}
- , queryClient?: QueryClient
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-export function useGetUsersMeRecentlyWatched<TData = Awaited<ReturnType<typeof getUsersMeRecentlyWatched>>, TError = AxiosError<unknown>>(
- params?: GetUsersMeRecentlyWatchedParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeRecentlyWatched>>, TError, TData>>, axios?: AxiosRequestConfig}
- , queryClient?: QueryClient
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-/**
- * @summary 最近視聴したエピソード一覧
- */
-
-export function useGetUsersMeRecentlyWatched<TData = Awaited<ReturnType<typeof getUsersMeRecentlyWatched>>, TError = AxiosError<unknown>>(
- params?: GetUsersMeRecentlyWatchedParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeRecentlyWatched>>, TError, TData>>, axios?: AxiosRequestConfig}
- , queryClient?: QueryClient 
- ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
-
-  const queryOptions = getGetUsersMeRecentlyWatchedQueryOptions(params,options)
-
-  const query = useQuery(queryOptions , queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
-
-  query.queryKey = queryOptions.queryKey ;
-
-  return query;
-}
-
-
-
-
 /**
  * @summary アニメの評価を登録・更新
  */
@@ -3591,132 +3221,6 @@ export const usePostAdminErrorsReset = <TError = AxiosError<unknown>,
     }
     
 /**
- * Jikan APIからエピソードの視聴時間を取得してデータベースに保存します
- * @summary エピソード視聴時間をJikan APIから同期
- */
-export const postAdminSyncEpisodeDurations = (
-    postAdminSyncEpisodeDurationsBody?: PostAdminSyncEpisodeDurationsBody, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<PostAdminSyncEpisodeDurations200>> => {
-    
-    
-    return axios.post(
-      `/admin/sync/episode-durations`,
-      postAdminSyncEpisodeDurationsBody,options
-    );
-  }
-
-
-
-export const getPostAdminSyncEpisodeDurationsMutationOptions = <TError = AxiosError<Error | Error | Error>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAdminSyncEpisodeDurations>>, TError,{data: PostAdminSyncEpisodeDurationsBody}, TContext>, axios?: AxiosRequestConfig}
-): UseMutationOptions<Awaited<ReturnType<typeof postAdminSyncEpisodeDurations>>, TError,{data: PostAdminSyncEpisodeDurationsBody}, TContext> => {
-
-const mutationKey = ['postAdminSyncEpisodeDurations'];
-const {mutation: mutationOptions, axios: axiosOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, axios: undefined};
-
-      
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postAdminSyncEpisodeDurations>>, {data: PostAdminSyncEpisodeDurationsBody}> = (props) => {
-          const {data} = props ?? {};
-
-          return  postAdminSyncEpisodeDurations(data,axiosOptions)
-        }
-
-        
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type PostAdminSyncEpisodeDurationsMutationResult = NonNullable<Awaited<ReturnType<typeof postAdminSyncEpisodeDurations>>>
-    export type PostAdminSyncEpisodeDurationsMutationBody = PostAdminSyncEpisodeDurationsBody
-    export type PostAdminSyncEpisodeDurationsMutationError = AxiosError<Error | Error | Error>
-
-    /**
- * @summary エピソード視聴時間をJikan APIから同期
- */
-export const usePostAdminSyncEpisodeDurations = <TError = AxiosError<Error | Error | Error>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAdminSyncEpisodeDurations>>, TError,{data: PostAdminSyncEpisodeDurationsBody}, TContext>, axios?: AxiosRequestConfig}
- , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof postAdminSyncEpisodeDurations>>,
-        TError,
-        {data: PostAdminSyncEpisodeDurationsBody},
-        TContext
-      > => {
-
-      const mutationOptions = getPostAdminSyncEpisodeDurationsMutationOptions(options);
-
-      return useMutation(mutationOptions , queryClient);
-    }
-    
-/**
- * Jikan API（MyAnimeList）からエピソード情報を取得してデータベースに保存します。タイトル、放送日、再生時間、特別編フラグ（filler/recap）を同期します。
- * @summary エピソード情報をJikan APIから同期
- */
-export const postAdminSyncEpisodes = (
-    postAdminSyncEpisodesBody?: PostAdminSyncEpisodesBody, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<PostAdminSyncEpisodes200>> => {
-    
-    
-    return axios.post(
-      `/admin/sync/episodes`,
-      postAdminSyncEpisodesBody,options
-    );
-  }
-
-
-
-export const getPostAdminSyncEpisodesMutationOptions = <TError = AxiosError<Error | Error | Error>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAdminSyncEpisodes>>, TError,{data: PostAdminSyncEpisodesBody}, TContext>, axios?: AxiosRequestConfig}
-): UseMutationOptions<Awaited<ReturnType<typeof postAdminSyncEpisodes>>, TError,{data: PostAdminSyncEpisodesBody}, TContext> => {
-
-const mutationKey = ['postAdminSyncEpisodes'];
-const {mutation: mutationOptions, axios: axiosOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, axios: undefined};
-
-      
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postAdminSyncEpisodes>>, {data: PostAdminSyncEpisodesBody}> = (props) => {
-          const {data} = props ?? {};
-
-          return  postAdminSyncEpisodes(data,axiosOptions)
-        }
-
-        
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type PostAdminSyncEpisodesMutationResult = NonNullable<Awaited<ReturnType<typeof postAdminSyncEpisodes>>>
-    export type PostAdminSyncEpisodesMutationBody = PostAdminSyncEpisodesBody
-    export type PostAdminSyncEpisodesMutationError = AxiosError<Error | Error | Error>
-
-    /**
- * @summary エピソード情報をJikan APIから同期
- */
-export const usePostAdminSyncEpisodes = <TError = AxiosError<Error | Error | Error>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAdminSyncEpisodes>>, TError,{data: PostAdminSyncEpisodesBody}, TContext>, axios?: AxiosRequestConfig}
- , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof postAdminSyncEpisodes>>,
-        TError,
-        {data: PostAdminSyncEpisodesBody},
-        TContext
-      > => {
-
-      const mutationOptions = getPostAdminSyncEpisodesMutationOptions(options);
-
-      return useMutation(mutationOptions , queryClient);
-    }
-    
-/**
  * AniList APIからジャンル情報を取得してデータベースに保存します。MAL IDが設定されている全アニメを処理します。
  * @summary アニメジャンル情報をAniList APIから同期
  */
@@ -3778,95 +3282,6 @@ export const usePostAdminSyncGenres = <TError = AxiosError<Error | Error>,
       return useMutation(mutationOptions , queryClient);
     }
     
-/**
- * 特定のアニメのエピソード同期状況を取得します
- * @summary エピソード同期ステータスを取得
- */
-export const getAdminEpisodeSyncStatus = (
-    params: GetAdminEpisodeSyncStatusParams, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<GetAdminEpisodeSyncStatus200>> => {
-    
-    
-    return axios.get(
-      `/admin/episode-sync-status`,{
-    ...options,
-        params: {...params, ...options?.params},}
-    );
-  }
-
-
-export const getGetAdminEpisodeSyncStatusQueryKey = (params?: GetAdminEpisodeSyncStatusParams,) => {
-    return [`/admin/episode-sync-status`, ...(params ? [params]: [])] as const;
-    }
-
-    
-export const getGetAdminEpisodeSyncStatusQueryOptions = <TData = Awaited<ReturnType<typeof getAdminEpisodeSyncStatus>>, TError = AxiosError<Error | Error | Error>>(params: GetAdminEpisodeSyncStatusParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminEpisodeSyncStatus>>, TError, TData>>, axios?: AxiosRequestConfig}
-) => {
-
-const {query: queryOptions, axios: axiosOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getGetAdminEpisodeSyncStatusQueryKey(params);
-
-  
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminEpisodeSyncStatus>>> = ({ signal }) => getAdminEpisodeSyncStatus(params, { signal, ...axiosOptions });
-
-      
-
-      
-
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAdminEpisodeSyncStatus>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
-}
-
-export type GetAdminEpisodeSyncStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminEpisodeSyncStatus>>>
-export type GetAdminEpisodeSyncStatusQueryError = AxiosError<Error | Error | Error>
-
-
-export function useGetAdminEpisodeSyncStatus<TData = Awaited<ReturnType<typeof getAdminEpisodeSyncStatus>>, TError = AxiosError<Error | Error | Error>>(
- params: GetAdminEpisodeSyncStatusParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminEpisodeSyncStatus>>, TError, TData>> & Pick<
-        DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getAdminEpisodeSyncStatus>>,
-          TError,
-          Awaited<ReturnType<typeof getAdminEpisodeSyncStatus>>
-        > , 'initialData'
-      >, axios?: AxiosRequestConfig}
- , queryClient?: QueryClient
-  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-export function useGetAdminEpisodeSyncStatus<TData = Awaited<ReturnType<typeof getAdminEpisodeSyncStatus>>, TError = AxiosError<Error | Error | Error>>(
- params: GetAdminEpisodeSyncStatusParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminEpisodeSyncStatus>>, TError, TData>> & Pick<
-        UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getAdminEpisodeSyncStatus>>,
-          TError,
-          Awaited<ReturnType<typeof getAdminEpisodeSyncStatus>>
-        > , 'initialData'
-      >, axios?: AxiosRequestConfig}
- , queryClient?: QueryClient
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-export function useGetAdminEpisodeSyncStatus<TData = Awaited<ReturnType<typeof getAdminEpisodeSyncStatus>>, TError = AxiosError<Error | Error | Error>>(
- params: GetAdminEpisodeSyncStatusParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminEpisodeSyncStatus>>, TError, TData>>, axios?: AxiosRequestConfig}
- , queryClient?: QueryClient
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-/**
- * @summary エピソード同期ステータスを取得
- */
-
-export function useGetAdminEpisodeSyncStatus<TData = Awaited<ReturnType<typeof getAdminEpisodeSyncStatus>>, TError = AxiosError<Error | Error | Error>>(
- params: GetAdminEpisodeSyncStatusParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminEpisodeSyncStatus>>, TError, TData>>, axios?: AxiosRequestConfig}
- , queryClient?: QueryClient 
- ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
-
-  const queryOptions = getGetAdminEpisodeSyncStatusQueryOptions(params,options)
-
-  const query = useQuery(queryOptions , queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
-
-  query.queryKey = queryOptions.queryKey ;
-
-  return query;
-}
-
-
-
-
 /**
  * アニメ同期スケジューラーの現在のステータスを取得します
  * @summary 同期ステータスを取得

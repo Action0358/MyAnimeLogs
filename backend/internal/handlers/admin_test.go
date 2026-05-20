@@ -1,10 +1,8 @@
 package handlers
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -16,7 +14,6 @@ import (
 
 	"myanimelogs/internal/common"
 	"myanimelogs/internal/models"
-	"myanimelogs/internal/services"
 )
 
 // MockAnimeService for testing
@@ -48,14 +45,6 @@ func (m *MockAnimeService) GetAnimeByID(animeID int, userID *int) (*models.Anime
 	return args.Get(0).(*models.AnimeWithUserData), args.Error(1)
 }
 
-func (m *MockAnimeService) GetAnimeEpisodes(animeID int, userID *int) ([]models.Episode, error) {
-	args := m.Called(animeID, userID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]models.Episode), args.Error(1)
-}
-
 func (m *MockAnimeService) GetUserFavorites(userID int, status string) ([]models.AnimeWithUserData, error) {
 	args := m.Called(userID, status)
 	if args.Get(0) == nil {
@@ -77,14 +66,6 @@ func (m *MockAnimeService) DeleteFavorite(userID, animeID int) error {
 	return args.Error(0)
 }
 
-func (m *MockAnimeService) UpdateWatchStatus(userID, episodeID int, viewed bool) (*models.WatchStatus, error) {
-	args := m.Called(userID, episodeID, viewed)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*models.WatchStatus), args.Error(1)
-}
-
 func (m *MockAnimeService) UpdateRating(userID, animeID int, rating float64, comment *string) (*models.UserRating, error) {
 	args := m.Called(userID, animeID, rating, comment)
 	if args.Get(0) == nil {
@@ -96,14 +77,6 @@ func (m *MockAnimeService) UpdateRating(userID, animeID int, rating float64, com
 func (m *MockAnimeService) DeleteRating(userID, animeID int) error {
 	args := m.Called(userID, animeID)
 	return args.Error(0)
-}
-
-func (m *MockAnimeService) GetRecentlyWatched(userID, limit int) ([]models.WatchHistory, error) {
-	args := m.Called(userID, limit)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]models.WatchHistory), args.Error(1)
 }
 
 func (m *MockAnimeService) GetFilterOptions() (*models.FilterOptions, error) {
@@ -130,30 +103,6 @@ func (m *MockAnimeService) GetSearchSuggestions(query string, limit int) ([]stri
 	return args.Get(0).([]string), args.Error(1)
 }
 
-func (m *MockAnimeService) SyncEpisodeDurations(animeID *int) (int, int, int, int, []string, error) {
-	args := m.Called(animeID)
-	if args.Get(4) == nil {
-		return args.Int(0), args.Int(1), args.Int(2), args.Int(3), nil, args.Error(5)
-	}
-	return args.Int(0), args.Int(1), args.Int(2), args.Int(3), args.Get(4).([]string), args.Error(5)
-}
-
-func (m *MockAnimeService) SyncEpisodesFromJikan(animeID *int) (int, int, []string, error) {
-	args := m.Called(animeID)
-	if args.Get(2) == nil {
-		return args.Int(0), args.Int(1), nil, args.Error(3)
-	}
-	return args.Int(0), args.Int(1), args.Get(2).([]string), args.Error(3)
-}
-
-func (m *MockAnimeService) GetEpisodeSyncStatus(animeID int) (*models.EpisodeSyncStatus, error) {
-	args := m.Called(animeID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*models.EpisodeSyncStatus), args.Error(1)
-}
-
 func (m *MockAnimeService) SyncGenresForAllAnimes() (int, int, []string, error) {
 	args := m.Called()
 	if args.Get(2) == nil {
@@ -174,288 +123,6 @@ func (m *MockAnimeService) SyncAllAnimeStatuses(ctx context.Context) (int, int, 
 func (m *MockAnimeService) SyncReleasedOnFromJikan() (int, int, int, error) {
 	args := m.Called()
 	return args.Int(0), args.Int(1), args.Int(2), args.Error(3)
-}
-
-func TestAdminHandler_SyncEpisodeDurations(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	logger := common.NewLogger(common.LogLevelDebug, "text")
-	errorMonitor := common.NewErrorMonitor(logger, 10, 60)
-
-	t.Run("Success - Sync All Animes", func(t *testing.T) {
-		// Setup mock
-		mockService := new(MockAnimeService)
-		mockService.On("SyncEpisodeDurations", (*int)(nil)).
-			Return(100, 90, 5, 5, []string{}, nil)
-
-		handler := NewAdminHandler(mockService, logger, errorMonitor, nil)
-
-		// Create request
-		reqBody := SyncEpisodeDurationsRequest{}
-		body, _ := json.Marshal(reqBody)
-		req := httptest.NewRequest(http.MethodPost, "/api/admin/sync/episode-durations", bytes.NewBuffer(body))
-		req.Header.Set("Content-Type", "application/json")
-
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-		c.Request = req
-
-		// Execute handler
-		handler.SyncEpisodeDurations(c)
-
-		// Assert
-		assert.Equal(t, http.StatusOK, w.Code)
-
-		var response map[string]interface{}
-		err := json.Unmarshal(w.Body.Bytes(), &response)
-		assert.NoError(t, err)
-		assert.Equal(t, float64(100), response["total_animes"])
-		assert.Equal(t, float64(90), response["success_count"])
-		assert.Equal(t, float64(5), response["failure_count"])
-		assert.Equal(t, float64(5), response["skipped_count"])
-
-		mockService.AssertExpectations(t)
-	})
-
-	t.Run("Success - Sync Specific Anime", func(t *testing.T) {
-		// Setup mock
-		mockService := new(MockAnimeService)
-		animeID := 123
-		mockService.On("SyncEpisodeDurations", &animeID).
-			Return(1, 1, 0, 0, []string{}, nil)
-
-		handler := NewAdminHandler(mockService, logger, errorMonitor, nil)
-
-		// Create request
-		reqBody := SyncEpisodeDurationsRequest{AnimeID: &animeID}
-		body, _ := json.Marshal(reqBody)
-		req := httptest.NewRequest(http.MethodPost, "/api/admin/sync/episode-durations", bytes.NewBuffer(body))
-		req.Header.Set("Content-Type", "application/json")
-
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-		c.Request = req
-
-		// Execute handler
-		handler.SyncEpisodeDurations(c)
-
-		// Assert
-		assert.Equal(t, http.StatusOK, w.Code)
-
-		var response map[string]interface{}
-		err := json.Unmarshal(w.Body.Bytes(), &response)
-		assert.NoError(t, err)
-		assert.Equal(t, float64(1), response["total_animes"])
-		assert.Equal(t, float64(1), response["success_count"])
-		assert.Equal(t, float64(0), response["failure_count"])
-		assert.Equal(t, float64(0), response["skipped_count"])
-
-		mockService.AssertExpectations(t)
-	})
-
-	t.Run("Success - Sync Specific Anime Without MAL ID (Skipped)", func(t *testing.T) {
-		// Setup mock
-		mockService := new(MockAnimeService)
-		animeID := 456
-		mockService.On("SyncEpisodeDurations", &animeID).
-			Return(1, 0, 0, 1, []string{}, nil)
-
-		handler := NewAdminHandler(mockService, logger, errorMonitor, nil)
-
-		// Create request
-		reqBody := SyncEpisodeDurationsRequest{AnimeID: &animeID}
-		body, _ := json.Marshal(reqBody)
-		req := httptest.NewRequest(http.MethodPost, "/api/admin/sync/episode-durations", bytes.NewBuffer(body))
-		req.Header.Set("Content-Type", "application/json")
-
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-		c.Request = req
-
-		// Execute handler
-		handler.SyncEpisodeDurations(c)
-
-		// Assert
-		assert.Equal(t, http.StatusOK, w.Code)
-
-		var response map[string]interface{}
-		err := json.Unmarshal(w.Body.Bytes(), &response)
-		assert.NoError(t, err)
-		assert.Equal(t, float64(1), response["total_animes"])
-		assert.Equal(t, float64(0), response["success_count"])
-		assert.Equal(t, float64(0), response["failure_count"])
-		assert.Equal(t, float64(1), response["skipped_count"])
-
-		mockService.AssertExpectations(t)
-	})
-
-	t.Run("Error - Invalid Request Body", func(t *testing.T) {
-		mockService := new(MockAnimeService)
-		handler := NewAdminHandler(mockService, logger, errorMonitor, nil)
-
-		// Invalid JSON
-		req := httptest.NewRequest(http.MethodPost, "/api/admin/sync/episode-durations", bytes.NewBufferString("invalid json"))
-		req.Header.Set("Content-Type", "application/json")
-
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-		c.Request = req
-
-		handler.SyncEpisodeDurations(c)
-
-		assert.Equal(t, http.StatusBadRequest, w.Code)
-	})
-
-	t.Run("Error - Anime Not Found (404)", func(t *testing.T) {
-		mockService := new(MockAnimeService)
-		animeID := 999
-		mockService.On("SyncEpisodeDurations", &animeID).
-			Return(0, 0, 0, 0, nil, services.ErrAnimeNotFound)
-
-		handler := NewAdminHandler(mockService, logger, errorMonitor, nil)
-
-		reqBody := SyncEpisodeDurationsRequest{AnimeID: &animeID}
-		body, _ := json.Marshal(reqBody)
-		req := httptest.NewRequest(http.MethodPost, "/api/admin/sync/episode-durations", bytes.NewBuffer(body))
-		req.Header.Set("Content-Type", "application/json")
-
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-		c.Request = req
-
-		handler.SyncEpisodeDurations(c)
-
-		assert.Equal(t, http.StatusNotFound, w.Code)
-
-		mockService.AssertExpectations(t)
-	})
-}
-
-func TestAdminHandler_SyncEpisodesFromJikan(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	logger := common.NewLogger(common.LogLevelDebug, "text")
-	errorMonitor := common.NewErrorMonitor(logger, 10, 60)
-
-	t.Run("Success - Sync All Animes", func(t *testing.T) {
-		// Setup mock
-		mockService := new(MockAnimeService)
-		mockService.On("SyncEpisodesFromJikan", (*int)(nil)).
-			Return(10, 0, []string{}, nil)
-
-		handler := NewAdminHandler(mockService, logger, errorMonitor, nil)
-
-		// Create request
-		reqBody := SyncEpisodesRequest{}
-		body, _ := json.Marshal(reqBody)
-		req := httptest.NewRequest(http.MethodPost, "/api/admin/sync/episodes", bytes.NewBuffer(body))
-		req.Header.Set("Content-Type", "application/json")
-
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-		c.Request = req
-
-		// Execute handler
-		handler.SyncEpisodesFromJikan(c)
-
-		// Assert
-		assert.Equal(t, http.StatusOK, w.Code)
-
-		var response SyncEpisodesResponse
-		err := json.Unmarshal(w.Body.Bytes(), &response)
-		assert.NoError(t, err)
-		assert.Equal(t, 10, response.SuccessCount)
-		assert.Equal(t, 0, response.FailureCount)
-		assert.Empty(t, response.Errors)
-		assert.Contains(t, response.Message, "10 succeeded, 0 failed")
-
-		mockService.AssertExpectations(t)
-	})
-
-	t.Run("Success - Sync Specific Anime", func(t *testing.T) {
-		// Setup mock
-		mockService := new(MockAnimeService)
-		animeID := 1
-		mockService.On("SyncEpisodesFromJikan", &animeID).
-			Return(1, 0, []string{}, nil)
-
-		handler := NewAdminHandler(mockService, logger, errorMonitor, nil)
-
-		// Create request
-		reqBody := SyncEpisodesRequest{AnimeID: &animeID}
-		body, _ := json.Marshal(reqBody)
-		req := httptest.NewRequest(http.MethodPost, "/api/admin/sync/episodes", bytes.NewBuffer(body))
-		req.Header.Set("Content-Type", "application/json")
-
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-		c.Request = req
-
-		// Execute handler
-		handler.SyncEpisodesFromJikan(c)
-
-		// Assert
-		assert.Equal(t, http.StatusOK, w.Code)
-
-		var response SyncEpisodesResponse
-		err := json.Unmarshal(w.Body.Bytes(), &response)
-		assert.NoError(t, err)
-		assert.Equal(t, 1, response.SuccessCount)
-		assert.Equal(t, 0, response.FailureCount)
-
-		mockService.AssertExpectations(t)
-	})
-
-	t.Run("Success - With Some Failures", func(t *testing.T) {
-		// Setup mock
-		mockService := new(MockAnimeService)
-		errors := []string{"anime_id=5: Jikan API error"}
-		mockService.On("SyncEpisodesFromJikan", (*int)(nil)).
-			Return(9, 1, errors, nil)
-
-		handler := NewAdminHandler(mockService, logger, errorMonitor, nil)
-
-		// Create request
-		reqBody := SyncEpisodesRequest{}
-		body, _ := json.Marshal(reqBody)
-		req := httptest.NewRequest(http.MethodPost, "/api/admin/sync/episodes", bytes.NewBuffer(body))
-		req.Header.Set("Content-Type", "application/json")
-
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-		c.Request = req
-
-		// Execute handler
-		handler.SyncEpisodesFromJikan(c)
-
-		// Assert
-		assert.Equal(t, http.StatusOK, w.Code)
-
-		var response SyncEpisodesResponse
-		err := json.Unmarshal(w.Body.Bytes(), &response)
-		assert.NoError(t, err)
-		assert.Equal(t, 9, response.SuccessCount)
-		assert.Equal(t, 1, response.FailureCount)
-		assert.Len(t, response.Errors, 1)
-		assert.Contains(t, response.Errors[0], "anime_id=5")
-
-		mockService.AssertExpectations(t)
-	})
-
-	t.Run("Error - Invalid Request Body", func(t *testing.T) {
-		mockService := new(MockAnimeService)
-		handler := NewAdminHandler(mockService, logger, errorMonitor, nil)
-
-		// Invalid JSON
-		req := httptest.NewRequest(http.MethodPost, "/api/admin/sync/episodes", bytes.NewBufferString("invalid json"))
-		req.Header.Set("Content-Type", "application/json")
-
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-		c.Request = req
-
-		handler.SyncEpisodesFromJikan(c)
-
-		assert.Equal(t, http.StatusBadRequest, w.Code)
-	})
 }
 
 func TestAdminHandler_GetSyncStatus(t *testing.T) {
@@ -543,135 +210,3 @@ func TestAdminHandler_NewAdminHandler(t *testing.T) {
 	assert.NotNil(t, handler.logger)
 }
 
-func TestAdminHandler_GetEpisodeSyncStatus(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	logger := common.NewLogger(common.LogLevelDebug, "text")
-	errorMonitor := common.NewErrorMonitor(logger, 10, 60)
-
-	t.Run("Success - Retrieve Sync Status", func(t *testing.T) {
-		// Setup mock
-		mockService := new(MockAnimeService)
-		animeID := 69
-		annictID := 4840
-		expectedStatus := &models.EpisodeSyncStatus{
-			AnimeID:        animeID,
-			AnimeTitle:     "君の名は。",
-			AnnictID:       &annictID,
-			TotalEpisodes:  12,
-			DefaultTitles:  3,
-			CustomTitles:   9,
-			SyncPercentage: 75.0,
-			NeedSync:       true,
-			SampleEpisodes: []string{"Ep1: 第1話", "Ep2: 出会い", "Ep3: 運命"},
-		}
-		mockService.On("GetEpisodeSyncStatus", animeID).Return(expectedStatus, nil)
-
-		handler := NewAdminHandler(mockService, logger, errorMonitor, nil)
-
-		// Create request
-		req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/admin/episode-sync-status?anime_id=%d", animeID), nil)
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-		c.Request = req
-
-		// Execute handler
-		handler.GetEpisodeSyncStatus(c)
-
-		// Assert
-		assert.Equal(t, http.StatusOK, w.Code)
-
-		var response models.EpisodeSyncStatus
-		err := json.Unmarshal(w.Body.Bytes(), &response)
-		require.NoError(t, err)
-		assert.Equal(t, animeID, response.AnimeID)
-		assert.Equal(t, "君の名は。", response.AnimeTitle)
-		assert.Equal(t, 12, response.TotalEpisodes)
-		assert.Equal(t, 3, response.DefaultTitles)
-		assert.Equal(t, 9, response.CustomTitles)
-		assert.Equal(t, 75.0, response.SyncPercentage)
-		assert.True(t, response.NeedSync)
-		assert.Len(t, response.SampleEpisodes, 3)
-
-		mockService.AssertExpectations(t)
-	})
-
-	t.Run("Error - Anime Not Found (404)", func(t *testing.T) {
-		// Setup mock
-		mockService := new(MockAnimeService)
-		animeID := 999
-		mockService.On("GetEpisodeSyncStatus", animeID).Return(nil, services.ErrAnimeNotFound)
-
-		handler := NewAdminHandler(mockService, logger, errorMonitor, nil)
-
-		// Create request
-		req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/admin/episode-sync-status?anime_id=%d", animeID), nil)
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-		c.Request = req
-
-		// Execute handler
-		handler.GetEpisodeSyncStatus(c)
-
-		// Assert
-		assert.Equal(t, http.StatusNotFound, w.Code)
-		mockService.AssertExpectations(t)
-	})
-
-	t.Run("Error - Service Error (500)", func(t *testing.T) {
-		// Setup mock
-		mockService := new(MockAnimeService)
-		animeID := 123
-		mockService.On("GetEpisodeSyncStatus", animeID).Return(nil, fmt.Errorf("database connection error"))
-
-		handler := NewAdminHandler(mockService, logger, errorMonitor, nil)
-
-		// Create request
-		req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/admin/episode-sync-status?anime_id=%d", animeID), nil)
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-		c.Request = req
-
-		// Execute handler
-		handler.GetEpisodeSyncStatus(c)
-
-		// Assert
-		assert.Equal(t, http.StatusInternalServerError, w.Code)
-		mockService.AssertExpectations(t)
-	})
-
-	t.Run("Error - Invalid anime_id (400)", func(t *testing.T) {
-		// Setup mock
-		mockService := new(MockAnimeService)
-		handler := NewAdminHandler(mockService, logger, errorMonitor, nil)
-
-		// Create request with invalid anime_id
-		req := httptest.NewRequest(http.MethodGet, "/api/admin/episode-sync-status?anime_id=invalid", nil)
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-		c.Request = req
-
-		// Execute handler
-		handler.GetEpisodeSyncStatus(c)
-
-		// Assert
-		assert.Equal(t, http.StatusBadRequest, w.Code)
-	})
-
-	t.Run("Error - Missing anime_id (400)", func(t *testing.T) {
-		// Setup mock
-		mockService := new(MockAnimeService)
-		handler := NewAdminHandler(mockService, logger, errorMonitor, nil)
-
-		// Create request without anime_id
-		req := httptest.NewRequest(http.MethodGet, "/api/admin/episode-sync-status", nil)
-		w := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(w)
-		c.Request = req
-
-		// Execute handler
-		handler.GetEpisodeSyncStatus(c)
-
-		// Assert
-		assert.Equal(t, http.StatusBadRequest, w.Code)
-	})
-}

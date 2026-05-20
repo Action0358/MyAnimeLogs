@@ -16,7 +16,6 @@ export type { FavoriteStatus }
 // バックエンドから返されるAnimeWithUserData型
 export interface FavoriteAnime extends Anime {
   user_favorite?: Favorite
-  watch_progress?: number
 }
 
 export interface UseFavoritesResult {
