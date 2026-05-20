@@ -505,37 +505,6 @@ paths:
                 properties:
                   viewed:
                     type: boolean
-  /users/me/stats:
-    get:
-      summary: ユーザーの視聴統計情報取得
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: 視聴統計情報
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  total_episodes_watched:
-                    type: integer
-                    example: 245
-                  total_animes_completed:
-                    type: integer
-                    example: 12
-                  total_watch_time_hours:
-                    type: number
-                    format: float
-                    example: 98.5
-                  favorite_genres:
-                    type: array
-                    items:
-                      type: string
-                    example: ["アクション", "SF"]
-                  this_month_episodes:
-                    type: integer
-                    example: 15
   /users/me/recently-watched:
     get:
       summary: 最近視聴したエピソード一覧

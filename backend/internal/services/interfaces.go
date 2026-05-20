@@ -29,7 +29,6 @@ type AuthServiceInterface interface {
 	GetUserByID(userID int) (*models.UserResponse, error)
 	UpdateUser(userID int, req models.UserUpdateRequest) (*models.UserResponse, error)
 	UpdateUserIcon(userID int, iconURL string) (*models.UserResponse, error)
-	GetUserStats(userID int) (*models.UserStats, error)
 	ExportUserData(userID int, format string) (interface{}, error)
 	RefreshToken(refreshToken string) (*models.TokenRefreshResponse, error)
 	Logout(refreshToken string) error
