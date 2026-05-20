@@ -69,9 +69,9 @@ func (s *AnimeSyncScheduler) executeSyncOperation(syncErrors []string, operation
 	return syncErrors
 }
 
-// syncGenresAndEpisodeDetails performs genre and cover image synchronization
+// syncGenresAndCoverImages performs genre and cover image synchronization
 // Returns error messages if any errors occur
-func (s *AnimeSyncScheduler) syncGenresAndEpisodeDetails() []string {
+func (s *AnimeSyncScheduler) syncGenresAndCoverImages() []string {
 	var syncErrors []string
 
 	// Sync genre information from Jikan API
@@ -125,7 +125,7 @@ func (s *AnimeSyncScheduler) runBackgroundSync() {
 	defer s.releaseSyncLock()
 
 	startTime := time.Now()
-	syncErrors := s.syncGenresAndEpisodeDetails()
+	syncErrors := s.syncGenresAndCoverImages()
 	duration := time.Since(startTime)
 
 	// Clear cache after background sync to reflect new data
