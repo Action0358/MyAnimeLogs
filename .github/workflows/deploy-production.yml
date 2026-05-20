@@ -34,7 +34,12 @@ jobs:
         uses: superfly/flyctl-actions/setup-flyctl@master
 
       - name: Deploy Backend to Fly.io Production
-        run: flyctl deploy -c fly.toml -a myanimelogs-production --ha=false --wait-timeout=600 --depot=false
+        run: |
+          for i in 1 2 3; do
+            flyctl deploy -c fly.toml -a myanimelogs-production --ha=false --wait-timeout=600 --depot=false && break
+            echo "Attempt $i failed, retrying in 30s..."
+            sleep 30
+          done
         working-directory: ./backend
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_PRODUCTION }}
