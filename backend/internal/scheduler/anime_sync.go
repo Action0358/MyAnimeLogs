@@ -74,8 +74,8 @@ func (s *AnimeSyncScheduler) executeSyncOperation(syncErrors []string, operation
 func (s *AnimeSyncScheduler) syncGenresAndCoverImages() []string {
 	var syncErrors []string
 
-	// Sync genre information from Jikan API
-	syncErrors = s.executeSyncOperation(syncErrors, s.animeService.SyncGenresForAllAnimes, "genre information from Jikan API")
+	// Sync genre information from AniList API
+	syncErrors = s.executeSyncOperation(syncErrors, s.animeService.SyncGenresForAllAnimes, "genre information from AniList API")
 
 	// Sync cover images from AniList API
 	syncErrors = s.executeSyncOperation(syncErrors, s.animeService.SyncCoverImagesForAllAnimes, "cover images from AniList API")
