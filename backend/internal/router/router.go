@@ -78,7 +78,6 @@ func Setup(db *database.DB, cfg *config.Config, syncScheduler handlers.SyncSched
 		// アニメルート（認証オプション）
 		api.GET("/animes", middleware.OptionalAuthMiddleware(cfg.JWTSecret), animeHandler.GetAnimes)
 		api.GET("/animes/:id", middleware.OptionalAuthMiddleware(cfg.JWTSecret), animeHandler.GetAnime)
-		api.GET("/animes/:id/episodes", middleware.OptionalAuthMiddleware(cfg.JWTSecret), animeHandler.GetAnimeEpisodes)
 
 		// 検索ルート
 		api.GET("/search/animes", middleware.OptionalAuthMiddleware(cfg.JWTSecret), animeHandler.GetAnimes)
@@ -104,13 +103,10 @@ func Setup(db *database.DB, cfg *config.Config, syncScheduler handlers.SyncSched
 			// データ同期
 			admin.POST("/sync/season", annictHandler.SyncWorksBySeason)
 			admin.POST("/sync/popular", annictHandler.SyncPopularWorks)
-			admin.POST("/sync/episode-durations", adminHandler.SyncEpisodeDurations)
-			admin.POST("/sync/episodes", adminHandler.SyncEpisodesFromJikan)
 			admin.POST("/sync/genres", adminHandler.SyncGenresForAllAnimes)
 			admin.POST("/sync/statuses", adminHandler.SyncAnimeStatuses) // 新しく追加
 			admin.POST("/sync/released-on", adminHandler.SyncReleasedOn)
 			admin.GET("/sync/status", adminHandler.GetSyncStatus)
-			admin.GET("/episode-sync-status", adminHandler.GetEpisodeSyncStatus)
 
 			// キャッシュ管理
 			admin.POST("/cache/clear", adminHandler.ClearCache)
@@ -142,15 +138,11 @@ func Setup(db *database.DB, cfg *config.Config, syncScheduler handlers.SyncSched
 			protected.PUT("/users/me/favorites/:anime_id", animeHandler.UpdateFavorite)
 			protected.DELETE("/users/me/favorites/:anime_id", animeHandler.DeleteFavorite)
 
-			// 視聴ステータス
-			protected.PUT("/episodes/:episode_id/watch", animeHandler.UpdateWatchStatus)
-
 			// 評価
 			protected.PUT("/animes/:id/rating", animeHandler.UpdateRating)
 			protected.DELETE("/animes/:id/rating", animeHandler.DeleteRating)
 
-			// 視聴履歴とウォッチリスト
-			protected.GET("/users/me/recently-watched", animeHandler.GetRecentlyWatched)
+			// ウォッチリスト
 			protected.GET("/users/me/watchlist", animeHandler.GetWatchlist)
 
 			// 検索履歴

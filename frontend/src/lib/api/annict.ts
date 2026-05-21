@@ -33,7 +33,6 @@ export interface AnnictWork {
   twitter_hashtag?: string;
   mal_anime_id?: string;
   images?: AnnictWorkImages;
-  episodes_count?: number;
   watchers_count: number;
   reviews_count: number;
   no_episodes?: boolean;
