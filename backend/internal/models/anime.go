@@ -13,7 +13,6 @@ type Anime struct {
 	Season          *string   `json:"season" db:"season"` // Format: "YYYY-season" (e.g., "2025-summer")
 	Status          *string   `json:"status" db:"status"`
 	Media           *string   `json:"media,omitempty" db:"media"`                         // TV, OVA, Movie, etc.
-	EpisodesCount   *int      `json:"episodes_count,omitempty" db:"episodes_count"`       // Total episode count
 	Description     *string   `json:"description,omitempty" db:"description"`             // Synopsis from AniList
 	ReleasedOn      *string   `json:"released_on,omitempty" db:"released_on"`             // Release date from Annict
 	OfficialSiteURL *string   `json:"official_site_url,omitempty" db:"official_site_url"` // Official website
@@ -45,7 +44,6 @@ type Anime struct {
 	LastSyncedAt     *time.Time `json:"last_synced_at,omitempty" db:"last_synced_at"`         // 最終同期日時
 	AnnictUpdatedAt  *time.Time `json:"annict_updated_at,omitempty" db:"annict_updated_at"`   // Annict側の更新日時
 	MetadataSyncedAt *time.Time `json:"metadata_synced_at,omitempty" db:"metadata_synced_at"` // メタデータの最終同期日時
-	EpisodesSyncedAt *time.Time `json:"episodes_synced_at,omitempty" db:"episodes_synced_at"` // エピソード同期の最終日時
 	SyncStatus       string     `json:"sync_status" db:"sync_status"`                         // pending/synced/failed
 	SyncError        *string    `json:"sync_error,omitempty" db:"sync_error"`                 // エラー内容
 }
@@ -54,8 +52,6 @@ type AnimeWithUserData struct {
 	Anime
 	UserFavorite       *UserFavorite   `json:"user_favorite,omitempty"`
 	UserRating         *UserRating     `json:"user_rating,omitempty"`
-	WatchProgress      float64         `json:"watch_progress"`
-	Episodes           []Episode       `json:"episodes,omitempty"`
 	Genres             []string        `json:"genres,omitempty"`
 	AverageRating      *float64        `json:"average_rating,omitempty"`
 	RatingCount        int             `json:"rating_count"`
@@ -70,21 +66,6 @@ type WatchProvider struct {
 	LogoURL      string `json:"logo_url"`
 }
 
-type Episode struct {
-	ID              int        `json:"id" db:"id"`
-	AnimeID         int        `json:"anime_id" db:"anime_id"`
-	Title           string     `json:"title" db:"title"`
-	EpisodeNumber   int        `json:"episode_number" db:"episode_number"`
-	AirDate         *time.Time `json:"air_date,omitempty" db:"air_date"`       // null if not yet fetched from Jikan API
-	DurationMinutes *int       `json:"duration_minutes" db:"duration_minutes"` // null if not yet fetched from Jikan API
-	IsSpecial       bool       `json:"is_special" db:"is_special"`             // true for OVA, recap, filler episodes
-	Filler          bool       `json:"filler" db:"filler"`                     // true for filler episodes
-	Recap           bool       `json:"recap" db:"recap"`                       // true for recap/summary episodes
-	Viewed          bool       `json:"viewed"`                                 // false if not authenticated or not viewed
-	CreatedAt       time.Time  `json:"created_at" db:"created_at"`
-	UpdatedAt       time.Time  `json:"updated_at" db:"updated_at"`
-}
-
 type UserFavorite struct {
 	ID        int       `json:"id" db:"id"`
 	UserID    int       `json:"user_id" db:"user_id"`
@@ -94,33 +75,8 @@ type UserFavorite struct {
 	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
 }
 
-// EpisodeSyncStatus represents the sync status for an anime's episodes
-type EpisodeSyncStatus struct {
-	AnimeID        int      `json:"anime_id"`
-	AnimeTitle     string   `json:"anime_title"`
-	AnnictID       *int     `json:"annict_id"`
-	TotalEpisodes  int      `json:"total_episodes"`
-	DefaultTitles  int      `json:"default_titles"`
-	CustomTitles   int      `json:"custom_titles"`
-	SyncPercentage float64  `json:"sync_percentage"`
-	NeedSync       bool     `json:"need_sync"`
-	SampleEpisodes []string `json:"sample_episodes,omitempty"`
-}
-
 type UserFavoriteRequest struct {
 	Status string `json:"status" binding:"required,oneof=watching completed planned dropped"`
-}
-
-type WatchStatus struct {
-	ID        int       `json:"id" db:"id"`
-	UserID    int       `json:"user_id" db:"user_id"`
-	EpisodeID int       `json:"episode_id" db:"episode_id"`
-	Viewed    bool      `json:"viewed" db:"viewed"`
-	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
-}
-
-type WatchStatusRequest struct {
-	Viewed bool `json:"viewed" binding:"required"`
 }
 
 type UserRating struct {
@@ -136,15 +92,6 @@ type UserRating struct {
 type UserRatingRequest struct {
 	Rating  float64 `json:"rating" binding:"required,min=1.0,max=5.0"`
 	Comment *string `json:"comment,omitempty" binding:"omitempty,max=1000"`
-}
-
-type WatchHistory struct {
-	ID           int       `json:"id" db:"id"`
-	UserID       int       `json:"user_id" db:"user_id"`
-	EpisodeID    int       `json:"episode_id" db:"episode_id"`
-	WatchedAt    time.Time `json:"watched_at" db:"watched_at"`
-	AnimeTitle   string    `json:"anime_title,omitempty"`
-	EpisodeTitle string    `json:"episode_title,omitempty"`
 }
 
 type AnimeGenre struct {
@@ -224,25 +171,3 @@ type PaginationMeta struct {
 	Total       int `json:"total"`
 }
 
-// SeparatedEpisodes - 通常エピソードと特別編を分離したレスポンス
-type SeparatedEpisodes struct {
-	RegularEpisodes []Episode `json:"regular_episodes"`
-	SpecialEpisodes []Episode `json:"special_episodes"`
-	TotalRegular    int       `json:"total_regular"`
-	TotalSpecial    int       `json:"total_special"`
-}
-
-// SeparatedEpisodesResponse - エピソード分離APIのレスポンス（anime_id含む）
-type SeparatedEpisodesResponse struct {
-	AnimeID         int       `json:"anime_id"`
-	RegularEpisodes []Episode `json:"regular_episodes"`
-	SpecialEpisodes []Episode `json:"special_episodes"`
-	TotalRegular    int       `json:"total_regular"`
-	TotalSpecial    int       `json:"total_special"`
-}
-
-// EpisodesResponse - 従来形式のエピソードAPIレスポンス
-type EpisodesResponse struct {
-	AnimeID  int       `json:"anime_id"`
-	Episodes []Episode `json:"episodes"`
-}

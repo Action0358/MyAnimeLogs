@@ -357,26 +357,6 @@ func (s *AuthService) ExportUserData(userID int, format string) (interface{}, er
 		favorites = append(favorites, fav)
 	}
 
-	// Get watch history
-	history := []models.WatchHistory{}
-	rows, err = s.db.Query(`
-		SELECT wh.id, wh.user_id, wh.episode_id, wh.watched_at
-		FROM watch_history wh WHERE wh.user_id = $1
-		ORDER BY wh.watched_at DESC
-	`, userID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get watch history: %w", err)
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var h models.WatchHistory
-		if err := rows.Scan(&h.ID, &h.UserID, &h.EpisodeID, &h.WatchedAt); err != nil {
-			continue
-		}
-		history = append(history, h)
-	}
-
 	// Get ratings
 	ratings := []models.UserRating{}
 	rows, err = s.db.Query(`
@@ -397,11 +377,10 @@ func (s *AuthService) ExportUserData(userID int, format string) (interface{}, er
 	}
 
 	data := map[string]interface{}{
-		"user_info":     user,
-		"favorites":     favorites,
-		"watch_history": history,
-		"ratings":       ratings,
-		"exported_at":   time.Now(),
+		"user_info":   user,
+		"favorites":   favorites,
+		"ratings":     ratings,
+		"exported_at": time.Now(),
 	}
 
 	if format == "csv" {

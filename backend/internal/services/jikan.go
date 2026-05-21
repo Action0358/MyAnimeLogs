@@ -32,8 +32,7 @@ var (
 	ErrJikanRateLimit = errors.New("jikan: rate limit exceeded")
 
 	// Compiled regex patterns for performance
-	durationRegex      = regexp.MustCompile(`(?:(\d+)\s*hr)?(?:\s*(\d+)\s*min)?(?:\s*(\d+)\s*sec)?`)
-	episodeNumberRegex = regexp.MustCompile(`/episode/(\d+)$`)
+	durationRegex = regexp.MustCompile(`(?:(\d+)\s*hr)?(?:\s*(\d+)\s*min)?(?:\s*(\d+)\s*sec)?`)
 )
 
 // JikanClient handles communication with Jikan API
@@ -54,53 +53,6 @@ func NewJikanClient(logger *common.Logger) *JikanClient {
 		logger:      logger,
 		rateLimiter: rate.NewLimiter(rate.Limit(jikanRateLimit), 1),
 	}
-}
-
-// GetAnimeEpisodes fetches all episodes for a given MAL anime ID with duration info
-func (c *JikanClient) GetAnimeEpisodes(malAnimeID string) ([]models.JikanEpisode, error) {
-	if malAnimeID == "" {
-		return nil, fmt.Errorf("mal_anime_id is required")
-	}
-
-	// First, get anime details to get the duration per episode
-	duration, err := c.GetAnimeDuration(malAnimeID)
-	if err != nil {
-		c.logger.Warn("Failed to get anime duration, episodes will have no duration",
-			"mal_anime_id", malAnimeID,
-			"error", err)
-		duration = 0 // Continue without duration
-	}
-
-	allEpisodes := []models.JikanEpisode{}
-	page := 1
-
-	for {
-		episodes, pagination, err := c.getEpisodesPage(malAnimeID, page)
-		if err != nil {
-			return nil, err
-		}
-
-		// Set duration for all episodes (aired is already set by API)
-		for i := range episodes {
-			episodes[i].Duration = duration
-		}
-
-		allEpisodes = append(allEpisodes, episodes...)
-
-		// Check if there are more pages
-		if !pagination.HasNextPage {
-			break
-		}
-
-		page++
-	}
-
-	c.logger.Info("Successfully fetched episodes from Jikan API",
-		"mal_anime_id", malAnimeID,
-		"total_episodes", len(allEpisodes),
-		"duration_per_episode", duration)
-
-	return allEpisodes, nil
 }
 
 // GetAnimeDuration fetches the duration per episode for a given MAL anime ID
@@ -178,19 +130,6 @@ func (c *JikanClient) GetAnimeGenres(malAnimeID string) ([]models.JikanGenre, er
 		"genre_count", len(response.Data.Genres))
 
 	return response.Data.Genres, nil
-}
-
-// getEpisodesPage fetches a single page of episodes
-func (c *JikanClient) getEpisodesPage(malAnimeID string, page int) ([]models.JikanEpisode, models.JikanPagination, error) {
-	url := fmt.Sprintf("%s/anime/%s/episodes?page=%d", c.baseURL, malAnimeID, page)
-
-	var response models.JikanEpisodeResponse
-	err := c.makeRequestWithRetry(url, &response)
-	if err != nil {
-		return nil, models.JikanPagination{}, err
-	}
-
-	return response.Data, response.Pagination, nil
 }
 
 // makeRequestWithRetry makes an HTTP request with exponential backoff retry
@@ -319,29 +258,6 @@ func parseDuration(durationStr string) int {
 	}
 
 	return totalMinutes
-}
-
-// extractEpisodeNumber extracts episode number from Jikan API episode URL
-// Example: https://myanimelist.net/anime/53065/.../episode/1 -> 1
-func extractEpisodeNumber(url string) (int, error) {
-	// Use pre-compiled regex pattern for performance
-	matches := episodeNumberRegex.FindStringSubmatch(url)
-
-	if len(matches) < 2 {
-		return 0, fmt.Errorf("episode number not found in URL: %s", url)
-	}
-
-	episodeNumber, err := strconv.Atoi(matches[1])
-	if err != nil {
-		return 0, fmt.Errorf("failed to parse episode number: %w", err)
-	}
-
-	return episodeNumber, nil
-}
-
-// ExtractEpisodeNumber extracts episode number from URL (public method)
-func (c *JikanClient) ExtractEpisodeNumber(url string) (int, error) {
-	return extractEpisodeNumber(url)
 }
 
 // GetBroadcastInfo fetches broadcast schedule information for a given MAL anime ID

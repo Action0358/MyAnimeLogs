@@ -89,19 +89,6 @@ func (m *MockAnimeService) GetAnimeByID(id int, userID *int) (*models.AnimeWithU
 	return result, args.Error(1)
 }
 
-// GetAnimeEpisodes mocks the GetAnimeEpisodes method
-func (m *MockAnimeService) GetAnimeEpisodes(animeID int, userID *int) ([]models.Episode, error) {
-	args := m.Called(animeID, userID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	result, ok := args.Get(0).([]models.Episode)
-	if !ok {
-		panic("mock: GetAnimeEpisodes return value is not []models.Episode")
-	}
-	return result, args.Error(1)
-}
-
 // GetUserFavorites mocks the GetUserFavorites method
 func (m *MockAnimeService) GetUserFavorites(userID int, status string) ([]models.AnimeWithUserData, error) {
 	args := m.Called(userID, status)
@@ -134,19 +121,6 @@ func (m *MockAnimeService) DeleteFavorite(userID, animeID int) error {
 	return args.Error(0)
 }
 
-// UpdateWatchStatus mocks the UpdateWatchStatus method
-func (m *MockAnimeService) UpdateWatchStatus(userID, episodeID int, viewed bool) (*models.WatchStatus, error) {
-	args := m.Called(userID, episodeID, viewed)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	result, ok := args.Get(0).(*models.WatchStatus)
-	if !ok {
-		panic("mock: UpdateWatchStatus return value is not *models.WatchStatus")
-	}
-	return result, args.Error(1)
-}
-
 // UpdateRating mocks the UpdateRating method
 func (m *MockAnimeService) UpdateRating(userID, animeID int, rating float64, comment *string) (*models.UserRating, error) {
 	args := m.Called(userID, animeID, rating, comment)
@@ -164,19 +138,6 @@ func (m *MockAnimeService) UpdateRating(userID, animeID int, rating float64, com
 func (m *MockAnimeService) DeleteRating(userID, animeID int) error {
 	args := m.Called(userID, animeID)
 	return args.Error(0)
-}
-
-// GetRecentlyWatched mocks the GetRecentlyWatched method
-func (m *MockAnimeService) GetRecentlyWatched(userID, limit int) ([]models.WatchHistory, error) {
-	args := m.Called(userID, limit)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	result, ok := args.Get(0).([]models.WatchHistory)
-	if !ok {
-		panic("mock: GetRecentlyWatched return value is not []models.WatchHistory")
-	}
-	return result, args.Error(1)
 }
 
 // GetCurrentSeasonAnimes mocks the GetCurrentSeasonAnimes method
@@ -230,32 +191,3 @@ func (m *MockAnimeService) DeleteSearchHistoryItem(userID int, logID int) error 
 	return args.Error(0)
 }
 
-// GetEpisodesByType mocks the GetEpisodesByType method
-func (m *MockAnimeService) GetEpisodesByType(animeID int, isSpecial bool, userID *int) ([]models.Episode, error) {
-	args := m.Called(animeID, isSpecial, userID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	result, ok := args.Get(0).([]models.Episode)
-	if !ok {
-		panic("mock: GetEpisodesByType return value is not []models.Episode")
-	}
-	return result, args.Error(1)
-}
-
-// GetEpisodesSeparated mocks the GetEpisodesSeparated method
-func (m *MockAnimeService) GetEpisodesSeparated(animeID int, userID *int) (regular, specials []models.Episode, err error) {
-	args := m.Called(animeID, userID)
-	if args.Get(0) == nil {
-		return nil, nil, args.Error(2)
-	}
-	regular, ok := args.Get(0).([]models.Episode)
-	if !ok {
-		panic("mock: GetEpisodesSeparated regular return value is not []models.Episode")
-	}
-	specials, ok = args.Get(1).([]models.Episode)
-	if !ok {
-		panic("mock: GetEpisodesSeparated specials return value is not []models.Episode")
-	}
-	return regular, specials, args.Error(2)
-}

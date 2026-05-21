@@ -430,9 +430,7 @@ func TestAnimeService_BuildWhereClause(t *testing.T) {
 // TestAnimeService_ErrorConstants tests error constant definitions
 func TestAnimeService_ErrorConstants(t *testing.T) {
 	assert.NotNil(t, ErrAnimeNotFound)
-	assert.NotNil(t, ErrEpisodeNotFound)
 	assert.Equal(t, "anime not found", ErrAnimeNotFound.Error())
-	assert.Equal(t, "episode not found", ErrEpisodeNotFound.Error())
 }
 
 // TestAnimeService_ImplementsInterface verifies that AnimeService implements AnimeServiceInterface

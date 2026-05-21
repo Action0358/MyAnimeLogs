@@ -27,16 +27,10 @@ cd frontend && npm test         # テスト実行
 
 | API | レート制限 | 用途 |
 |-----|-----------|------|
-| Annict | 5 req/秒 | アニメ基本情報・エピソードINSERT |
+| Annict | 5 req/秒 | アニメ基本情報 |
 | AniList | 90 req/分 | カバー画像・ジャンル |
-| Jikan | 3 req/秒 | エピソード補完UPDATE・放送情報 |
+| Jikan | 3 req/秒 | 放送情報 |
 | TMDB | 40 req/10秒 | 日本語あらすじ・配信サービス |
-
-### エピソード同期の責務分離（変更禁止）
-
-- **INSERT**: `CreateEpisodesFromAnnict` のみ（タイトルは常に「第N話」をデフォルト）
-- **UPDATE**: `SyncEpisodesFromJikan`（公開メソッド）が `UpdateEpisodesFromJikan`（内部実装）を呼び出す形で補完
-- `CreateEpisodesFromJikan` は存在しない
 
 ### ステータス値（DB値）
 
