@@ -2355,7 +2355,7 @@ func (s *AnimeService) syncGenresForAnimesWithFilter(daysThreshold int, limit in
 	// Add filter for animes that haven't been synced recently
 	if daysThreshold > 0 {
 		query += fmt.Sprintf(`
-		AND (genres_synced_at IS NULL OR genres_synced_at < CURRENT_TIMESTAMP - ($%d || ' days')::INTERVAL)
+		AND (genres_synced_at IS NULL OR genres_synced_at < CURRENT_TIMESTAMP - INTERVAL '1 day' * $%d)
 		`, argIndex)
 		args = append(args, daysThreshold)
 		argIndex++
@@ -2450,7 +2450,7 @@ func (s *AnimeService) syncGenresForAnimesWithFilter(daysThreshold int, limit in
 }
 
 // syncGenresForAnime syncs genre information for a single anime using transaction
-// Uses AniList API for genre information (recommended over Jikan API)
+// Uses AniList API for genre information
 func (s *AnimeService) syncGenresForAnime(animeID int, malAnimeID string) error {
 	// Use background context for batch processing
 	// In a real-world scenario, you might want to pass context from the caller
