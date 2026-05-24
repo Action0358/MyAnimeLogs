@@ -9,336 +9,66 @@ import (
 	"myanimelogs/internal/database"
 	"myanimelogs/internal/models"
 	"myanimelogs/internal/repository"
-	"myanimelogs/internal/utils"
-
-	"golang.org/x/crypto/bcrypt"
-)
-
-const (
-	// AccessTokenLifetime is the duration for which an access token is valid
-	AccessTokenLifetime = 15 * time.Minute
-
-	// Account lockout constants
-	MaxLoginAttempts = 10
-	LockoutDuration  = 15 * time.Minute
 )
 
 var (
-	ErrEmailAlreadyExists = errors.New("email already exists")
-	ErrInvalidCredentials = errors.New("invalid credentials")
-	ErrUserNotFound       = errors.New("user not found")
-	ErrAccountLocked      = errors.New("account is locked")
+	ErrUserNotFound = errors.New("user not found")
 )
 
 type AuthService struct {
-	userRepo       UserRepositoryInterface
-	db             *database.DB // Keep for export methods temporarily
-	sessionService SessionServiceInterface
-	logger         *common.Logger
-	jwtSecret      string
+	userRepo UserRepositoryInterface
+	db       *database.DB
+	logger   *common.Logger
 }
 
-func NewAuthService(db *database.DB, jwtSecret string) *AuthService {
+func NewAuthService(db *database.DB) *AuthService {
 	logger := common.NewLogger(common.LogLevelInfo, "json")
 	return &AuthService{
-		userRepo:       nil, // Will be set by NewAuthServiceWithRepo
-		db:             db,
-		sessionService: NewSessionService(db, logger),
-		logger:         logger,
-		jwtSecret:      jwtSecret,
+		db:     db,
+		logger: logger,
 	}
 }
 
-// NewAuthServiceWithRepo creates a new AuthService with dependency injection
-func NewAuthServiceWithRepo(userRepo UserRepositoryInterface, db *database.DB, jwtSecret string) *AuthService {
-	logger := common.NewLogger(common.LogLevelInfo, "json")
-	return &AuthService{
-		userRepo:       userRepo,
-		db:             db,
-		sessionService: NewSessionService(db, logger),
-		logger:         logger,
-		jwtSecret:      jwtSecret,
-	}
-}
-
-// NewAuthServiceWithDeps creates a new AuthService with all dependencies injected (for testing)
-func NewAuthServiceWithDeps(userRepo UserRepositoryInterface, db *database.DB, sessionService SessionServiceInterface, jwtSecret string) *AuthService {
-	logger := common.NewLogger(common.LogLevelInfo, "json")
-	return &AuthService{
-		userRepo:       userRepo,
-		db:             db,
-		sessionService: sessionService,
-		logger:         logger,
-		jwtSecret:      jwtSecret,
-	}
-}
-
-// getRepository returns the repository instance, creating one if not injected
 func (s *AuthService) getRepository() UserRepositoryInterface {
 	if s.userRepo != nil {
 		return s.userRepo
 	}
-	// Fallback: create repository instance if not injected
 	return repository.NewUserRepository(s.db)
 }
 
-func (s *AuthService) Register(req models.UserRegisterRequest) (*models.UserResponse, error) {
-	return s.registerWithRepo(req, s.getRepository())
-}
-
-// registerWithRepo handles user registration through repository
-func (s *AuthService) registerWithRepo(req models.UserRegisterRequest, repo UserRepositoryInterface) (*models.UserResponse, error) {
-	// Check if email already exists
-	exists, err := repo.EmailExists(req.Email)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check email existence: %w", err)
-	}
-	if exists {
-		return nil, ErrEmailAlreadyExists
-	}
-
-	// Hash password
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
-	if err != nil {
-		return nil, fmt.Errorf("failed to hash password: %w", err)
-	}
-
-	// Create user
-	user := &models.User{
-		Name:     req.Name,
-		Email:    req.Email,
-		Password: string(hashedPassword),
-	}
-
-	err = repo.Create(user)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create user: %w", err)
-	}
-
-	return &models.UserResponse{
-		ID:            user.ID,
-		Name:          user.Name,
-		Email:         user.Email,
-		Description:   user.Description,
-		Icon:          user.Icon,
-		FavoriteAnime: user.FavoriteAnime,
-		SnsLink:       user.SnsLink,
-		CreatedAt:     user.CreatedAt,
-	}, nil
-}
-
-func (s *AuthService) Login(req models.UserLoginRequest, userAgent, ipAddress string) (*models.LoginResponse, error) {
-	return s.loginWithRepo(req, userAgent, ipAddress, s.getRepository())
-}
-
-// loginWithRepo handles user login through repository
-func (s *AuthService) loginWithRepo(req models.UserLoginRequest, userAgent, ipAddress string, repo UserRepositoryInterface) (*models.LoginResponse, error) {
-	user, err := repo.GetByEmail(req.Email)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get user: %w", err)
-	}
-	if user == nil {
-		return nil, ErrInvalidCredentials
-	}
-
-	// Check if account is locked using repository method
-	isLocked, lockedUntil, err := repo.IsAccountLocked(user.ID)
-	if err != nil {
-		// ロック状態の確認に失敗した場合は、セキュリティのためログイン処理を中断
-		s.logger.Error("Failed to check lock status", "error", err, "user_id", user.ID)
-		return nil, fmt.Errorf("failed to check account lock status: %w", err)
-	}
-
-	if isLocked {
-		s.logger.Warn("Login attempt on locked account", "user_id", user.ID, "locked_until", lockedUntil)
-		return nil, ErrAccountLocked
-	}
-
-	// Check password
-	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password))
-	if err != nil {
-		// Password is incorrect - increment failed attempts atomically
-		if err := s.incrementFailedAttempts(user.ID, repo); err != nil {
-			s.logger.Error("Failed to increment failed login attempts", "error", err, "user_id", user.ID)
-		}
-		return nil, ErrInvalidCredentials
-	}
-
-	// Password is correct - reset failed attempts
-	if err := s.resetFailedAttempts(user.ID, repo); err != nil {
-		s.logger.Warn("Failed to reset failed login attempts", "error", err, "user_id", user.ID)
-		// Don't fail the login if we can't reset the counter
-	}
-
-	// Generate JTI for access token
-	jti := utils.GenerateJTI()
-
-	// Create session and get refresh token
-	_, refreshToken, err := s.sessionService.CreateSession(user.ID, jti, userAgent, ipAddress)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create session: %w", err)
-	}
-
-	// Generate access token
-	accessToken, err := utils.GenerateAccessToken(user.ID, user.Email, user.Name, jti, s.jwtSecret, AccessTokenLifetime)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate access token: %w", err)
-	}
-
-	return &models.LoginResponse{
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
-		TokenType:    "Bearer",
-		ExpiresIn:    int(AccessTokenLifetime.Seconds()),
-		User: models.UserResponse{
-			ID:            user.ID,
-			Name:          user.Name,
-			Email:         user.Email,
-			Description:   user.Description,
-			Icon:          user.Icon,
-			FavoriteAnime: user.FavoriteAnime,
-			SnsLink:       user.SnsLink,
-			CreatedAt:     user.CreatedAt,
-		},
-	}, nil
-}
-
-// incrementFailedAttempts increments the failed login attempts counter atomically
-func (s *AuthService) incrementFailedAttempts(userID int, repo UserRepositoryInterface) error {
-	s.logger.Info("incrementFailedAttempts called", "user_id", userID)
-
-	// Use atomic repository method to prevent race conditions
-	result, err := repo.IncrementFailedAttempts(userID, MaxLoginAttempts, LockoutDuration)
-	if err != nil {
-		s.logger.Error("Failed to increment failed login attempts", "error", err, "user_id", userID)
-		return err
-	}
-
-	s.logger.Info("Incremented failed login attempts", "user_id", userID, "new_attempts", result.NewAttempts)
-
-	// Log if account was locked
-	if result.LockedUntil != nil {
-		s.logger.Warn("Account locked due to failed login attempts",
-			"user_id", userID,
-			"attempts", result.NewAttempts,
-			"locked_until", result.LockedUntil.Format("2006-01-02 15:04:05"))
-	}
-
-	return nil
-}
-
-// resetFailedAttempts resets the failed login attempts counter
-func (s *AuthService) resetFailedAttempts(userID int, repo UserRepositoryInterface) error {
-	return repo.ResetFailedAttempts(userID)
-}
-
-// CheckAccountLock checks if an account is locked and returns lock information
-func (s *AuthService) CheckAccountLock(userID int) (bool, *time.Time, error) {
-	return s.getRepository().IsAccountLocked(userID)
-}
-
-// UnlockAccount manually unlocks an account (for admin use)
-func (s *AuthService) UnlockAccount(userID int) error {
-	return s.getRepository().ResetFailedAttempts(userID)
-}
-
-// GetRemainingAttempts returns the number of remaining login attempts
-func (s *AuthService) GetRemainingAttempts(userID int) (int, error) {
-	user, err := s.getRepository().GetByID(userID)
-	if err != nil {
-		return 0, fmt.Errorf("failed to get user: %w", err)
-	}
-	if user == nil {
-		return 0, ErrUserNotFound
-	}
-
-	remaining := MaxLoginAttempts - user.FailedLoginAttempts
-	if remaining < 0 {
-		remaining = 0
-	}
-	return remaining, nil
-}
-
 func (s *AuthService) GetUserByID(userID int) (*models.UserResponse, error) {
-	return s.getUserByIDWithRepo(userID, s.getRepository())
-}
-
-// getUserByIDWithRepo handles user retrieval through repository
-func (s *AuthService) getUserByIDWithRepo(userID int, repo UserRepositoryInterface) (*models.UserResponse, error) {
-	user, err := repo.GetByID(userID)
+	user, err := s.getRepository().GetByID(userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
 	if user == nil {
 		return nil, ErrUserNotFound
 	}
-
-	return &models.UserResponse{
-		ID:            user.ID,
-		Name:          user.Name,
-		Email:         user.Email,
-		Description:   user.Description,
-		Icon:          user.Icon,
-		FavoriteAnime: user.FavoriteAnime,
-		SnsLink:       user.SnsLink,
-		CreatedAt:     user.CreatedAt,
-	}, nil
+	return toUserResponse(user), nil
 }
 
 func (s *AuthService) UpdateUser(userID int, req models.UserUpdateRequest) (*models.UserResponse, error) {
-	return s.updateUserWithRepo(userID, req, s.getRepository())
-}
-
-// updateUserWithRepo handles user update through repository
-func (s *AuthService) updateUserWithRepo(userID int, req models.UserUpdateRequest, repo UserRepositoryInterface) (*models.UserResponse, error) {
-	user, err := repo.UpdatePartial(userID, req)
+	user, err := s.getRepository().UpdatePartial(userID, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update user: %w", err)
 	}
-
-	return &models.UserResponse{
-		ID:            user.ID,
-		Name:          user.Name,
-		Email:         user.Email,
-		Description:   user.Description,
-		Icon:          user.Icon,
-		FavoriteAnime: user.FavoriteAnime,
-		SnsLink:       user.SnsLink,
-		CreatedAt:     user.CreatedAt,
-	}, nil
+	return toUserResponse(user), nil
 }
 
 func (s *AuthService) UpdateUserIcon(userID int, iconURL string) (*models.UserResponse, error) {
-	return s.updateUserIconWithRepo(userID, iconURL, s.getRepository())
-}
-
-// updateUserIconWithRepo handles user icon update through repository
-func (s *AuthService) updateUserIconWithRepo(userID int, iconURL string, repo UserRepositoryInterface) (*models.UserResponse, error) {
-	user, err := repo.UpdateIcon(userID, iconURL)
+	user, err := s.getRepository().UpdateIcon(userID, iconURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update user icon: %w", err)
 	}
-
-	return &models.UserResponse{
-		ID:            user.ID,
-		Name:          user.Name,
-		Email:         user.Email,
-		Description:   user.Description,
-		Icon:          user.Icon,
-		FavoriteAnime: user.FavoriteAnime,
-		SnsLink:       user.SnsLink,
-		CreatedAt:     user.CreatedAt,
-	}, nil
+	return toUserResponse(user), nil
 }
 
 func (s *AuthService) ExportUserData(userID int, format string) (interface{}, error) {
-	// Get user info
 	user, err := s.GetUserByID(userID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Get favorites
 	favorites := []models.UserFavorite{}
 	rows, err := s.db.Query(`
 		SELECT id, user_id, anime_id, status, created_at, updated_at
@@ -348,7 +78,6 @@ func (s *AuthService) ExportUserData(userID int, format string) (interface{}, er
 		return nil, fmt.Errorf("failed to get favorites: %w", err)
 	}
 	defer rows.Close()
-
 	for rows.Next() {
 		var fav models.UserFavorite
 		if err := rows.Scan(&fav.ID, &fav.UserID, &fav.AnimeID, &fav.Status, &fav.CreatedAt, &fav.UpdatedAt); err != nil {
@@ -357,7 +86,6 @@ func (s *AuthService) ExportUserData(userID int, format string) (interface{}, er
 		favorites = append(favorites, fav)
 	}
 
-	// Get ratings
 	ratings := []models.UserRating{}
 	rows, err = s.db.Query(`
 		SELECT id, user_id, anime_id, rating, comment, created_at, updated_at
@@ -367,7 +95,6 @@ func (s *AuthService) ExportUserData(userID int, format string) (interface{}, er
 		return nil, fmt.Errorf("failed to get ratings: %w", err)
 	}
 	defer rows.Close()
-
 	for rows.Next() {
 		var rating models.UserRating
 		if err := rows.Scan(&rating.ID, &rating.UserID, &rating.AnimeID, &rating.Rating, &rating.Comment, &rating.CreatedAt, &rating.UpdatedAt); err != nil {
@@ -384,7 +111,6 @@ func (s *AuthService) ExportUserData(userID int, format string) (interface{}, er
 	}
 
 	if format == "csv" {
-		// Convert to CSV format (simplified)
 		csv := "type,id,data\n"
 		csv += fmt.Sprintf("user,%d,\"%s\"\n", user.ID, user.Name)
 		for _, fav := range favorites {
@@ -396,78 +122,15 @@ func (s *AuthService) ExportUserData(userID int, format string) (interface{}, er
 	return data, nil
 }
 
-// RefreshToken refreshes an access token using a refresh token
-func (s *AuthService) RefreshToken(refreshToken string) (*models.TokenRefreshResponse, error) {
-	// Validate refresh token and get session
-	session, err := s.sessionService.ValidateSession(refreshToken)
-	if err != nil {
-		return nil, err
+func toUserResponse(user *models.User) *models.UserResponse {
+	return &models.UserResponse{
+		ID:            user.ID,
+		Name:          user.Name,
+		Email:         user.Email,
+		Description:   user.Description,
+		Icon:          user.Icon,
+		FavoriteAnime: user.FavoriteAnime,
+		SnsLink:       user.SnsLink,
+		CreatedAt:     user.CreatedAt,
 	}
-
-	// Get user information
-	user, err := s.GetUserByID(session.UserID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Generate new JTI for new access token
-	newJTI := utils.GenerateJTI()
-
-	// Update session with new JTI - this must succeed for consistency
-	err = s.sessionService.UpdateSessionJTI(session.ID, newJTI)
-	if err != nil {
-		return nil, fmt.Errorf("failed to update session JTI: %w", err)
-	}
-
-	// Generate new access token
-	accessToken, err := utils.GenerateAccessToken(user.ID, user.Email, user.Name, newJTI, s.jwtSecret, AccessTokenLifetime)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate access token: %w", err)
-	}
-
-	// Update last activity (non-critical, can fail silently)
-	if err := s.sessionService.UpdateActivity(session.ID); err != nil {
-		s.logger.Warn("Failed to update session activity", "error", err, "session_id", session.ID)
-	}
-
-	return &models.TokenRefreshResponse{
-		AccessToken: accessToken,
-		TokenType:   "Bearer",
-		ExpiresIn:   int(AccessTokenLifetime.Seconds()),
-	}, nil
-}
-
-// Logout logs out a user by deleting their session
-func (s *AuthService) Logout(refreshToken string) error {
-	return s.sessionService.DeleteSession(refreshToken)
-}
-
-// LogoutAllDevices logs out a user from all devices
-func (s *AuthService) LogoutAllDevices(userID int) error {
-	return s.sessionService.DeleteUserSessions(userID)
-}
-
-// GetUserSessions returns all active sessions for a user
-func (s *AuthService) GetUserSessions(userID int, currentJTI string) ([]models.SessionResponse, error) {
-	sessions, err := s.sessionService.GetUserSessions(userID)
-	if err != nil {
-		return nil, err
-	}
-
-	responses := make([]models.SessionResponse, len(sessions))
-	for i, session := range sessions {
-		responses[i] = session.ToResponse(currentJTI)
-	}
-
-	return responses, nil
-}
-
-// DeleteSession deletes a specific session
-func (s *AuthService) DeleteSession(sessionID, userID int) error {
-	return s.sessionService.DeleteSessionByID(sessionID, userID)
-}
-
-// GetSessionService returns the session service (for middleware)
-func (s *AuthService) GetSessionService() SessionServiceInterface {
-	return s.sessionService
 }

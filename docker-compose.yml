@@ -15,6 +15,7 @@ services:
     depends_on:
       - backend
     command: sh -c "npm install && npm run dev"
+
   backend:
     build:
       context: ./backend
@@ -26,28 +27,15 @@ services:
       - "8080:8080"
     env_file:
       - ./backend/.env.local
+    environment:
+      # Dockerコンテナ内からはhost.docker.internalでSupabase localのDBに接続する
+      DATABASE_URL: postgresql://postgres:postgres@host.docker.internal:54322/postgres?sslmode=disable
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     command: sh -c "go run scripts/migrate.go && air -c .air.toml"
-
-  postgres:
-    image: postgres:16
-    container_name: myanimelogs_postgres
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-    env_file:
-      - ./backend/.env.local
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-user}
-      POSTGRES_DB: ${POSTGRES_DB:-myanimelogs}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
 
   redis:
     image: redis:7-alpine
@@ -72,10 +60,9 @@ services:
       - "5050:80"
     env_file:
       - ./backend/.env.local
-    depends_on:
-      - postgres
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
 volumes:
-  postgres_data:
   pgadmin_data:
   redis_data:
