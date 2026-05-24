@@ -185,7 +185,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) {
-      throw new ApiClientError(translateAuthError(error, 'ログインに失敗しました'), 401)
+      throw new ApiClientError(translateAuthError(error, 'ログインに失敗しました'), error.status ?? 401)
     }
     router.push('/')
   }, [router])
@@ -197,7 +197,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       options: { data: { name } },
     })
     if (error) {
-      throw new ApiClientError(translateAuthError(error, '登録に失敗しました'), 400)
+      throw new ApiClientError(translateAuthError(error, '登録に失敗しました'), error.status ?? 400)
     }
     if (data.session) {
       // メール確認なし: 即座にログイン状態
