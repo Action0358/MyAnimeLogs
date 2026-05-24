@@ -63,7 +63,7 @@ func validateSupabaseJWT(tokenStr, jwtSecret string) (*SupabaseClaims, error) {
 // SupabaseAuthMiddleware validates the Supabase JWT and injects user_id (internal int)
 // into the Gin context. If the user does not yet have a row in public.users, one is
 // created automatically on first access.
-func SupabaseAuthMiddleware(db *database.DB, jwtSecret string) gin.HandlerFunc {
+func SupabaseAuthMiddleware(db *database.DB, jwtSecret string, logger *common.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
@@ -105,6 +105,7 @@ func SupabaseAuthMiddleware(db *database.DB, jwtSecret string) gin.HandlerFunc {
 		userRepo := repository.NewUserRepository(db)
 		user, err := userRepo.GetOrCreateByAuthUserID(authUserID, email, name)
 		if err != nil {
+			logger.Error("failed to get or create user", "auth_user_id", authUserID, "error", err)
 			c.JSON(http.StatusInternalServerError, common.ErrorResponse{
 				Error:   "server_error",
 				Message: "ユーザー情報の取得に失敗しました",
@@ -123,7 +124,7 @@ func SupabaseAuthMiddleware(db *database.DB, jwtSecret string) gin.HandlerFunc {
 
 // OptionalSupabaseAuthMiddleware validates the Supabase JWT when present but does
 // not reject requests that have no Authorization header.
-func OptionalSupabaseAuthMiddleware(db *database.DB, jwtSecret string) gin.HandlerFunc {
+func OptionalSupabaseAuthMiddleware(db *database.DB, jwtSecret string, logger *common.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
@@ -148,12 +149,15 @@ func OptionalSupabaseAuthMiddleware(db *database.DB, jwtSecret string) gin.Handl
 		name := nameFromClaims(claims)
 
 		userRepo := repository.NewUserRepository(db)
-		if user, err := userRepo.GetOrCreateByAuthUserID(authUserID, email, name); err == nil {
-			c.Set("user_id", user.ID)
-			c.Set("user_email", user.Email)
-			c.Set("user_name", user.Name)
+		user, err := userRepo.GetOrCreateByAuthUserID(authUserID, email, name)
+		if err != nil {
+			logger.Error("failed to get or create user (optional auth)", "auth_user_id", authUserID, "error", err)
+			c.Next()
+			return
 		}
-
+		c.Set("user_id", user.ID)
+		c.Set("user_email", user.Email)
+		c.Set("user_name", user.Name)
 		c.Next()
 	}
 }

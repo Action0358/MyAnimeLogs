@@ -58,8 +58,8 @@ func Setup(db *database.DB, cfg *config.Config, syncScheduler handlers.SyncSched
 	}
 
 	// Supabase JWT ミドルウェア
-	authRequired := middleware.SupabaseAuthMiddleware(db, cfg.SupabaseJWTSecret)
-	authOptional := middleware.OptionalSupabaseAuthMiddleware(db, cfg.SupabaseJWTSecret)
+	authRequired := middleware.SupabaseAuthMiddleware(db, cfg.SupabaseJWTSecret, logger)
+	authOptional := middleware.OptionalSupabaseAuthMiddleware(db, cfg.SupabaseJWTSecret, logger)
 
 	api := r.Group("/api")
 	{

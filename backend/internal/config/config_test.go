@@ -15,12 +15,8 @@ func TestNew_DefaultValues(t *testing.T) {
 		os.Unsetenv(key)
 	}
 
-	config := New()
-
-	assert.Equal(t, "8080", config.Port)
-	assert.Equal(t, "development", config.Environment)
-	assert.Equal(t, "", config.SupabaseJWTSecret)
-	assert.Contains(t, config.DatabaseURL, "postgres://")
+	_, err := New()
+	assert.Error(t, err, "SUPABASE_JWT_SECRET is required but not set")
 }
 
 func TestNew_CustomEnvironmentVariables(t *testing.T) {
@@ -28,11 +24,12 @@ func TestNew_CustomEnvironmentVariables(t *testing.T) {
 	t.Setenv("ENVIRONMENT", "production")
 	t.Setenv("SUPABASE_JWT_SECRET", "custom-jwt-secret")
 
-	config := New()
+	cfg, err := New()
 
-	assert.Equal(t, "3000", config.Port)
-	assert.Equal(t, "production", config.Environment)
-	assert.Equal(t, "custom-jwt-secret", config.SupabaseJWTSecret)
+	assert.NoError(t, err)
+	assert.Equal(t, "3000", cfg.Port)
+	assert.Equal(t, "production", cfg.Environment)
+	assert.Equal(t, "custom-jwt-secret", cfg.SupabaseJWTSecret)
 }
 
 func TestGetEnv(t *testing.T) {

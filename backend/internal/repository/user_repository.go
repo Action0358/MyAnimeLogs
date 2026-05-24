@@ -58,26 +58,59 @@ func (r *UserRepository) GetByID(id int) (*models.User, error) {
 }
 
 // GetOrCreateByAuthUserID returns an existing user or creates a new one for the given Supabase auth UUID.
+// Handles three cases in order:
+// 1. Returning user: SELECT by auth_user_id (avoids write on every request)
+// 2. Migration: existing user with same email but no auth_user_id yet → UPDATE to link
+// 3. New user: INSERT with ON CONFLICT on auth_user_id
 func (r *UserRepository) GetOrCreateByAuthUserID(authUserID, email, name string) (*models.User, error) {
 	var user models.User
+	scanUser := func(row *sql.Row) error {
+		return row.Scan(
+			&user.ID, &user.Name, &user.Email,
+			&user.Description, &user.Icon, &user.FavoriteAnime, &user.SnsLink,
+			&user.AuthUserID, &user.CreatedAt, &user.UpdatedAt,
+		)
+	}
 
-	// Try INSERT ... ON CONFLICT to atomically get or create.
-	// The partial index (WHERE auth_user_id IS NOT NULL) must be repeated in the
-	// ON CONFLICT clause so PostgreSQL can infer it as the conflict target.
-	err := r.db.QueryRow(`
+	// 1. Existing Supabase user (most requests after migration)
+	err := scanUser(r.db.QueryRow(`
+		SELECT id, name, email, description, icon, favorite_anime, sns_link,
+		       auth_user_id, created_at, updated_at
+		FROM users WHERE auth_user_id = $1
+	`, authUserID))
+	if err == nil {
+		return &user, nil
+	}
+	if err != sql.ErrNoRows {
+		return nil, fmt.Errorf("failed to get user by auth_user_id: %w", err)
+	}
+
+	// 2. Pre-migration user: link auth_user_id to existing email record
+	err = scanUser(r.db.QueryRow(`
+		UPDATE users
+		SET auth_user_id = $1, name = $2, updated_at = CURRENT_TIMESTAMP
+		WHERE email = $3 AND auth_user_id IS NULL
+		RETURNING id, name, email, description, icon, favorite_anime, sns_link,
+		          auth_user_id, created_at, updated_at
+	`, authUserID, name, email))
+	if err == nil {
+		return &user, nil
+	}
+	if err != sql.ErrNoRows {
+		return nil, fmt.Errorf("failed to migrate user by email: %w", err)
+	}
+
+	// 3. New user
+	err = scanUser(r.db.QueryRow(`
 		INSERT INTO users (name, email, auth_user_id, created_at, updated_at)
 		VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 		ON CONFLICT (auth_user_id) WHERE auth_user_id IS NOT NULL
-		DO UPDATE SET auth_user_id = EXCLUDED.auth_user_id
+		DO UPDATE SET name = EXCLUDED.name, email = EXCLUDED.email, updated_at = CURRENT_TIMESTAMP
 		RETURNING id, name, email, description, icon, favorite_anime, sns_link,
 		          auth_user_id, created_at, updated_at
-	`, name, email, authUserID).Scan(
-		&user.ID, &user.Name, &user.Email,
-		&user.Description, &user.Icon, &user.FavoriteAnime, &user.SnsLink,
-		&user.AuthUserID, &user.CreatedAt, &user.UpdatedAt,
-	)
+	`, name, email, authUserID))
 	if err != nil {
-		return nil, fmt.Errorf("failed to get or create user by auth_user_id: %w", err)
+		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
 	return &user, nil
 }

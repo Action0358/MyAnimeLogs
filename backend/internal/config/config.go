@@ -38,8 +38,9 @@ type Config struct {
 	SchedulerRunMinute int
 }
 
-// New creates a new Config struct from environment variables
-func New() *Config {
+// New creates a new Config struct from environment variables.
+// Returns an error if required secrets are missing.
+func New() (*Config, error) {
 	env := GetEnvironment()
 
 	// Database
@@ -56,6 +57,9 @@ func New() *Config {
 
 	// Supabase Auth
 	supabaseJWTSecret := getEnv("SUPABASE_JWT_SECRET", "")
+	if supabaseJWTSecret == "" {
+		return nil, fmt.Errorf("SUPABASE_JWT_SECRET is required but not set")
+	}
 
 	// External APIs
 	annictAPIKey := getEnv("ANNICT_API_KEY", "")
@@ -108,7 +112,7 @@ func New() *Config {
 		AnimeSyncEnabled:    animeSyncEnabled,
 		SchedulerRunHour:    schedulerRunHour,
 		SchedulerRunMinute:  schedulerRunMinute,
-	}
+	}, nil
 }
 
 // buildDatabaseURL constructs database URL from individual components
