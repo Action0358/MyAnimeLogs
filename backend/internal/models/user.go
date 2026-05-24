@@ -5,30 +5,16 @@ import (
 )
 
 type User struct {
-	ID                  int        `json:"id" db:"id"`
-	Name                string     `json:"name" db:"name"`
-	Email               string     `json:"email" db:"email"`
-	Password            string     `json:"-" db:"password"` // Never expose password in JSON
-	Description         *string    `json:"description" db:"description"`
-	Icon                *string    `json:"icon" db:"icon"`
-	FavoriteAnime       *string    `json:"favorite_anime" db:"favorite_anime"`
-	SnsLink             *string    `json:"sns_link" db:"sns_link"`
-	FailedLoginAttempts int        `json:"-" db:"failed_login_attempts"`
-	LastFailedLoginAt   *time.Time `json:"-" db:"last_failed_login_at"`
-	LockedUntil         *time.Time `json:"-" db:"locked_until"`
-	CreatedAt           time.Time  `json:"created_at" db:"created_at"`
-	UpdatedAt           time.Time  `json:"updated_at" db:"updated_at"`
-}
-
-type UserRegisterRequest struct {
-	Name     string `json:"name" binding:"required,min=1,max=50"`
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required,min=8"`
-}
-
-type UserLoginRequest struct {
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required"`
+	ID            int       `json:"id" db:"id"`
+	AuthUserID    *string   `json:"auth_user_id,omitempty" db:"auth_user_id"`
+	Name          string    `json:"name" db:"name"`
+	Email         string    `json:"email" db:"email"`
+	Description   *string   `json:"description" db:"description"`
+	Icon          *string   `json:"icon" db:"icon"`
+	FavoriteAnime *string   `json:"favorite_anime" db:"favorite_anime"`
+	SnsLink       *string   `json:"sns_link" db:"sns_link"`
+	CreatedAt     time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at" db:"updated_at"`
 }
 
 type UserUpdateRequest struct {
@@ -48,26 +34,3 @@ type UserResponse struct {
 	SnsLink       *string   `json:"sns_link"`
 	CreatedAt     time.Time `json:"created_at"`
 }
-
-type LoginResponse struct {
-	AccessToken  string       `json:"access_token"`
-	RefreshToken string       `json:"refresh_token"`
-	TokenType    string       `json:"token_type"`
-	ExpiresIn    int          `json:"expires_in"` // seconds
-	User         UserResponse `json:"user"`
-}
-
-type TokenRefreshRequest struct {
-	RefreshToken string `json:"refresh_token" binding:"required"`
-}
-
-type TokenRefreshResponse struct {
-	AccessToken string `json:"access_token"`
-	TokenType   string `json:"token_type"`
-	ExpiresIn   int    `json:"expires_in"` // seconds
-}
-
-type LogoutRequest struct {
-	RefreshToken string `json:"refresh_token" binding:"required"`
-}
-
