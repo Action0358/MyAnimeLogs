@@ -24,6 +24,27 @@ interface User {
   created_at?: string
 }
 
+const AUTH_ERROR_MESSAGES: Record<string, string> = {
+  invalid_credentials: 'メールアドレスまたはパスワードが正しくありません',
+  email_not_confirmed: 'メールアドレスが確認されていません。確認メールのリンクをクリックしてください',
+  user_not_found: 'アカウントが見つかりません',
+  user_banned: 'このアカウントは利用停止中です',
+  over_request_rate_limit: 'しばらく時間をおいてから再試行してください',
+  weak_password: 'パスワードが弱すぎます。より強力なパスワードを設定してください',
+  email_address_invalid: 'メールアドレスの形式が正しくありません',
+  email_exists: 'このメールアドレスは既に登録されています',
+}
+
+const translateAuthError = (
+  error: { code?: string; message: string },
+  defaultMessage: string
+): string => {
+  if (error.code && AUTH_ERROR_MESSAGES[error.code]) {
+    return AUTH_ERROR_MESSAGES[error.code]
+  }
+  return defaultMessage
+}
+
 const isUser = (value: unknown): value is User => {
   if (typeof value !== 'object' || value === null) return false
   const obj = value as Record<string, unknown>
@@ -164,7 +185,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) {
-      throw new ApiClientError(error.message, 401)
+      throw new ApiClientError(translateAuthError(error, 'ログインに失敗しました'), error.status ?? 401)
     }
     router.push('/')
   }, [router])
@@ -176,7 +197,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       options: { data: { name } },
     })
     if (error) {
-      throw new ApiClientError(error.message, 400)
+      throw new ApiClientError(translateAuthError(error, '登録に失敗しました'), error.status ?? 400)
     }
     if (data.session) {
       // メール確認なし: 即座にログイン状態
