@@ -157,7 +157,7 @@ const buildConfig = () => {
               // 画像ソース: 開発環境ではlocalhostも許可、任意のHTTPS画像を許可（アニメ画像は様々なドメインから取得されるため）
               "img-src 'self' data: blob: http://localhost:8080 http://localhost:3000 https:",
               "font-src 'self'",
-              "connect-src 'self' http://localhost:8080 http://localhost:3000 ws://localhost:3000 ws://localhost:3001",
+              "connect-src 'self' http://localhost:8080 http://localhost:3000 http://localhost:54321 ws://localhost:3000 ws://localhost:3001",
               "frame-ancestors 'none'",
             ].join('; '),
           },

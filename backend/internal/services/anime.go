@@ -209,6 +209,12 @@ func (s *AnimeService) SetAnnictClient(ac *AnnictClient) {
 	s.annictClient = ac
 }
 
+// GetAniListClient returns the shared AniListClient instance.
+// Used by the scheduler to share the same rate-limited client instead of creating a separate instance.
+func (s *AnimeService) GetAniListClient() *AniListClient {
+	return s.anilistClient
+}
+
 func NewAnimeService(db *database.DB, logger *common.Logger) *AnimeService {
 	// キャッシュを初期化
 	cacheConfig := CacheConfig{

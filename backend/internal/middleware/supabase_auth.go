@@ -1,9 +1,18 @@
 package middleware
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"io"
+	"math/big"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"myanimelogs/internal/common"
 	"myanimelogs/internal/database"
@@ -26,6 +35,117 @@ type SupabaseClaims struct {
 // userIDCache stores the authUserID → internal userID mapping to avoid DB lookups on every request.
 var userIDCache sync.Map
 
+// jwksCache caches EC public keys fetched from the Supabase JWKS endpoint.
+type jwksCache struct {
+	mu        sync.RWMutex
+	keys      map[string]*ecdsa.PublicKey
+	fetchedAt time.Time
+	ttl       time.Duration
+}
+
+var globalJWKSCache = &jwksCache{
+	keys: make(map[string]*ecdsa.PublicKey),
+	ttl:  15 * time.Minute,
+}
+
+type jwkKey struct {
+	Kty string `json:"kty"`
+	Kid string `json:"kid"`
+	Alg string `json:"alg"`
+	Crv string `json:"crv"`
+	X   string `json:"x"`
+	Y   string `json:"y"`
+}
+
+type jwksResponse struct {
+	Keys []jwkKey `json:"keys"`
+}
+
+// jwksHTTPClient is a dedicated HTTP client with a timeout for JWKS fetches.
+// Using the default http.Get (no timeout) risks blocking the middleware indefinitely
+// if the Supabase auth endpoint is slow or unresponsive.
+var jwksHTTPClient = &http.Client{Timeout: 5 * time.Second}
+
+// fetchJWKS fetches EC public keys from the given JWKS URL.
+func fetchJWKS(url string) (map[string]*ecdsa.PublicKey, error) {
+	resp, err := jwksHTTPClient.Get(url) //nolint:gosec
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch JWKS: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read JWKS response: %w", err)
+	}
+
+	var jwks jwksResponse
+	if err := json.Unmarshal(body, &jwks); err != nil {
+		return nil, fmt.Errorf("failed to parse JWKS: %w", err)
+	}
+
+	keys := make(map[string]*ecdsa.PublicKey)
+	for _, key := range jwks.Keys {
+		if key.Kty != "EC" || key.Alg != "ES256" {
+			continue
+		}
+		xBytes, err := base64.RawURLEncoding.DecodeString(key.X)
+		if err != nil {
+			continue
+		}
+		yBytes, err := base64.RawURLEncoding.DecodeString(key.Y)
+		if err != nil {
+			continue
+		}
+		keys[key.Kid] = &ecdsa.PublicKey{
+			Curve: elliptic.P256(),
+			X:     new(big.Int).SetBytes(xBytes),
+			Y:     new(big.Int).SetBytes(yBytes),
+		}
+	}
+
+	return keys, nil
+}
+
+// getJWKSPublicKey returns the cached EC public key for the given kid,
+// refreshing the cache from the JWKS endpoint when stale.
+// Uses double-checked locking to prevent Thundering Herd: multiple goroutines
+// waiting on the write lock would otherwise each trigger a redundant fetchJWKS.
+func getJWKSPublicKey(kid, jwksURL string) (*ecdsa.PublicKey, error) {
+	globalJWKSCache.mu.RLock()
+	if time.Since(globalJWKSCache.fetchedAt) < globalJWKSCache.ttl {
+		if key, ok := globalJWKSCache.keys[kid]; ok {
+			globalJWKSCache.mu.RUnlock()
+			return key, nil
+		}
+	}
+	globalJWKSCache.mu.RUnlock()
+
+	globalJWKSCache.mu.Lock()
+	defer globalJWKSCache.mu.Unlock()
+
+	// Re-check after acquiring write lock: another goroutine may have already refreshed.
+	if time.Since(globalJWKSCache.fetchedAt) < globalJWKSCache.ttl {
+		if key, ok := globalJWKSCache.keys[kid]; ok {
+			return key, nil
+		}
+	}
+
+	keys, err := fetchJWKS(jwksURL)
+	if err != nil {
+		return nil, err
+	}
+
+	globalJWKSCache.keys = keys
+	globalJWKSCache.fetchedAt = time.Now()
+
+	key, ok := keys[kid]
+	if !ok {
+		return nil, fmt.Errorf("key with kid %q not found in JWKS", kid)
+	}
+	return key, nil
+}
+
 // nameFromClaims extracts a display name from Supabase JWT metadata.
 func nameFromClaims(claims *SupabaseClaims) string {
 	if claims.UserMetadata != nil {
@@ -36,7 +156,6 @@ func nameFromClaims(claims *SupabaseClaims) string {
 			return n
 		}
 	}
-	// Fall back to email prefix
 	if claims.Email != "" {
 		if idx := strings.Index(claims.Email, "@"); idx > 0 {
 			return claims.Email[:idx]
@@ -45,8 +164,25 @@ func nameFromClaims(claims *SupabaseClaims) string {
 	return "ユーザー"
 }
 
-// validateSupabaseJWT parses and validates a Supabase-issued JWT including audience claim.
+// validateSupabaseJWT parses and validates a Supabase-issued JWT.
+// Supports both HS256 (cloud Supabase) and ES256 (new local CLI) signing methods.
 func validateSupabaseJWT(tokenStr, jwtSecret string) (*SupabaseClaims, error) {
+	// Peek at the header without full validation to determine the signing algorithm.
+	unverified, _, err := jwt.NewParser().ParseUnverified(tokenStr, &SupabaseClaims{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse token: %w", err)
+	}
+
+	switch unverified.Method.Alg() {
+	case "ES256":
+		return validateES256JWT(tokenStr)
+	default:
+		return validateHS256JWT(tokenStr, jwtSecret)
+	}
+}
+
+// validateHS256JWT validates a Supabase JWT signed with HS256 (cloud Supabase).
+func validateHS256JWT(tokenStr, jwtSecret string) (*SupabaseClaims, error) {
 	token, err := jwt.ParseWithClaims(
 		tokenStr,
 		&SupabaseClaims{},
@@ -61,7 +197,37 @@ func validateSupabaseJWT(tokenStr, jwtSecret string) (*SupabaseClaims, error) {
 	if err != nil {
 		return nil, err
 	}
+	claims, ok := token.Claims.(*SupabaseClaims)
+	if !ok || !token.Valid {
+		return nil, jwt.ErrTokenSignatureInvalid
+	}
+	return claims, nil
+}
 
+// validateES256JWT validates a Supabase JWT signed with ES256 (new local Supabase CLI).
+// Public keys are fetched from the Supabase JWKS endpoint and cached for 15 minutes.
+func validateES256JWT(tokenStr string) (*SupabaseClaims, error) {
+	supabaseURL := os.Getenv("SUPABASE_URL")
+	if supabaseURL == "" {
+		supabaseURL = "http://localhost:54321"
+	}
+	jwksURL := supabaseURL + "/auth/v1/.well-known/jwks.json"
+
+	token, err := jwt.ParseWithClaims(
+		tokenStr,
+		&SupabaseClaims{},
+		func(t *jwt.Token) (interface{}, error) {
+			if _, ok := t.Method.(*jwt.SigningMethodECDSA); !ok {
+				return nil, jwt.ErrSignatureInvalid
+			}
+			kid, _ := t.Header["kid"].(string)
+			return getJWKSPublicKey(kid, jwksURL)
+		},
+		jwt.WithAudience("authenticated"),
+	)
+	if err != nil {
+		return nil, err
+	}
 	claims, ok := token.Claims.(*SupabaseClaims)
 	if !ok || !token.Valid {
 		return nil, jwt.ErrTokenSignatureInvalid

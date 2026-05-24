@@ -103,7 +103,7 @@ func TestNewAnimeSyncScheduler(t *testing.T) {
 	logger := newTestLogger()
 	client := newTestAnnictClient()
 	animeService := newTestAnimeService()
-	scheduler, err := NewAnimeSyncScheduler(client, animeService, logger, true, 3, 0)
+	scheduler, err := NewAnimeSyncScheduler(client, animeService, nil, logger, true, 3, 0)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, scheduler)
@@ -121,7 +121,7 @@ func TestSchedulerDisabled(t *testing.T) {
 	logger := newTestLogger()
 	client := newTestAnnictClient()
 	animeService := newTestAnimeService()
-	scheduler, err := NewAnimeSyncScheduler(client, animeService, logger, false, 3, 0)
+	scheduler, err := NewAnimeSyncScheduler(client, animeService, nil, logger, false, 3, 0)
 
 	assert.NoError(t, err)
 	assert.NotNil(t, scheduler)
@@ -139,7 +139,7 @@ func TestGetStatus(t *testing.T) {
 	logger := newTestLogger()
 	client := newTestAnnictClient()
 	animeService := newTestAnimeService()
-	scheduler, err := NewAnimeSyncScheduler(client, animeService, logger, true, 3, 0)
+	scheduler, err := NewAnimeSyncScheduler(client, animeService, nil, logger, true, 3, 0)
 
 	assert.NoError(t, err)
 	now := time.Date(2025, 11, 5, 12, 0, 0, 0, time.UTC)
@@ -247,7 +247,7 @@ func TestSchedulerWithNilLogger(t *testing.T) {
 	client := newTestAnnictClient()
 	animeService := newTestAnimeService()
 	// enabled=false でテストして、実際の同期が開始されないようにする
-	scheduler, err := NewAnimeSyncScheduler(client, animeService, nil, false, 3, 0)
+	scheduler, err := NewAnimeSyncScheduler(client, animeService, nil, nil, false, 3, 0)
 
 	assert.NoError(t, err)
 	// Should not panic - logger is initialized in constructor
@@ -262,7 +262,7 @@ func TestSchedulerCustomRunTime(t *testing.T) {
 	logger := newTestLogger()
 	client := newTestAnnictClient()
 	animeService := newTestAnimeService()
-	scheduler, err := NewAnimeSyncScheduler(client, animeService, logger, true, 14, 30)
+	scheduler, err := NewAnimeSyncScheduler(client, animeService, nil, logger, true, 14, 30)
 
 	assert.NoError(t, err)
 	assert.Equal(t, 14, scheduler.runHour)
@@ -272,7 +272,7 @@ func TestSchedulerCustomRunTime(t *testing.T) {
 func TestNewAnimeSyncSchedulerWithNilAnimeService(t *testing.T) {
 	logger := newTestLogger()
 	client := newTestAnnictClient()
-	scheduler, err := NewAnimeSyncScheduler(client, nil, logger, true, 3, 0)
+	scheduler, err := NewAnimeSyncScheduler(client, nil, nil, logger, true, 3, 0)
 
 	assert.Error(t, err)
 	assert.Nil(t, scheduler)
@@ -317,7 +317,7 @@ func TestTryAcquireSyncLock(t *testing.T) {
 	logger := newTestLogger()
 	mockService := &mockAnimeServiceWithDelay{}
 
-	scheduler, err := NewAnimeSyncScheduler(nil, mockService, logger, false, 0, 0)
+	scheduler, err := NewAnimeSyncScheduler(nil, mockService, nil, logger, false, 0, 0)
 	assert.NoError(t, err)
 
 	// First acquisition should succeed
@@ -342,7 +342,7 @@ func TestConcurrentSyncPrevention(t *testing.T) {
 		syncDelay: 10 * time.Millisecond,
 	}
 
-	scheduler, err := NewAnimeSyncScheduler(nil, mockService, logger, false, 0, 0)
+	scheduler, err := NewAnimeSyncScheduler(nil, mockService, nil, logger, false, 0, 0)
 	assert.NoError(t, err)
 
 	var wg sync.WaitGroup
@@ -394,7 +394,7 @@ func TestReleaseSyncLockIdempotency(t *testing.T) {
 	logger := newTestLogger()
 	mockService := &mockAnimeServiceWithDelay{}
 
-	scheduler, err := NewAnimeSyncScheduler(nil, mockService, logger, false, 0, 0)
+	scheduler, err := NewAnimeSyncScheduler(nil, mockService, nil, logger, false, 0, 0)
 	assert.NoError(t, err)
 
 	// Acquire lock
@@ -416,7 +416,7 @@ func TestSyncLockWithDefer(t *testing.T) {
 	logger := newTestLogger()
 	mockService := &mockAnimeServiceWithDelay{}
 
-	scheduler, err := NewAnimeSyncScheduler(nil, mockService, logger, false, 0, 0)
+	scheduler, err := NewAnimeSyncScheduler(nil, mockService, nil, logger, false, 0, 0)
 	assert.NoError(t, err)
 
 	// Simulate a function that uses defer to release lock
