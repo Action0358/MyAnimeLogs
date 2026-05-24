@@ -112,12 +112,21 @@ func fetchJWKS(url string) (map[string]*ecdsa.PublicKey, error) {
 // Uses double-checked locking to prevent Thundering Herd: multiple goroutines
 // waiting on the write lock would otherwise each trigger a redundant fetchJWKS.
 func getJWKSPublicKey(kid, jwksURL string) (*ecdsa.PublicKey, error) {
+	if kid == "" {
+		return nil, fmt.Errorf("token header missing kid")
+	}
+
+	isFresh := func() bool { return time.Since(globalJWKSCache.fetchedAt) < globalJWKSCache.ttl }
+
 	globalJWKSCache.mu.RLock()
-	if time.Since(globalJWKSCache.fetchedAt) < globalJWKSCache.ttl {
-		if key, ok := globalJWKSCache.keys[kid]; ok {
-			globalJWKSCache.mu.RUnlock()
+	if isFresh() {
+		key, ok := globalJWKSCache.keys[kid]
+		globalJWKSCache.mu.RUnlock()
+		if ok {
 			return key, nil
 		}
+		// Cache is fresh but kid is unknown — do not fetch; reject immediately.
+		return nil, fmt.Errorf("key with kid %q not found in JWKS", kid)
 	}
 	globalJWKSCache.mu.RUnlock()
 
@@ -125,10 +134,11 @@ func getJWKSPublicKey(kid, jwksURL string) (*ecdsa.PublicKey, error) {
 	defer globalJWKSCache.mu.Unlock()
 
 	// Re-check after acquiring write lock: another goroutine may have already refreshed.
-	if time.Since(globalJWKSCache.fetchedAt) < globalJWKSCache.ttl {
+	if isFresh() {
 		if key, ok := globalJWKSCache.keys[kid]; ok {
 			return key, nil
 		}
+		return nil, fmt.Errorf("key with kid %q not found in JWKS", kid)
 	}
 
 	keys, err := fetchJWKS(jwksURL)
