@@ -66,45 +66,8 @@ jobs:
           ./scripts/verify-deployment.sh production
         working-directory: ./backend
 
-      - name: Sync anime data after deployment
-        run: |
-          echo "Syncing anime data to database..."
-          
-          # Secretsが設定されているか確認
-          if [ -z "${{ secrets.ADMIN_EMAIL }}" ] || [ -z "${{ secrets.ADMIN_PASSWORD }}" ]; then
-            echo "ADMIN_EMAIL or ADMIN_PASSWORD not set. Skipping data sync."
-            echo "To enable automatic data sync, set ADMIN_EMAIL and ADMIN_PASSWORD in GitHub Secrets."
-            exit 0
-          fi
-          
-          # ログインしてトークンを取得
-          LOGIN_RESPONSE=$(curl -s -X POST "https://myanimelogs-production.fly.dev/api/login" \
-            -H "Content-Type: application/json" \
-            -d "{\"email\":\"${{ secrets.ADMIN_EMAIL }}\",\"password\":\"${{ secrets.ADMIN_PASSWORD }}\"}")
-          
-          TOKEN=$(echo "$LOGIN_RESPONSE" | grep -o '"access_token":"[^"]*' | cut -d'"' -f4)
-          
-          if [ -z "$TOKEN" ]; then
-            echo "Failed to login. Skipping data sync."
-            exit 0
-          fi
-          
-          # 現在のシーズンのアニメを同期
-          echo "Syncing current season anime..."
-          curl -s -X POST "https://myanimelogs-production.fly.dev/api/admin/sync/season" \
-            -H "Authorization: Bearer $TOKEN" \
-            -H "Content-Type: application/json"
-          
-          sleep 2
-          
-          # 人気アニメを同期
-          echo "Syncing popular anime..."
-          curl -s -X POST "https://myanimelogs-production.fly.dev/api/admin/sync/popular" \
-            -H "Authorization: Bearer $TOKEN" \
-            -H "Content-Type: application/json"
-          
-          echo "Data sync completed"
-        working-directory: ./backend
+      # Supabase Auth移行により /api/login エンドポイントが廃止されたため
+      # デプロイ後のデータ同期は手動で実行してください
 
   deploy-frontend-production:
     needs: test
@@ -130,6 +93,8 @@ jobs:
         run: npm run build:production
         env:
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL_PRODUCTION }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL_PRODUCTION }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY_PRODUCTION }}
           NODE_ENV: production
 
       - name: Deploy to Cloudflare Pages (Production)

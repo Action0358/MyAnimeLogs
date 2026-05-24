@@ -15,80 +15,68 @@ import (
 )
 
 func Setup(db *database.DB, cfg *config.Config, syncScheduler handlers.SyncScheduler, logger *common.Logger, annictClient *services.AnnictClient) *gin.Engine {
-	// Ginモードを設定
 	if cfg.Environment == "production" {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
-	// エラーモニターを初期化
 	errorMonitor := common.NewErrorMonitor(
 		logger,
 		cfg.ErrorAlertThreshold,
 		time.Duration(cfg.ErrorTimeWindow)*time.Minute,
 	)
 
-	r := gin.New() // カスタムミドルウェアのためgin.Default()の代わりにgin.New()を使用
+	r := gin.New()
 
-	// ミドルウェア（順序が重要）
 	r.Use(middleware.RequestIDMiddleware())
 	r.Use(middleware.LoggingMiddleware(logger))
 	r.Use(middleware.CORSMiddleware())
 
-	// レート制限
 	rateLimiter := middleware.NewRateLimiter(cfg.RateLimit, time.Second)
 	r.Use(middleware.RateLimitMiddleware(rateLimiter))
 
-	// サービス（共有されたannictClientを使用）
-	authService := services.NewAuthService(db, cfg.JWTSecret)
+	authService := services.NewAuthService(db)
 	animeService := services.NewAnimeService(db, logger)
 	uploadService := services.NewUploadService(cfg.UploadDir, cfg.UploadPublicPath, cfg.MaxUploadSize, logger)
 
-	// 強化されたエラーハンドリングを持つハンドラー（共有されたannictClientを使用）
 	authHandler := handlers.NewAuthHandlerWithUpload(authService, uploadService, logger, errorMonitor)
 	animeHandler := handlers.NewAnimeHandler(animeService, logger, errorMonitor)
 	annictHandler := handlers.NewAnnictHandler(annictClient, logger, errorMonitor)
 	adminHandler := handlers.NewAdminHandler(animeService, logger, errorMonitor, syncScheduler)
 	monitoringHandler := handlers.NewMonitoringHandler(logger, errorMonitor)
 
-	// ヘルスチェックと監視エンドポイント
 	r.GET("/health", monitoringHandler.HealthCheck)
 	r.GET("/health/detailed", monitoringHandler.DetailedHealthCheck)
 
 	if gin.IsDebugging() {
-		// ホットリロードテストエンドポイント
 		r.GET("/test-hot-reload", func(c *gin.Context) {
 			c.JSON(200, gin.H{
-				"message":   "Hot reload is working! 🔥",
+				"message":   "Hot reload is working!",
 				"timestamp": time.Now().Format(time.RFC3339),
 			})
 		})
-		// Annict API接続テストエンドポイント（開発環境のみ）
 		r.GET("/annict/test", annictHandler.TestConnection)
 	}
 
-	// APIルート
+	// Supabase JWT ミドルウェア
+	authRequired := middleware.SupabaseAuthMiddleware(db, cfg.SupabaseJWTSecret, logger)
+	authOptional := middleware.OptionalSupabaseAuthMiddleware(db, cfg.SupabaseJWTSecret, logger)
+
 	api := r.Group("/api")
 	{
-		// 公開ルート（認証不要）
-		api.POST("/register", authHandler.Register)
-		api.POST("/login", authHandler.Login)
-		api.POST("/logout", authHandler.Logout)
-		api.POST("/auth/refresh", authHandler.RefreshToken)
-
 		// アニメルート（認証オプション）
-		api.GET("/animes", middleware.OptionalAuthMiddleware(cfg.JWTSecret), animeHandler.GetAnimes)
-		api.GET("/animes/:id", middleware.OptionalAuthMiddleware(cfg.JWTSecret), animeHandler.GetAnime)
+		api.GET("/animes", authOptional, animeHandler.GetAnimes)
+		api.GET("/animes/:id", authOptional, animeHandler.GetAnime)
 
 		// 検索ルート
-		api.GET("/search/animes", middleware.OptionalAuthMiddleware(cfg.JWTSecret), animeHandler.GetAnimes)
-		api.GET("/search/advanced", middleware.OptionalAuthMiddleware(cfg.JWTSecret), animeHandler.AdvancedSearchAnimes)
+		api.GET("/search/animes", authOptional, animeHandler.GetAnimes)
+		api.GET("/search/advanced", authOptional, animeHandler.AdvancedSearchAnimes)
 		api.GET("/search/suggestions", animeHandler.GetSearchSuggestions)
 		api.GET("/search/popular", animeHandler.GetPopularSearches)
 
 		// フィルタールート
 		api.GET("/filters", animeHandler.GetFilterOptions)
 
-		// 今期アニメ・人気アニメルート（DBから取得）
+		// 今期アニメ・人気アニメルート
 		api.GET("/animes/current", animeHandler.GetCurrentSeasonAnimes)
 		api.GET("/animes/popular", animeHandler.GetPopularAnimes)
 
@@ -96,22 +84,17 @@ func Setup(db *database.DB, cfg *config.Config, syncScheduler handlers.SyncSched
 		api.GET("/annict/works", annictHandler.GetWorksBySeason)
 		api.GET("/annict/popular-works", annictHandler.GetPopularWorks)
 
-		// データ同期と監視のための管理者ルート（認証で保護）
+		// 管理者ルート（認証必須）
 		admin := api.Group("/admin")
-		admin.Use(middleware.AuthMiddleware(cfg.JWTSecret))
+		admin.Use(authRequired)
 		{
-			// データ同期
 			admin.POST("/sync/season", annictHandler.SyncWorksBySeason)
 			admin.POST("/sync/popular", annictHandler.SyncPopularWorks)
 			admin.POST("/sync/genres", adminHandler.SyncGenresForAllAnimes)
-			admin.POST("/sync/statuses", adminHandler.SyncAnimeStatuses) // 新しく追加
+			admin.POST("/sync/statuses", adminHandler.SyncAnimeStatuses)
 			admin.POST("/sync/released-on", adminHandler.SyncReleasedOn)
 			admin.GET("/sync/status", adminHandler.GetSyncStatus)
-
-			// キャッシュ管理
 			admin.POST("/cache/clear", adminHandler.ClearCache)
-
-			// エラー監視
 			admin.GET("/errors/metrics", monitoringHandler.GetErrorMetrics)
 			admin.GET("/errors/top", monitoringHandler.GetTopErrors)
 			admin.POST("/errors/reset", monitoringHandler.ResetErrorMetrics)
@@ -119,7 +102,7 @@ func Setup(db *database.DB, cfg *config.Config, syncScheduler handlers.SyncSched
 
 		// 保護されたルート（認証必須）
 		protected := api.Group("/")
-		protected.Use(middleware.AuthMiddleware(cfg.JWTSecret))
+		protected.Use(authRequired)
 		{
 			// ユーザールート
 			protected.GET("/users/me", authHandler.GetMe)
@@ -127,11 +110,6 @@ func Setup(db *database.DB, cfg *config.Config, syncScheduler handlers.SyncSched
 			protected.POST("/users/me/icon", authHandler.UploadIcon)
 			protected.DELETE("/users/me/icon", authHandler.DeleteIcon)
 			protected.GET("/users/me/export", authHandler.ExportData)
-
-			// セッション管理
-			protected.GET("/users/me/sessions", authHandler.GetUserSessions)
-			protected.DELETE("/users/me/sessions/:id", authHandler.DeleteSession)
-			protected.POST("/users/me/logout-all", authHandler.LogoutAllDevices)
 
 			// ユーザーのお気に入り
 			protected.GET("/users/me/favorites", animeHandler.GetFavorites)
@@ -152,9 +130,7 @@ func Setup(db *database.DB, cfg *config.Config, syncScheduler handlers.SyncSched
 		}
 	}
 
-	// 静的ファイル配信（アップロードされた画像）
-	// 設定から公開パスとファイルシステムパスを取得
-	uploadRootDir := filepath.Dir(cfg.UploadDir) // "./uploads/icons" -> "./uploads"
+	uploadRootDir := filepath.Dir(cfg.UploadDir)
 	r.Static(cfg.UploadPublicPath, uploadRootDir)
 
 	return r

@@ -12,8 +12,9 @@ type Config struct {
 	Port         string
 	Environment  string
 	RateLimit    int
-	JWTSecret    string
-	AnnictAPIKey string
+	// Supabase Auth設定
+	SupabaseJWTSecret string
+	AnnictAPIKey      string
 	RedisURL     string
 	// Database connection pool settings
 	DBMaxOpenConns    int
@@ -37,8 +38,9 @@ type Config struct {
 	SchedulerRunMinute int
 }
 
-// New creates a new Config struct from environment variables
-func New() *Config {
+// New creates a new Config struct from environment variables.
+// Returns an error if required secrets are missing.
+func New() (*Config, error) {
 	env := GetEnvironment()
 
 	// Database
@@ -53,8 +55,11 @@ func New() *Config {
 	// Rate Limiter
 	rateLimit := getEnvAsInt("RATE_LIMIT", 60) // 60 requests per minute
 
-	// JWT
-	jwtSecret := getEnv("JWT_SECRET", "super-secret-key-change-me")
+	// Supabase Auth
+	supabaseJWTSecret := getEnv("SUPABASE_JWT_SECRET", "")
+	if supabaseJWTSecret == "" {
+		return nil, fmt.Errorf("SUPABASE_JWT_SECRET is required but not set")
+	}
 
 	// External APIs
 	annictAPIKey := getEnv("ANNICT_API_KEY", "")
@@ -89,7 +94,7 @@ func New() *Config {
 		Port:                port,
 		Environment:         string(env),
 		RateLimit:           rateLimit,
-		JWTSecret:           jwtSecret,
+		SupabaseJWTSecret:   supabaseJWTSecret,
 		AnnictAPIKey:        annictAPIKey,
 		RedisURL:            redisURL,
 		DBMaxOpenConns:      dbConfig.MaxOpenConns,
@@ -107,7 +112,7 @@ func New() *Config {
 		AnimeSyncEnabled:    animeSyncEnabled,
 		SchedulerRunHour:    schedulerRunHour,
 		SchedulerRunMinute:  schedulerRunMinute,
-	}
+	}, nil
 }
 
 // buildDatabaseURL constructs database URL from individual components

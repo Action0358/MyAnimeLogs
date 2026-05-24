@@ -8,9 +8,10 @@ import React, {
   useCallback,
 } from 'react'
 import { useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
 import { storage } from '@/lib/utils'
-import { postInternal, ApiClientError, setUnauthorizedHandler, setRefreshTokenHandler } from '@/lib/api/client'
-import { INACTIVITY_TIMEOUT, TOKEN_REFRESH_MARGIN, STORAGE_KEYS, LOGOUT_REDIRECT_PATHS, type LogoutReason } from '@/lib/constants'
+import { ApiClientError, setUnauthorizedHandler, setRefreshTokenHandler } from '@/lib/api/client'
+import { INACTIVITY_TIMEOUT, STORAGE_KEYS, LOGOUT_REDIRECT_PATHS, type LogoutReason } from '@/lib/constants'
 
 interface User {
   id: number
@@ -23,7 +24,6 @@ interface User {
   created_at?: string
 }
 
-// Userオブジェクトの型ガード
 const isUser = (value: unknown): value is User => {
   if (typeof value !== 'object' || value === null) return false
   const obj = value as Record<string, unknown>
@@ -49,254 +49,163 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
-  children,
-}) => {
+/** localStorageに認証トークンを保存する（APIクライアントが auth_token を読む） */
+const storeToken = (token: string) => {
+  localStorage.setItem(STORAGE_KEYS.TOKEN, JSON.stringify(token))
+}
+
+const clearToken = () => {
+  localStorage.removeItem(STORAGE_KEYS.TOKEN)
+}
+
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null)
   const [token, setToken] = useState<string | null>(null)
-  const [refreshToken, setRefreshToken] = useState<string | null>(null)
-  const [tokenExpiresAt, setTokenExpiresAt] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  // SSR/クライアント間でhydrationエラーを避けるため、初期値は0で統一
   const [lastActivityTime, setLastActivityTime] = useState<number>(0)
   const router = useRouter()
 
-  // localStorageから最終アクティビティ時刻を取得
   const getLastActivityFromStorage = useCallback((): number => {
     return storage.getNumber(STORAGE_KEYS.LAST_ACTIVITY_TIMESTAMP) ?? Date.now()
   }, [])
 
-  // クライアントサイドでlocalStorageから最終アクティビティ時刻を読み込む
   useEffect(() => {
     setLastActivityTime(getLastActivityFromStorage())
   }, [getLastActivityFromStorage])
 
-  // 認証情報をクリアするヘルパー関数
+  // バックエンドからユーザープロフィールを取得
+  const fetchUserProfile = useCallback(async (accessToken: string): Promise<User | null> => {
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/users/me`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      )
+      if (!res.ok) return null
+      const data = await res.json()
+      if (isUser(data)) return data
+      return null
+    } catch {
+      return null
+    }
+  }, [])
+
+  /** Supabaseセッションからトークン・ユーザーを同期する共通処理 */
+  const syncSession = useCallback(async (accessToken: string | null) => {
+    if (!accessToken) {
+      setToken(null)
+      setUser(null)
+      clearToken()
+      return
+    }
+    storeToken(accessToken)
+    setToken(accessToken)
+    const profile = await fetchUserProfile(accessToken)
+    if (profile) {
+      setUser(profile)
+    }
+  }, [fetchUserProfile])
+
+  /** トークンリフレッシュ（APIクライアントから呼ばれる） */
+  const refreshAccessToken = useCallback(async (): Promise<string | null> => {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session?.access_token) {
+      storeToken(session.access_token)
+      setToken(session.access_token)
+      return session.access_token
+    }
+    return null
+  }, [])
+
   const clearAuthData = useCallback((redirectToLogin = true) => {
     setUser(null)
     setToken(null)
-    setRefreshToken(null)
-    setTokenExpiresAt(null)
-    storage.remove(STORAGE_KEYS.TOKEN)
-    storage.remove(STORAGE_KEYS.REFRESH_TOKEN)
-    storage.remove(STORAGE_KEYS.USER)
-    storage.remove(STORAGE_KEYS.TOKEN_EXPIRES_AT)
+    clearToken()
     storage.remove(STORAGE_KEYS.LAST_ACTIVITY_TIMESTAMP)
-    
+
     if (redirectToLogin) {
       router.push('/login?reason=unauthorized')
     }
   }, [router])
 
-  // トークンリフレッシュ関数（API呼び出しに専念）
-  const refreshAccessToken = useCallback(async (): Promise<string | null> => {
-    const storedRefreshToken = storage.getString(STORAGE_KEYS.REFRESH_TOKEN)
-    if (!storedRefreshToken) {
-      console.warn('⚠️ No refresh token available')
-      throw new Error('No refresh token available')
-    }
-
-    // postInternalを使用（無限ループを避けるため）
-    const data = await postInternal<{ access_token: string; expires_in: number }>(
-      '/api/auth/refresh',
-      { refresh_token: storedRefreshToken }
-    )
-
-    const newAccessToken = data.access_token
-    const expiresIn = data.expires_in || 900 // デフォルト15分
-
-    setToken(newAccessToken)
-    setTokenExpiresAt(Date.now() + expiresIn * 1000)
-
-    storage.set(STORAGE_KEYS.TOKEN, newAccessToken)
-    storage.set(STORAGE_KEYS.TOKEN_EXPIRES_AT, Date.now() + expiresIn * 1000)
-
-    return newAccessToken
-  }, [])
-
-  // 401エラー時のグローバルハンドラーとリフレッシュハンドラーを登録
+  // グローバルハンドラー登録
   useEffect(() => {
     setUnauthorizedHandler(() => clearAuthData(true))
     setRefreshTokenHandler(refreshAccessToken)
   }, [clearAuthData, refreshAccessToken])
 
-  // トークンとユーザー情報の初期化
+  // Supabase認証状態を監視して状態を初期化・同期
   useEffect(() => {
-    const initAuth = async () => {
-      try {
-        const storedToken = storage.getString(STORAGE_KEYS.TOKEN)
-        const storedRefreshToken = storage.getString(STORAGE_KEYS.REFRESH_TOKEN)
-        const storedUser = storage.getObject(STORAGE_KEYS.USER, isUser)
-        const storedExpiresAt = storage.getNumber(STORAGE_KEYS.TOKEN_EXPIRES_AT)
+    let mounted = true
 
-        if (storedRefreshToken && storedUser) {
-          // 非アクティブタイムアウトのチェック（スマホでアプリ再起動時など）
-          const lastActivity = storage.getNumber(STORAGE_KEYS.LAST_ACTIVITY_TIMESTAMP)
-          if (lastActivity) {
-            const elapsed = Date.now() - lastActivity
-            if (elapsed >= INACTIVITY_TIMEOUT) {
-              clearAuthData(false)
-              router.push('/login?reason=timeout')
-              return
-            }
-          }
-
-          setRefreshToken(storedRefreshToken)
-          setUser(storedUser)
-
-          // トークンが期限切れまたは存在しない場合はリフレッシュ
-          if (!storedToken || !storedExpiresAt || Date.now() >= storedExpiresAt) {
-            await refreshAccessToken()
-          } else {
-            setToken(storedToken)
-            setTokenExpiresAt(storedExpiresAt)
-          }
-        }
-      } catch (error) {
-        console.error('Failed to initialize auth state:', error)
-        // 不正なデータの場合はストレージをクリア（エラー回復）
-        clearAuthData(false)
-      } finally {
-        setIsLoading(false)
+    // 起動時に既存セッションを確認
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!mounted) return
+      if (session) {
+        await syncSession(session.access_token)
       }
+      setIsLoading(false)
+    })
+
+    // 認証状態変化を購読
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        if (!mounted) return
+        await syncSession(session?.access_token ?? null)
+        if (!session) setIsLoading(false)
+      }
+    )
+
+    return () => {
+      mounted = false
+      subscription.unsubscribe()
     }
+  }, [syncSession])
 
-    initAuth()
-  }, [refreshAccessToken, clearAuthData, router])
+  const login = useCallback(async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) {
+      throw new ApiClientError(error.message, 401)
+    }
+    router.push('/')
+  }, [router])
 
-  const login = useCallback(
-    async (email: string, password: string) => {
-      try {
-        // postInternalを使用（ログインAPIは認証不要なので、401エラー時のリダイレクトを避ける）
-        const data = await postInternal<{ 
-          access_token: string
-          refresh_token: string
-          expires_in: number
-          user: User 
-        }>(
-          '/api/login',
-          { email, password }
-        )
-
-        // トークンを保存
-        const accessToken = data.access_token
-        const refreshTokenValue = data.refresh_token
-        const expiresIn = data.expires_in || 900 // デフォルト15分
-
-        setToken(accessToken)
-        setRefreshToken(refreshTokenValue)
-        setTokenExpiresAt(Date.now() + expiresIn * 1000)
-        setUser(data.user)
-
-        storage.set(STORAGE_KEYS.TOKEN, accessToken)
-        storage.set(STORAGE_KEYS.REFRESH_TOKEN, refreshTokenValue)
-        storage.set(STORAGE_KEYS.TOKEN_EXPIRES_AT, Date.now() + expiresIn * 1000)
-        storage.set(STORAGE_KEYS.USER, data.user)
-
-        router.push('/')
-      } catch (error) {
-        console.error('Login error:', error)
-        if (error instanceof ApiClientError) {
-          throw new Error(error.message)
-        }
-        throw error
-      }
-    },
-    [router]
-  )
-
-  const register = useCallback(
-    async (name: string, email: string, password: string) => {
-      try {
-        // postInternalを使用（登録APIは認証不要なので、401エラー時のリダイレクトを避ける）
-        const data = await postInternal<{ access_token?: string; user: User }>(
-          '/api/register',
-          { name, email, password }
-        )
-
-        // 登録後、自動的にログイン状態にする
-        if (data.user) {
-          // 登録APIがトークンを返す場合（OpenAPI仕様では定義されていないが、実装によっては返す可能性がある）
-          const accessToken = data.access_token
-          if (accessToken) {
-            setToken(accessToken)
-            setUser(data.user)
-            storage.set(STORAGE_KEYS.TOKEN, accessToken)
-            storage.set(STORAGE_KEYS.USER, data.user)
-            router.push('/')
-          } else {
-            // トークンがない場合はログインページへ
-            router.push('/login')
-          }
-        }
-      } catch (error) {
-        console.error('Register error:', error)
-        if (error instanceof ApiClientError) {
-          throw new Error(error.message)
-        }
-        throw error
-      }
-    },
-    [router]
-  )
+  const register = useCallback(async (name: string, email: string, password: string) => {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { name } },
+    })
+    if (error) {
+      throw new ApiClientError(error.message, 400)
+    }
+    if (data.session) {
+      // メール確認なし: 即座にログイン状態
+      router.push('/')
+    } else {
+      // メール確認あり: 確認メール送信済みページへ
+      router.push('/login?reason=confirm-email')
+    }
+  }, [router])
 
   const logout = useCallback(async (reason: LogoutReason = 'manual') => {
-    try {
-      const storedRefreshToken = storage.getString(STORAGE_KEYS.REFRESH_TOKEN)
-      if (storedRefreshToken) {
-        // バックエンドにログアウトを通知（postInternalを使用）
-        await postInternal('/api/logout', { refresh_token: storedRefreshToken })
-          .catch(err => console.error('Logout API error:', err))
-      }
-    } catch (error) {
-      console.error('Logout error:', error)
-    } finally {
-      // トークンをクリア（リダイレクトは自身で制御するため false を渡す）
-      clearAuthData(false)
-      
-      // ログアウト理由に応じたリダイレクト先をマップから取得
-      const redirectPath = LOGOUT_REDIRECT_PATHS[reason]
-      router.push(redirectPath)
-    }
-  }, [router, clearAuthData])
+    await supabase.auth.signOut()
+    clearToken()
+    storage.remove(STORAGE_KEYS.LAST_ACTIVITY_TIMESTAMP)
+    setUser(null)
+    setToken(null)
+    router.push(LOGOUT_REDIRECT_PATHS[reason])
+  }, [router])
 
   const updateUser = useCallback((userData: User) => {
     setUser(userData)
-    storage.set(STORAGE_KEYS.USER, userData)
   }, [])
-
-  // 自動リフレッシュタイマー
-  useEffect(() => {
-    if (!tokenExpiresAt || !user) return
-
-    // トークン期限の1分前にリフレッシュ
-    const refreshTime = tokenExpiresAt - Date.now() - TOKEN_REFRESH_MARGIN
-
-    if (refreshTime > 0) {
-      const timer = setTimeout(() => {
-        refreshAccessToken().catch(error => {
-          console.error('❌ Auto-refresh failed:', error)
-          clearAuthData(true)
-        })
-      }, refreshTime)
-
-      return () => clearTimeout(timer)
-    } else if (refreshTime > -TOKEN_REFRESH_MARGIN) {
-      // 期限切れから1分以内の場合は即座にリフレッシュ
-      refreshAccessToken().catch(error => {
-        console.error('❌ Immediate refresh failed:', error)
-        clearAuthData(true)
-      })
-    }
-  }, [tokenExpiresAt, user, refreshAccessToken, clearAuthData])
 
   // 非アクティブタイムアウト
   useEffect(() => {
-    if (!user) return // ログインしていない場合はスキップ
+    if (!user) return
 
     let inactivityTimer: ReturnType<typeof setTimeout>
 
-    // タイムアウト時のコールバック（共通化）
     const handleInactivity = () => {
       logout('timeout')
     }
@@ -304,52 +213,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     const resetTimer = () => {
       const now = Date.now()
       setLastActivityTime(now)
-      // タブ間で共有するためlocalStorageに保存
       storage.set(STORAGE_KEYS.LAST_ACTIVITY_TIMESTAMP, now)
       clearTimeout(inactivityTimer)
       inactivityTimer = setTimeout(handleInactivity, INACTIVITY_TIMEOUT)
     }
 
-    // ページ可視性変更時のハンドラー（モバイル対応）
-    // モバイルブラウザではバックグラウンド時にsetTimeoutが停止するため、
-    // フォアグラウンド復帰時に経過時間をチェックする
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        // localStorageから最新のアクティビティ時刻を取得（他タブの操作を考慮）
         const lastActivity = getLastActivityFromStorage()
         setLastActivityTime(lastActivity)
         const elapsed = Date.now() - lastActivity
         if (elapsed >= INACTIVITY_TIMEOUT) {
           logout('timeout')
         } else {
-          // タイムアウトまでの残り時間でタイマーを再設定
           clearTimeout(inactivityTimer)
           inactivityTimer = setTimeout(handleInactivity, INACTIVITY_TIMEOUT - elapsed)
         }
       }
     }
 
-    // モバイルブラウザ向け: pageshow/focusイベントでの復帰検知
-    // visibilitychangeが発火しないケースをカバー
     const handlePageShow = (event: PageTransitionEvent) => {
-      // bfcache（戻る/進むキャッシュ）からの復帰時
-      if (event.persisted) {
-        handleVisibilityChange()
-      }
+      if (event.persisted) handleVisibilityChange()
     }
 
-    const handleFocus = () => {
-      // ウィンドウがフォーカスを得た時（アプリ切り替え後など）
-      handleVisibilityChange()
-    }
+    const handleFocus = () => handleVisibilityChange()
 
-    // 他のタブからのlocalStorage変更を検知
     const handleStorageChange = (event: StorageEvent) => {
       if (event.key === STORAGE_KEYS.LAST_ACTIVITY_TIMESTAMP && event.newValue) {
         try {
           const parsed = JSON.parse(event.newValue)
           if (typeof parsed !== 'number') return
-          
           setLastActivityTime(parsed)
           clearTimeout(inactivityTimer)
           const elapsed = Date.now() - parsed
@@ -358,18 +251,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           } else {
             inactivityTimer = setTimeout(handleInactivity, INACTIVITY_TIMEOUT - elapsed)
           }
-        } catch {
-          // パースエラーは無視
-        }
+        } catch { /* ignore */ }
       }
     }
 
-    // ユーザーの操作を監視
-    // PC: mousedown, keydown, scroll
-    // モバイル: touchstart, touchend, touchmove（スワイプ・スクロール操作）
     const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'touchend', 'touchmove']
     events.forEach(event => {
-      // touchmoveはパフォーマンスのためpassiveで登録
       const options = event === 'touchmove' ? { passive: true } : undefined
       document.addEventListener(event, resetTimer, options)
     })
@@ -382,9 +269,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
     return () => {
       clearTimeout(inactivityTimer)
-      events.forEach(event => {
-        document.removeEventListener(event, resetTimer)
-      })
+      events.forEach(event => document.removeEventListener(event, resetTimer))
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('storage', handleStorageChange)
       window.removeEventListener('pageshow', handlePageShow)
@@ -392,20 +277,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, [user, logout, getLastActivityFromStorage])
 
-  const value = {
-    user,
-    token,
-    login,
-    register,
-    logout,
-    updateUser,
-    isLoading,
-    isAuthenticated: !!user && !!token,
-    refreshAccessToken,
-    lastActivityTime,
-  }
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+  return (
+    <AuthContext.Provider value={{
+      user,
+      token,
+      login,
+      register,
+      logout,
+      updateUser,
+      isLoading,
+      isAuthenticated: !!user && !!token,
+      refreshAccessToken,
+      lastActivityTime,
+    }}>
+      {children}
+    </AuthContext.Provider>
+  )
 }
 
 export const useAuth = () => {

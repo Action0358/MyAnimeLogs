@@ -42,7 +42,10 @@ func main() {
 	}()
 
 	// 設定を読み込む
-	cfg := config.New()
+	cfg, err := config.New()
+	if err != nil {
+		log.Fatalf("Configuration error: %v", err)
+	}
 	log.Printf("Environment: %s", cfg.Environment)
 
 	// DATABASE_URLのホスト情報をログ出力（パスワードは除く）
