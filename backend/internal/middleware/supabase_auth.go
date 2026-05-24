@@ -3,6 +3,7 @@ package middleware
 import (
 	"net/http"
 	"strings"
+	"sync"
 
 	"myanimelogs/internal/common"
 	"myanimelogs/internal/database"
@@ -21,6 +22,9 @@ type SupabaseClaims struct {
 	AppMetadata  map[string]interface{} `json:"app_metadata"`
 	jwt.RegisteredClaims
 }
+
+// userIDCache stores the authUserID → internal userID mapping to avoid DB lookups on every request.
+var userIDCache sync.Map
 
 // nameFromClaims extracts a display name from Supabase JWT metadata.
 func nameFromClaims(claims *SupabaseClaims) string {
@@ -41,14 +45,19 @@ func nameFromClaims(claims *SupabaseClaims) string {
 	return "ユーザー"
 }
 
-// validateSupabaseJWT parses and validates a Supabase-issued JWT.
+// validateSupabaseJWT parses and validates a Supabase-issued JWT including audience claim.
 func validateSupabaseJWT(tokenStr, jwtSecret string) (*SupabaseClaims, error) {
-	token, err := jwt.ParseWithClaims(tokenStr, &SupabaseClaims{}, func(t *jwt.Token) (interface{}, error) {
-		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, jwt.ErrSignatureInvalid
-		}
-		return []byte(jwtSecret), nil
-	})
+	token, err := jwt.ParseWithClaims(
+		tokenStr,
+		&SupabaseClaims{},
+		func(t *jwt.Token) (interface{}, error) {
+			if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, jwt.ErrSignatureInvalid
+			}
+			return []byte(jwtSecret), nil
+		},
+		jwt.WithAudience("authenticated"),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -60,10 +69,27 @@ func validateSupabaseJWT(tokenStr, jwtSecret string) (*SupabaseClaims, error) {
 	return claims, nil
 }
 
+// resolveUserID returns the internal user ID for the given Supabase auth UUID.
+// Results are cached in userIDCache to avoid a DB round-trip on every request.
+func resolveUserID(userRepo *repository.UserRepository, authUserID, email, name string) (int, string, string, error) {
+	if cached, ok := userIDCache.Load(authUserID); ok {
+		id := cached.(int)
+		return id, email, name, nil
+	}
+	user, err := userRepo.GetOrCreateByAuthUserID(authUserID, email, name)
+	if err != nil {
+		return 0, "", "", err
+	}
+	userIDCache.Store(authUserID, user.ID)
+	return user.ID, user.Email, user.Name, nil
+}
+
 // SupabaseAuthMiddleware validates the Supabase JWT and injects user_id (internal int)
 // into the Gin context. If the user does not yet have a row in public.users, one is
 // created automatically on first access.
 func SupabaseAuthMiddleware(db *database.DB, jwtSecret string, logger *common.Logger) gin.HandlerFunc {
+	userRepo := repository.NewUserRepository(db)
+
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
@@ -98,26 +124,21 @@ func SupabaseAuthMiddleware(db *database.DB, jwtSecret string, logger *common.Lo
 			return
 		}
 
-		authUserID := claims.Subject
-		email := claims.Email
-		name := nameFromClaims(claims)
-
-		userRepo := repository.NewUserRepository(db)
-		user, err := userRepo.GetOrCreateByAuthUserID(authUserID, email, name)
+		userID, email, name, err := resolveUserID(userRepo, claims.Subject, claims.Email, nameFromClaims(claims))
 		if err != nil {
-			logger.Error("failed to get or create user", "auth_user_id", authUserID, "error", err)
+			logger.Error("failed to get or create user", "auth_user_id", claims.Subject, "error", err)
 			c.JSON(http.StatusInternalServerError, common.ErrorResponse{
-				Error:   "server_error",
+				Error:   common.ErrMsgInternalServer,
 				Message: "ユーザー情報の取得に失敗しました",
-				Code:    "SERVER_ERROR",
+				Code:    common.ErrCodeInternalServer,
 			})
 			c.Abort()
 			return
 		}
 
-		c.Set("user_id", user.ID)
-		c.Set("user_email", user.Email)
-		c.Set("user_name", user.Name)
+		c.Set("user_id", userID)
+		c.Set("user_email", email)
+		c.Set("user_name", name)
 		c.Next()
 	}
 }
@@ -125,6 +146,8 @@ func SupabaseAuthMiddleware(db *database.DB, jwtSecret string, logger *common.Lo
 // OptionalSupabaseAuthMiddleware validates the Supabase JWT when present but does
 // not reject requests that have no Authorization header.
 func OptionalSupabaseAuthMiddleware(db *database.DB, jwtSecret string, logger *common.Logger) gin.HandlerFunc {
+	userRepo := repository.NewUserRepository(db)
+
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
@@ -144,20 +167,15 @@ func OptionalSupabaseAuthMiddleware(db *database.DB, jwtSecret string, logger *c
 			return
 		}
 
-		authUserID := claims.Subject
-		email := claims.Email
-		name := nameFromClaims(claims)
-
-		userRepo := repository.NewUserRepository(db)
-		user, err := userRepo.GetOrCreateByAuthUserID(authUserID, email, name)
+		userID, email, name, err := resolveUserID(userRepo, claims.Subject, claims.Email, nameFromClaims(claims))
 		if err != nil {
-			logger.Error("failed to get or create user (optional auth)", "auth_user_id", authUserID, "error", err)
+			logger.Error("failed to get or create user (optional auth)", "auth_user_id", claims.Subject, "error", err)
 			c.Next()
 			return
 		}
-		c.Set("user_id", user.ID)
-		c.Set("user_email", user.Email)
-		c.Set("user_name", user.Name)
+		c.Set("user_id", userID)
+		c.Set("user_email", email)
+		c.Set("user_name", name)
 		c.Next()
 	}
 }

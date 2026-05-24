@@ -190,6 +190,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = useCallback(async (reason: LogoutReason = 'manual') => {
     await supabase.auth.signOut()
     clearToken()
+    storage.remove(STORAGE_KEYS.LAST_ACTIVITY_TIMESTAMP)
     setUser(null)
     setToken(null)
     router.push(LOGOUT_REDIRECT_PATHS[reason])
