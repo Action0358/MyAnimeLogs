@@ -64,7 +64,10 @@ func main() {
 
 	// Initialize configuration
 	log.Printf("Initializing configuration...")
-	cfg := config.New()
+	cfg, err := config.New()
+	if err != nil {
+		log.Fatalf("Configuration error: %v", err)
+	}
 
 	// Log database connection info (without sensitive data)
 	if cfg.DatabaseURL != "" {

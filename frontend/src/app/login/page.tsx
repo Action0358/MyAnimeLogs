@@ -9,7 +9,10 @@ import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { LOGOUT_REASON_MESSAGES } from '@/lib/constants'
 
-// 型ガード関数: reason が LOGOUT_REASON_MESSAGES の有効なキーかチェック
+const EXTRA_MESSAGES: Record<string, string> = {
+  'confirm-email': '確認メールを送信しました。受信トレイをご確認のうえ、リンクをクリックしてログインしてください。',
+}
+
 const isValidLogoutReason = (reason: string): reason is keyof typeof LOGOUT_REASON_MESSAGES => {
   return reason in LOGOUT_REASON_MESSAGES
 }
@@ -30,8 +33,11 @@ const LoginFormInner: React.FC = () => {
   // URLパラメータからメッセージを設定
   useEffect(() => {
     const reason = searchParams.get('reason')
-    if (reason && isValidLogoutReason(reason)) {
+    if (!reason) return
+    if (isValidLogoutReason(reason)) {
       setInfo(LOGOUT_REASON_MESSAGES[reason])
+    } else if (reason in EXTRA_MESSAGES) {
+      setInfo(EXTRA_MESSAGES[reason])
     }
   }, [searchParams])
 
@@ -117,6 +123,15 @@ const LoginFormInner: React.FC = () => {
               ログイン
             </Button>
           </form>
+
+          <div className="mt-4 text-center">
+            <Link
+              href="/auth/reset-password"
+              className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
+            >
+              パスワードをお忘れの方
+            </Link>
+          </div>
 
           <div className="mt-6 pt-6 border-t border-gray-200 text-center">
             <p className="text-sm text-gray-600">

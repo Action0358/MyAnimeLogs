@@ -24,29 +24,23 @@ func TestUserRepository_GetByEmail_Success(t *testing.T) {
 	repo := NewUserRepository(dbWrapper)
 
 	email := "test@example.com"
+	authUserID := "auth-uuid-1"
 	expectedUser := models.User{
-		ID:                  1,
-		Name:                "Test User",
-		Email:               email,
-		Password:            "hashed_password",
-		Description:         testutil.StringPtr(""),
-		Icon:                nil,
-		FavoriteAnime:       nil,
-		SnsLink:             nil,
-		FailedLoginAttempts: 0,
-		LastFailedLoginAt:   nil,
-		LockedUntil:         nil,
-		CreatedAt:           time.Now(),
-		UpdatedAt:           time.Now(),
+		ID:          1,
+		Name:        "Test User",
+		Email:       email,
+		Description: testutil.StringPtr(""),
+		AuthUserID:  &authUserID,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
 	}
 
-	rows := sqlmock.NewRows([]string{"id", "name", "email", "password", "description", "icon", "favorite_anime", "sns_link", "failed_login_attempts", "last_failed_login_at", "locked_until", "created_at", "updated_at"}).
-		AddRow(expectedUser.ID, expectedUser.Name, expectedUser.Email, expectedUser.Password,
+	rows := sqlmock.NewRows([]string{"id", "name", "email", "description", "icon", "favorite_anime", "sns_link", "auth_user_id", "created_at", "updated_at"}).
+		AddRow(expectedUser.ID, expectedUser.Name, expectedUser.Email,
 			expectedUser.Description, expectedUser.Icon, expectedUser.FavoriteAnime, expectedUser.SnsLink,
-			expectedUser.FailedLoginAttempts, expectedUser.LastFailedLoginAt, expectedUser.LockedUntil,
-			expectedUser.CreatedAt, expectedUser.UpdatedAt)
+			expectedUser.AuthUserID, expectedUser.CreatedAt, expectedUser.UpdatedAt)
 
-	mock.ExpectQuery(`SELECT id, name, email, password, description, icon, favorite_anime, sns_link, failed_login_attempts, last_failed_login_at, locked_until, created_at, updated_at FROM users WHERE email = \$1`).
+	mock.ExpectQuery(`SELECT id, name, email, description, icon, favorite_anime, sns_link, auth_user_id, created_at, updated_at FROM users WHERE email = \$1`).
 		WithArgs(email).
 		WillReturnRows(rows)
 
@@ -57,7 +51,6 @@ func TestUserRepository_GetByEmail_Success(t *testing.T) {
 	assert.Equal(t, expectedUser.ID, result.ID)
 	assert.Equal(t, expectedUser.Name, result.Name)
 	assert.Equal(t, expectedUser.Email, result.Email)
-	assert.Equal(t, expectedUser.Password, result.Password)
 
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
@@ -72,7 +65,7 @@ func TestUserRepository_GetByEmail_NotFound(t *testing.T) {
 
 	email := "nonexistent@example.com"
 
-	mock.ExpectQuery(`SELECT id, name, email, password, description, icon, favorite_anime, sns_link, failed_login_attempts, last_failed_login_at, locked_until, created_at, updated_at FROM users WHERE email = \$1`).
+	mock.ExpectQuery(`SELECT id, name, email, description, icon, favorite_anime, sns_link, auth_user_id, created_at, updated_at FROM users WHERE email = \$1`).
 		WithArgs(email).
 		WillReturnError(sql.ErrNoRows)
 
@@ -95,7 +88,7 @@ func TestUserRepository_GetByEmail_DatabaseError(t *testing.T) {
 	email := "test@example.com"
 	expectedError := errors.New("database connection error")
 
-	mock.ExpectQuery(`SELECT id, name, email, password, description, icon, favorite_anime, sns_link, failed_login_attempts, last_failed_login_at, locked_until, created_at, updated_at FROM users WHERE email = \$1`).
+	mock.ExpectQuery(`SELECT id, name, email, description, icon, favorite_anime, sns_link, auth_user_id, created_at, updated_at FROM users WHERE email = \$1`).
 		WithArgs(email).
 		WillReturnError(expectedError)
 
@@ -117,28 +110,23 @@ func TestUserRepository_GetByID_Success(t *testing.T) {
 	repo := NewUserRepository(dbWrapper)
 
 	userID := 1
+	authUserID := "auth-uuid-1"
 	expectedUser := models.User{
-		ID:                  userID,
-		Name:                "Test User",
-		Email:               "test@example.com",
-		Description:         testutil.StringPtr(""),
-		Icon:                nil,
-		FavoriteAnime:       nil,
-		SnsLink:             nil,
-		FailedLoginAttempts: 0,
-		LastFailedLoginAt:   nil,
-		LockedUntil:         nil,
-		CreatedAt:           time.Now(),
-		UpdatedAt:           time.Now(),
+		ID:          userID,
+		Name:        "Test User",
+		Email:       "test@example.com",
+		Description: testutil.StringPtr(""),
+		AuthUserID:  &authUserID,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
 	}
 
-	rows := sqlmock.NewRows([]string{"id", "name", "email", "description", "icon", "favorite_anime", "sns_link", "failed_login_attempts", "last_failed_login_at", "locked_until", "created_at", "updated_at"}).
+	rows := sqlmock.NewRows([]string{"id", "name", "email", "description", "icon", "favorite_anime", "sns_link", "auth_user_id", "created_at", "updated_at"}).
 		AddRow(expectedUser.ID, expectedUser.Name, expectedUser.Email,
 			expectedUser.Description, expectedUser.Icon, expectedUser.FavoriteAnime, expectedUser.SnsLink,
-			expectedUser.FailedLoginAttempts, expectedUser.LastFailedLoginAt, expectedUser.LockedUntil,
-			expectedUser.CreatedAt, expectedUser.UpdatedAt)
+			expectedUser.AuthUserID, expectedUser.CreatedAt, expectedUser.UpdatedAt)
 
-	mock.ExpectQuery(`SELECT id, name, email, description, icon, favorite_anime, sns_link, failed_login_attempts, last_failed_login_at, locked_until, created_at, updated_at FROM users WHERE id = \$1`).
+	mock.ExpectQuery(`SELECT id, name, email, description, icon, favorite_anime, sns_link, auth_user_id, created_at, updated_at FROM users WHERE id = \$1`).
 		WithArgs(userID).
 		WillReturnRows(rows)
 
@@ -163,7 +151,7 @@ func TestUserRepository_GetByID_NotFound(t *testing.T) {
 
 	userID := 999
 
-	mock.ExpectQuery(`SELECT id, name, email, description, icon, favorite_anime, sns_link, failed_login_attempts, last_failed_login_at, locked_until, created_at, updated_at FROM users WHERE id = \$1`).
+	mock.ExpectQuery(`SELECT id, name, email, description, icon, favorite_anime, sns_link, auth_user_id, created_at, updated_at FROM users WHERE id = \$1`).
 		WithArgs(userID).
 		WillReturnError(sql.ErrNoRows)
 
@@ -183,10 +171,11 @@ func TestUserRepository_Create_Success(t *testing.T) {
 	dbWrapper := &database.DB{DB: db}
 	repo := NewUserRepository(dbWrapper)
 
+	authUserID := "auth-uuid-new"
 	user := &models.User{
-		Name:     "New User",
-		Email:    "new@example.com",
-		Password: "hashed_password",
+		Name:       "New User",
+		Email:      "new@example.com",
+		AuthUserID: &authUserID,
 	}
 
 	expectedID := 1
@@ -195,8 +184,8 @@ func TestUserRepository_Create_Success(t *testing.T) {
 	rows := sqlmock.NewRows([]string{"id", "created_at", "updated_at"}).
 		AddRow(expectedID, expectedTime, expectedTime)
 
-	mock.ExpectQuery(`INSERT INTO users \(name, email, password, created_at, updated_at\) VALUES \(\$1, \$2, \$3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP\) RETURNING id, created_at, updated_at`).
-		WithArgs(user.Name, user.Email, user.Password).
+	mock.ExpectQuery(`INSERT INTO users \(name, email, auth_user_id, created_at, updated_at\) VALUES \(\$1, \$2, \$3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP\) RETURNING id, created_at, updated_at`).
+		WithArgs(user.Name, user.Email, user.AuthUserID).
 		WillReturnRows(rows)
 
 	err = repo.Create(user)
@@ -217,94 +206,23 @@ func TestUserRepository_Create_DatabaseError(t *testing.T) {
 	dbWrapper := &database.DB{DB: db}
 	repo := NewUserRepository(dbWrapper)
 
+	authUserID := "auth-uuid-existing"
 	user := &models.User{
-		Name:     "New User",
-		Email:    "existing@example.com",
-		Password: "hashed_password",
+		Name:       "New User",
+		Email:      "existing@example.com",
+		AuthUserID: &authUserID,
 	}
 
 	expectedError := errors.New("duplicate key value violates unique constraint")
 
-	mock.ExpectQuery(`INSERT INTO users \(name, email, password, created_at, updated_at\) VALUES \(\$1, \$2, \$3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP\) RETURNING id, created_at, updated_at`).
-		WithArgs(user.Name, user.Email, user.Password).
+	mock.ExpectQuery(`INSERT INTO users \(name, email, auth_user_id, created_at, updated_at\) VALUES \(\$1, \$2, \$3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP\) RETURNING id, created_at, updated_at`).
+		WithArgs(user.Name, user.Email, user.AuthUserID).
 		WillReturnError(expectedError)
 
 	err = repo.Create(user)
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to create user")
-
-	assert.NoError(t, mock.ExpectationsWereMet())
-}
-
-func TestUserRepository_EmailExists_True(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	require.NoError(t, err)
-	defer db.Close()
-
-	dbWrapper := &database.DB{DB: db}
-	repo := NewUserRepository(dbWrapper)
-
-	email := "existing@example.com"
-
-	rows := sqlmock.NewRows([]string{"exists"}).AddRow(true)
-
-	mock.ExpectQuery(`SELECT EXISTS\(SELECT 1 FROM users WHERE email = \$1\)`).
-		WithArgs(email).
-		WillReturnRows(rows)
-
-	result, err := repo.EmailExists(email)
-
-	assert.NoError(t, err)
-	assert.True(t, result)
-
-	assert.NoError(t, mock.ExpectationsWereMet())
-}
-
-func TestUserRepository_EmailExists_False(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	require.NoError(t, err)
-	defer db.Close()
-
-	dbWrapper := &database.DB{DB: db}
-	repo := NewUserRepository(dbWrapper)
-
-	email := "nonexistent@example.com"
-
-	rows := sqlmock.NewRows([]string{"exists"}).AddRow(false)
-
-	mock.ExpectQuery(`SELECT EXISTS\(SELECT 1 FROM users WHERE email = \$1\)`).
-		WithArgs(email).
-		WillReturnRows(rows)
-
-	result, err := repo.EmailExists(email)
-
-	assert.NoError(t, err)
-	assert.False(t, result)
-
-	assert.NoError(t, mock.ExpectationsWereMet())
-}
-
-func TestUserRepository_EmailExists_DatabaseError(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	require.NoError(t, err)
-	defer db.Close()
-
-	dbWrapper := &database.DB{DB: db}
-	repo := NewUserRepository(dbWrapper)
-
-	email := "test@example.com"
-	expectedError := errors.New("database connection error")
-
-	mock.ExpectQuery(`SELECT EXISTS\(SELECT 1 FROM users WHERE email = \$1\)`).
-		WithArgs(email).
-		WillReturnError(expectedError)
-
-	result, err := repo.EmailExists(email)
-
-	assert.Error(t, err)
-	assert.False(t, result)
-	assert.Contains(t, err.Error(), "failed to check email existence")
 
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
@@ -317,11 +235,9 @@ func TestUserRepository_GetByEmail_SQLInjectionPrevention(t *testing.T) {
 	dbWrapper := &database.DB{DB: db}
 	repo := NewUserRepository(dbWrapper)
 
-	// SQLインジェクション攻撃を試みる入力
 	maliciousEmail := "'; DROP TABLE users; --"
 
-	// パラメータ化クエリが使用されているため、この値はそのまま検索される
-	mock.ExpectQuery(`SELECT id, name, email, password, description, icon, favorite_anime, sns_link, failed_login_attempts, last_failed_login_at, locked_until, created_at, updated_at FROM users WHERE email = \$1`).
+	mock.ExpectQuery(`SELECT id, name, email, description, icon, favorite_anime, sns_link, auth_user_id, created_at, updated_at FROM users WHERE email = \$1`).
 		WithArgs(maliciousEmail).
 		WillReturnError(sql.ErrNoRows)
 
@@ -329,113 +245,10 @@ func TestUserRepository_GetByEmail_SQLInjectionPrevention(t *testing.T) {
 
 	assert.NoError(t, err)
 	assert.Nil(t, result)
-
-	// SQLインジェクションが防がれていることを確認
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestUserRepository_Create_NullHandling(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	require.NoError(t, err)
-	defer db.Close()
-
-	dbWrapper := &database.DB{DB: db}
-	repo := NewUserRepository(dbWrapper)
-
-	user := &models.User{
-		Name:        "User With Nulls",
-		Email:       "null@example.com",
-		Password:    "hashed_password",
-		Description: testutil.StringPtr(""), // 空文字列
-		Icon:        nil,                    // NULL値
-	}
-
-	expectedID := 1
-	expectedTime := time.Now()
-
-	rows := sqlmock.NewRows([]string{"id", "created_at", "updated_at"}).
-		AddRow(expectedID, expectedTime, expectedTime)
-
-	mock.ExpectQuery(`INSERT INTO users \(name, email, password, created_at, updated_at\) VALUES \(\$1, \$2, \$3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP\) RETURNING id, created_at, updated_at`).
-		WithArgs(user.Name, user.Email, user.Password).
-		WillReturnRows(rows)
-
-	err = repo.Create(user)
-
-	assert.NoError(t, err)
-	assert.Equal(t, expectedID, user.ID)
-
-	assert.NoError(t, mock.ExpectationsWereMet())
-}
-
-func TestUserRepository_GetByEmail_WithNullFields(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	require.NoError(t, err)
-	defer db.Close()
-
-	dbWrapper := &database.DB{DB: db}
-	repo := NewUserRepository(dbWrapper)
-
-	email := "user@example.com"
-
-	// 空文字列とNULL値を含む行をモック
-	rows := sqlmock.NewRows([]string{"id", "name", "email", "password", "description", "icon", "favorite_anime", "sns_link", "failed_login_attempts", "last_failed_login_at", "locked_until", "created_at", "updated_at"}).
-		AddRow(1, "Test User", email, "hashed_password", "", nil, nil, nil, 0, nil, nil, time.Now(), time.Now())
-
-	mock.ExpectQuery(`SELECT id, name, email, password, description, icon, favorite_anime, sns_link, failed_login_attempts, last_failed_login_at, locked_until, created_at, updated_at FROM users WHERE email = \$1`).
-		WithArgs(email).
-		WillReturnRows(rows)
-
-	result, err := repo.GetByEmail(email)
-
-	assert.NoError(t, err)
-	assert.NotNil(t, result)
-	assert.Equal(t, 1, result.ID)
-	assert.Equal(t, "Test User", result.Name)
-	assert.Equal(t, email, result.Email)
-	assert.NotNil(t, result.Description)
-	assert.Equal(t, "", *result.Description) // 空文字列
-	assert.Nil(t, result.Icon)               // NULL値
-
-	assert.NoError(t, mock.ExpectationsWereMet())
-}
-
-func TestUserRepository_GetByEmail_WithNewFields(t *testing.T) {
-	db, mock, err := sqlmock.New()
-	require.NoError(t, err)
-	defer db.Close()
-
-	dbWrapper := &database.DB{DB: db}
-	repo := NewUserRepository(dbWrapper)
-
-	email := "user@example.com"
-	favoriteAnime := "進撃の巨人"
-	snsLink := "https://twitter.com/user"
-
-	rows := sqlmock.NewRows([]string{"id", "name", "email", "password", "description", "icon", "favorite_anime", "sns_link", "failed_login_attempts", "last_failed_login_at", "locked_until", "created_at", "updated_at"}).
-		AddRow(1, "Test User", email, "hashed_password", "Test description", nil, favoriteAnime, snsLink, 0, nil, nil, time.Now(), time.Now())
-
-	mock.ExpectQuery(`SELECT id, name, email, password, description, icon, favorite_anime, sns_link, failed_login_attempts, last_failed_login_at, locked_until, created_at, updated_at FROM users WHERE email = \$1`).
-		WithArgs(email).
-		WillReturnRows(rows)
-
-	result, err := repo.GetByEmail(email)
-
-	assert.NoError(t, err)
-	assert.NotNil(t, result)
-	assert.Equal(t, 1, result.ID)
-	assert.Equal(t, "Test User", result.Name)
-	assert.Equal(t, email, result.Email)
-	assert.NotNil(t, result.FavoriteAnime)
-	assert.Equal(t, favoriteAnime, *result.FavoriteAnime)
-	assert.NotNil(t, result.SnsLink)
-	assert.Equal(t, snsLink, *result.SnsLink)
-
-	assert.NoError(t, mock.ExpectationsWereMet())
-}
-
-func TestUserRepository_UpdatePartial_WithNewFields(t *testing.T) {
-	// Use regex matcher for more flexible query matching
+func TestUserRepository_UpdatePartial_WithFields(t *testing.T) {
 	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
 	require.NoError(t, err)
 	defer db.Close()
@@ -454,13 +267,11 @@ func TestUserRepository_UpdatePartial_WithNewFields(t *testing.T) {
 		SnsLink:       &snsLink,
 	}
 
-	rows := sqlmock.NewRows([]string{"id", "name", "email", "description", "icon", "favorite_anime", "sns_link", "created_at", "updated_at"}).
-		AddRow(userID, name, "test@example.com", "", nil, favoriteAnime, snsLink, time.Now(), time.Now())
+	authUserID := "auth-uuid-1"
+	rows := sqlmock.NewRows([]string{"id", "name", "email", "description", "icon", "favorite_anime", "sns_link", "auth_user_id", "created_at", "updated_at"}).
+		AddRow(userID, name, "test@example.com", "", nil, favoriteAnime, snsLink, authUserID, time.Now(), time.Now())
 
-	// Use regex pattern that matches the UPDATE query structure
-	// This pattern validates that all expected fields are updated
-	// while being flexible about their order
-	mock.ExpectQuery(`UPDATE users SET .*name = \$\d+.*favorite_anime = \$\d+.*sns_link = \$\d+.*updated_at = CURRENT_TIMESTAMP WHERE id = \$\d+ RETURNING id, name, email, description, icon, favorite_anime, sns_link, created_at, updated_at`).
+	mock.ExpectQuery(`UPDATE users SET .*name = \$\d+.*favorite_anime = \$\d+.*sns_link = \$\d+.*updated_at = CURRENT_TIMESTAMP WHERE id = \$\d+ RETURNING`).
 		WithArgs(name, favoriteAnime, snsLink, userID).
 		WillReturnRows(rows)
 
@@ -488,21 +299,22 @@ func TestUserRepository_UpdateIcon_Success(t *testing.T) {
 
 	userID := 1
 	iconURL := "/uploads/icons/user_1_1234567890.jpg"
+	authUserID := "auth-uuid-1"
 	expectedUser := models.User{
-		ID:            userID,
-		Name:          "Test User",
-		Email:         "test@example.com",
-		Description:   testutil.StringPtr("Test description"),
-		Icon:          &iconURL,
-		FavoriteAnime: nil,
-		SnsLink:       nil,
-		CreatedAt:     time.Now(),
-		UpdatedAt:     time.Now(),
+		ID:          userID,
+		Name:        "Test User",
+		Email:       "test@example.com",
+		Description: testutil.StringPtr("Test description"),
+		Icon:        &iconURL,
+		AuthUserID:  &authUserID,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
 	}
 
-	rows := sqlmock.NewRows([]string{"id", "name", "email", "description", "icon", "favorite_anime", "sns_link", "created_at", "updated_at"}).
+	rows := sqlmock.NewRows([]string{"id", "name", "email", "description", "icon", "favorite_anime", "sns_link", "auth_user_id", "created_at", "updated_at"}).
 		AddRow(expectedUser.ID, expectedUser.Name, expectedUser.Email, expectedUser.Description,
-			expectedUser.Icon, expectedUser.FavoriteAnime, expectedUser.SnsLink, expectedUser.CreatedAt, expectedUser.UpdatedAt)
+			expectedUser.Icon, expectedUser.FavoriteAnime, expectedUser.SnsLink, expectedUser.AuthUserID,
+			expectedUser.CreatedAt, expectedUser.UpdatedAt)
 
 	mock.ExpectQuery(`UPDATE users SET icon = \$1, updated_at = CURRENT_TIMESTAMP WHERE id = \$2`).
 		WithArgs(iconURL, userID).
@@ -526,21 +338,22 @@ func TestUserRepository_UpdateIcon_DeleteIcon(t *testing.T) {
 	repo := NewUserRepository(dbWrapper)
 
 	userID := 1
+	authUserID := "auth-uuid-1"
 	expectedUser := models.User{
-		ID:            userID,
-		Name:          "Test User",
-		Email:         "test@example.com",
-		Description:   testutil.StringPtr("Test description"),
-		Icon:          nil,
-		FavoriteAnime: nil,
-		SnsLink:       nil,
-		CreatedAt:     time.Now(),
-		UpdatedAt:     time.Now(),
+		ID:          userID,
+		Name:        "Test User",
+		Email:       "test@example.com",
+		Description: testutil.StringPtr("Test description"),
+		Icon:        nil,
+		AuthUserID:  &authUserID,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
 	}
 
-	rows := sqlmock.NewRows([]string{"id", "name", "email", "description", "icon", "favorite_anime", "sns_link", "created_at", "updated_at"}).
+	rows := sqlmock.NewRows([]string{"id", "name", "email", "description", "icon", "favorite_anime", "sns_link", "auth_user_id", "created_at", "updated_at"}).
 		AddRow(expectedUser.ID, expectedUser.Name, expectedUser.Email, expectedUser.Description,
-			expectedUser.Icon, expectedUser.FavoriteAnime, expectedUser.SnsLink, expectedUser.CreatedAt, expectedUser.UpdatedAt)
+			expectedUser.Icon, expectedUser.FavoriteAnime, expectedUser.SnsLink, expectedUser.AuthUserID,
+			expectedUser.CreatedAt, expectedUser.UpdatedAt)
 
 	mock.ExpectQuery(`UPDATE users SET icon = \$1, updated_at = CURRENT_TIMESTAMP WHERE id = \$2`).
 		WithArgs(nil, userID).

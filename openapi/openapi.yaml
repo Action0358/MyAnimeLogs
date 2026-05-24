@@ -1,115 +1,18 @@
 openapi: 3.0.0
 info:
   title: MyAnimeLogs API
-  version: 1.0.0
-  description: API for MyAnimeLogs application
+  version: 2.0.0
+  description: |
+    MyAnimeLogs API。認証はSupabase Authが担当します。
+
+    ## 認証
+    ユーザー登録・ログイン・ログアウト・パスワードリセット・OAuthはすべてSupabase Auth API経由で行います。
+    バックエンドAPIへのリクエストには、Supabase発行のJWTアクセストークンを `Authorization: Bearer <token>` で指定してください。
+
+    Supabaseのauth.usersと連携するpublic.usersレコードは、初回APIアクセス時に自動作成されます。
 servers:
   - url: ${API_URL}
 paths:
-  /register:
-    post:
-      summary: 新規ユーザー作成
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                name:
-                  type: string
-                  minLength: 1
-                  maxLength: 100
-                  example: "山田 太郎"
-                email:
-                  type: string
-                  format: email
-                  example: "taro@example.com"
-                password:
-                  type: string
-                  format: password
-                  minLength: 8
-                  example: "password123"
-              required:
-                - name
-                - email
-                - password
-      responses:
-        "201":
-          description: ユーザー登録が完了しました
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: "ユーザー登録が完了しました。"
-                  user:
-                    $ref: "#/components/schemas/User"
-        "400":
-          description: バリデーションエラー
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "409":
-          description: メールアドレスが既に登録済み
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-  /login:
-    post:
-      summary: 認証トークン発行
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                email:
-                  type: string
-                  format: email
-                password:
-                  type: string
-                  format: password
-              required:
-                - email
-                - password
-      responses:
-        "200":
-          description: ログイン成功
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  access_token:
-                    type: string
-                    example: "eyJ..."
-                  token_type:
-                    type: string
-                    example: "Bearer"
-                  user:
-                    $ref: "#/components/schemas/User"
-        "401":
-          description: 認証失敗（メールアドレスまたはパスワードが正しくない）
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              example:
-                error: "メールアドレスまたはパスワードが正しくありません"
-        "403":
-          description: アカウントロック（5回連続でログイン失敗した場合、15分間ロック）
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-              example:
-                error: "アカウントがロックされています。しばらく時間をおいてから再試行してください。"
   /users/me:
     get:
       summary: マイページ情報を取得
@@ -1170,164 +1073,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
-  /logout:
-    post:
-      summary: ログアウト
-      description: リフレッシュトークンを使用してセッションを削除します
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                refresh_token:
-                  type: string
-                  description: リフレッシュトークン
-              required:
-                - refresh_token
-      responses:
-        "200":
-          description: ログアウト成功
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: "ログアウトしました"
-        "400":
-          description: バリデーションエラー
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-  /auth/refresh:
-    post:
-      summary: アクセストークンのリフレッシュ
-      description: リフレッシュトークンを使用して新しいアクセストークンを取得します
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                refresh_token:
-                  type: string
-                  description: リフレッシュトークン
-              required:
-                - refresh_token
-      responses:
-        "200":
-          description: トークンリフレッシュ成功
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  access_token:
-                    type: string
-                    example: "eyJ..."
-                  token_type:
-                    type: string
-                    example: "Bearer"
-        "400":
-          description: バリデーションエラー
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "401":
-          description: 無効なリフレッシュトークン
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-  /users/me/sessions:
-    get:
-      summary: アクティブセッション一覧取得
-      description: 現在のユーザーの全アクティブセッションを取得します
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: セッション一覧
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  sessions:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/Session"
-        "401":
-          description: 認証が必要です
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-  /users/me/sessions/{id}:
-    delete:
-      summary: 特定のセッションを削除
-      description: セッションIDを指定して特定のセッションを削除します
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-          description: セッションID
-      responses:
-        "200":
-          description: セッション削除成功
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: "セッションを削除しました"
-        "401":
-          description: 認証が必要です
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "404":
-          description: セッションが見つかりません
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-  /users/me/logout-all:
-    post:
-      summary: 全デバイスからログアウト
-      description: 現在のユーザーの全セッションを削除します
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: 全デバイスからのログアウト成功
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: "全てのデバイスからログアウトしました"
-        "401":
-          description: 認証が必要です
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
   /animes/current:
     get:
       summary: 今期アニメ取得
@@ -1540,6 +1285,7 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+      description: Supabase Authが発行するJWTアクセストークン
   schemas:
     Error:
       type: object
@@ -1593,10 +1339,6 @@ components:
           type: string
           format: date-time
           example: "2025-01-01T00:00:00Z"
-        updated_at:
-          type: string
-          format: date-time
-          example: "2025-01-15T12:30:00Z"
     Anime:
       type: object
       properties:
@@ -1934,36 +1676,3 @@ components:
           format: date-time
           description: 検索日時
           example: "2025-01-15T12:30:00Z"
-    Session:
-      type: object
-      properties:
-        id:
-          type: integer
-          description: セッションID
-          example: 1
-        user_agent:
-          type: string
-          nullable: true
-          description: ユーザーエージェント
-          example: "Mozilla/5.0 ..."
-        ip_address:
-          type: string
-          nullable: true
-          description: IPアドレス
-          example: "192.168.1.1"
-        created_at:
-          type: string
-          format: date-time
-          description: セッション作成日時
-        last_activity_at:
-          type: string
-          format: date-time
-          description: 最終アクティビティ日時
-        expires_at:
-          type: string
-          format: date-time
-          description: セッション有効期限
-        is_current:
-          type: boolean
-          description: 現在のセッションかどうか
-          example: true
