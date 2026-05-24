@@ -9,4 +9,4 @@
   # ステージング環境のAPIドメインを設定
   # Note: 'unsafe-inline'を使用（Cloudflare Accessとの互換性のため）
   # img-srcにhttps:を追加して、任意のHTTPS画像を許可（アニメ画像は様々なドメインから取得されるため）
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self'; connect-src 'self' https://myanimelogs-staging.fly.dev https://cloudflareinsights.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self';
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self'; connect-src 'self' https://myanimelogs-staging.fly.dev https://cloudflareinsights.com https://lvvyolsqhtzfgxsheikr.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self';
