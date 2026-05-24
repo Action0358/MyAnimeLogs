@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect } from 'react'
+import { Suspense, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Container } from '@/components/layout'
@@ -17,8 +17,13 @@ const LoadingView: React.FC = () => (
 const AuthCallbackInner: React.FC = () => {
   const router = useRouter()
   const searchParams = useSearchParams()
+  // Strict Modeでの二重実行と code の二重消費を防ぐためのガード
+  const hasRunRef = useRef(false)
 
   useEffect(() => {
+    if (hasRunRef.current) return
+    hasRunRef.current = true
+
     const errorDescription =
       searchParams.get('error_description') ?? searchParams.get('error')
     if (errorDescription) {
