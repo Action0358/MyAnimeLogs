@@ -11,6 +11,7 @@ import { LOGOUT_REASON_MESSAGES } from '@/lib/constants'
 
 const EXTRA_MESSAGES: Record<string, string> = {
   'confirm-email': '確認メールを送信しました。受信トレイをご確認のうえ、リンクをクリックしてログインしてください。',
+  'auth-callback-failed': '認証リンクの有効期限が切れているか、無効です。お手数ですが再度お試しください。',
 }
 
 const isValidLogoutReason = (reason: string): reason is keyof typeof LOGOUT_REASON_MESSAGES => {
