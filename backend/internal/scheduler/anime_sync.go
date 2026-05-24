@@ -161,7 +161,7 @@ type AnimeService interface {
 type AnimeSyncScheduler struct {
 	annictClient   *services.AnnictClient
 	animeService   AnimeService
-	anilistClient  *services.AniListClient // AniListClientを再利用（レートリミッター共有）
+	anilistClient  *services.AniListClient // AnimeServiceと共有するAniListClientインスタンス（レートリミッター共有）
 	logger         *common.Logger
 	mu             sync.Mutex // Protects ticker field and syncInProgress
 	ticker         *time.Ticker
@@ -174,9 +174,10 @@ type AnimeSyncScheduler struct {
 	syncInProgress bool // Tracks if heavy sync operations are in progress
 }
 
-// NewAnimeSyncScheduler creates a new anime sync scheduler
-// Returns an error if animeService is nil
-func NewAnimeSyncScheduler(annictClient *services.AnnictClient, animeService AnimeService, logger *common.Logger, enabled bool, runHour, runMinute int) (*AnimeSyncScheduler, error) {
+// NewAnimeSyncScheduler creates a new anime sync scheduler.
+// anilistClient must be the same instance used by AnimeService to share the rate limiter.
+// Returns an error if animeService is nil.
+func NewAnimeSyncScheduler(annictClient *services.AnnictClient, animeService AnimeService, anilistClient *services.AniListClient, logger *common.Logger, enabled bool, runHour, runMinute int) (*AnimeSyncScheduler, error) {
 	// Ensure logger is never nil - use a default logger if not provided
 	if logger == nil {
 		logger = common.NewLogger(common.LogLevelError, "text")
@@ -187,9 +188,14 @@ func NewAnimeSyncScheduler(annictClient *services.AnnictClient, animeService Ani
 		return nil, fmt.Errorf("animeService cannot be nil")
 	}
 
+	// Fall back to a new client only if none was provided (e.g., in tests)
+	if anilistClient == nil {
+		anilistClient = services.NewAniListClient()
+	}
+
 	return &AnimeSyncScheduler{
 		annictClient:  annictClient,
-		anilistClient: services.NewAniListClient(),
+		anilistClient: anilistClient,
 		animeService:  animeService,
 		logger:        logger,
 		stopChan:      make(chan struct{}),

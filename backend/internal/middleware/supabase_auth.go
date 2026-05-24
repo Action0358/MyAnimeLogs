@@ -61,9 +61,14 @@ type jwksResponse struct {
 	Keys []jwkKey `json:"keys"`
 }
 
+// jwksHTTPClient is a dedicated HTTP client with a timeout for JWKS fetches.
+// Using the default http.Get (no timeout) risks blocking the middleware indefinitely
+// if the Supabase auth endpoint is slow or unresponsive.
+var jwksHTTPClient = &http.Client{Timeout: 5 * time.Second}
+
 // fetchJWKS fetches EC public keys from the given JWKS URL.
 func fetchJWKS(url string) (map[string]*ecdsa.PublicKey, error) {
-	resp, err := http.Get(url) //nolint:gosec
+	resp, err := jwksHTTPClient.Get(url) //nolint:gosec
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch JWKS: %w", err)
 	}
@@ -104,6 +109,8 @@ func fetchJWKS(url string) (map[string]*ecdsa.PublicKey, error) {
 
 // getJWKSPublicKey returns the cached EC public key for the given kid,
 // refreshing the cache from the JWKS endpoint when stale.
+// Uses double-checked locking to prevent Thundering Herd: multiple goroutines
+// waiting on the write lock would otherwise each trigger a redundant fetchJWKS.
 func getJWKSPublicKey(kid, jwksURL string) (*ecdsa.PublicKey, error) {
 	globalJWKSCache.mu.RLock()
 	if time.Since(globalJWKSCache.fetchedAt) < globalJWKSCache.ttl {
@@ -116,6 +123,13 @@ func getJWKSPublicKey(kid, jwksURL string) (*ecdsa.PublicKey, error) {
 
 	globalJWKSCache.mu.Lock()
 	defer globalJWKSCache.mu.Unlock()
+
+	// Re-check after acquiring write lock: another goroutine may have already refreshed.
+	if time.Since(globalJWKSCache.fetchedAt) < globalJWKSCache.ttl {
+		if key, ok := globalJWKSCache.keys[kid]; ok {
+			return key, nil
+		}
+	}
 
 	keys, err := fetchJWKS(jwksURL)
 	if err != nil {

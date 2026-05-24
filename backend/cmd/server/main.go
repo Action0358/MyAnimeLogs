@@ -130,9 +130,11 @@ func main() {
 	animeService.SetAnnictClient(annictClient)
 
 	// Initialize and start anime sync scheduler
+	// Pass animeService.GetAniListClient() to share the same rate-limited instance
 	animeSyncScheduler, err := scheduler.NewAnimeSyncScheduler(
 		annictClient,
 		animeService,
+		animeService.GetAniListClient(),
 		logger,
 		cfg.AnimeSyncEnabled,
 		cfg.SchedulerRunHour,
