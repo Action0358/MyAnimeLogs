@@ -189,6 +189,7 @@ func NewAnimeSyncScheduler(annictClient *services.AnnictClient, animeService Ani
 
 	return &AnimeSyncScheduler{
 		annictClient:  annictClient,
+		anilistClient: services.NewAniListClient(),
 		animeService:  animeService,
 		logger:        logger,
 		stopChan:      make(chan struct{}),
