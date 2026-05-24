@@ -83,8 +83,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!res.ok) return null
       const data = await res.json()
       if (isUser(data)) return data
-      // バックエンドは { data: User } 形式で返すことがある
-      if (data?.data && isUser(data.data)) return data.data
       return null
     } catch {
       return null
