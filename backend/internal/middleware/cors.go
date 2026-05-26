@@ -32,7 +32,11 @@ func CORSMiddleware() gin.HandlerFunc {
 	}
 
 	// Cloudflare Pages プレビューデプロイの動的許可
-	// *.pages.dev ドメインを許可する場合
+	// 本番(myanimelogs)と staging(myanimelogs-staging) の両プロジェクトを対象とする
+	allowedPagesSuffixes := []string{
+		".myanimelogs.pages.dev",
+		".myanimelogs-staging.pages.dev",
+	}
 	config.AllowOriginFunc = func(origin string) bool {
 		// 明示的に許可されたオリジン
 		for _, allowed := range allowedOrigins {
@@ -42,9 +46,14 @@ func CORSMiddleware() gin.HandlerFunc {
 		}
 
 		// Cloudflare Pages プレビューデプロイを許可
-		// 例: https://abc123.myanimelogs.pages.dev
-		if strings.HasSuffix(origin, ".myanimelogs.pages.dev") && strings.HasPrefix(origin, "https://") {
-			return true
+		// 例: https://abc123.myanimelogs.pages.dev, https://abc123.myanimelogs-staging.pages.dev
+		if !strings.HasPrefix(origin, "https://") {
+			return false
+		}
+		for _, suffix := range allowedPagesSuffixes {
+			if strings.HasSuffix(origin, suffix) {
+				return true
+			}
 		}
 
 		return false
