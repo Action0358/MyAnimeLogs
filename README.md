@@ -172,18 +172,16 @@ docker compose exec backend go mod tidy
 ### 接続情報
 
 - **Host**: localhost
-- **Port**: 5432
-- **Database**: myanimelogs
+- **Port**: 54322
+- **Database**: postgres
 - **管理ツール**: Supabase Studio (http://localhost:54323)
 
 ### 主要テーブル
 
 - `users` - ユーザー情報
 - `animes` - アニメ情報
-- `episodes` - エピソード情報
-- `favorites` - お気に入り管理
-- `ratings` - 評価・レビュー
-- `watch_history` - 視聴履歴
+- `user_favorites` - お気に入り管理
+- `user_ratings` - 評価・レビュー
 
 ## デプロイ
 
