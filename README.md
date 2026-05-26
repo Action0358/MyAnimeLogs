@@ -4,16 +4,14 @@
 
 ## 概要
 
-MyAnimeLogs は、アニメファンが視聴したアニメを記録・管理し、お気に入りのアニメを整理できる Web アプリケーションです。視聴履歴の管理、評価・レビューの投稿、視聴統計の確認などの機能を提供します。
+MyAnimeLogs は、アニメファンが視聴したアニメを記録・管理し、お気に入りのアニメを整理できる Web アプリケーションです。お気に入り管理、評価・レビューの投稿などの機能を提供します。
 
 ## 主要機能
 
 - **ユーザー認証**: 新規登録・ログイン・プロフィール管理
 - **アニメ検索**: タイトル・ジャンル・シーズンでの検索
-- **視聴管理**: エピソード単位での視聴状態管理
 - **お気に入り**: 視聴中・完了・予定・中断のステータス管理
 - **評価・レビュー**: 5 段階評価とコメント投稿
-- **視聴統計**: 視聴時間・完了作品数などの統計情報
 - **データエクスポート**: JSON/CSV 形式でのデータ出力
 
 ## 技術スタック
@@ -106,7 +104,7 @@ docker compose up -d
 
 - **フロントエンド**: http://localhost:3000
 - **バックエンド API**: http://localhost:8080
-- **pgAdmin**: http://localhost:5050
+- **Supabase Studio**: http://localhost:54323
 
 ## API 仕様
 
@@ -114,23 +112,28 @@ OpenAPI 3.0 形式で定義された API 仕様書は `openapi/openapi.yaml` に
 
 ### 主要エンドポイント
 
-#### 認証
+> 認証は Supabase Auth が担当し、サインアップ・ログインはフロントエンドから Supabase に対して直接行います。バックエンド API は Supabase 発行の JWT を検証して認可します。
 
-- `POST /api/register` - ユーザー登録
-- `POST /api/login` - ログイン
+#### ユーザー
+
 - `GET /api/users/me` - プロフィール取得
+- `PUT /api/users/me` - プロフィール更新
+- `GET /api/users/me/export` - データエクスポート
 
 #### アニメ
 
 - `GET /api/animes` - アニメ検索・一覧
 - `GET /api/animes/{id}` - アニメ詳細
-- `GET /api/animes/{id}/episodes` - エピソード一覧
+- `GET /api/animes/current` - 今期アニメ
+- `GET /api/animes/popular` - 人気アニメ
 
-#### 視聴管理
+#### お気に入り・評価
 
 - `GET /api/users/me/favorites` - お気に入り一覧
 - `PUT /api/users/me/favorites/{anime_id}` - お気に入り追加・更新
-- `PUT /api/episodes/{episode_id}/watch` - 視聴状態更新
+- `DELETE /api/users/me/favorites/{anime_id}` - お気に入り削除
+- `PUT /api/animes/{id}/rating` - 評価投稿・更新
+- `DELETE /api/animes/{id}/rating` - 評価削除
 
 ## 開発コマンド
 
@@ -172,18 +175,16 @@ docker compose exec backend go mod tidy
 ### 接続情報
 
 - **Host**: localhost
-- **Port**: 5432
-- **Database**: myanimelogs
-- **管理ツール**: pgAdmin (http://localhost:5050)
+- **Port**: 54322
+- **Database**: postgres
+- **管理ツール**: Supabase Studio (http://localhost:54323)
 
 ### 主要テーブル
 
 - `users` - ユーザー情報
 - `animes` - アニメ情報
-- `episodes` - エピソード情報
-- `favorites` - お気に入り管理
-- `ratings` - 評価・レビュー
-- `watch_history` - 視聴履歴
+- `user_favorites` - お気に入り管理
+- `user_ratings` - 評価・レビュー
 
 ## デプロイ
 
