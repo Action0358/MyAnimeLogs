@@ -8,6 +8,32 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// Cloudflare Pages のホスティング先（本番・staging）を動的に許可するための基底ドメイン。
+// apex (https://example.pages.dev) とサブドメイン (https://abc.example.pages.dev) の両方を許可する。
+var cloudflarePagesDomains = []string{
+	"myanimelogs.pages.dev",
+	"myanimelogs-staging.pages.dev",
+}
+
+// isOriginAllowed は CORS の許可判定を行う。
+// 明示的に許可されたオリジンの完全一致、または Cloudflare Pages のapex/サブドメインを許可する。
+func isOriginAllowed(origin string, allowedOrigins, pagesDomains []string) bool {
+	for _, allowed := range allowedOrigins {
+		if origin == allowed {
+			return true
+		}
+	}
+	if !strings.HasPrefix(origin, "https://") {
+		return false
+	}
+	for _, domain := range pagesDomains {
+		if origin == "https://"+domain || strings.HasSuffix(origin, "."+domain) {
+			return true
+		}
+	}
+	return false
+}
+
 func CORSMiddleware() gin.HandlerFunc {
 	config := cors.DefaultConfig()
 
@@ -31,32 +57,8 @@ func CORSMiddleware() gin.HandlerFunc {
 		}
 	}
 
-	// Cloudflare Pages プレビューデプロイの動的許可
-	// 本番(myanimelogs)と staging(myanimelogs-staging) の両プロジェクトを対象とする
-	allowedPagesSuffixes := []string{
-		".myanimelogs.pages.dev",
-		".myanimelogs-staging.pages.dev",
-	}
 	config.AllowOriginFunc = func(origin string) bool {
-		// 明示的に許可されたオリジン
-		for _, allowed := range allowedOrigins {
-			if origin == allowed {
-				return true
-			}
-		}
-
-		// Cloudflare Pages プレビューデプロイを許可
-		// 例: https://abc123.myanimelogs.pages.dev, https://abc123.myanimelogs-staging.pages.dev
-		if !strings.HasPrefix(origin, "https://") {
-			return false
-		}
-		for _, suffix := range allowedPagesSuffixes {
-			if strings.HasSuffix(origin, suffix) {
-				return true
-			}
-		}
-
-		return false
+		return isOriginAllowed(origin, allowedOrigins, cloudflarePagesDomains)
 	}
 
 	config.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
