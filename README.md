@@ -106,7 +106,7 @@ docker compose up -d
 
 - **フロントエンド**: http://localhost:3000
 - **バックエンド API**: http://localhost:8080
-- **pgAdmin**: http://localhost:5050
+- **Supabase Studio**: http://localhost:54323
 
 ## API 仕様
 
@@ -174,7 +174,7 @@ docker compose exec backend go mod tidy
 - **Host**: localhost
 - **Port**: 5432
 - **Database**: myanimelogs
-- **管理ツール**: pgAdmin (http://localhost:5050)
+- **管理ツール**: Supabase Studio (http://localhost:54323)
 
 ### 主要テーブル
 
