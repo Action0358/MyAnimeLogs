@@ -32,16 +32,24 @@ const AuthCallbackInner: React.FC = () => {
     }
 
     const code = searchParams.get('code')
+    const failureUrl = '/login?reason=auth-callback-failed'
     const finalize = async () => {
-      if (code) {
-        const { error } = await supabase.auth.exchangeCodeForSession(code)
-        if (error) {
-          router.replace('/login?reason=auth-callback-failed')
+      try {
+        if (code) {
+          // PKCEフロー: exchangeCodeForSession の戻り値にセッションが含まれるため
+          // 後続の getSession() は呼ばない（ネットワーク往復を1回削減）
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+          router.replace(error || !data.session ? failureUrl : '/')
           return
         }
+        // implicit フロー: URLハッシュ内のトークンをSupabaseクライアントが
+        // 自動で読み取りセッションを張る。読み取り結果をここで確認する。
+        const { data: { session } } = await supabase.auth.getSession()
+        router.replace(session ? '/' : failureUrl)
+      } catch {
+        // ネットワーク/クライアント例外時もローディングのまま固まらないようにする
+        router.replace(failureUrl)
       }
-      const { data: { session } } = await supabase.auth.getSession()
-      router.replace(session ? '/' : '/login?reason=auth-callback-failed')
     }
     finalize()
   }, [router, searchParams])
