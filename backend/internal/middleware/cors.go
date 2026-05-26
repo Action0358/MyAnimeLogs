@@ -15,19 +15,32 @@ var cloudflarePagesDomains = []string{
 	"myanimelogs-staging.pages.dev",
 }
 
+const httpsPrefix = "https://"
+
 // isOriginAllowed は CORS の許可判定を行う。
-// 明示的に許可されたオリジンの完全一致、または Cloudflare Pages のapex/サブドメインを許可する。
+// 明示的に許可されたオリジンの完全一致、または Cloudflare Pages の apex/サブドメインを許可する。
+// 全リクエストパスで呼ばれるため、文字列結合を避けてゼロアロケーションで判定する。
 func isOriginAllowed(origin string, allowedOrigins, pagesDomains []string) bool {
 	for _, allowed := range allowedOrigins {
 		if origin == allowed {
 			return true
 		}
 	}
-	if !strings.HasPrefix(origin, "https://") {
+	if !strings.HasPrefix(origin, httpsPrefix) {
 		return false
 	}
 	for _, domain := range pagesDomains {
-		if origin == "https://"+domain || strings.HasSuffix(origin, "."+domain) {
+		if !strings.HasSuffix(origin, domain) {
+			continue
+		}
+		// 1) apex 一致: "https://" + domain ぴったり
+		if len(origin) == len(httpsPrefix)+len(domain) {
+			return true
+		}
+		// 2) サブドメイン一致: 直前が '.' であること。
+		//    "https://evilmyanimelogs.pages.dev" のような偽装は直前が '.' でないため弾かれる。
+		sepIdx := len(origin) - len(domain) - 1
+		if sepIdx >= len(httpsPrefix) && origin[sepIdx] == '.' {
 			return true
 		}
 	}

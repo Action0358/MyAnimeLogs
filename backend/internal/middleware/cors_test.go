@@ -37,6 +37,11 @@ func TestIsOriginAllowed(t *testing.T) {
 		{"prefix attack: pretend to end with allowed domain", "https://evilmyanimelogs.pages.dev", false},
 		{"prefix attack: pretend to end with staging", "https://evilmyanimelogs-staging.pages.dev", false},
 		{"close but not exact apex", "https://myanimelogs.pages.de", false},
+
+		// サフィックス偽装: 許可ドメインを攻撃者ドメインのサブドメインとして配置
+		{"suffix spoofing: allowed apex as subdomain of attacker", "https://myanimelogs.pages.dev.evil.com", false},
+		{"suffix spoofing: allowed staging as subdomain of attacker", "https://myanimelogs-staging.pages.dev.evil.com", false},
+		{"suffix spoofing: subdomain pattern under attacker", "https://abc.myanimelogs.pages.dev.evil.com", false},
 	}
 
 	for _, tt := range tests {
@@ -46,5 +51,24 @@ func TestIsOriginAllowed(t *testing.T) {
 				t.Errorf("isOriginAllowed(%q) = %v, want %v", tt.origin, got, tt.want)
 			}
 		})
+	}
+}
+
+// BenchmarkIsOriginAllowed は CORS 判定がリクエストごとにアロケーションを発生させないことを担保する。
+// go test -bench BenchmarkIsOriginAllowed -benchmem で allocs/op が 0 になることを確認する。
+func BenchmarkIsOriginAllowed(b *testing.B) {
+	allowedOrigins := []string{"http://localhost:3000"}
+	pagesDomains := []string{"myanimelogs.pages.dev", "myanimelogs-staging.pages.dev"}
+
+	cases := []string{
+		"https://myanimelogs-staging.pages.dev",         // apex 一致
+		"https://dbccfbdf.myanimelogs-staging.pages.dev", // サブドメイン一致
+		"https://evil.example.com",                       // 不一致（ループ最後で false）
+	}
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_ = isOriginAllowed(cases[i%len(cases)], allowedOrigins, pagesDomains)
 	}
 }
