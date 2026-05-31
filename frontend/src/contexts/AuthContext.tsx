@@ -8,7 +8,7 @@ import React, {
   useCallback,
 } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { supabase, initialUrlHadCode } from '@/lib/supabase'
 import { storage } from '@/lib/utils'
 import { ApiClientError, setUnauthorizedHandler, setRefreshTokenHandler } from '@/lib/api/client'
 import { INACTIVITY_TIMEOUT, STORAGE_KEYS, LOGOUT_REDIRECT_PATHS, type LogoutReason } from '@/lib/constants'
@@ -70,6 +70,13 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+/**
+ * パスワード更新画面のパス判定。
+ * next.config.js の trailingSlash:true により本番では `/auth/update-password/` になるため両方を許容する。
+ */
+const isUpdatePasswordPath = (pathname: string): boolean =>
+  pathname === '/auth/update-password' || pathname === '/auth/update-password/'
+
 /** localStorageに認証トークンを保存する（APIクライアントが auth_token を読む） */
 const storeToken = (token: string) => {
   localStorage.setItem(STORAGE_KEYS.TOKEN, JSON.stringify(token))
@@ -112,6 +119,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   /** Supabaseセッションからトークン・ユーザーを同期する共通処理 */
   const syncSession = useCallback(async (accessToken: string | null) => {
+    // 防御層: パスワード更新画面上では recovery セッションを絶対にローカル認証状態へ
+    // 反映しない。どの経路から呼ばれてもユーザー状態をクリアして返す。
+    if (typeof window !== 'undefined' && isUpdatePasswordPath(window.location.pathname)) {
+      setToken(null)
+      setUser(null)
+      clearToken()
+      return
+    }
     if (!accessToken) {
       setToken(null)
       setUser(null)
@@ -158,19 +173,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     let mounted = true
 
+    // モジュールレベルのフラグをマウント時にローカルへキャプチャ。
+    // クリアは getSession().then() 内（mounted チェック通過後）で行うことで、
+    // React Strict Mode のダブル invoke で2回連続するマウントの両方が
+    // 同じ hadCode を参照できるようにする。
+    const hadCode = initialUrlHadCode.value
+
     // 起動時に既存セッションを確認
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!mounted) return
+      // 「生きている」マウントだけがフラグを消費。これにより、Strict Mode の
+      // 同期的に連続するダブルマウントが両方とも hadCode=true を見たあとで、
+      // 最終的に処理を行うマウントだけがフラグをクリアする。
+      initialUrlHadCode.value = false
       if (session) {
-        await syncSession(session.access_token)
+        // 以下のいずれかなら syncSession をスキップ:
+        // - 初回ロード時に ?code= があった（PKCEフロー処理中）
+        // - パスワード更新画面（リフレッシュなどで recovery セッションが残っているケース）
+        const shouldSkip = hadCode || isUpdatePasswordPath(window.location.pathname)
+        if (!shouldSkip) {
+          await syncSession(session.access_token)
+        }
       }
       setIsLoading(false)
     })
 
     // 認証状態変化を購読
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      async (event, session) => {
         if (!mounted) return
+        if (event === 'PASSWORD_RECOVERY') {
+          // ローカルの認証状態をクリアしてから更新画面へ遷移する。
+          // Supabase 内部セッションは保持されるため updateUser は引き続き動作する。
+          await syncSession(null)
+          router.replace('/auth/update-password')
+          return
+        }
+        // リフレッシュ等で /auth/update-password にいる場合も recovery セッションを漏洩させない
+        if (isUpdatePasswordPath(window.location.pathname)) {
+          await syncSession(null)
+          return
+        }
+        // INITIAL_SESSION は PASSWORD_RECOVERY より先に発火するため、PKCEフロー初期時は
+        // recovery セッションを誤って同期しないよう、後続イベントの到来を待つ
+        if (event === 'INITIAL_SESSION' && hadCode) {
+          return
+        }
         await syncSession(session?.access_token ?? null)
         if (!session) setIsLoading(false)
       }
@@ -180,7 +228,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       mounted = false
       subscription.unsubscribe()
     }
-  }, [syncSession])
+  }, [syncSession, router])
 
   const login = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
