@@ -41,13 +41,11 @@ const UpdatePasswordInner: React.FC = () => {
     if (hasRunRef.current) return
     hasRunRef.current = true
 
-    let active = true
-
     const verify = async () => {
       const errorDescription =
         searchParams.get('error_description') ?? searchParams.get('error')
       if (errorDescription) {
-        if (active) setStatus('invalid')
+        setStatus('invalid')
         return
       }
 
@@ -57,19 +55,15 @@ const UpdatePasswordInner: React.FC = () => {
         if (error) {
           console.error('[update-password] exchangeCodeForSession failed:', error.message)
         }
-        if (active) setStatus(error || !data.session ? 'invalid' : 'ready')
+        setStatus(error || !data?.session ? 'invalid' : 'ready')
         return
       }
 
       // code がない場合：PASSWORD_RECOVERY 経由で既にセッションが張られているか確認
       const { data: { session } } = await supabase.auth.getSession()
-      if (active) setStatus(session ? 'ready' : 'invalid')
+      setStatus(session ? 'ready' : 'invalid')
     }
     verify()
-
-    return () => {
-      active = false
-    }
   }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {

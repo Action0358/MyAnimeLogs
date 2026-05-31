@@ -171,8 +171,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!mounted) return
-        // パスワードリセットリンク経由のセッションは必ず更新画面へ誘導する
+        // パスワードリセットリンク経由のセッションはトークンを同期した上で更新画面へ誘導する
         if (event === 'PASSWORD_RECOVERY') {
+          await syncSession(session?.access_token ?? null)
           router.push('/auth/update-password')
           return
         }
