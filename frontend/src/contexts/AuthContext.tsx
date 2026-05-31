@@ -162,7 +162,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!mounted) return
       if (session) {
-        await syncSession(session.access_token)
+        // ?code= がある場合はPKCE認証フロー中のため onAuthStateChange に委ねる
+        const inAuthFlow = typeof window !== 'undefined' && window.location.search.includes('code=')
+        if (!inAuthFlow) {
+          await syncSession(session.access_token)
+        }
       }
       setIsLoading(false)
     })
@@ -171,10 +175,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!mounted) return
-        // パスワードリセットリンク経由のセッションはトークンを同期した上で更新画面へ誘導する
         if (event === 'PASSWORD_RECOVERY') {
-          await syncSession(session?.access_token ?? null)
-          router.push('/auth/update-password')
+          // ローカルの認証状態をクリアしてから更新画面へ遷移する。
+          // Supabase 内部セッションは保持されるため updateUser は引き続き動作する。
+          await syncSession(null)
+          router.replace('/auth/update-password')
           return
         }
         await syncSession(session?.access_token ?? null)
