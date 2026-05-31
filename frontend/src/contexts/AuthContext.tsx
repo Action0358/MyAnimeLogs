@@ -158,6 +158,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     let mounted = true
 
+    // モジュールレベルのフラグを useEffect 開始時にローカルへキャプチャし、即座にクリアする。
+    // React Strict Mode のダブルマウントや依存配列変更による useEffect 再実行で、
+    // 既にコード交換が完了しているのにフラグが true のまま残ることを防ぐ。
+    const hadCode = initialUrlHadCode.value
+    initialUrlHadCode.value = false
+
     // next.config.js の trailingSlash:true により本番では `/auth/update-password/` になるため両方を許容
     const isUpdatePasswordPath = (pathname: string) =>
       pathname === '/auth/update-password' || pathname === '/auth/update-password/'
@@ -169,8 +175,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // 以下のいずれかなら syncSession をスキップ:
         // - 初回ロード時に ?code= があった（PKCEフロー処理中）
         // - パスワード更新画面（リフレッシュなどで recovery セッションが残っているケース）
-        const shouldSkip =
-          initialUrlHadCode || isUpdatePasswordPath(window.location.pathname)
+        const shouldSkip = hadCode || isUpdatePasswordPath(window.location.pathname)
         if (!shouldSkip) {
           await syncSession(session.access_token)
         }
@@ -196,7 +201,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         // INITIAL_SESSION は PASSWORD_RECOVERY より先に発火するため、PKCEフロー初期時は
         // recovery セッションを誤って同期しないよう、後続イベントの到来を待つ
-        if (event === 'INITIAL_SESSION' && initialUrlHadCode) {
+        if (event === 'INITIAL_SESSION' && hadCode) {
           return
         }
         await syncSession(session?.access_token ?? null)
