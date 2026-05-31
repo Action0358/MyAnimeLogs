@@ -169,8 +169,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // 認証状態変化を購読
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      async (event, session) => {
         if (!mounted) return
+        // パスワードリセットリンク経由のセッションはトークンを同期した上で更新画面へ誘導する
+        if (event === 'PASSWORD_RECOVERY') {
+          await syncSession(session?.access_token ?? null)
+          router.push('/auth/update-password')
+          return
+        }
         await syncSession(session?.access_token ?? null)
         if (!session) setIsLoading(false)
       }
@@ -180,7 +186,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       mounted = false
       subscription.unsubscribe()
     }
-  }, [syncSession])
+  }, [syncSession, router])
 
   const login = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
