@@ -16,6 +16,22 @@ const UPDATE_PASSWORD_ERROR_MESSAGES: Record<string, string> = {
   over_request_rate_limit: 'しばらく時間をおいてから再試行してください',
 }
 
+// Supabase の PKCE コードはシングルユース。Strict Mode のダブル invoke や
+// コンポーネントの再マウントで複数回呼ばれても同じ Promise を返すよう、
+// モジュールレベルでキャッシュする。
+type ExchangeResult = Awaited<ReturnType<typeof supabase.auth.exchangeCodeForSession>>
+let cachedExchange: { code: string; promise: Promise<ExchangeResult> } | null = null
+
+const exchangeCodeOnce = (code: string): Promise<ExchangeResult> => {
+  if (cachedExchange?.code !== code) {
+    cachedExchange = {
+      code,
+      promise: supabase.auth.exchangeCodeForSession(code),
+    }
+  }
+  return cachedExchange.promise
+}
+
 const LoadingView: React.FC<{ message?: string }> = ({ message = '読み込み中...' }) => (
   <Container className="py-24">
     <div className="flex flex-col items-center justify-center gap-4">
@@ -51,7 +67,7 @@ const UpdatePasswordInner: React.FC = () => {
 
       const code = searchParams.get('code')
       if (code) {
-        const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+        const { data, error } = await exchangeCodeOnce(code)
         if (error) {
           console.error('[update-password] exchangeCodeForSession failed:', error.message)
         }

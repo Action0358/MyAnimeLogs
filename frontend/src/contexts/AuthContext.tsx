@@ -173,15 +173,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     let mounted = true
 
-    // モジュールレベルのフラグを useEffect 開始時にローカルへキャプチャし、即座にクリアする。
-    // React Strict Mode のダブルマウントや依存配列変更による useEffect 再実行で、
-    // 既にコード交換が完了しているのにフラグが true のまま残ることを防ぐ。
+    // モジュールレベルのフラグをマウント時にローカルへキャプチャ。
+    // クリアは getSession().then() 内（mounted チェック通過後）で行うことで、
+    // React Strict Mode のダブル invoke で2回連続するマウントの両方が
+    // 同じ hadCode を参照できるようにする。
     const hadCode = initialUrlHadCode.value
-    initialUrlHadCode.value = false
 
     // 起動時に既存セッションを確認
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!mounted) return
+      // 「生きている」マウントだけがフラグを消費。これにより、Strict Mode の
+      // 同期的に連続するダブルマウントが両方とも hadCode=true を見たあとで、
+      // 最終的に処理を行うマウントだけがフラグをクリアする。
+      initialUrlHadCode.value = false
       if (session) {
         // 以下のいずれかなら syncSession をスキップ:
         // - 初回ロード時に ?code= があった（PKCEフロー処理中）
