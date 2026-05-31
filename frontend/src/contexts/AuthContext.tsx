@@ -112,6 +112,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   /** Supabaseセッションからトークン・ユーザーを同期する共通処理 */
   const syncSession = useCallback(async (accessToken: string | null) => {
+    // 防御層: パスワード更新画面上では recovery セッションを絶対にローカル認証状態へ
+    // 反映しない。どの経路から呼ばれてもユーザー状態をクリアして返す。
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname
+      if (path === '/auth/update-password' || path === '/auth/update-password/') {
+        setToken(null)
+        setUser(null)
+        clearToken()
+        return
+      }
+    }
     if (!accessToken) {
       setToken(null)
       setUser(null)
