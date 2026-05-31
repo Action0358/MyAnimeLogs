@@ -174,6 +174,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // パスワードリセットリンク経由のセッションは必ず更新画面へ誘導する
         if (event === 'PASSWORD_RECOVERY') {
           router.push('/auth/update-password')
+          return
         }
         await syncSession(session?.access_token ?? null)
         if (!session) setIsLoading(false)

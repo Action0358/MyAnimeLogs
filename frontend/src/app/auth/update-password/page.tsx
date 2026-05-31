@@ -10,6 +10,12 @@ import { Button } from '@/components/ui/Button'
 
 type Status = 'verifying' | 'ready' | 'invalid' | 'submitting'
 
+const UPDATE_PASSWORD_ERROR_MESSAGES: Record<string, string> = {
+  weak_password: 'パスワードが弱すぎます。より強力なパスワードを設定してください',
+  same_password: '現在のパスワードと同じパスワードは使用できません',
+  over_request_rate_limit: 'しばらく時間をおいてから再試行してください',
+}
+
 const LoadingView: React.FC<{ message?: string }> = ({ message = '読み込み中...' }) => (
   <Container className="py-24">
     <div className="flex flex-col items-center justify-center gap-4">
@@ -35,26 +41,35 @@ const UpdatePasswordInner: React.FC = () => {
     if (hasRunRef.current) return
     hasRunRef.current = true
 
+    let active = true
+
     const verify = async () => {
       const errorDescription =
         searchParams.get('error_description') ?? searchParams.get('error')
       if (errorDescription) {
-        setStatus('invalid')
+        if (active) setStatus('invalid')
         return
       }
 
       const code = searchParams.get('code')
       if (code) {
         const { data, error } = await supabase.auth.exchangeCodeForSession(code)
-        setStatus(error || !data.session ? 'invalid' : 'ready')
+        if (error) {
+          console.error('[update-password] exchangeCodeForSession failed:', error.message)
+        }
+        if (active) setStatus(error || !data.session ? 'invalid' : 'ready')
         return
       }
 
       // code がない場合：PASSWORD_RECOVERY 経由で既にセッションが張られているか確認
       const { data: { session } } = await supabase.auth.getSession()
-      setStatus(session ? 'ready' : 'invalid')
+      if (active) setStatus(session ? 'ready' : 'invalid')
     }
     verify()
+
+    return () => {
+      active = false
+    }
   }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -75,7 +90,11 @@ const UpdatePasswordInner: React.FC = () => {
     const { error: updateError } = await supabase.auth.updateUser({ password })
 
     if (updateError) {
-      setError(updateError.message)
+      const message =
+        (updateError.code && UPDATE_PASSWORD_ERROR_MESSAGES[updateError.code])
+          ? UPDATE_PASSWORD_ERROR_MESSAGES[updateError.code]
+          : 'パスワードの更新に失敗しました。時間をおいて再度お試しください'
+      setError(message)
       setStatus('ready')
       return
     }
