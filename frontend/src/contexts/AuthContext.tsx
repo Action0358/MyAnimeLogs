@@ -70,6 +70,13 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+/**
+ * パスワード更新画面のパス判定。
+ * next.config.js の trailingSlash:true により本番では `/auth/update-password/` になるため両方を許容する。
+ */
+const isUpdatePasswordPath = (pathname: string): boolean =>
+  pathname === '/auth/update-password' || pathname === '/auth/update-password/'
+
 /** localStorageに認証トークンを保存する（APIクライアントが auth_token を読む） */
 const storeToken = (token: string) => {
   localStorage.setItem(STORAGE_KEYS.TOKEN, JSON.stringify(token))
@@ -114,14 +121,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const syncSession = useCallback(async (accessToken: string | null) => {
     // 防御層: パスワード更新画面上では recovery セッションを絶対にローカル認証状態へ
     // 反映しない。どの経路から呼ばれてもユーザー状態をクリアして返す。
-    if (typeof window !== 'undefined') {
-      const path = window.location.pathname
-      if (path === '/auth/update-password' || path === '/auth/update-password/') {
-        setToken(null)
-        setUser(null)
-        clearToken()
-        return
-      }
+    if (typeof window !== 'undefined' && isUpdatePasswordPath(window.location.pathname)) {
+      setToken(null)
+      setUser(null)
+      clearToken()
+      return
     }
     if (!accessToken) {
       setToken(null)
@@ -174,10 +178,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // 既にコード交換が完了しているのにフラグが true のまま残ることを防ぐ。
     const hadCode = initialUrlHadCode.value
     initialUrlHadCode.value = false
-
-    // next.config.js の trailingSlash:true により本番では `/auth/update-password/` になるため両方を許容
-    const isUpdatePasswordPath = (pathname: string) =>
-      pathname === '/auth/update-password' || pathname === '/auth/update-password/'
 
     // 起動時に既存セッションを確認
     supabase.auth.getSession().then(async ({ data: { session } }) => {
