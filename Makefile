@@ -36,7 +36,7 @@ sync-anon-key:
 		echo "ERROR: $(FRONTEND_ENV) が存在しません。まず 'cp frontend/env/local.example $(FRONTEND_ENV)' を実行してください。"; \
 		exit 1; \
 	fi
-	@ANON_KEY=$$($(SUPABASE) status -o env 2>/dev/null | grep '^ANON_KEY=' | sed 's/^ANON_KEY=//' | tr -d '"\r'); \
+	@ANON_KEY=$$($(SUPABASE) status -o env | grep '^ANON_KEY=' | sed 's/^ANON_KEY=//' | tr -d '"\r'); \
 	if [ -z "$$ANON_KEY" ]; then \
 		echo "ERROR: anon key を取得できませんでした。'supabase start' が完了しているか確認してください。"; \
 		exit 1; \
