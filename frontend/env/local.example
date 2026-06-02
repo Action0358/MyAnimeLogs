@@ -27,10 +27,13 @@ API_BASE_URL=http://backend:8080
 # ========================
 # Supabase Auth（ローカル）
 # ========================
-# `supabase start` で起動後、出力された値に書き換える
+# 取得方法:
+#   1. `supabase start`（または `make local-supabase-up`）を実行
+#   2. `npx supabase status` の Publishable key（= `supabase status -o env` の ANON_KEY）をコピー
+#   3. 下記 NEXT_PUBLIC_SUPABASE_ANON_KEY に貼り付け
+# ルート Makefile の `make local-supabase-up` / `make sync-anon-key` を使えば自動反映されます。
 # Project URL: http://127.0.0.1:54321
 NEXT_PUBLIC_SUPABASE_URL=http://localhost:54321
-# Publishable key: `npx supabase status` の Publishable の値
 NEXT_PUBLIC_SUPABASE_ANON_KEY=replace-with-publishable-key-from-supabase-status
 
 # ========================
