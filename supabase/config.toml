@@ -94,7 +94,9 @@ api_url = "http://127.0.0.1"
 # OpenAI API Key to use for Supabase AI in the Supabase Studio.
 openai_api_key = "env(OPENAI_API_KEY)"
 
-# Email testing server. Emails sent with the local dev setup are not actually sent - rather, they
+# Email testing server (現行 Supabase CLI では Mailpit が起動する: http://localhost:54324)。
+# TOML セクション名 `[inbucket]` は CLI 側の互換キーで変更不可。実体は Mailpit。
+# Emails sent with the local dev setup are not actually sent - rather, they
 # are monitored, and you can view the emails that would have been sent from the web interface.
 [inbucket]
 enabled = true
@@ -160,7 +162,7 @@ site_url = "http://localhost:3000"
 # パスワードリセット (/auth/update-password) および OAuth/メール確認コールバック (/auth/callback)
 # を 127.0.0.1 / localhost 両方で許可（Next.js dev サーバは両方で待ち受ける）。
 additional_redirect_urls = [
-  "https://127.0.0.1:3000",
+  "http://127.0.0.1:3000",
   "http://127.0.0.1:3000/auth/update-password",
   "http://127.0.0.1:3000/auth/callback",
   "http://localhost:3000/auth/update-password",
@@ -228,7 +230,8 @@ enable_signup = true
 # addresses. If disabled, only the new email is required to confirm.
 double_confirm_changes = true
 # If enabled, users need to confirm their email address before signing in.
-# STG/本番と挙動を合わせるため有効化。確認メールは Inbucket (http://localhost:54324) で確認可能。
+# STG/本番と挙動を合わせるため有効化。確認メールは Mailpit (http://localhost:54324) で確認可能。
+# （TOML セクション名 `[inbucket]` は Supabase CLI 側で固定だが、実際に動くのは Mailpit）
 enable_confirmations = true
 # If enabled, users will need to reauthenticate or have logged in recently to change their password.
 secure_password_change = false

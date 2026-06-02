@@ -127,13 +127,15 @@ docker compose up -d
 | Backend API | http://localhost:8080 | Go / Gin API |
 | Supabase API | http://localhost:54321 | Auth / REST / Storage |
 | Supabase Studio | http://localhost:54323 | DB 管理 GUI |
-| **Inbucket（メールテスト）** | **http://localhost:54324** | サインアップ確認・パスワードリセット等のメール受信 |
+| **Mailpit（メールテスト）** | **http://localhost:54324** | サインアップ確認・パスワードリセット等のメール受信 |
 
 ### 5. 認証フローのローカル検証
 
-ローカル Supabase は `enable_confirmations = true` のため、本番同様に「サインアップ後はメール確認しないとログイン不可」の挙動になります。実際のメールは送信されず、すべて **Inbucket** で受信できます。
+ローカル Supabase は `enable_confirmations = true` のため、本番同様に「サインアップ後はメール確認しないとログイン不可」の挙動になります。実際のメールは送信されず、すべて **Mailpit**（http://localhost:54324）で受信できます。
 
-- **サインアップ**: 確認メールが Inbucket に届く → リンクを踏むとログイン可能になる
+> `supabase/config.toml` のセクション名は歴史的経緯で `[inbucket]` のままですが、現行 Supabase CLI が起動するのは Mailpit です。
+
+- **サインアップ**: 確認メールが Mailpit に届く → リンクを踏むとログイン可能になる
 - **パスワードリセット**: リセット申請後にメールが届く → リンクから `/auth/update-password` に遷移し新パスワードを設定
 
 ### 6. 停止

@@ -10,7 +10,7 @@
 
 .PHONY: local-up local-down local-stop local-supabase-up local-supabase-down sync-anon-key local-status help
 
-SUPABASE := npx supabase
+SUPABASE := npx --yes supabase
 FRONTEND_ENV := frontend/.env.local
 
 ## Supabase 起動 + anon key を frontend/.env.local に反映
@@ -20,7 +20,7 @@ local-supabase-up:
 	@$(MAKE) sync-anon-key
 	@echo ""
 	@echo "Supabase Studio: http://localhost:54323"
-	@echo "Inbucket (mail): http://localhost:54324"
+	@echo "Mailpit (mail):  http://localhost:54324"
 
 ## Supabase 停止
 local-supabase-down:
@@ -31,7 +31,7 @@ local-supabase-down:
 sync-anon-key:
 	@echo "==> Syncing anon key into $(FRONTEND_ENV)..."
 	@if [ ! -f $(FRONTEND_ENV) ]; then \
-		echo "ERROR: $(FRONTEND_ENV) が存在しません。まず 'cp frontend/.env.example $(FRONTEND_ENV)' を実行してください。"; \
+		echo "ERROR: $(FRONTEND_ENV) が存在しません。まず 'cp frontend/env/local.example $(FRONTEND_ENV)' を実行してください。"; \
 		exit 1; \
 	fi
 	@ANON_KEY=$$($(SUPABASE) status -o env 2>/dev/null | grep '^ANON_KEY=' | sed 's/^ANON_KEY=//' | tr -d '"'); \
