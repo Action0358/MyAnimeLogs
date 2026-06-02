@@ -10,7 +10,9 @@
 
 .PHONY: local-up local-down local-stop local-supabase-up local-supabase-down sync-anon-key local-status help
 
-SUPABASE := npx --yes supabase
+# グローバルインストール済みの supabase CLI を優先、無ければ npx にフォールバック。
+# npx の起動オーバーヘッド（ネットワーク・キャッシュ確認）を回避する。
+SUPABASE := $(shell command -v supabase >/dev/null 2>&1 && echo supabase || echo "npx --yes supabase")
 FRONTEND_ENV := frontend/.env.local
 
 ## Supabase 起動 + anon key を frontend/.env.local に反映
@@ -34,15 +36,20 @@ sync-anon-key:
 		echo "ERROR: $(FRONTEND_ENV) が存在しません。まず 'cp frontend/env/local.example $(FRONTEND_ENV)' を実行してください。"; \
 		exit 1; \
 	fi
-	@ANON_KEY=$$($(SUPABASE) status -o env 2>/dev/null | grep '^ANON_KEY=' | sed 's/^ANON_KEY=//' | tr -d '"'); \
+	@ANON_KEY=$$($(SUPABASE) status -o env 2>/dev/null | grep '^ANON_KEY=' | sed 's/^ANON_KEY=//' | tr -d '"\r'); \
 	if [ -z "$$ANON_KEY" ]; then \
 		echo "ERROR: anon key を取得できませんでした。'supabase start' が完了しているか確認してください。"; \
 		exit 1; \
 	fi; \
-	if [ "$$(uname)" = "Darwin" ]; then \
-		sed -i '' "s|^NEXT_PUBLIC_SUPABASE_ANON_KEY=.*|NEXT_PUBLIC_SUPABASE_ANON_KEY=$$ANON_KEY|" $(FRONTEND_ENV); \
+	if grep -q '^NEXT_PUBLIC_SUPABASE_ANON_KEY=' $(FRONTEND_ENV); then \
+		if [ "$$(uname)" = "Darwin" ]; then \
+			sed -i '' "s|^NEXT_PUBLIC_SUPABASE_ANON_KEY=.*|NEXT_PUBLIC_SUPABASE_ANON_KEY=$$ANON_KEY|" $(FRONTEND_ENV); \
+		else \
+			sed -i "s|^NEXT_PUBLIC_SUPABASE_ANON_KEY=.*|NEXT_PUBLIC_SUPABASE_ANON_KEY=$$ANON_KEY|" $(FRONTEND_ENV); \
+		fi; \
 	else \
-		sed -i "s|^NEXT_PUBLIC_SUPABASE_ANON_KEY=.*|NEXT_PUBLIC_SUPABASE_ANON_KEY=$$ANON_KEY|" $(FRONTEND_ENV); \
+		echo "" >> $(FRONTEND_ENV); \
+		echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$$ANON_KEY" >> $(FRONTEND_ENV); \
 	fi; \
 	echo "OK: NEXT_PUBLIC_SUPABASE_ANON_KEY を更新しました"
 
