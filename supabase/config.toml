@@ -94,7 +94,9 @@ api_url = "http://127.0.0.1"
 # OpenAI API Key to use for Supabase AI in the Supabase Studio.
 openai_api_key = "env(OPENAI_API_KEY)"
 
-# Email testing server. Emails sent with the local dev setup are not actually sent - rather, they
+# Email testing server (現行 Supabase CLI では Mailpit が起動する: http://localhost:54324)。
+# TOML セクション名 `[inbucket]` は CLI 側の互換キーで変更不可。実体は Mailpit。
+# Emails sent with the local dev setup are not actually sent - rather, they
 # are monitored, and you can view the emails that would have been sent from the web interface.
 [inbucket]
 enabled = true
@@ -151,11 +153,21 @@ max_indexes = 5
 enabled = true
 # The base URL of your website. Used as an allow-list for redirects and for constructing URLs used
 # in emails.
-site_url = "http://127.0.0.1:3000"
+# frontend (NEXT_PUBLIC_FRONTEND_URL) と整合させるため localhost を使用。
+# これにより確認メール内のリンクが http://localhost:3000/... となり、backend CORS と一致する。
+site_url = "http://localhost:3000"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["https://127.0.0.1:3000"]
+# パスワードリセット (/auth/update-password) および OAuth/メール確認コールバック (/auth/callback)
+# を 127.0.0.1 / localhost 両方で許可（Next.js dev サーバは両方で待ち受ける）。
+additional_redirect_urls = [
+  "http://127.0.0.1:3000",
+  "http://127.0.0.1:3000/auth/update-password",
+  "http://127.0.0.1:3000/auth/callback",
+  "http://localhost:3000/auth/update-password",
+  "http://localhost:3000/auth/callback",
+]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.
@@ -218,7 +230,9 @@ enable_signup = true
 # addresses. If disabled, only the new email is required to confirm.
 double_confirm_changes = true
 # If enabled, users need to confirm their email address before signing in.
-enable_confirmations = false
+# STG/本番と挙動を合わせるため有効化。確認メールは Mailpit (http://localhost:54324) で確認可能。
+# （TOML セクション名 `[inbucket]` は Supabase CLI 側で固定だが、実際に動くのは Mailpit）
+enable_confirmations = true
 # If enabled, users will need to reauthenticate or have logged in recently to change their password.
 secure_password_change = false
 # Controls the minimum amount of time that must pass before sending another signup confirmation or password reset email.
@@ -238,7 +252,19 @@ otp_expiry = 3600
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
-# Uncomment to customize email template
+# ローカル開発用カスタムメールテンプレート。
+# 件名の "【MyAnimeLogs LOCAL】" 接頭辞と本文の "🔧 LOCAL DEVELOPMENT" バナーで
+# 本番/STG のメールと区別できるようにしている。
+# 本番/STG では Supabase ダッシュボードからテンプレを別途設定する想定。
+[auth.email.template.confirmation]
+subject = "【MyAnimeLogs LOCAL】メールアドレスを確認してください"
+content_path = "./supabase/templates/confirmation.html"
+
+[auth.email.template.recovery]
+subject = "【MyAnimeLogs LOCAL】パスワードリセットのご案内"
+content_path = "./supabase/templates/recovery.html"
+
+# Uncomment to customize other email templates (magic_link / invite / email_change / reauthentication)
 # [auth.email.template.invite]
 # subject = "You have been invited"
 # content_path = "./supabase/templates/invite.html"
