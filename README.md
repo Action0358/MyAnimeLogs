@@ -77,6 +77,7 @@ myanimelogs/
 
 - Docker & Docker Compose
 - Git
+- [Supabase CLI](https://supabase.com/docs/guides/local-development/cli/getting-started)（`brew install supabase/tap/supabase` または同梱の `npx supabase`）
 
 ### 1. リポジトリのクローン
 
@@ -87,24 +88,61 @@ cd myanimelogs
 
 ### 2. 環境変数の設定
 
+各サービスの `env/` ディレクトリにテンプレート (`local.example` / `staging.example` / `production.example`) があります。ローカル開発では `local.example` をコピーして使います。
+
 ```bash
-# バックエンド
-cp backend/.env.example backend/.env
-# frontend/.env.example が存在する場合
-cp frontend/.env.example frontend/.env
+cp backend/env/local.example backend/.env.local
+cp frontend/env/local.example frontend/.env.local
 ```
 
-### 3. Docker 環境の起動
+外部 API キー（`ANNICT_API_KEY` 等）は `backend/.env.local` に手動で記入してください。Supabase 関連はローカル CLI のデフォルト値なので変更不要です。
+
+### 3. ローカル Supabase の起動 + anon key 反映
+
+ルート Makefile に一括起動ターゲットを用意しています。
 
 ```bash
+make local-up
+```
+
+これは内部で以下を行います:
+
+1. `supabase start`（初回は Docker イメージの pull で数分かかります）
+2. `supabase status -o env` から `ANON_KEY` を抽出して `frontend/.env.local` の `NEXT_PUBLIC_SUPABASE_ANON_KEY` を自動更新
+3. `docker compose up -d` でアプリを起動
+
+手動で行いたい場合:
+
+```bash
+supabase start                  # 出力された "anon key" を控える
+# frontend/.env.local の NEXT_PUBLIC_SUPABASE_ANON_KEY を書き換え
 docker compose up -d
 ```
 
-### 4. アプリケーションへのアクセス
+### 4. 主要なローカルサービス
 
-- **フロントエンド**: http://localhost:3000
-- **バックエンド API**: http://localhost:8080
-- **Supabase Studio**: http://localhost:54323
+| サービス | URL | 用途 |
+|---|---|---|
+| Frontend | http://localhost:3000 | Next.js dev サーバ |
+| Backend API | http://localhost:8080 | Go / Gin API |
+| Supabase API | http://localhost:54321 | Auth / REST / Storage |
+| Supabase Studio | http://localhost:54323 | DB 管理 GUI |
+| **Inbucket（メールテスト）** | **http://localhost:54324** | サインアップ確認・パスワードリセット等のメール受信 |
+
+### 5. 認証フローのローカル検証
+
+ローカル Supabase は `enable_confirmations = true` のため、本番同様に「サインアップ後はメール確認しないとログイン不可」の挙動になります。実際のメールは送信されず、すべて **Inbucket** で受信できます。
+
+- **サインアップ**: 確認メールが Inbucket に届く → リンクを踏むとログイン可能になる
+- **パスワードリセット**: リセット申請後にメールが届く → リンクから `/auth/update-password` に遷移し新パスワードを設定
+
+### 6. 停止
+
+```bash
+make local-stop          # アプリ + Supabase を全停止
+make local-down          # アプリのみ停止（Supabase は残す）
+make local-supabase-down # Supabase のみ停止
+```
 
 ## API 仕様
 
