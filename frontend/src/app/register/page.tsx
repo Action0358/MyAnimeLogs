@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth, DEFAULT_REGISTER_ERROR } from '@/contexts/AuthContext';
 import { Container } from '@/components/layout';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
@@ -37,7 +37,7 @@ const RegisterPage: React.FC = () => {
     try {
       await register(name, email, password);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '登録に失敗しました');
+      setError(err instanceof Error ? err.message : DEFAULT_REGISTER_ERROR);
     } finally {
       setIsLoading(false);
     }

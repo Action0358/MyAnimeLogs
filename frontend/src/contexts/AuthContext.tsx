@@ -24,23 +24,33 @@ interface User {
   created_at?: string
 }
 
+const RATE_LIMIT_MESSAGE = 'アクセスが集中しています。しばらく時間をおいてから再度お試しください'
+
+export const DEFAULT_LOGIN_ERROR = 'ログイン処理中にエラーが発生しました。しばらく時間をおいて再度お試しください'
+export const DEFAULT_REGISTER_ERROR = '登録処理中にエラーが発生しました。しばらく時間をおいて再度お試しください'
+
 const AUTH_ERROR_MESSAGES: Record<string, string> = {
   invalid_credentials: 'メールアドレスまたはパスワードが正しくありません',
   email_not_confirmed: 'メールアドレスが確認されていません。確認メールのリンクをクリックしてください',
   user_not_found: 'アカウントが見つかりません',
   user_banned: 'このアカウントは利用停止中です',
-  over_request_rate_limit: 'しばらく時間をおいてから再試行してください',
+  over_request_rate_limit: RATE_LIMIT_MESSAGE,
+  over_email_send_rate_limit: RATE_LIMIT_MESSAGE,
+  over_sms_send_rate_limit: RATE_LIMIT_MESSAGE,
   weak_password: 'パスワードが弱すぎます。より強力なパスワードを設定してください',
   email_address_invalid: 'メールアドレスの形式が正しくありません',
   email_exists: 'このメールアドレスは既に登録されています',
 }
 
-const translateAuthError = (
-  error: { code?: string; message: string },
+export const translateAuthError = (
+  error: { code?: string; message: string; status?: number },
   defaultMessage: string
 ): string => {
   if (error.code && AUTH_ERROR_MESSAGES[error.code]) {
     return AUTH_ERROR_MESSAGES[error.code]
+  }
+  if (error.status === 429) {
+    return RATE_LIMIT_MESSAGE
   }
   return defaultMessage
 }
@@ -233,7 +243,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) {
-      throw new ApiClientError(translateAuthError(error, 'ログインに失敗しました'), error.status ?? 401)
+      throw new ApiClientError(translateAuthError(error, DEFAULT_LOGIN_ERROR), error.status ?? 401)
     }
     router.push('/')
   }, [router])
@@ -245,7 +255,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       options: { data: { name } },
     })
     if (error) {
-      throw new ApiClientError(translateAuthError(error, '登録に失敗しました'), error.status ?? 400)
+      throw new ApiClientError(translateAuthError(error, DEFAULT_REGISTER_ERROR), error.status ?? 400)
     }
     if (data.session) {
       // メール確認なし: 即座にログイン状態
