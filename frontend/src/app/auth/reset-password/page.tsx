@@ -3,15 +3,10 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { RATE_LIMIT_MESSAGE } from '@/contexts/AuthContext'
+import { translateAuthError } from '@/contexts/AuthContext'
 import { Container } from '@/components/layout'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
-
-const RESET_PASSWORD_ERROR_MESSAGES: Record<string, string> = {
-  over_email_send_rate_limit: RATE_LIMIT_MESSAGE,
-  over_request_rate_limit: RATE_LIMIT_MESSAGE,
-}
 
 const RESET_PASSWORD_DEFAULT_ERROR =
   'リセットメールの送信に失敗しました。しばらく時間をおいて再度お試しください'
@@ -34,14 +29,7 @@ export default function ResetPasswordPage() {
     setIsLoading(false)
 
     if (error) {
-      const mapped = error.code ? RESET_PASSWORD_ERROR_MESSAGES[error.code] : undefined
-      if (mapped) {
-        setError(mapped)
-      } else if (error.status === 429) {
-        setError(RATE_LIMIT_MESSAGE)
-      } else {
-        setError(RESET_PASSWORD_DEFAULT_ERROR)
-      }
+      setError(translateAuthError(error, RESET_PASSWORD_DEFAULT_ERROR))
     } else {
       setSent(true)
     }

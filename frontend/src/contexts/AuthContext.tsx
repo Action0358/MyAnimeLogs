@@ -24,7 +24,7 @@ interface User {
   created_at?: string
 }
 
-export const RATE_LIMIT_MESSAGE = 'アクセスが集中しています。しばらく時間をおいてから再度お試しください'
+const RATE_LIMIT_MESSAGE = 'アクセスが集中しています。しばらく時間をおいてから再度お試しください'
 
 const AUTH_ERROR_MESSAGES: Record<string, string> = {
   invalid_credentials: 'メールアドレスまたはパスワードが正しくありません',
@@ -39,7 +39,7 @@ const AUTH_ERROR_MESSAGES: Record<string, string> = {
   email_exists: 'このメールアドレスは既に登録されています',
 }
 
-const translateAuthError = (
+export const translateAuthError = (
   error: { code?: string; message: string; status?: number },
   defaultMessage: string
 ): string => {
