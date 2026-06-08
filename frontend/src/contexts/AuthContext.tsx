@@ -26,6 +26,9 @@ interface User {
 
 const RATE_LIMIT_MESSAGE = 'アクセスが集中しています。しばらく時間をおいてから再度お試しください'
 
+export const DEFAULT_LOGIN_ERROR = 'ログイン処理中にエラーが発生しました。しばらく時間をおいて再度お試しください'
+export const DEFAULT_REGISTER_ERROR = '登録処理中にエラーが発生しました。しばらく時間をおいて再度お試しください'
+
 const AUTH_ERROR_MESSAGES: Record<string, string> = {
   invalid_credentials: 'メールアドレスまたはパスワードが正しくありません',
   email_not_confirmed: 'メールアドレスが確認されていません。確認メールのリンクをクリックしてください',
@@ -240,7 +243,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) {
-      throw new ApiClientError(translateAuthError(error, 'ログイン処理中にエラーが発生しました。しばらく時間をおいて再度お試しください'), error.status ?? 401)
+      throw new ApiClientError(translateAuthError(error, DEFAULT_LOGIN_ERROR), error.status ?? 401)
     }
     router.push('/')
   }, [router])
@@ -252,7 +255,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       options: { data: { name } },
     })
     if (error) {
-      throw new ApiClientError(translateAuthError(error, '登録処理中にエラーが発生しました。しばらく時間をおいて再度お試しください'), error.status ?? 400)
+      throw new ApiClientError(translateAuthError(error, DEFAULT_REGISTER_ERROR), error.status ?? 400)
     }
     if (data.session) {
       // メール確認なし: 即座にログイン状態
