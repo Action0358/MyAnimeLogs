@@ -3,9 +3,13 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
+import { translateAuthError } from '@/contexts/AuthContext'
 import { Container } from '@/components/layout'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
+
+const RESET_PASSWORD_DEFAULT_ERROR =
+  'リセットメールの送信に失敗しました。しばらく時間をおいて再度お試しください'
 
 export default function ResetPasswordPage() {
   const [email, setEmail] = useState('')
@@ -25,7 +29,7 @@ export default function ResetPasswordPage() {
     setIsLoading(false)
 
     if (error) {
-      setError(error.message)
+      setError(translateAuthError(error, RESET_PASSWORD_DEFAULT_ERROR))
     } else {
       setSent(true)
     }

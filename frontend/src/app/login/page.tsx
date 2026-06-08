@@ -64,7 +64,7 @@ const LoginFormInner: React.FC = () => {
     try {
       await login(email, password)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'ログインに失敗しました')
+      setError(err instanceof Error ? err.message : 'ログイン処理中にエラーが発生しました。しばらく時間をおいて再度お試しください')
     } finally {
       setIsLoading(false)
     }

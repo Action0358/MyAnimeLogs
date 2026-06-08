@@ -37,7 +37,7 @@ const RegisterPage: React.FC = () => {
     try {
       await register(name, email, password);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '登録に失敗しました');
+      setError(err instanceof Error ? err.message : '登録処理中にエラーが発生しました。しばらく時間をおいて再度お試しください');
     } finally {
       setIsLoading(false);
     }
