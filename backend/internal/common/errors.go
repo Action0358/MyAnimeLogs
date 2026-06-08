@@ -42,7 +42,7 @@ const (
 	ErrMsgNotFound            = "リソースが見つかりません"
 	ErrMsgConflict            = "データの競合が発生しました"
 	ErrMsgUnprocessableEntity = "処理できないデータです"
-	ErrMsgTooManyRequests     = "リクエスト数が上限を超えました"
+	ErrMsgTooManyRequests     = "リクエスト数が上限を超えました。しばらく待ってから再試行してください。"
 	ErrMsgInternalServer      = "サーバー内部エラーが発生しました"
 	ErrMsgServiceUnavailable  = "サービスが一時的に利用できません"
 )
