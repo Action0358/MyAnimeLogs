@@ -115,19 +115,19 @@ func TestAnimeHandler_GetFavorites_Unauthorized(t *testing.T) {
 	assert.Equal(t, "認証が必要です", response["message"])
 }
 
-func TestAnimeHandler_UpdateFavorite_InvalidJSON(t *testing.T) {
+func TestAnimeHandler_UpdateWatchStatus_InvalidJSON(t *testing.T) {
 	handler := setupAnimeHandler()
 
 	// Setup Gin router
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
-	router.PUT("/animes/:anime_id/favorite", func(c *gin.Context) {
+	router.PUT("/users/me/watch-status/:anime_id", func(c *gin.Context) {
 		c.Set("user_id", 123) // Mock authentication
-		handler.UpdateFavorite(c)
+		handler.UpdateWatchStatus(c)
 	})
 
 	// Create request with invalid JSON
-	req, _ := http.NewRequest("PUT", "/animes/1/favorite", bytes.NewBuffer([]byte("invalid json")))
+	req, _ := http.NewRequest("PUT", "/users/me/watch-status/1", bytes.NewBuffer([]byte("invalid json")))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
@@ -226,9 +226,11 @@ func TestAnimeHandler_BasicFunctionality(t *testing.T) {
 	assert.NotNil(t, handler.GetFavorites)
 	assert.NotNil(t, handler.UpdateFavorite)
 	assert.NotNil(t, handler.DeleteFavorite)
+	assert.NotNil(t, handler.GetWatchStatuses)
+	assert.NotNil(t, handler.UpdateWatchStatus)
+	assert.NotNil(t, handler.DeleteWatchStatus)
 	assert.NotNil(t, handler.UpdateRating)
 	assert.NotNil(t, handler.DeleteRating)
-	assert.NotNil(t, handler.GetWatchlist)
 }
 
 // ===== 検索機能のテスト =====

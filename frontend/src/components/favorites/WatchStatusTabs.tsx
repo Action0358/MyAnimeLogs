@@ -2,50 +2,47 @@
 
 import React from 'react'
 import { cn } from '@/lib/utils'
-import { FavoriteStatus } from '@/lib/api/generated/myanimelogs'
+import { WatchStatusStatus } from '@/lib/api/generated/myanimelogs'
 
-export type TabKey = FavoriteStatus | 'all'
+// 視聴ステータスのタブ（視聴中 / 視聴予定 / 完了）。「すべて」「中断」は持たない。
+export type WatchStatusTabKey = WatchStatusStatus
 
 interface TabConfig {
-  key: TabKey
+  key: WatchStatusTabKey
   label: string
-  color?: string
+  color: string
 }
 
-export const TABS: TabConfig[] = [
-  { key: 'all', label: 'すべて' },
+export const WATCH_STATUS_TABS: TabConfig[] = [
+  { key: 'planned', label: '視聴予定', color: 'bg-yellow-500' },
   { key: 'watching', label: '視聴中', color: 'bg-blue-500' },
   { key: 'completed', label: '完了', color: 'bg-green-500' },
-  { key: 'planned', label: '視聴予定', color: 'bg-yellow-500' },
-  { key: 'dropped', label: '中断', color: 'bg-red-500' },
 ]
 
-export const TAB_LABELS: Record<TabKey, string> = {
-  all: 'すべて',
+export const WATCH_STATUS_TAB_LABELS: Record<WatchStatusTabKey, string> = {
   watching: '視聴中',
-  completed: '完了',
   planned: '視聴予定',
-  dropped: '中断',
+  completed: '完了',
 }
 
-interface FavoriteTabsProps {
-  activeTab: TabKey
-  onTabChange: (tab: TabKey) => void
-  counts?: Record<TabKey, number>
+interface WatchStatusTabsProps {
+  activeTab: WatchStatusTabKey
+  onTabChange: (tab: WatchStatusTabKey) => void
+  counts?: Record<WatchStatusTabKey, number>
 }
 
-export const FavoriteTabs: React.FC<FavoriteTabsProps> = ({
+export const WatchStatusTabs: React.FC<WatchStatusTabsProps> = ({
   activeTab,
   onTabChange,
   counts,
 }) => {
   return (
     <div className="border-b border-gray-200">
-      <nav className="-mb-px flex space-x-4 overflow-x-auto" aria-label="お気に入りタブ">
-        {TABS.map((tab) => {
+      <nav className="-mb-px flex space-x-4 overflow-x-auto" aria-label="視聴ステータスタブ">
+        {WATCH_STATUS_TABS.map((tab) => {
           const isActive = activeTab === tab.key
           const count = counts?.[tab.key]
-          
+
           return (
             <button
               key={tab.key}
@@ -59,9 +56,6 @@ export const FavoriteTabs: React.FC<FavoriteTabsProps> = ({
               )}
               aria-current={isActive ? 'page' : undefined}
             >
-              {tab.color && (
-                <span className={cn('w-2 h-2 rounded-full', tab.color)} />
-              )}
               <span>{tab.label}</span>
               {count !== undefined && (
                 <span

@@ -117,20 +117,30 @@ Authorization: Bearer {{supabaseToken}}
 
 ### ===== お気に入り管理API =====
 
-### 19. お気に入り一覧取得（全て）
+### 19. お気に入り（ハート）一覧取得
 GET {{baseUrl}}/api/users/me/favorites
 Authorization: Bearer {{supabaseToken}}
 
-### 20. お気に入り一覧取得（視聴中のみ）
-GET {{baseUrl}}/api/users/me/favorites?status=watching
-Authorization: Bearer {{supabaseToken}}
-
-### 21. お気に入り一覧取得（視聴完了のみ）
-GET {{baseUrl}}/api/users/me/favorites?status=completed
-Authorization: Bearer {{supabaseToken}}
-
-### 22. お気に入り登録（視聴中）
+### 20. お気に入り（ハート）に追加（ボディ不要）
 PUT {{baseUrl}}/api/users/me/favorites/1
+Authorization: Bearer {{supabaseToken}}
+
+### 21. お気に入りから削除
+DELETE {{baseUrl}}/api/users/me/favorites/1
+Authorization: Bearer {{supabaseToken}}
+
+### ===== 視聴ステータスAPI =====
+
+### 22. 視聴ステータス一覧取得（全て）
+GET {{baseUrl}}/api/users/me/watch-status
+Authorization: Bearer {{supabaseToken}}
+
+### 23. 視聴ステータス一覧取得（視聴中のみ）
+GET {{baseUrl}}/api/users/me/watch-status?status=watching
+Authorization: Bearer {{supabaseToken}}
+
+### 24. 視聴ステータス設定（視聴中）
+PUT {{baseUrl}}/api/users/me/watch-status/1
 Content-Type: {{contentType}}
 Authorization: Bearer {{supabaseToken}}
 
@@ -138,8 +148,8 @@ Authorization: Bearer {{supabaseToken}}
   "status": "watching"
 }
 
-### 23. お気に入り更新（視聴完了）
-PUT {{baseUrl}}/api/users/me/favorites/1
+### 25. 視聴ステータス更新（視聴完了）
+PUT {{baseUrl}}/api/users/me/watch-status/1
 Content-Type: {{contentType}}
 Authorization: Bearer {{supabaseToken}}
 
@@ -147,8 +157,8 @@ Authorization: Bearer {{supabaseToken}}
   "status": "completed"
 }
 
-### 24. お気に入り登録（視聴予定）
-PUT {{baseUrl}}/api/users/me/favorites/2
+### 26. 視聴ステータス設定（視聴予定）
+PUT {{baseUrl}}/api/users/me/watch-status/2
 Content-Type: {{contentType}}
 Authorization: Bearer {{supabaseToken}}
 
@@ -156,8 +166,8 @@ Authorization: Bearer {{supabaseToken}}
   "status": "planned"
 }
 
-### 25. お気に入り削除
-DELETE {{baseUrl}}/api/users/me/favorites/1
+### 27. 視聴ステータス削除
+DELETE {{baseUrl}}/api/users/me/watch-status/1
 Authorization: Bearer {{supabaseToken}}
 
 ### ===== 評価システムAPI =====
@@ -184,10 +194,6 @@ Authorization: Bearer {{supabaseToken}}
 
 ### 28. アニメ評価削除
 DELETE {{baseUrl}}/api/animes/1/rating
-Authorization: Bearer {{supabaseToken}}
-
-### 29. 視聴予定リスト
-GET {{baseUrl}}/api/users/me/watchlist
 Authorization: Bearer {{supabaseToken}}
 
 ### ===== お気に入りエラーケーステスト =====

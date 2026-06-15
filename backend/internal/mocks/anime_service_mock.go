@@ -90,8 +90,8 @@ func (m *MockAnimeService) GetAnimeByID(id int, userID *int) (*models.AnimeWithU
 }
 
 // GetUserFavorites mocks the GetUserFavorites method
-func (m *MockAnimeService) GetUserFavorites(userID int, status string) ([]models.AnimeWithUserData, error) {
-	args := m.Called(userID, status)
+func (m *MockAnimeService) GetUserFavorites(userID int) ([]models.AnimeWithUserData, error) {
+	args := m.Called(userID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -103,8 +103,8 @@ func (m *MockAnimeService) GetUserFavorites(userID int, status string) ([]models
 }
 
 // UpdateFavorite mocks the UpdateFavorite method
-func (m *MockAnimeService) UpdateFavorite(userID, animeID int, status string) (*models.UserFavorite, error) {
-	args := m.Called(userID, animeID, status)
+func (m *MockAnimeService) UpdateFavorite(userID, animeID int) (*models.UserFavorite, error) {
+	args := m.Called(userID, animeID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -117,6 +117,38 @@ func (m *MockAnimeService) UpdateFavorite(userID, animeID int, status string) (*
 
 // DeleteFavorite mocks the DeleteFavorite method
 func (m *MockAnimeService) DeleteFavorite(userID, animeID int) error {
+	args := m.Called(userID, animeID)
+	return args.Error(0)
+}
+
+// GetUserWatchStatuses mocks the GetUserWatchStatuses method
+func (m *MockAnimeService) GetUserWatchStatuses(userID int, status string) ([]models.AnimeWithUserData, error) {
+	args := m.Called(userID, status)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	result, ok := args.Get(0).([]models.AnimeWithUserData)
+	if !ok {
+		panic("mock: GetUserWatchStatuses return value is not []models.AnimeWithUserData")
+	}
+	return result, args.Error(1)
+}
+
+// UpdateWatchStatus mocks the UpdateWatchStatus method
+func (m *MockAnimeService) UpdateWatchStatus(userID, animeID int, status string) (*models.UserWatchStatus, error) {
+	args := m.Called(userID, animeID, status)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	result, ok := args.Get(0).(*models.UserWatchStatus)
+	if !ok {
+		panic("mock: UpdateWatchStatus return value is not *models.UserWatchStatus")
+	}
+	return result, args.Error(1)
+}
+
+// DeleteWatchStatus mocks the DeleteWatchStatus method
+func (m *MockAnimeService) DeleteWatchStatus(userID, animeID int) error {
 	args := m.Called(userID, animeID)
 	return args.Error(0)
 }

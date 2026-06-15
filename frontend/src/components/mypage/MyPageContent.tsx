@@ -1,22 +1,33 @@
 'use client'
 
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import { Container } from '@/components/layout'
 import { Button } from '@/components/ui/Button'
-import { getUserWatchStatusConfig } from '@/utils/userWatchStatus'
+import {
+  WatchStatusTabs,
+  WatchStatusCard,
+  WatchStatusTabKey,
+  WATCH_STATUS_TAB_LABELS,
+} from '@/components/favorites'
+import { useWatchStatus, WatchStatusAnime } from '@/hooks/useWatchStatus'
+import { WatchStatusStatus } from '@/lib/api/generated/myanimelogs'
 import { buildIconUrl } from '@/lib/utils'
 import { get, ApiClientError } from '@/lib/api/client'
 
-interface FavoriteAnime {
-  id: number
-  title: string
-  status: string
-  imageUrl?: string
-}
+// マイページに表示する視聴ステータスの最大件数
+const MAX_WATCH_STATUSES = 20
 
-type TabType = 'favorites' | 'history'
+// id が number の作品のみを抽出（WatchStatusCard は id 必須）
+const filterValidItems = (
+  items: WatchStatusAnime[]
+): (WatchStatusAnime & { id: number })[] => {
+  return items.filter(
+    (anime): anime is WatchStatusAnime & { id: number } =>
+      typeof anime.id === 'number'
+  )
+}
 
 export const MyPageContent: React.FC = () => {
   const {
@@ -27,41 +38,34 @@ export const MyPageContent: React.FC = () => {
   } = useAuth()
   const router = useRouter()
   const [user, setUser] = useState(authUser)
-  const [favorites, setFavorites] = useState<FavoriteAnime[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<TabType>('favorites')
+  const [activeTab, setActiveTab] = useState<WatchStatusTabKey>('planned')
   const [favoriteAnime, setFavoriteAnime] = useState('')
   const [snsLink, setSnsLink] = useState('')
   const [imageError, setImageError] = useState(false)
+
+  // 視聴ステータス一覧（お気に入りとは独立）
+  const {
+    watchStatuses,
+    isLoading: watchStatusesLoading,
+    error: watchStatusesError,
+  } = useWatchStatus()
 
   const fetchData = useCallback(async () => {
     setIsLoading(true)
     setError(null)
 
     try {
-      // 並列でデータを取得
-      const [userData, favoritesData] = await Promise.all([
-        get('/api/users/me'),
-        get<FavoriteAnime[]>('/api/users/me/favorites').catch((err) => {
-          // 404エラーの場合のみ空配列を返す
-          if (err instanceof ApiClientError && err.status === 404) {
-            return []
-          }
-          // その他のエラー（401を含む）は再スローして上位で処理
-          throw err
-        }),
-      ])
-
+      const userData = await get('/api/users/me')
       setUser(userData)
-      setFavorites(favoritesData.slice(0, 20))
     } catch (err) {
       // 401エラーの場合はグローバルハンドラーが認証状態をクリアし、
       // ProtectedRouteがリダイレクトを実行するため、エラー表示せずに処理を終了
       if (err instanceof ApiClientError && err.status === 401) {
         return
       }
-      
+
       // その他のエラーはユーザーに通知
       const errorMessage =
         err instanceof Error ? err.message : 'データの取得に失敗しました'
@@ -90,7 +94,35 @@ export const MyPageContent: React.FC = () => {
     }
   }, [user])
 
-  if (isLoading) {
+  // 件数上限を維持したうえで有効な作品を抽出
+  const validItems = useMemo(
+    () => filterValidItems(watchStatuses).slice(0, MAX_WATCH_STATUSES),
+    [watchStatuses]
+  )
+
+  // ステータスタブごとの件数
+  const counts = useMemo(() => {
+    const result: Record<WatchStatusTabKey, number> = {
+      watching: 0,
+      planned: 0,
+      completed: 0,
+    }
+    validItems.forEach((anime) => {
+      const status = anime.user_watch_status?.status
+      if (status && status in result) {
+        result[status as WatchStatusStatus]++
+      }
+    })
+    return result
+  }, [validItems])
+
+  const filteredItems = useMemo(() => {
+    return validItems.filter(
+      (anime) => anime.user_watch_status?.status === activeTab
+    )
+  }, [validItems, activeTab])
+
+  if (isLoading || watchStatusesLoading) {
     return (
       <Container className="py-12">
         <div className="flex items-center justify-center min-h-[400px]">
@@ -103,14 +135,16 @@ export const MyPageContent: React.FC = () => {
     )
   }
 
-  if (error) {
+  if (error || watchStatusesError) {
     return (
       <Container className="py-12">
         <div className="bg-white rounded-lg border border-gray-200 p-12 shadow-sm text-center">
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <span className="text-red-600 text-3xl">⚠️</span>
           </div>
-          <p className="text-red-600 mb-4">{error}</p>
+          <p className="text-red-600 mb-4">
+            {error || watchStatusesError?.message || 'データの取得に失敗しました'}
+          </p>
           <Button variant="primary" size="md" onClick={fetchData}>
             再読み込み
           </Button>
@@ -232,100 +266,42 @@ export const MyPageContent: React.FC = () => {
               </div>
             </div>
 
-            {/* タブナビゲーション */}
-            <div className="border-b border-gray-200 overflow-x-auto">
-              <div className="flex space-x-4 sm:space-x-8 px-4 sm:px-6 min-w-max">
-                <button
-                  onClick={() => setActiveTab('favorites')}
-                  className={`py-3 sm:py-4 px-2 border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap ${
-                    activeTab === 'favorites'
-                      ? 'border-blue-600 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  お気に入り
-                  <span className="ml-1 sm:ml-2 text-xs">{favorites.length}</span>
-                </button>
-                <button
-                  onClick={() => setActiveTab('history')}
-                  className={`py-3 sm:py-4 px-2 border-b-2 font-medium text-xs sm:text-sm transition-colors whitespace-nowrap ${
-                    activeTab === 'history'
-                      ? 'border-blue-600 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  視聴履歴
-                </button>
-              </div>
+            {/* 視聴ステータス別タブナビゲーション */}
+            <div className="px-4 sm:px-6">
+              <WatchStatusTabs
+                activeTab={activeTab}
+                onTabChange={setActiveTab}
+                counts={counts}
+              />
             </div>
 
             {/* タブコンテンツ */}
             <div className="p-4 sm:p-6">
-              {activeTab === 'favorites' && (
-                <div>
-                  {favorites.length > 0 ? (
-                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                      {favorites.map((anime) => {
-                        const statusConfig = getUserWatchStatusConfig(anime.status)
-                        return (
-                          <div
-                            key={anime.id}
-                            className="bg-white rounded-lg border border-gray-200 overflow-hidden hover:shadow-md transition-shadow cursor-pointer"
-                            onClick={() => {
-                              // アニメ詳細ページは準備中
-                              // TODO: router.push(`/anime/${anime.id}`)
-                            }}
-                          >
-                            {anime.imageUrl ? (
-                              <img
-                                src={anime.imageUrl}
-                                alt={anime.title}
-                                className="w-full h-40 object-cover"
-                              />
-                            ) : (
-                              <div className="w-full h-40 bg-gray-200 flex items-center justify-center">
-                                <span className="text-gray-400 text-3xl">
-                                  📺
-                                </span>
-                              </div>
-                            )}
-                            <div className="p-3">
-                              <h3 className="text-sm font-medium text-gray-900 line-clamp-2 mb-2">
-                                {anime.title}
-                              </h3>
-                              <span
-                                className={`inline-block px-2 py-1 text-xs rounded-full ${statusConfig.bgColor} ${statusConfig.textColor}`}
-                              >
-                                {statusConfig.label}
-                              </span>
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  ) : (
-                    <div className="text-center py-12">
-                      <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <span className="text-gray-400 text-3xl">📺</span>
-                      </div>
-                      <p className="text-gray-600 mb-4">
-                        まだお気に入りのアニメがありません
-                      </p>
-                      <Button
-                        variant="primary"
-                        size="md"
-                        onClick={() => router.push('/')}
-                      >
-                        アニメを探す
-                      </Button>
-                    </div>
-                  )}
+              {filteredItems.length > 0 ? (
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                  {filteredItems.map((anime) => (
+                    <WatchStatusCard
+                      key={anime.id}
+                      anime={anime}
+                      status={anime.user_watch_status?.status || 'planned'}
+                    />
+                  ))}
                 </div>
-              )}
-
-              {activeTab === 'history' && (
+              ) : (
                 <div className="text-center py-12">
-                  <p className="text-gray-600">視聴履歴機能は準備中です</p>
+                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <span className="text-gray-400 text-3xl">📺</span>
+                  </div>
+                  <p className="text-gray-600 mb-4">
+                    {`「${WATCH_STATUS_TAB_LABELS[activeTab]}」のアニメがありません`}
+                  </p>
+                  <Button
+                    variant="primary"
+                    size="md"
+                    onClick={() => router.push('/')}
+                  >
+                    アニメを探す
+                  </Button>
                 </div>
               )}
             </div>

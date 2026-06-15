@@ -87,8 +87,7 @@ func (h *AnimeHandler) GetFavorites(c *gin.Context) {
 		return
 	}
 
-	status := c.Query("status")
-	favorites, err := h.animeService.GetUserFavorites(userID, status)
+	favorites, err := h.animeService.GetUserFavorites(userID)
 	if err != nil {
 		h.response.InternalServerError(c, "お気に入り一覧の取得に失敗しました")
 		return
@@ -110,13 +109,7 @@ func (h *AnimeHandler) UpdateFavorite(c *gin.Context) {
 		return
 	}
 
-	var req models.UserFavoriteRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		h.response.ValidationError(c, err.Error())
-		return
-	}
-
-	favorite, err := h.animeService.UpdateFavorite(userID, animeID, req.Status)
+	favorite, err := h.animeService.UpdateFavorite(userID, animeID)
 	if err != nil {
 		if err == services.ErrAnimeNotFound {
 			h.response.UnprocessableEntityError(c, "存在しないアニメです")
@@ -127,7 +120,7 @@ func (h *AnimeHandler) UpdateFavorite(c *gin.Context) {
 	}
 
 	h.response.Success(c, gin.H{
-		"message":  "お気に入りを更新しました",
+		"message":  "お気に入りに追加しました",
 		"favorite": favorite,
 	})
 }
@@ -153,6 +146,82 @@ func (h *AnimeHandler) DeleteFavorite(c *gin.Context) {
 
 	h.response.Success(c, gin.H{
 		"message": "お気に入りから削除しました",
+	})
+}
+
+func (h *AnimeHandler) GetWatchStatuses(c *gin.Context) {
+	userID, err := h.validator.GetUserIDFromContext(c)
+	if err != nil {
+		h.response.UnauthorizedError(c, "認証が必要です")
+		return
+	}
+
+	status := c.Query("status")
+	statuses, err := h.animeService.GetUserWatchStatuses(userID, status)
+	if err != nil {
+		h.response.InternalServerError(c, "視聴ステータス一覧の取得に失敗しました")
+		return
+	}
+
+	h.response.Success(c, statuses)
+}
+
+func (h *AnimeHandler) UpdateWatchStatus(c *gin.Context) {
+	userID, err := h.validator.GetUserIDFromContext(c)
+	if err != nil {
+		h.response.UnauthorizedError(c, "認証が必要です")
+		return
+	}
+
+	animeID, err := h.validator.ParseIDParam(c, "anime_id")
+	if err != nil {
+		h.response.ValidationError(c, "無効なアニメIDです")
+		return
+	}
+
+	var req models.UserWatchStatusRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.response.ValidationError(c, err.Error())
+		return
+	}
+
+	watchStatus, err := h.animeService.UpdateWatchStatus(userID, animeID, req.Status)
+	if err != nil {
+		if err == services.ErrAnimeNotFound {
+			h.response.UnprocessableEntityError(c, "存在しないアニメです")
+			return
+		}
+		h.response.InternalServerError(c, "視聴ステータス更新に失敗しました")
+		return
+	}
+
+	h.response.Success(c, gin.H{
+		"message":      "視聴ステータスを更新しました",
+		"watch_status": watchStatus,
+	})
+}
+
+func (h *AnimeHandler) DeleteWatchStatus(c *gin.Context) {
+	userID, err := h.validator.GetUserIDFromContext(c)
+	if err != nil {
+		h.response.UnauthorizedError(c, "認証が必要です")
+		return
+	}
+
+	animeID, err := h.validator.ParseIDParam(c, "anime_id")
+	if err != nil {
+		h.response.ValidationError(c, "無効なアニメIDです")
+		return
+	}
+
+	err = h.animeService.DeleteWatchStatus(userID, animeID)
+	if err != nil {
+		h.response.InternalServerError(c, "視聴ステータス削除に失敗しました")
+		return
+	}
+
+	h.response.Success(c, gin.H{
+		"message": "視聴ステータスを削除しました",
 	})
 }
 
@@ -213,22 +282,6 @@ func (h *AnimeHandler) DeleteRating(c *gin.Context) {
 	h.response.Success(c, gin.H{
 		"message": "評価を削除しました",
 	})
-}
-
-func (h *AnimeHandler) GetWatchlist(c *gin.Context) {
-	userID, err := h.validator.GetUserIDFromContext(c)
-	if err != nil {
-		h.response.UnauthorizedError(c, "認証が必要です")
-		return
-	}
-
-	watchlist, err := h.animeService.GetUserFavorites(userID, "planned")
-	if err != nil {
-		h.response.InternalServerError(c, "視聴予定リストの取得に失敗しました")
-		return
-	}
-
-	h.response.Success(c, watchlist)
 }
 
 // AdvancedSearchAnimes 高度検索API
