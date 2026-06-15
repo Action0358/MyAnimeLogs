@@ -31,9 +31,12 @@ type AnimeServiceInterface interface {
 	SearchAnimes(params models.AnimeSearchParams, userID *int) (*models.PaginatedResponse, error)
 	AdvancedSearchAnimes(params models.AdvancedSearchParams, userID *int) (*models.PaginatedResponse, error)
 	GetAnimeByID(id int, userID *int) (*models.AnimeWithUserData, error)
-	GetUserFavorites(userID int, status string) ([]models.AnimeWithUserData, error)
-	UpdateFavorite(userID, animeID int, status string) (*models.UserFavorite, error)
+	GetUserFavorites(userID int) ([]models.AnimeWithUserData, error)
+	UpdateFavorite(userID, animeID int) (*models.UserFavorite, error)
 	DeleteFavorite(userID, animeID int) error
+	GetUserWatchStatuses(userID int, status string) ([]models.AnimeWithUserData, error)
+	UpdateWatchStatus(userID, animeID int, status string) (*models.UserWatchStatus, error)
+	DeleteWatchStatus(userID, animeID int) error
 	UpdateRating(userID, animeID int, rating float64, comment *string) (*models.UserRating, error)
 	DeleteRating(userID, animeID int) error
 	GetFilterOptions() (*models.FilterOptions, error)

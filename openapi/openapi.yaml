@@ -194,6 +194,10 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/Favorite"
+                  watch_statuses:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/WatchStatus"
                   ratings:
                     type: array
                     items:
@@ -282,15 +286,9 @@ paths:
                 $ref: "#/components/schemas/Error"
   /users/me/favorites:
     get:
-      summary: 自分のお気に入りアニメ一覧取得
+      summary: 自分のお気に入り（ハート）アニメ一覧取得
       security:
         - bearerAuth: []
-      parameters:
-        - name: status
-          in: query
-          schema:
-            type: string
-            enum: ["watching", "completed", "planned", "dropped"]
       responses:
         "200":
           description: OK
@@ -302,7 +300,58 @@ paths:
                   $ref: "#/components/schemas/Anime"
   /users/me/favorites/{anime_id}:
     put:
-      summary: お気に入りにアニメを追加・更新
+      summary: お気に入り（ハート）にアニメを追加
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: anime_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Favorite"
+    delete:
+      summary: お気に入りからアニメを削除
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: anime_id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: No Content
+  /users/me/watch-status:
+    get:
+      summary: 自分の視聴ステータス一覧取得
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: ["watching", "completed", "planned"]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Anime"
+  /users/me/watch-status/{anime_id}:
+    put:
+      summary: 視聴ステータスを設定・更新
       security:
         - bearerAuth: []
       parameters:
@@ -320,7 +369,7 @@ paths:
               properties:
                 status:
                   type: string
-                  enum: ["watching", "completed", "planned", "dropped"]
+                  enum: ["watching", "completed", "planned"]
               required:
                 - status
       responses:
@@ -329,9 +378,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Favorite"
+                $ref: "#/components/schemas/WatchStatus"
     delete:
-      summary: お気に入りからアニメを削除
+      summary: 視聴ステータスを削除
       security:
         - bearerAuth: []
       parameters:
@@ -403,20 +452,6 @@ paths:
                 properties:
                   message:
                     type: string
-  /users/me/watchlist:
-    get:
-      summary: 視聴予定リスト取得
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: 視聴予定のアニメ一覧
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/WatchlistItem"
   /search/animes:
     get:
       summary: 基本的なアニメ検索
@@ -528,7 +563,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: ["watching", "completed", "planned", "dropped"]
+            enum: ["watching", "completed", "planned"]
           description: ユーザーの視聴ステータス（認証時のみ）
         - name: sort
           in: query
@@ -1436,7 +1471,11 @@ components:
         user_favorite:
           $ref: "#/components/schemas/Favorite"
           nullable: true
-          description: ユーザーのお気に入り情報（認証時のみ）
+          description: ユーザーのお気に入り（ハート）情報（認証時のみ）
+        user_watch_status:
+          $ref: "#/components/schemas/WatchStatus"
+          nullable: true
+          description: ユーザーの視聴ステータス情報（認証時のみ）
         user_rating:
           $ref: "#/components/schemas/Rating"
           nullable: true
@@ -1485,12 +1524,34 @@ components:
     Favorite:
       type: object
       properties:
+        id:
+          type: integer
+        user_id:
+          type: integer
+        anime_id:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    WatchStatus:
+      type: object
+      properties:
+        id:
+          type: integer
+        user_id:
+          type: integer
         anime_id:
           type: integer
         status:
           type: string
-          enum: ["watching", "completed", "planned", "dropped"]
-        added_at:
+          enum: ["watching", "completed", "planned"]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
           type: string
           format: date-time
     Rating:
@@ -1506,18 +1567,6 @@ components:
         comment:
           type: string
         created_at:
-          type: string
-          format: date-time
-    WatchlistItem:
-      type: object
-      properties:
-        id:
-          type: integer
-        title:
-          type: string
-        season:
-          type: string
-        added_at:
           type: string
           format: date-time
     SearchResultAnime:
