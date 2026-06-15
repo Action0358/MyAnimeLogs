@@ -1030,13 +1030,11 @@ func (s *AnimeService) SyncAllAnimeStatuses(ctx context.Context) (int, int, erro
 
 // GetUserFavorites はお気に入り（ハート）一覧を返す。視聴ステータスは持たない。
 func (s *AnimeService) GetUserFavorites(userID int) ([]models.AnimeWithUserData, error) {
+	// VIEWを使用してステータスを動的に計算（GetAnimeByID / SearchAnimes と一貫性を保つ）
 	query := `
-		SELECT a.id, a.title, a.image_url, a.season, a.status, a.mal_anime_id, a.created_at, a.updated_at, a.watchers_count,
-		       COALESCE(a.cover_image_extra_large, '') as cover_image_extra_large,
-		       COALESCE(a.cover_image_large, '') as cover_image_large,
-		       COALESCE(a.cover_image_medium, '') as cover_image_medium,
+		SELECT ` + aliasedAnimeSelectColumns + `,
 		       uf.id, uf.user_id, uf.anime_id, uf.created_at, uf.updated_at
-		FROM animes a
+		FROM animes_with_computed_status a
 		JOIN user_favorites uf ON a.id = uf.anime_id
 		WHERE uf.user_id = $1
 		ORDER BY uf.updated_at DESC
@@ -1053,11 +1051,14 @@ func (s *AnimeService) GetUserFavorites(userID int) ([]models.AnimeWithUserData,
 		var anime models.Anime
 		var favorite models.UserFavorite
 		err := rows.Scan(
-			&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount,
+			&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status,
+			&anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount,
 			&anime.CoverImageExtraLarge, &anime.CoverImageLarge, &anime.CoverImageMedium,
+			&anime.ReleasedOn, &anime.Media,
 			&favorite.ID, &favorite.UserID, &favorite.AnimeID, &favorite.CreatedAt, &favorite.UpdatedAt,
 		)
 		if err != nil {
+			s.logger.Warn("Failed to scan favorite anime row", "error", err)
 			continue
 		}
 
@@ -1127,13 +1128,11 @@ func (s *AnimeService) GetUserWatchStatuses(userID int, status string) ([]models
 		args = append(args, status)
 	}
 
+	// VIEWを使用してステータスを動的に計算（GetAnimeByID / SearchAnimes と一貫性を保つ）
 	query := fmt.Sprintf(`
-		SELECT a.id, a.title, a.image_url, a.season, a.status, a.mal_anime_id, a.created_at, a.updated_at, a.watchers_count,
-		       COALESCE(a.cover_image_extra_large, '') as cover_image_extra_large,
-		       COALESCE(a.cover_image_large, '') as cover_image_large,
-		       COALESCE(a.cover_image_medium, '') as cover_image_medium,
+		SELECT `+aliasedAnimeSelectColumns+`,
 		       ws.id, ws.user_id, ws.anime_id, ws.status, ws.created_at, ws.updated_at
-		FROM animes a
+		FROM animes_with_computed_status a
 		JOIN user_watch_status ws ON a.id = ws.anime_id
 		%s
 		ORDER BY ws.updated_at DESC
@@ -1150,11 +1149,14 @@ func (s *AnimeService) GetUserWatchStatuses(userID int, status string) ([]models
 		var anime models.Anime
 		var watchStatus models.UserWatchStatus
 		err := rows.Scan(
-			&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount,
+			&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status,
+			&anime.MalAnimeID, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount,
 			&anime.CoverImageExtraLarge, &anime.CoverImageLarge, &anime.CoverImageMedium,
+			&anime.ReleasedOn, &anime.Media,
 			&watchStatus.ID, &watchStatus.UserID, &watchStatus.AnimeID, &watchStatus.Status, &watchStatus.CreatedAt, &watchStatus.UpdatedAt,
 		)
 		if err != nil {
+			s.logger.Warn("Failed to scan watch status anime row", "error", err)
 			continue
 		}
 
