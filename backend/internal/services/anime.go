@@ -854,20 +854,35 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 
 	// Add user data if authenticated
 	if userID != nil {
-		// Get user favorite status
+		// Get user favorite (heart)
 		var favorite models.UserFavorite
 		err := s.db.QueryRow(`
-			SELECT id, user_id, anime_id, status, created_at, updated_at
+			SELECT id, user_id, anime_id, created_at, updated_at
 			FROM user_favorites WHERE user_id = $1 AND anime_id = $2
-		`, *userID, animeID).Scan(&favorite.ID, &favorite.UserID, &favorite.AnimeID, &favorite.Status, &favorite.CreatedAt, &favorite.UpdatedAt)
+		`, *userID, animeID).Scan(&favorite.ID, &favorite.UserID, &favorite.AnimeID, &favorite.CreatedAt, &favorite.UpdatedAt)
 		if err != nil && err != sql.ErrNoRows {
 			// Log error but don't fail the entire request
-			s.logger.Warn("Failed to get user favorite status",
+			s.logger.Warn("Failed to get user favorite",
 				"user_id", *userID,
 				"anime_id", animeID,
 				"error", err)
 		} else if err == nil {
 			animeWithData.UserFavorite = &favorite
+		}
+
+		// Get user watch status
+		var watchStatus models.UserWatchStatus
+		err = s.db.QueryRow(`
+			SELECT id, user_id, anime_id, status, created_at, updated_at
+			FROM user_watch_status WHERE user_id = $1 AND anime_id = $2
+		`, *userID, animeID).Scan(&watchStatus.ID, &watchStatus.UserID, &watchStatus.AnimeID, &watchStatus.Status, &watchStatus.CreatedAt, &watchStatus.UpdatedAt)
+		if err != nil && err != sql.ErrNoRows {
+			s.logger.Warn("Failed to get user watch status",
+				"user_id", *userID,
+				"anime_id", animeID,
+				"error", err)
+		} else if err == nil {
+			animeWithData.UserWatchStatus = &watchStatus
 		}
 
 		// Get user rating
@@ -1013,29 +1028,21 @@ func (s *AnimeService) SyncAllAnimeStatuses(ctx context.Context) (int, int, erro
 	return successCount, failureCount, nil
 }
 
-func (s *AnimeService) GetUserFavorites(userID int, status string) ([]models.AnimeWithUserData, error) {
-	whereClause := "WHERE uf.user_id = $1"
-	args := []interface{}{userID}
-	argIndex := 2
-
-	if status != "" {
-		whereClause += fmt.Sprintf(" AND uf.status = $%d", argIndex)
-		args = append(args, status)
-	}
-
-	query := fmt.Sprintf(`
+// GetUserFavorites はお気に入り（ハート）一覧を返す。視聴ステータスは持たない。
+func (s *AnimeService) GetUserFavorites(userID int) ([]models.AnimeWithUserData, error) {
+	query := `
 		SELECT a.id, a.title, a.image_url, a.season, a.status, a.mal_anime_id, a.created_at, a.updated_at, a.watchers_count,
 		       COALESCE(a.cover_image_extra_large, '') as cover_image_extra_large,
 		       COALESCE(a.cover_image_large, '') as cover_image_large,
 		       COALESCE(a.cover_image_medium, '') as cover_image_medium,
-		       uf.id, uf.user_id, uf.anime_id, uf.status, uf.created_at, uf.updated_at
+		       uf.id, uf.user_id, uf.anime_id, uf.created_at, uf.updated_at
 		FROM animes a
 		JOIN user_favorites uf ON a.id = uf.anime_id
-		%s
+		WHERE uf.user_id = $1
 		ORDER BY uf.updated_at DESC
-	`, whereClause)
+	`
 
-	rows, err := s.db.Query(query, args...)
+	rows, err := s.db.Query(query, userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user favorites: %w", err)
 	}
@@ -1048,7 +1055,7 @@ func (s *AnimeService) GetUserFavorites(userID int, status string) ([]models.Ani
 		err := rows.Scan(
 			&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount,
 			&anime.CoverImageExtraLarge, &anime.CoverImageLarge, &anime.CoverImageMedium,
-			&favorite.ID, &favorite.UserID, &favorite.AnimeID, &favorite.Status, &favorite.CreatedAt, &favorite.UpdatedAt,
+			&favorite.ID, &favorite.UserID, &favorite.AnimeID, &favorite.CreatedAt, &favorite.UpdatedAt,
 		)
 		if err != nil {
 			continue
@@ -1068,7 +1075,8 @@ func (s *AnimeService) GetUserFavorites(userID int, status string) ([]models.Ani
 	return favorites, nil
 }
 
-func (s *AnimeService) UpdateFavorite(userID, animeID int, status string) (*models.UserFavorite, error) {
+// UpdateFavorite はアニメをお気に入り（ハート）に追加する。既に存在する場合はそのまま返す。
+func (s *AnimeService) UpdateFavorite(userID, animeID int) (*models.UserFavorite, error) {
 	// Check if anime exists
 	var exists bool
 	err := s.db.QueryRow("SELECT EXISTS(SELECT 1 FROM animes WHERE id = $1)", animeID).Scan(&exists)
@@ -1079,15 +1087,15 @@ func (s *AnimeService) UpdateFavorite(userID, animeID int, status string) (*mode
 		return nil, ErrAnimeNotFound
 	}
 
-	// Upsert favorite
+	// Upsert favorite（ステータスを持たないため、既存行は updated_at のみ更新）
 	var favorite models.UserFavorite
 	err = s.db.QueryRow(`
-		INSERT INTO user_favorites (user_id, anime_id, status, created_at, updated_at)
-		VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+		INSERT INTO user_favorites (user_id, anime_id, created_at, updated_at)
+		VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 		ON CONFLICT (user_id, anime_id)
-		DO UPDATE SET status = $3, updated_at = CURRENT_TIMESTAMP
-		RETURNING id, user_id, anime_id, status, created_at, updated_at
-	`, userID, animeID, status).Scan(&favorite.ID, &favorite.UserID, &favorite.AnimeID, &favorite.Status, &favorite.CreatedAt, &favorite.UpdatedAt)
+		DO UPDATE SET updated_at = CURRENT_TIMESTAMP
+		RETURNING id, user_id, anime_id, created_at, updated_at
+	`, userID, animeID).Scan(&favorite.ID, &favorite.UserID, &favorite.AnimeID, &favorite.CreatedAt, &favorite.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update favorite: %w", err)
 	}
@@ -1101,6 +1109,98 @@ func (s *AnimeService) DeleteFavorite(userID, animeID int) error {
 	`, userID, animeID)
 	if err != nil {
 		return fmt.Errorf("failed to delete favorite: %w", err)
+	}
+
+	return nil
+}
+
+// GetUserWatchStatuses は視聴ステータス一覧を返す。status を指定するとそのステータスで絞り込む。
+func (s *AnimeService) GetUserWatchStatuses(userID int, status string) ([]models.AnimeWithUserData, error) {
+	whereClause := "WHERE ws.user_id = $1"
+	args := []interface{}{userID}
+
+	if status != "" {
+		whereClause += " AND ws.status = $2"
+		args = append(args, status)
+	}
+
+	query := fmt.Sprintf(`
+		SELECT a.id, a.title, a.image_url, a.season, a.status, a.mal_anime_id, a.created_at, a.updated_at, a.watchers_count,
+		       COALESCE(a.cover_image_extra_large, '') as cover_image_extra_large,
+		       COALESCE(a.cover_image_large, '') as cover_image_large,
+		       COALESCE(a.cover_image_medium, '') as cover_image_medium,
+		       ws.id, ws.user_id, ws.anime_id, ws.status, ws.created_at, ws.updated_at
+		FROM animes a
+		JOIN user_watch_status ws ON a.id = ws.anime_id
+		%s
+		ORDER BY ws.updated_at DESC
+	`, whereClause)
+
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get user watch statuses: %w", err)
+	}
+	defer rows.Close()
+
+	statuses := []models.AnimeWithUserData{}
+	for rows.Next() {
+		var anime models.Anime
+		var watchStatus models.UserWatchStatus
+		err := rows.Scan(
+			&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.MalAnimeID, &anime.CreatedAt, &anime.UpdatedAt, &anime.WatchersCount,
+			&anime.CoverImageExtraLarge, &anime.CoverImageLarge, &anime.CoverImageMedium,
+			&watchStatus.ID, &watchStatus.UserID, &watchStatus.AnimeID, &watchStatus.Status, &watchStatus.CreatedAt, &watchStatus.UpdatedAt,
+		)
+		if err != nil {
+			continue
+		}
+
+		statuses = append(statuses, models.AnimeWithUserData{
+			Anime:           anime,
+			UserWatchStatus: &watchStatus,
+		})
+	}
+
+	// DBキャッシュがないアニメのみ外部APIから画像を取得
+	s.enrichAnimesWithUserDataCoverImagesIfNeeded(statuses)
+
+	return statuses, nil
+}
+
+// UpdateWatchStatus は視聴ステータスを設定・更新する。
+func (s *AnimeService) UpdateWatchStatus(userID, animeID int, status string) (*models.UserWatchStatus, error) {
+	// Check if anime exists
+	var exists bool
+	err := s.db.QueryRow("SELECT EXISTS(SELECT 1 FROM animes WHERE id = $1)", animeID).Scan(&exists)
+	if err != nil {
+		return nil, fmt.Errorf("failed to check anime existence: %w", err)
+	}
+	if !exists {
+		return nil, ErrAnimeNotFound
+	}
+
+	// Upsert watch status
+	var watchStatus models.UserWatchStatus
+	err = s.db.QueryRow(`
+		INSERT INTO user_watch_status (user_id, anime_id, status, created_at, updated_at)
+		VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+		ON CONFLICT (user_id, anime_id)
+		DO UPDATE SET status = $3, updated_at = CURRENT_TIMESTAMP
+		RETURNING id, user_id, anime_id, status, created_at, updated_at
+	`, userID, animeID, status).Scan(&watchStatus.ID, &watchStatus.UserID, &watchStatus.AnimeID, &watchStatus.Status, &watchStatus.CreatedAt, &watchStatus.UpdatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update watch status: %w", err)
+	}
+
+	return &watchStatus, nil
+}
+
+func (s *AnimeService) DeleteWatchStatus(userID, animeID int) error {
+	_, err := s.db.Exec(`
+		DELETE FROM user_watch_status WHERE user_id = $1 AND anime_id = $2
+	`, userID, animeID)
+	if err != nil {
+		return fmt.Errorf("failed to delete watch status: %w", err)
 	}
 
 	return nil
@@ -1160,7 +1260,7 @@ func (s *AnimeService) batchGetUserFavorites(userID int, animeIDs []int) (map[in
 	}
 
 	query := fmt.Sprintf(`
-		SELECT id, user_id, anime_id, status, created_at, updated_at
+		SELECT id, user_id, anime_id, created_at, updated_at
 		FROM user_favorites
 		WHERE user_id = $1 AND anime_id IN (%s)
 	`, strings.Join(placeholders, ","))
@@ -1174,7 +1274,7 @@ func (s *AnimeService) batchGetUserFavorites(userID int, animeIDs []int) (map[in
 	favorites := make(map[int]*models.UserFavorite)
 	for rows.Next() {
 		var fav models.UserFavorite
-		if err := rows.Scan(&fav.ID, &fav.UserID, &fav.AnimeID, &fav.Status, &fav.CreatedAt, &fav.UpdatedAt); err != nil {
+		if err := rows.Scan(&fav.ID, &fav.UserID, &fav.AnimeID, &fav.CreatedAt, &fav.UpdatedAt); err != nil {
 			s.logger.Warn("Failed to scan user favorite", "error", err)
 			continue
 		}
@@ -2183,7 +2283,7 @@ func (s *AnimeService) buildBaseQuery(params models.AdvancedSearchParams, userID
 	// Track which JOINs are needed
 	needGenreJoin := len(params.Genres) > 0
 	needRatingJoin := params.MinRating > 0 || params.MaxRating > 0 || params.Sort == SortByRating
-	needUserFavoriteJoin := userID != nil && params.UserStatus != ""
+	needWatchStatusJoin := userID != nil && params.UserStatus != ""
 
 	// Add JOINs only when needed
 	if needGenreJoin {
@@ -2197,9 +2297,9 @@ func (s *AnimeService) buildBaseQuery(params models.AdvancedSearchParams, userID
 			GROUP BY anime_id
 		) AS avg_ratings ON a.id = avg_ratings.anime_id`
 	}
-	if needUserFavoriteJoin {
+	if needWatchStatusJoin {
 		baseQuery += `
-		INNER JOIN user_favorites uf ON a.id = uf.anime_id`
+		INNER JOIN user_watch_status ws ON a.id = ws.anime_id`
 	}
 
 	return baseQuery
@@ -2274,10 +2374,10 @@ func (s *AnimeService) buildWhereClause(params models.AdvancedSearchParams, user
 	// ユーザーステータス検索（認証時のみ）
 	// JOINを使用するため、WHERE句で条件を追加
 	if userID != nil && params.UserStatus != "" {
-		whereClauses = append(whereClauses, fmt.Sprintf("uf.user_id = $%d", argIndex))
+		whereClauses = append(whereClauses, fmt.Sprintf("ws.user_id = $%d", argIndex))
 		args = append(args, *userID)
 		argIndex++
-		whereClauses = append(whereClauses, fmt.Sprintf("uf.status = $%d", argIndex))
+		whereClauses = append(whereClauses, fmt.Sprintf("ws.status = $%d", argIndex))
 		args = append(args, params.UserStatus)
 		argIndex++
 	}

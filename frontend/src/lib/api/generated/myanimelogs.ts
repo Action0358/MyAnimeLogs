@@ -167,10 +167,15 @@ export interface Anime {
    */
   duration_minutes?: number | null;
   /**
-   * ユーザーのお気に入り情報（認証時のみ）
+   * ユーザーのお気に入り（ハート）情報（認証時のみ）
    * @nullable
    */
   user_favorite?: Favorite;
+  /**
+   * ユーザーの視聴ステータス情報（認証時のみ）
+   * @nullable
+   */
+  user_watch_status?: WatchStatus;
   /**
    * ユーザーの評価情報（認証時のみ）
    * @nullable
@@ -200,21 +205,31 @@ export interface WatchProvider {
   logo_url: string;
 }
 
-export type FavoriteStatus = typeof FavoriteStatus[keyof typeof FavoriteStatus];
+export interface Favorite {
+  id?: number;
+  user_id?: number;
+  anime_id?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export type WatchStatusStatus = typeof WatchStatusStatus[keyof typeof WatchStatusStatus];
 
 
 // eslint-disable-next-line @typescript-eslint/no-redeclare
-export const FavoriteStatus = {
+export const WatchStatusStatus = {
   watching: 'watching',
   completed: 'completed',
   planned: 'planned',
-  dropped: 'dropped',
 } as const;
 
-export interface Favorite {
+export interface WatchStatus {
+  id?: number;
+  user_id?: number;
   anime_id?: number;
-  status?: FavoriteStatus;
-  added_at?: string;
+  status?: WatchStatusStatus;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface Rating {
@@ -226,13 +241,6 @@ export interface Rating {
   rating?: number;
   comment?: string;
   created_at?: string;
-}
-
-export interface WatchlistItem {
-  id?: number;
-  title?: string;
-  season?: string;
-  added_at?: string;
 }
 
 export interface SearchResultAnime {
@@ -396,6 +404,7 @@ export const GetUsersMeExportFormat = {
 export type GetUsersMeExport200One = {
   user_info?: User;
   favorites?: Favorite[];
+  watch_statuses?: WatchStatus[];
   ratings?: Rating[];
 };
 
@@ -436,34 +445,32 @@ export type GetAnimes200 = {
   meta?: GetAnimes200Meta;
 };
 
-export type GetUsersMeFavoritesParams = {
-status?: GetUsersMeFavoritesStatus;
+export type GetUsersMeWatchStatusParams = {
+status?: GetUsersMeWatchStatusStatus;
 };
 
-export type GetUsersMeFavoritesStatus = typeof GetUsersMeFavoritesStatus[keyof typeof GetUsersMeFavoritesStatus];
+export type GetUsersMeWatchStatusStatus = typeof GetUsersMeWatchStatusStatus[keyof typeof GetUsersMeWatchStatusStatus];
 
 
 // eslint-disable-next-line @typescript-eslint/no-redeclare
-export const GetUsersMeFavoritesStatus = {
+export const GetUsersMeWatchStatusStatus = {
   watching: 'watching',
   completed: 'completed',
   planned: 'planned',
-  dropped: 'dropped',
 } as const;
 
-export type PutUsersMeFavoritesAnimeIdBodyStatus = typeof PutUsersMeFavoritesAnimeIdBodyStatus[keyof typeof PutUsersMeFavoritesAnimeIdBodyStatus];
+export type PutUsersMeWatchStatusAnimeIdBodyStatus = typeof PutUsersMeWatchStatusAnimeIdBodyStatus[keyof typeof PutUsersMeWatchStatusAnimeIdBodyStatus];
 
 
 // eslint-disable-next-line @typescript-eslint/no-redeclare
-export const PutUsersMeFavoritesAnimeIdBodyStatus = {
+export const PutUsersMeWatchStatusAnimeIdBodyStatus = {
   watching: 'watching',
   completed: 'completed',
   planned: 'planned',
-  dropped: 'dropped',
 } as const;
 
-export type PutUsersMeFavoritesAnimeIdBody = {
-  status: PutUsersMeFavoritesAnimeIdBodyStatus;
+export type PutUsersMeWatchStatusAnimeIdBody = {
+  status: PutUsersMeWatchStatusAnimeIdBodyStatus;
 };
 
 export type PutAnimesIdRatingBody = {
@@ -595,7 +602,6 @@ export const GetSearchAdvancedUserStatus = {
   watching: 'watching',
   completed: 'completed',
   planned: 'planned',
-  dropped: 'dropped',
 } as const;
 
 export type GetSearchAdvancedSort = typeof GetSearchAdvancedSort[keyof typeof GetSearchAdvancedSort];
@@ -1432,36 +1438,34 @@ export function useGetAnimesId<TData = Awaited<ReturnType<typeof getAnimesId>>, 
 
 
 /**
- * @summary 自分のお気に入りアニメ一覧取得
+ * @summary 自分のお気に入り（ハート）アニメ一覧取得
  */
 export const getUsersMeFavorites = (
-    params?: GetUsersMeFavoritesParams, options?: AxiosRequestConfig
+     options?: AxiosRequestConfig
  ): Promise<AxiosResponse<Anime[]>> => {
     
     
     return axios.get(
-      `/users/me/favorites`,{
-    ...options,
-        params: {...params, ...options?.params},}
+      `/users/me/favorites`,options
     );
   }
 
 
-export const getGetUsersMeFavoritesQueryKey = (params?: GetUsersMeFavoritesParams,) => {
-    return [`/users/me/favorites`, ...(params ? [params]: [])] as const;
+export const getGetUsersMeFavoritesQueryKey = () => {
+    return [`/users/me/favorites`] as const;
     }
 
     
-export const getGetUsersMeFavoritesQueryOptions = <TData = Awaited<ReturnType<typeof getUsersMeFavorites>>, TError = AxiosError<unknown>>(params?: GetUsersMeFavoritesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeFavorites>>, TError, TData>>, axios?: AxiosRequestConfig}
+export const getGetUsersMeFavoritesQueryOptions = <TData = Awaited<ReturnType<typeof getUsersMeFavorites>>, TError = AxiosError<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeFavorites>>, TError, TData>>, axios?: AxiosRequestConfig}
 ) => {
 
 const {query: queryOptions, axios: axiosOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetUsersMeFavoritesQueryKey(params);
+  const queryKey =  queryOptions?.queryKey ?? getGetUsersMeFavoritesQueryKey();
 
   
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getUsersMeFavorites>>> = ({ signal }) => getUsersMeFavorites(params, { signal, ...axiosOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getUsersMeFavorites>>> = ({ signal }) => getUsersMeFavorites({ signal, ...axiosOptions });
 
       
 
@@ -1475,7 +1479,7 @@ export type GetUsersMeFavoritesQueryError = AxiosError<unknown>
 
 
 export function useGetUsersMeFavorites<TData = Awaited<ReturnType<typeof getUsersMeFavorites>>, TError = AxiosError<unknown>>(
- params: undefined |  GetUsersMeFavoritesParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeFavorites>>, TError, TData>> & Pick<
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeFavorites>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof getUsersMeFavorites>>,
           TError,
@@ -1485,7 +1489,7 @@ export function useGetUsersMeFavorites<TData = Awaited<ReturnType<typeof getUser
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 export function useGetUsersMeFavorites<TData = Awaited<ReturnType<typeof getUsersMeFavorites>>, TError = AxiosError<unknown>>(
- params?: GetUsersMeFavoritesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeFavorites>>, TError, TData>> & Pick<
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeFavorites>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof getUsersMeFavorites>>,
           TError,
@@ -1495,19 +1499,19 @@ export function useGetUsersMeFavorites<TData = Awaited<ReturnType<typeof getUser
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 export function useGetUsersMeFavorites<TData = Awaited<ReturnType<typeof getUsersMeFavorites>>, TError = AxiosError<unknown>>(
- params?: GetUsersMeFavoritesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeFavorites>>, TError, TData>>, axios?: AxiosRequestConfig}
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeFavorites>>, TError, TData>>, axios?: AxiosRequestConfig}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 /**
- * @summary 自分のお気に入りアニメ一覧取得
+ * @summary 自分のお気に入り（ハート）アニメ一覧取得
  */
 
 export function useGetUsersMeFavorites<TData = Awaited<ReturnType<typeof getUsersMeFavorites>>, TError = AxiosError<unknown>>(
- params?: GetUsersMeFavoritesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeFavorites>>, TError, TData>>, axios?: AxiosRequestConfig}
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeFavorites>>, TError, TData>>, axios?: AxiosRequestConfig}
  , queryClient?: QueryClient 
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
 
-  const queryOptions = getGetUsersMeFavoritesQueryOptions(params,options)
+  const queryOptions = getGetUsersMeFavoritesQueryOptions(options)
 
   const query = useQuery(queryOptions , queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
 
@@ -1520,25 +1524,23 @@ export function useGetUsersMeFavorites<TData = Awaited<ReturnType<typeof getUser
 
 
 /**
- * @summary お気に入りにアニメを追加・更新
+ * @summary お気に入り（ハート）にアニメを追加
  */
 export const putUsersMeFavoritesAnimeId = (
-    animeId: number,
-    putUsersMeFavoritesAnimeIdBody: PutUsersMeFavoritesAnimeIdBody, options?: AxiosRequestConfig
+    animeId: number, options?: AxiosRequestConfig
  ): Promise<AxiosResponse<Favorite>> => {
     
     
     return axios.put(
-      `/users/me/favorites/${animeId}`,
-      putUsersMeFavoritesAnimeIdBody,options
+      `/users/me/favorites/${animeId}`,undefined,options
     );
   }
 
 
 
 export const getPutUsersMeFavoritesAnimeIdMutationOptions = <TError = AxiosError<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putUsersMeFavoritesAnimeId>>, TError,{animeId: number;data: PutUsersMeFavoritesAnimeIdBody}, TContext>, axios?: AxiosRequestConfig}
-): UseMutationOptions<Awaited<ReturnType<typeof putUsersMeFavoritesAnimeId>>, TError,{animeId: number;data: PutUsersMeFavoritesAnimeIdBody}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putUsersMeFavoritesAnimeId>>, TError,{animeId: number}, TContext>, axios?: AxiosRequestConfig}
+): UseMutationOptions<Awaited<ReturnType<typeof putUsersMeFavoritesAnimeId>>, TError,{animeId: number}, TContext> => {
 
 const mutationKey = ['putUsersMeFavoritesAnimeId'];
 const {mutation: mutationOptions, axios: axiosOptions} = options ?
@@ -1550,10 +1552,10 @@ const {mutation: mutationOptions, axios: axiosOptions} = options ?
       
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof putUsersMeFavoritesAnimeId>>, {animeId: number;data: PutUsersMeFavoritesAnimeIdBody}> = (props) => {
-          const {animeId,data} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof putUsersMeFavoritesAnimeId>>, {animeId: number}> = (props) => {
+          const {animeId} = props ?? {};
 
-          return  putUsersMeFavoritesAnimeId(animeId,data,axiosOptions)
+          return  putUsersMeFavoritesAnimeId(animeId,axiosOptions)
         }
 
         
@@ -1562,18 +1564,18 @@ const {mutation: mutationOptions, axios: axiosOptions} = options ?
   return  { mutationFn, ...mutationOptions }}
 
     export type PutUsersMeFavoritesAnimeIdMutationResult = NonNullable<Awaited<ReturnType<typeof putUsersMeFavoritesAnimeId>>>
-    export type PutUsersMeFavoritesAnimeIdMutationBody = PutUsersMeFavoritesAnimeIdBody
+    
     export type PutUsersMeFavoritesAnimeIdMutationError = AxiosError<unknown>
 
     /**
- * @summary お気に入りにアニメを追加・更新
+ * @summary お気に入り（ハート）にアニメを追加
  */
 export const usePutUsersMeFavoritesAnimeId = <TError = AxiosError<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putUsersMeFavoritesAnimeId>>, TError,{animeId: number;data: PutUsersMeFavoritesAnimeIdBody}, TContext>, axios?: AxiosRequestConfig}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putUsersMeFavoritesAnimeId>>, TError,{animeId: number}, TContext>, axios?: AxiosRequestConfig}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof putUsersMeFavoritesAnimeId>>,
         TError,
-        {animeId: number;data: PutUsersMeFavoritesAnimeIdBody},
+        {animeId: number},
         TContext
       > => {
 
@@ -1639,6 +1641,218 @@ export const useDeleteUsersMeFavoritesAnimeId = <TError = AxiosError<unknown>,
       > => {
 
       const mutationOptions = getDeleteUsersMeFavoritesAnimeIdMutationOptions(options);
+
+      return useMutation(mutationOptions , queryClient);
+    }
+    
+/**
+ * @summary 自分の視聴ステータス一覧取得
+ */
+export const getUsersMeWatchStatus = (
+    params?: GetUsersMeWatchStatusParams, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<Anime[]>> => {
+    
+    
+    return axios.get(
+      `/users/me/watch-status`,{
+    ...options,
+        params: {...params, ...options?.params},}
+    );
+  }
+
+
+export const getGetUsersMeWatchStatusQueryKey = (params?: GetUsersMeWatchStatusParams,) => {
+    return [`/users/me/watch-status`, ...(params ? [params]: [])] as const;
+    }
+
+    
+export const getGetUsersMeWatchStatusQueryOptions = <TData = Awaited<ReturnType<typeof getUsersMeWatchStatus>>, TError = AxiosError<unknown>>(params?: GetUsersMeWatchStatusParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeWatchStatus>>, TError, TData>>, axios?: AxiosRequestConfig}
+) => {
+
+const {query: queryOptions, axios: axiosOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetUsersMeWatchStatusQueryKey(params);
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getUsersMeWatchStatus>>> = ({ signal }) => getUsersMeWatchStatus(params, { signal, ...axiosOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getUsersMeWatchStatus>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetUsersMeWatchStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getUsersMeWatchStatus>>>
+export type GetUsersMeWatchStatusQueryError = AxiosError<unknown>
+
+
+export function useGetUsersMeWatchStatus<TData = Awaited<ReturnType<typeof getUsersMeWatchStatus>>, TError = AxiosError<unknown>>(
+ params: undefined |  GetUsersMeWatchStatusParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeWatchStatus>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getUsersMeWatchStatus>>,
+          TError,
+          Awaited<ReturnType<typeof getUsersMeWatchStatus>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetUsersMeWatchStatus<TData = Awaited<ReturnType<typeof getUsersMeWatchStatus>>, TError = AxiosError<unknown>>(
+ params?: GetUsersMeWatchStatusParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeWatchStatus>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getUsersMeWatchStatus>>,
+          TError,
+          Awaited<ReturnType<typeof getUsersMeWatchStatus>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetUsersMeWatchStatus<TData = Awaited<ReturnType<typeof getUsersMeWatchStatus>>, TError = AxiosError<unknown>>(
+ params?: GetUsersMeWatchStatusParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeWatchStatus>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+/**
+ * @summary 自分の視聴ステータス一覧取得
+ */
+
+export function useGetUsersMeWatchStatus<TData = Awaited<ReturnType<typeof getUsersMeWatchStatus>>, TError = AxiosError<unknown>>(
+ params?: GetUsersMeWatchStatusParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeWatchStatus>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
+
+  const queryOptions = getGetUsersMeWatchStatusQueryOptions(params,options)
+
+  const query = useQuery(queryOptions , queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * @summary 視聴ステータスを設定・更新
+ */
+export const putUsersMeWatchStatusAnimeId = (
+    animeId: number,
+    putUsersMeWatchStatusAnimeIdBody: PutUsersMeWatchStatusAnimeIdBody, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<WatchStatus>> => {
+    
+    
+    return axios.put(
+      `/users/me/watch-status/${animeId}`,
+      putUsersMeWatchStatusAnimeIdBody,options
+    );
+  }
+
+
+
+export const getPutUsersMeWatchStatusAnimeIdMutationOptions = <TError = AxiosError<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putUsersMeWatchStatusAnimeId>>, TError,{animeId: number;data: PutUsersMeWatchStatusAnimeIdBody}, TContext>, axios?: AxiosRequestConfig}
+): UseMutationOptions<Awaited<ReturnType<typeof putUsersMeWatchStatusAnimeId>>, TError,{animeId: number;data: PutUsersMeWatchStatusAnimeIdBody}, TContext> => {
+
+const mutationKey = ['putUsersMeWatchStatusAnimeId'];
+const {mutation: mutationOptions, axios: axiosOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, axios: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof putUsersMeWatchStatusAnimeId>>, {animeId: number;data: PutUsersMeWatchStatusAnimeIdBody}> = (props) => {
+          const {animeId,data} = props ?? {};
+
+          return  putUsersMeWatchStatusAnimeId(animeId,data,axiosOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PutUsersMeWatchStatusAnimeIdMutationResult = NonNullable<Awaited<ReturnType<typeof putUsersMeWatchStatusAnimeId>>>
+    export type PutUsersMeWatchStatusAnimeIdMutationBody = PutUsersMeWatchStatusAnimeIdBody
+    export type PutUsersMeWatchStatusAnimeIdMutationError = AxiosError<unknown>
+
+    /**
+ * @summary 視聴ステータスを設定・更新
+ */
+export const usePutUsersMeWatchStatusAnimeId = <TError = AxiosError<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putUsersMeWatchStatusAnimeId>>, TError,{animeId: number;data: PutUsersMeWatchStatusAnimeIdBody}, TContext>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof putUsersMeWatchStatusAnimeId>>,
+        TError,
+        {animeId: number;data: PutUsersMeWatchStatusAnimeIdBody},
+        TContext
+      > => {
+
+      const mutationOptions = getPutUsersMeWatchStatusAnimeIdMutationOptions(options);
+
+      return useMutation(mutationOptions , queryClient);
+    }
+    
+/**
+ * @summary 視聴ステータスを削除
+ */
+export const deleteUsersMeWatchStatusAnimeId = (
+    animeId: number, options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<null>> => {
+    
+    
+    return axios.delete(
+      `/users/me/watch-status/${animeId}`,options
+    );
+  }
+
+
+
+export const getDeleteUsersMeWatchStatusAnimeIdMutationOptions = <TError = AxiosError<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteUsersMeWatchStatusAnimeId>>, TError,{animeId: number}, TContext>, axios?: AxiosRequestConfig}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteUsersMeWatchStatusAnimeId>>, TError,{animeId: number}, TContext> => {
+
+const mutationKey = ['deleteUsersMeWatchStatusAnimeId'];
+const {mutation: mutationOptions, axios: axiosOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, axios: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteUsersMeWatchStatusAnimeId>>, {animeId: number}> = (props) => {
+          const {animeId} = props ?? {};
+
+          return  deleteUsersMeWatchStatusAnimeId(animeId,axiosOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteUsersMeWatchStatusAnimeIdMutationResult = NonNullable<Awaited<ReturnType<typeof deleteUsersMeWatchStatusAnimeId>>>
+    
+    export type DeleteUsersMeWatchStatusAnimeIdMutationError = AxiosError<unknown>
+
+    /**
+ * @summary 視聴ステータスを削除
+ */
+export const useDeleteUsersMeWatchStatusAnimeId = <TError = AxiosError<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteUsersMeWatchStatusAnimeId>>, TError,{animeId: number}, TContext>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof deleteUsersMeWatchStatusAnimeId>>,
+        TError,
+        {animeId: number},
+        TContext
+      > => {
+
+      const mutationOptions = getDeleteUsersMeWatchStatusAnimeIdMutationOptions(options);
 
       return useMutation(mutationOptions , queryClient);
     }
@@ -1767,92 +1981,6 @@ export const useDeleteAnimesIdRating = <TError = AxiosError<unknown>,
       return useMutation(mutationOptions , queryClient);
     }
     
-/**
- * @summary 視聴予定リスト取得
- */
-export const getUsersMeWatchlist = (
-     options?: AxiosRequestConfig
- ): Promise<AxiosResponse<WatchlistItem[]>> => {
-    
-    
-    return axios.get(
-      `/users/me/watchlist`,options
-    );
-  }
-
-
-export const getGetUsersMeWatchlistQueryKey = () => {
-    return [`/users/me/watchlist`] as const;
-    }
-
-    
-export const getGetUsersMeWatchlistQueryOptions = <TData = Awaited<ReturnType<typeof getUsersMeWatchlist>>, TError = AxiosError<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeWatchlist>>, TError, TData>>, axios?: AxiosRequestConfig}
-) => {
-
-const {query: queryOptions, axios: axiosOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getGetUsersMeWatchlistQueryKey();
-
-  
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getUsersMeWatchlist>>> = ({ signal }) => getUsersMeWatchlist({ signal, ...axiosOptions });
-
-      
-
-      
-
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getUsersMeWatchlist>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
-}
-
-export type GetUsersMeWatchlistQueryResult = NonNullable<Awaited<ReturnType<typeof getUsersMeWatchlist>>>
-export type GetUsersMeWatchlistQueryError = AxiosError<unknown>
-
-
-export function useGetUsersMeWatchlist<TData = Awaited<ReturnType<typeof getUsersMeWatchlist>>, TError = AxiosError<unknown>>(
-  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeWatchlist>>, TError, TData>> & Pick<
-        DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getUsersMeWatchlist>>,
-          TError,
-          Awaited<ReturnType<typeof getUsersMeWatchlist>>
-        > , 'initialData'
-      >, axios?: AxiosRequestConfig}
- , queryClient?: QueryClient
-  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-export function useGetUsersMeWatchlist<TData = Awaited<ReturnType<typeof getUsersMeWatchlist>>, TError = AxiosError<unknown>>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeWatchlist>>, TError, TData>> & Pick<
-        UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getUsersMeWatchlist>>,
-          TError,
-          Awaited<ReturnType<typeof getUsersMeWatchlist>>
-        > , 'initialData'
-      >, axios?: AxiosRequestConfig}
- , queryClient?: QueryClient
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-export function useGetUsersMeWatchlist<TData = Awaited<ReturnType<typeof getUsersMeWatchlist>>, TError = AxiosError<unknown>>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeWatchlist>>, TError, TData>>, axios?: AxiosRequestConfig}
- , queryClient?: QueryClient
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-/**
- * @summary 視聴予定リスト取得
- */
-
-export function useGetUsersMeWatchlist<TData = Awaited<ReturnType<typeof getUsersMeWatchlist>>, TError = AxiosError<unknown>>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeWatchlist>>, TError, TData>>, axios?: AxiosRequestConfig}
- , queryClient?: QueryClient 
- ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
-
-  const queryOptions = getGetUsersMeWatchlistQueryOptions(options)
-
-  const query = useQuery(queryOptions , queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
-
-  query.queryKey = queryOptions.queryKey ;
-
-  return query;
-}
-
-
-
-
 /**
  * @summary 基本的なアニメ検索
  */

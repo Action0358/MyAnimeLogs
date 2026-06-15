@@ -50,8 +50,9 @@ type Anime struct {
 
 type AnimeWithUserData struct {
 	Anime
-	UserFavorite       *UserFavorite   `json:"user_favorite,omitempty"`
-	UserRating         *UserRating     `json:"user_rating,omitempty"`
+	UserFavorite       *UserFavorite    `json:"user_favorite,omitempty"`
+	UserWatchStatus    *UserWatchStatus `json:"user_watch_status,omitempty"`
+	UserRating         *UserRating      `json:"user_rating,omitempty"`
 	Genres             []string        `json:"genres,omitempty"`
 	AverageRating      *float64        `json:"average_rating,omitempty"`
 	RatingCount        int             `json:"rating_count"`
@@ -66,7 +67,17 @@ type WatchProvider struct {
 	LogoURL      string `json:"logo_url"`
 }
 
+// UserFavorite はお気に入り（ハート）を表す。視聴ステータスは UserWatchStatus に分離した。
 type UserFavorite struct {
+	ID        int       `json:"id" db:"id"`
+	UserID    int       `json:"user_id" db:"user_id"`
+	AnimeID   int       `json:"anime_id" db:"anime_id"`
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
+}
+
+// UserWatchStatus は視聴ステータス（視聴予定/視聴中/完了）を表す。お気に入りとは独立。
+type UserWatchStatus struct {
 	ID        int       `json:"id" db:"id"`
 	UserID    int       `json:"user_id" db:"user_id"`
 	AnimeID   int       `json:"anime_id" db:"anime_id"`
@@ -75,8 +86,8 @@ type UserFavorite struct {
 	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
 }
 
-type UserFavoriteRequest struct {
-	Status string `json:"status" binding:"required,oneof=watching completed planned dropped"`
+type UserWatchStatusRequest struct {
+	Status string `json:"status" binding:"required,oneof=watching completed planned"`
 }
 
 type UserRating struct {

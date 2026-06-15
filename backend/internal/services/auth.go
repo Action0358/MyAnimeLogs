@@ -71,7 +71,7 @@ func (s *AuthService) ExportUserData(userID int, format string) (interface{}, er
 
 	favorites := []models.UserFavorite{}
 	rows, err := s.db.Query(`
-		SELECT id, user_id, anime_id, status, created_at, updated_at
+		SELECT id, user_id, anime_id, created_at, updated_at
 		FROM user_favorites WHERE user_id = $1
 	`, userID)
 	if err != nil {
@@ -80,10 +80,27 @@ func (s *AuthService) ExportUserData(userID int, format string) (interface{}, er
 	defer rows.Close()
 	for rows.Next() {
 		var fav models.UserFavorite
-		if err := rows.Scan(&fav.ID, &fav.UserID, &fav.AnimeID, &fav.Status, &fav.CreatedAt, &fav.UpdatedAt); err != nil {
+		if err := rows.Scan(&fav.ID, &fav.UserID, &fav.AnimeID, &fav.CreatedAt, &fav.UpdatedAt); err != nil {
 			continue
 		}
 		favorites = append(favorites, fav)
+	}
+
+	watchStatuses := []models.UserWatchStatus{}
+	rows, err = s.db.Query(`
+		SELECT id, user_id, anime_id, status, created_at, updated_at
+		FROM user_watch_status WHERE user_id = $1
+	`, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get watch statuses: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var ws models.UserWatchStatus
+		if err := rows.Scan(&ws.ID, &ws.UserID, &ws.AnimeID, &ws.Status, &ws.CreatedAt, &ws.UpdatedAt); err != nil {
+			continue
+		}
+		watchStatuses = append(watchStatuses, ws)
 	}
 
 	ratings := []models.UserRating{}
@@ -104,17 +121,21 @@ func (s *AuthService) ExportUserData(userID int, format string) (interface{}, er
 	}
 
 	data := map[string]interface{}{
-		"user_info":   user,
-		"favorites":   favorites,
-		"ratings":     ratings,
-		"exported_at": time.Now(),
+		"user_info":      user,
+		"favorites":      favorites,
+		"watch_statuses": watchStatuses,
+		"ratings":        ratings,
+		"exported_at":    time.Now(),
 	}
 
 	if format == "csv" {
 		csv := "type,id,data\n"
 		csv += fmt.Sprintf("user,%d,\"%s\"\n", user.ID, user.Name)
 		for _, fav := range favorites {
-			csv += fmt.Sprintf("favorite,%d,\"%s\"\n", fav.AnimeID, fav.Status)
+			csv += fmt.Sprintf("favorite,%d,\"\"\n", fav.AnimeID)
+		}
+		for _, ws := range watchStatuses {
+			csv += fmt.Sprintf("watch_status,%d,\"%s\"\n", ws.AnimeID, ws.Status)
 		}
 		return csv, nil
 	}

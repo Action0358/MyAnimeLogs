@@ -8,7 +8,11 @@ import { decode as heDecodeEntities } from 'he'
 import { Container } from '@/components/layout'
 import { Button } from '@/components/ui'
 import { WatchProviders } from '@/components/anime'
+import { FavoriteButton, StatusSelector } from '@/components/favorites'
 import { getAnimesId } from '@/lib/api/generated/myanimelogs'
+import { useFavorites } from '@/hooks/useFavorites'
+import { useWatchStatus } from '@/hooks/useWatchStatus'
+import { useAuth } from '@/contexts/AuthContext'
 import { cn } from '@/lib/utils'
 import { getAnimeStatusLabel, type BroadcastStatusLabel } from '@/utils/animeStatus'
 import { translateBroadcastDay } from '@/utils/broadcast'
@@ -16,6 +20,9 @@ import { formatDuration } from '@/utils/duration'
 
 const AnimeDetailClient: React.FC = () => {
   const params = useParams()
+  const { isAuthenticated } = useAuth()
+  const { isFavorite, addFavorite, removeFavorite } = useFavorites()
+  const { getStatus, updateStatus, removeStatus } = useWatchStatus()
   const [imageError, setImageError] = useState(false)
   const [animeId, setAnimeId] = useState<number>(NaN)
   // ハイドレーションミスマッチを回避するため、クライアントサイドでのみ放送状態を計算
@@ -231,10 +238,31 @@ const AnimeDetailClient: React.FC = () => {
               </div>
             )}
 
-            {/* アクションボタン */}
-            <div className="flex flex-wrap gap-2">
-              <Button size="sm">お気に入りに追加</Button>
-              <Button variant="outline" size="sm">視聴リストに追加</Button>
+            {/* アクションボタン：お気に入り（ハート）と視聴ステータスは独立 */}
+            <div className="flex flex-wrap items-start gap-2">
+              {isAuthenticated ? (
+                <>
+                  <FavoriteButton
+                    isFavorite={isFavorite(animeId)}
+                    onToggle={() =>
+                      isFavorite(animeId)
+                        ? removeFavorite(animeId)
+                        : addFavorite(animeId)
+                    }
+                    size="sm"
+                  />
+                  <StatusSelector
+                    currentStatus={getStatus(animeId)}
+                    onStatusChange={(status) => updateStatus(animeId, status)}
+                    onRemove={() => removeStatus(animeId)}
+                    size="sm"
+                  />
+                </>
+              ) : (
+                <Link href="/login">
+                  <Button size="sm">ログインしてお気に入り・視聴管理</Button>
+                </Link>
+              )}
             </div>
           </div>
         </div>
