@@ -201,7 +201,7 @@ func TestAnimeService_BuildBaseQuery(t *testing.T) {
 			shouldNotContain: []string{
 				"LEFT JOIN anime_genres",
 				"LEFT JOIN (", // avg_ratings subquery
-				"INNER JOIN user_favorites",
+				"INNER JOIN user_watch_status",
 			},
 		},
 		{
@@ -241,13 +241,13 @@ func TestAnimeService_BuildBaseQuery(t *testing.T) {
 			},
 		},
 		{
-			name: "ユーザーステータスフィルター - お気に入りINNER JOIN",
+			name: "ユーザーステータスフィルター - 視聴ステータスINNER JOIN",
 			params: models.AdvancedSearchParams{
 				UserStatus: "watching",
 			},
 			userID: func() *int { id := 123; return &id }(),
 			shouldContain: []string{
-				"INNER JOIN user_favorites uf",
+				"INNER JOIN user_watch_status ws",
 			},
 		},
 		{
@@ -262,7 +262,7 @@ func TestAnimeService_BuildBaseQuery(t *testing.T) {
 				"LEFT JOIN anime_genres ag",
 				"LEFT JOIN (",
 				"avg_ratings",
-				"INNER JOIN user_favorites uf",
+				"INNER JOIN user_watch_status ws",
 			},
 		},
 	}
@@ -387,8 +387,8 @@ func TestAnimeService_BuildWhereClause(t *testing.T) {
 			userID:       func() *int { id := 123; return &id }(),
 			expectedArgs: 2, // user_id + status
 			shouldContain: []string{
-				"uf.user_id",
-				"uf.status",
+				"ws.user_id",
+				"ws.status",
 			},
 		},
 		{
@@ -408,8 +408,8 @@ func TestAnimeService_BuildWhereClause(t *testing.T) {
 				"a.season LIKE",
 				"ag.genre IN",
 				"avg_ratings.avg_rating >=",
-				"uf.user_id",
-				"uf.status",
+				"ws.user_id",
+				"ws.status",
 			},
 		},
 	}

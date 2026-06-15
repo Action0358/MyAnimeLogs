@@ -4,18 +4,35 @@ import '@testing-library/jest-dom'
 import MyPage from './page'
 import { useAuth } from '@/contexts/AuthContext'
 import { useRouter } from 'next/navigation'
+import { useWatchStatus } from '@/hooks/useWatchStatus'
 
 // Mock dependencies
 jest.mock('@/contexts/AuthContext')
 jest.mock('next/navigation')
+jest.mock('@/hooks/useWatchStatus')
 jest.mock('@/components/auth/ProtectedRoute', () => ({
   ProtectedRoute: ({ children }: { children: React.ReactNode }) => (
     <>{children}</>
   ),
 }))
 
-// Mock fetch
+// Mock fetch（ユーザー情報取得用）
 global.fetch = jest.fn()
+
+const mockUseWatchStatus = useWatchStatus as jest.Mock
+
+// useWatchStatus の戻り値を生成するヘルパー
+const createWatchStatusResult = (
+  overrides: Partial<ReturnType<typeof useWatchStatus>> = {}
+) => ({
+  watchStatuses: [],
+  isLoading: false,
+  error: null,
+  updateStatus: jest.fn(),
+  removeStatus: jest.fn(),
+  getStatus: jest.fn(),
+  ...overrides,
+})
 
 describe('MyPage', () => {
   let consoleErrorSpy: jest.SpyInstance
@@ -33,16 +50,9 @@ describe('MyPage', () => {
     sns_link: 'https://twitter.com/testuser',
   }
 
-  // 成功時のfetchモックを作成するヘルパー関数
+  // ユーザー情報取得が成功する fetch モック
   const createSuccessfulFetchMock = () => {
     return (url: string) => {
-      // より厳密なURLマッチングを使用
-      if (url.endsWith('/api/users/me/favorites')) {
-        return Promise.resolve({
-          ok: true,
-          json: async () => [],
-        })
-      }
       if (url.endsWith('/api/users/me')) {
         return Promise.resolve({
           ok: true,
@@ -56,6 +66,8 @@ describe('MyPage', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     ;(useRouter as jest.Mock).mockReturnValue(mockRouter)
+    // デフォルトは視聴ステータス空の状態
+    mockUseWatchStatus.mockReturnValue(createWatchStatusResult())
     // console.errorをモックしてテスト出力をクリーンに保つ
     consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
   })
@@ -104,6 +116,53 @@ describe('MyPage', () => {
       })
     })
 
+    it('視聴ステータス別タブを表示し、すべて・中断・視聴履歴タブは表示しない', async () => {
+      ;(global.fetch as jest.Mock).mockImplementation(
+        createSuccessfulFetchMock()
+      )
+
+      render(<MyPage />)
+
+      await waitFor(() => {
+        expect(screen.getByText('テストユーザー')).toBeInTheDocument()
+      })
+
+      const tab = (name: string) =>
+        screen.getByRole('button', { name: new RegExp(name) })
+      expect(tab('視聴中')).toBeInTheDocument()
+      expect(tab('視聴予定')).toBeInTheDocument()
+      expect(tab('完了')).toBeInTheDocument()
+
+      // 廃止したタブ（すべて / 中断 / 視聴履歴）は表示されない
+      expect(screen.queryByText('すべて')).not.toBeInTheDocument()
+      expect(screen.queryByText('中断')).not.toBeInTheDocument()
+      expect(screen.queryByText('視聴履歴')).not.toBeInTheDocument()
+    })
+
+    it('視聴ステータスをカードとして表示する', async () => {
+      ;(global.fetch as jest.Mock).mockImplementation(
+        createSuccessfulFetchMock()
+      )
+      mockUseWatchStatus.mockReturnValue(
+        createWatchStatusResult({
+          // デフォルトタブ（視聴予定）に表示されるよう status: 'planned'
+          watchStatuses: [
+            {
+              id: 100,
+              title: '鋼の錬金術師',
+              user_watch_status: { status: 'planned' },
+            },
+          ] as ReturnType<typeof useWatchStatus>['watchStatuses'],
+        })
+      )
+
+      render(<MyPage />)
+
+      await waitFor(() => {
+        expect(screen.getByText('鋼の錬金術師')).toBeInTheDocument()
+      })
+    })
+
     it('データローディング中は読み込み表示を出す', () => {
       // fetchを未解決のPromiseとしてモック
       ;(global.fetch as jest.Mock).mockImplementation(
@@ -115,11 +174,28 @@ describe('MyPage', () => {
       expect(screen.getByText('読み込み中...')).toBeInTheDocument()
     })
 
+    it('視聴ステータス取得エラー時にエラーメッセージを表示する', async () => {
+      ;(global.fetch as jest.Mock).mockImplementation(
+        createSuccessfulFetchMock()
+      )
+      mockUseWatchStatus.mockReturnValue(
+        createWatchStatusResult({
+          error: new Error('視聴ステータスの取得に失敗しました'),
+        })
+      )
+
+      render(<MyPage />)
+
+      await waitFor(() => {
+        expect(
+          screen.getByText('視聴ステータスの取得に失敗しました')
+        ).toBeInTheDocument()
+      })
+    })
+
     it('データ取得エラー時にエラーメッセージを表示する', async () => {
       ;(global.fetch as jest.Mock).mockImplementation((url: string) => {
-        // すべてのAPIエンドポイントでエラーを返す
-        // Promise.allで並列実行されるため、どのエラーが表示されるかは不定
-        // ただし、APIクライアントがレスポンスのmessageをそのまま使用する
+        // ユーザー情報取得でエラーを返す
         return Promise.resolve({
           ok: false,
           status: 500,

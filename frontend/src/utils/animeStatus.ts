@@ -2,8 +2,8 @@
  * アニメの放送状態（放送予定/放送中/完結）を判定してラベルとスタイルを返すユーティリティ
  * airing, finished などのアニメ放送状態を扱う
  * 
- * ユーザーの視聴ステータス（watching, completed, planned, dropped）は
- * userWatchStatus.ts を使用してください
+ * ユーザーの視聴ステータス（watching, completed, planned）のラベル・スタイルは
+ * components/favorites/StatusSelector.tsx の STATUS_CONFIG を使用してください
  */
 
 export interface BroadcastStatusLabel {
