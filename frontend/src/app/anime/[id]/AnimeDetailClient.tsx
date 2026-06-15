@@ -21,8 +21,8 @@ import { formatDuration } from '@/utils/duration'
 const AnimeDetailClient: React.FC = () => {
   const params = useParams()
   const { isAuthenticated } = useAuth()
-  const { isFavorite, addFavorite, removeFavorite } = useFavorites()
-  const { getStatus, updateStatus, removeStatus } = useWatchStatus()
+  const { isFavorite, addFavorite, removeFavorite } = useFavorites({ enabled: isAuthenticated })
+  const { getStatus, updateStatus, removeStatus } = useWatchStatus({ enabled: isAuthenticated })
   const [imageError, setImageError] = useState(false)
   const [animeId, setAnimeId] = useState<number>(NaN)
   // ハイドレーションミスマッチを回避するため、クライアントサイドでのみ放送状態を計算

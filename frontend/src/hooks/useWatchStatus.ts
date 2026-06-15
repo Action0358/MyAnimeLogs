@@ -29,13 +29,12 @@ export interface UseWatchStatusResult {
 }
 
 // 視聴ステータス（視聴予定/視聴中/完了）を扱うフック。お気に入りとは独立。
-export const useWatchStatus = (statusFilter?: WatchStatusStatus): UseWatchStatusResult => {
+export const useWatchStatus = (options: { enabled?: boolean } = {}): UseWatchStatusResult => {
+  const { enabled = true } = options
   const queryClient = useQueryClient()
 
   // API は Anime[] を返すが、実際には AnimeWithUserData[] が返される
-  const { data, isLoading, error } = useGetUsersMeWatchStatus(
-    statusFilter ? { status: statusFilter } : undefined
-  )
+  const { data, isLoading, error } = useGetUsersMeWatchStatus(undefined, { query: { enabled } })
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: getGetUsersMeWatchStatusQueryKey() })

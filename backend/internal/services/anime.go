@@ -1068,6 +1068,9 @@ func (s *AnimeService) GetUserFavorites(userID int) ([]models.AnimeWithUserData,
 
 		favorites = append(favorites, animeWithData)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterate user favorites: %w", err)
+	}
 
 	// DBキャッシュがないアニメのみ外部APIから画像を取得
 	s.enrichAnimesWithUserDataCoverImagesIfNeeded(favorites)
@@ -1159,6 +1162,9 @@ func (s *AnimeService) GetUserWatchStatuses(userID int, status string) ([]models
 			Anime:           anime,
 			UserWatchStatus: &watchStatus,
 		})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterate user watch statuses: %w", err)
 	}
 
 	// DBキャッシュがないアニメのみ外部APIから画像を取得

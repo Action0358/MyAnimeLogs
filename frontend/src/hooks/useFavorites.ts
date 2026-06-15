@@ -27,11 +27,12 @@ export interface UseFavoritesResult {
 }
 
 // お気に入り（ハート）のみを扱うフック。視聴ステータスは useWatchStatus を使用する。
-export const useFavorites = (): UseFavoritesResult => {
+export const useFavorites = (options: { enabled?: boolean } = {}): UseFavoritesResult => {
+  const { enabled = true } = options
   const queryClient = useQueryClient()
 
   // API は Anime[] を返すが、実際には AnimeWithUserData[] が返される
-  const { data, isLoading, error } = useGetUsersMeFavorites()
+  const { data, isLoading, error } = useGetUsersMeFavorites({ query: { enabled } })
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: getGetUsersMeFavoritesQueryKey() })
