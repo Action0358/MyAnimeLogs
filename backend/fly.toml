@@ -32,7 +32,8 @@ primary_region = 'nrt'
 [env]
   ENVIRONMENT = "production"
   ANIME_SYNC_ENABLED = "true"
-  # サーバーはUTC運用。18:00 UTC = 03:00 JST に日次同期を実行
+  # サーバーはUTC運用を明示的に固定。18:00 UTC = 03:00 JST に日次同期を実行
+  TZ = "UTC"
   SCHEDULER_RUN_HOUR = "18"
 
 # Persistent storage for uploaded files
