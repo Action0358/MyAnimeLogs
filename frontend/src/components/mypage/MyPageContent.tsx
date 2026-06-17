@@ -278,7 +278,7 @@ export const MyPageContent: React.FC = () => {
             {/* タブコンテンツ */}
             <div className="p-4 sm:p-6">
               {filteredItems.length > 0 ? (
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
                   {filteredItems.map((anime) => (
                     <WatchStatusCard
                       key={anime.id}
