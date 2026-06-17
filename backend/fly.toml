@@ -32,6 +32,7 @@ primary_region = 'nrt'
 [env]
   ENVIRONMENT = "production"
   ANIME_SYNC_ENABLED = "true"
+  TZ = "Asia/Tokyo"
 
 # Persistent storage for uploaded files
 [mounts]
