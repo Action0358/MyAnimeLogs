@@ -23,6 +23,7 @@ export const WatchStatusCard: React.FC<WatchStatusCardProps> = ({
   isUpdating = false,
 }) => {
   const imageUrl = anime.cover_image_extra_large || anime.cover_image_large || anime.cover_image_medium || anime.image_url || '/placeholder-anime.png'
+  const formattedSeason = formatSeason(anime.season)
 
   return (
     <Link
@@ -43,7 +44,7 @@ export const WatchStatusCard: React.FC<WatchStatusCardProps> = ({
         <div className="relative aspect-[2/3] bg-gray-100">
           <Image
             src={imageUrl}
-            alt={anime.title || 'アニメ画像'}
+            alt=""
             fill
             className="object-cover group-hover:scale-105 transition-transform duration-300"
             sizes="(max-width: 767px) 33vw, (max-width: 1023px) 25vw, 16vw"
@@ -64,8 +65,8 @@ export const WatchStatusCard: React.FC<WatchStatusCardProps> = ({
           <h3 className="font-medium text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-2 text-xs sm:text-sm">
             {anime.title || 'タイトル不明'}
           </h3>
-          {anime.season && (
-            <p className="text-xs text-gray-500 mt-auto">{formatSeason(anime.season)}</p>
+          {formattedSeason && (
+            <p className="text-xs text-gray-500 mt-auto">{formattedSeason}</p>
           )}
         </div>
       </div>
