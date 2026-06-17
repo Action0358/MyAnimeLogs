@@ -35,7 +35,7 @@ export const WatchStatusCard: React.FC<WatchStatusCardProps> = ({
             alt={anime.title || 'アニメ画像'}
             fill
             className="object-cover"
-            sizes="(max-width: 768px) 33vw, (max-width: 1024px) 25vw, 16vw"
+            sizes="(max-width: 767px) 33vw, (max-width: 1023px) 25vw, 16vw"
           />
           <div className="absolute top-2 left-2">
             <span className={cn(
