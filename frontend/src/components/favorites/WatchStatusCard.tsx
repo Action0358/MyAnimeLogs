@@ -25,7 +25,12 @@ export const WatchStatusCard: React.FC<WatchStatusCardProps> = ({
   const imageUrl = anime.cover_image_extra_large || anime.cover_image_large || anime.cover_image_medium || anime.image_url || '/placeholder-anime.png'
 
   return (
-    <Link href={`/anime/${anime.id}` as Route} className="block">
+    <Link
+      href={`/anime/${anime.id}` as Route}
+      className={cn('block', isUpdating && 'pointer-events-none')}
+      aria-disabled={isUpdating}
+      tabIndex={isUpdating ? -1 : undefined}
+    >
       <div className={cn(
         'group relative bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden',
         'hover:shadow-lg hover:border-gray-300 transition-all duration-200',
