@@ -30,6 +30,9 @@ export const WatchStatusCard: React.FC<WatchStatusCardProps> = ({
       className={cn('block', isUpdating && 'pointer-events-none')}
       aria-disabled={isUpdating}
       tabIndex={isUpdating ? -1 : undefined}
+      onClick={(e) => {
+        if (isUpdating) e.preventDefault()
+      }}
     >
       <div className={cn(
         'group relative bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden',
@@ -59,7 +62,7 @@ export const WatchStatusCard: React.FC<WatchStatusCardProps> = ({
 
         <div className="p-2 sm:p-3 h-[72px] sm:h-[100px] flex flex-col">
           <h3 className="font-medium text-gray-900 group-hover:text-blue-600 transition-colors line-clamp-2 text-xs sm:text-sm">
-            {anime.title}
+            {anime.title || 'タイトル不明'}
           </h3>
           {anime.season && (
             <p className="text-xs text-gray-500 mt-auto">{formatSeason(anime.season)}</p>
