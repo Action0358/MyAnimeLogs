@@ -23,8 +23,13 @@ const CANONICAL_PROVIDER_GROUPS: {
   {
     key: 'amazon-prime-video',
     preferredName: 'Amazon Prime Video',
-    // Amazon Prime Video / Amazon Prime Video with Ads / dAnime Amazon Channel など
-    matches: (n) => n.includes('amazon prime video') || n.includes('danime amazon channel'),
+    // Amazon Prime Video / Prime Video / Amazon Prime Video with Ads / Amazonプライムビデオ /
+    // dAnime Amazon Channel など。表記ゆれは拾いつつ、無関係な「○○ Amazon Channel」は
+    // 過剰集約しないよう 'amazon' 単独では判定しない。
+    matches: (n) =>
+      n.includes('prime video') ||
+      n.includes('プライムビデオ') ||
+      n.includes('danime amazon channel'),
   },
 ]
 
@@ -39,8 +44,9 @@ function dedupeProviders(providers: WatchProvider[]): WatchProvider[] {
     const existing = byKey.get(key)
     if (!existing) {
       byKey.set(key, provider)
-    } else if (group && provider.provider_name === group.preferredName) {
-      // 基本名（例: Netflix / Amazon Prime Video）を広告付き・チャンネル版より優先
+    } else if (group && lower === group.preferredName.toLowerCase()) {
+      // 基本名（例: Netflix / Amazon Prime Video）を広告付き・チャンネル版より優先。
+      // APIの大文字小文字ゆれ（netflix / NETFLIX 等）に対応するため小文字で比較。
       byKey.set(key, provider)
     }
   }
@@ -75,6 +81,7 @@ export const WatchProviders: React.FC<WatchProvidersProps> = ({ providers }) => 
             ) : (
               <div
                 className="w-8 h-8 bg-gray-200 rounded flex items-center justify-center"
+                role="img"
                 aria-label={provider.provider_name}
               >
                 <span className="text-xs text-gray-500">📺</span>
