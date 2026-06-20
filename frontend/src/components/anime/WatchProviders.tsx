@@ -7,19 +7,62 @@ interface WatchProvidersProps {
   providers: WatchProvider[]
 }
 
+// 同一サービスの広告付き廉価版やチャンネル再販などを1つに集約するためのグループ定義。
+// matches に該当する provider は同じ key にまとめ、preferredName（基本名）を優先表示する。
+const CANONICAL_PROVIDER_GROUPS: {
+  key: string
+  preferredName: string
+  matches: (lowerName: string) => boolean
+}[] = [
+  {
+    key: 'netflix',
+    preferredName: 'Netflix',
+    // Netflix / Netflix Standard with Ads など
+    matches: (n) => n.includes('netflix'),
+  },
+  {
+    key: 'amazon-prime-video',
+    preferredName: 'Amazon Prime Video',
+    // Amazon Prime Video / Amazon Prime Video with Ads / dAnime Amazon Channel など
+    matches: (n) => n.includes('amazon prime video') || n.includes('danime amazon channel'),
+  },
+]
+
+// 重複サービスを集約する。グループに該当しない provider はそのまま残す。
+// グループ内では基本名（preferredName）を優先し、無ければ最初に出現したものを採用する。
+function dedupeProviders(providers: WatchProvider[]): WatchProvider[] {
+  const byKey = new Map<string, WatchProvider>()
+  for (const provider of providers) {
+    const lower = provider.provider_name.toLowerCase()
+    const group = CANONICAL_PROVIDER_GROUPS.find((g) => g.matches(lower))
+    const key = group ? group.key : `id:${provider.provider_id}`
+    const existing = byKey.get(key)
+    if (!existing) {
+      byKey.set(key, provider)
+    } else if (group && provider.provider_name === group.preferredName) {
+      // 基本名（例: Netflix / Amazon Prime Video）を広告付き・チャンネル版より優先
+      byKey.set(key, provider)
+    }
+  }
+  return Array.from(byKey.values())
+}
+
 export const WatchProviders: React.FC<WatchProvidersProps> = ({ providers }) => {
   if (!providers || providers.length === 0) {
     return null
   }
 
+  const visibleProviders = dedupeProviders(providers)
+
   return (
     <div className="mb-6 bg-white rounded-lg border p-4 md:p-6">
       <h2 className="text-lg font-semibold text-gray-900 mb-3">配信サービス</h2>
       <div className="flex flex-wrap gap-3">
-        {providers.map((provider) => (
+        {visibleProviders.map((provider) => (
+          // ロゴ単体で表示（サービス名はチップ上には表示せず、title/alt で保持）
           <div
             key={provider.provider_id}
-            className="flex items-center gap-2 px-3 py-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+            className="flex items-center justify-center p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
             title={provider.provider_name}
           >
             {provider.logo_url ? (
@@ -30,26 +73,16 @@ export const WatchProviders: React.FC<WatchProvidersProps> = ({ providers }) => 
                 className="w-8 h-8 rounded object-contain"
               />
             ) : (
-              <div className="w-8 h-8 bg-gray-200 rounded flex items-center justify-center">
+              <div
+                className="w-8 h-8 bg-gray-200 rounded flex items-center justify-center"
+                aria-label={provider.provider_name}
+              >
                 <span className="text-xs text-gray-500">📺</span>
               </div>
             )}
-            <span className="text-sm text-gray-700">{provider.provider_name}</span>
           </div>
         ))}
       </div>
-      <p className="mt-3 text-xs text-gray-400">
-        配信情報は
-        <a
-          href="https://www.themoviedb.org/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-blue-500 hover:underline ml-1"
-        >
-          TMDB
-        </a>
-        より提供
-      </p>
     </div>
   )
 }
