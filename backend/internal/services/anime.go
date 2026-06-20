@@ -737,6 +737,13 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 		s.enrichAnimeWithDescription(&anime)
 	}
 
+	// DBキャッシュ済みのあらすじも含め、表示時に書式を統一する（バックフィル前の既存データ対策）。
+	// sanitizeDescription は冪等なため、enrich 済みの値に再適用しても問題ない。
+	if anime.Description != nil {
+		sanitized := sanitizeDescription(*anime.Description)
+		anime.Description = &sanitized
+	}
+
 	// series_titleがない場合は設定（シリーズフォールバック用）
 	s.ensureSeriesTitle(&anime)
 
