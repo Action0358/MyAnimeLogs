@@ -17,7 +17,7 @@ type BackfillOptions struct {
 type BackfillResult struct {
 	Total              int // 走査対象（非空description）の件数
 	Processed          int // 実際に処理したループ件数（中断時は Total 未満になる）
-	PendingTranslation int // 翻訳候補（英語あらすじ）の件数。DryRun時はコスト見積もりの基礎
+	PendingTranslation int // 実際に翻訳される（英語かつClaude有効）件数。DryRun時はコスト見積もりの基礎
 	Translated         int // 英語→日本語へ翻訳しDB更新した件数
 	FormattedOnly      int // 書式のみ更新した件数（日本語、または翻訳されず整形のみ）
 	AlreadyClean       int // 整形・翻訳とも変更不要だった件数
@@ -33,7 +33,7 @@ type backfillRecord struct {
 // - 日本語のあらすじ → 書式整形のみ（翻訳しない＝コスト0）
 // - 英語のあらすじ   → Claudeで翻訳＋整形（ANTHROPIC_API_KEY未設定時は整形のみ）
 // 翻訳結果はDBに保存され、再実行時は日本語化済みの行が整形のみになるため冪等・再開可能。
-// ctx がキャンセルされた場合は速やかにループを抜け、ここまでの集計結果を返す。
+// ctx がキャンセルされた場合は速やかにループを抜け、ここまでの集計結果とともに ctx エラーを返す。
 func (s *AnimeService) BackfillDescriptions(ctx context.Context, opts BackfillOptions) (*BackfillResult, error) {
 	records, err := s.fetchNonEmptyDescriptions(ctx, opts.Limit)
 	if err != nil {
@@ -43,39 +43,46 @@ func (s *AnimeService) BackfillDescriptions(ctx context.Context, opts BackfillOp
 	result := &BackfillResult{Total: len(records)}
 
 	claudeEnabled := s.claudeClient != nil && s.claudeClient.IsEnabled()
-	if !opts.DryRun && !claudeEnabled {
+	if !claudeEnabled {
 		s.logger.Warn("ANTHROPIC_API_KEY未設定のため、英語あらすじは翻訳されず整形のみが適用されます")
 	}
 
 	for _, r := range records {
-		// 中断（Ctrl+C/タイムアウト）に速やかに反応する
+		// 中断（Ctrl+C/タイムアウト）に速やかに反応し、キャンセルを呼び出し元へ伝播する
 		if err := ctx.Err(); err != nil {
 			s.logger.Warn("コンテキストがキャンセルされました。ここまでの結果を返します",
 				"processed", result.Processed, "total", result.Total)
-			break
+			return result, err
 		}
 		result.Processed++
 
 		sanitized := sanitizeDescription(r.desc)
 		japanese := isJapaneseText(sanitized)
-		if !japanese {
-			result.PendingTranslation++ // 英語＝翻訳候補
+		// 実際に翻訳されるのは「英語 かつ Claude有効」の場合のみ
+		willTranslate := !japanese && claudeEnabled
+		if willTranslate {
+			result.PendingTranslation++
 		}
 
 		// dry-run: 集計のみ（DB更新・翻訳APIを行わない）
 		if opts.DryRun {
-			if japanese && sanitized != r.desc {
-				result.FormattedOnly++
+			if !willTranslate {
+				// 翻訳されない行（日本語 / キー無効の英語）は整形のみ扱い
+				if sanitized != r.desc {
+					result.FormattedOnly++
+				} else {
+					result.AlreadyClean++
+				}
 			}
 			continue
 		}
 
 		// 実処理
 		var final string
-		if japanese {
-			final = sanitized // 整形のみ
+		if willTranslate {
+			final = s.finalizeDescriptionText(ctx, r.desc) // 翻訳＋整形
 		} else {
-			final = s.finalizeDescriptionText(ctx, r.desc) // 翻訳＋整形（キー無効なら整形のみ）
+			final = sanitized // 整形のみ
 		}
 
 		if final == r.desc {
@@ -87,9 +94,9 @@ func (s *AnimeService) BackfillDescriptions(ctx context.Context, opts BackfillOp
 			s.logger.Error("DB更新に失敗したためバックフィルを中断します", "anime_id", r.id, "error", err)
 			return result, fmt.Errorf("failed to update description (anime_id=%d): %w", r.id, err)
 		} else if !japanese && isJapaneseText(final) {
-			result.Translated++
+			result.Translated++ // 実際に日本語へ翻訳された
 		} else {
-			result.FormattedOnly++
+			result.FormattedOnly++ // 整形のみ（翻訳失敗時のフォールバック含む）
 		}
 
 		if result.Processed%50 == 0 {
@@ -98,12 +105,12 @@ func (s *AnimeService) BackfillDescriptions(ctx context.Context, opts BackfillOp
 				"translated", result.Translated, "formatted", result.FormattedOnly)
 		}
 
-		// 翻訳API呼び出しを行った場合のみスロットリング（Claude無効＝整形のみの時は不要）
-		if !japanese && claudeEnabled && opts.Throttle > 0 {
+		// 翻訳API呼び出しを行った場合のみスロットリング。中断時はctxエラーを伝播する
+		if willTranslate && opts.Throttle > 0 {
 			if err := sleepWithContext(ctx, opts.Throttle); err != nil {
 				s.logger.Warn("スロットリング中に中断されました。ここまでの結果を返します",
 					"processed", result.Processed, "total", result.Total)
-				break
+				return result, err
 			}
 		}
 	}
