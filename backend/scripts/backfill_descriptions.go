@@ -20,6 +20,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"myanimelogs/internal/common"
@@ -73,9 +75,13 @@ func main() {
 
 	animeService := services.NewAnimeService(db, logger)
 
+	// Ctrl+C / SIGTERM で安全に中断し、ここまでの結果を出力できるようにする
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
 	logger.Info("Backfill start", "env", *env, "dry_run", *dryRun, "limit", *limit, "throttle_ms", *throttleMs)
 
-	result, err := animeService.BackfillDescriptions(context.Background(), services.BackfillOptions{
+	result, err := animeService.BackfillDescriptions(ctx, services.BackfillOptions{
 		DryRun:   *dryRun,
 		Limit:    *limit,
 		Throttle: time.Duration(*throttleMs) * time.Millisecond,
@@ -84,9 +90,12 @@ func main() {
 		logger.Error("backfill failed", "error", err)
 		os.Exit(1)
 	}
+	if result.Processed < result.Total {
+		logger.Warn("処理が中断されました（全件未処理）", "processed", result.Processed, "total", result.Total)
+	}
 
 	fmt.Println("\n==== Backfill Result ====")
-	fmt.Printf("対象(非空description): %d 件\n", result.Total)
+	fmt.Printf("対象(非空description): %d 件 / 処理済み: %d 件\n", result.Total, result.Processed)
 	fmt.Printf("翻訳候補(英語あらすじ): %d 件\n", result.PendingTranslation)
 	if *dryRun {
 		fmt.Printf("[dry-run] 翻訳見込み: %d 件 / 概算コスト: 約 $%.2f\n",
