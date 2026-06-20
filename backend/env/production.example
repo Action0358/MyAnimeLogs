@@ -24,6 +24,8 @@ DB_CONN_MAX_IDLE_TIME=2
 
 # External APIs
 ANNICT_API_KEY=your-production-annict-api-key-here
+# あらすじの日本語翻訳・整形（未設定時は翻訳をスキップ）。Fly.ioシークレットで設定: fly secrets set ANTHROPIC_API_KEY=...
+ANTHROPIC_API_KEY=your-production-anthropic-api-key-here
 REDIS_URL=redis://localhost:6379/0
 
 # Logging

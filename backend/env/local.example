@@ -31,5 +31,8 @@ SUPABASE_URL=http://host.docker.internal:54321
 # Annict API
 ANNICT_API_KEY=your-annict-api-key-here
 
+# Anthropic API（あらすじの日本語翻訳・整形。未設定時は翻訳をスキップし英語のまま表示）
+ANTHROPIC_API_KEY=your-anthropic-api-key-here
+
 # Cache
 REDIS_URL=redis://localhost:6379

@@ -37,19 +37,7 @@ const Footer: React.FC = () => {
                   />
                 </Link>
               </FooterColumnHeader>
-              <p className="text-gray-600 mb-3">あなたの視聴記録がここに</p>
-              <p className="text-sm text-gray-500">
-                アニメデータは{' '}
-                <Link
-                  href="https://annict.com"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:text-blue-700"
-                >
-                  Annict
-                </Link>{' '}
-                より提供
-              </p>
+              <p className="text-gray-600">あなたの視聴記録がここに</p>
             </div>
 
             {/* サイトマップ */}
