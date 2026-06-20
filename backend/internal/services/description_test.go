@@ -14,6 +14,21 @@ func TestSanitizeDescription(t *testing.T) {
 			want: "Hello world.\n\nSecond line.",
 		},
 		{
+			name: "ブロックタグは改行に変換し前後テキストを連結させない",
+			in:   "<p>First paragraph.</p><p>Second paragraph.</p>",
+			want: "First paragraph.\n\nSecond paragraph.",
+		},
+		{
+			name: "div境界で単語が連結しない",
+			in:   "Hello<div>World</div>",
+			want: "Hello\nWorld",
+		},
+		{
+			name: "CRLF改行でも出典注記を除去",
+			in:   "本文。\r\n（出典: AniList）",
+			want: "本文。",
+		},
+		{
 			name: "連続改行を段落区切りに圧縮",
 			in:   "Line1\n\n\n\nLine2",
 			want: "Line1\n\nLine2",

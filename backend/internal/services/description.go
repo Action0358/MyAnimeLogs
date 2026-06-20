@@ -9,8 +9,9 @@ import (
 
 // あらすじ正規化用の正規表現（パッケージ初期化時に1回だけコンパイル）。
 var (
-	descBrTagRe      = regexp.MustCompile(`(?i)<br\s*/?>`)         // <br> → 改行
-	descHTMLTagRe    = regexp.MustCompile(`<[^>]+>`)              // 残存HTMLタグ除去
+	// br/p/div/li 等のブロックレベルタグは改行へ変換し、前後テキストの連結を防ぐ
+	descBlockTagRe   = regexp.MustCompile(`(?i)</?(br|p|div|li|ul|ol|h[1-6]|blockquote|tr|section|article)\s*/?>`)
+	descHTMLTagRe    = regexp.MustCompile(`<[^>]+>`)              // 残存（インライン）HTMLタグ除去
 	descSourceNoteRe = regexp.MustCompile(`(?im)\s*[\(（]\s*(source|出典)[:：][^)）]*[\)）]\s*$`) // 末尾の出典注記
 	descMultiSpaceRe = regexp.MustCompile(`[ \t]{2,}`)           // 連続スペース
 	descMultiBlankRe = regexp.MustCompile(`\n{3,}`)              // 3つ以上の連続改行
@@ -23,16 +24,16 @@ func sanitizeDescription(s string) string {
 		return ""
 	}
 
-	// <br> を改行へ、その他のHTMLタグを除去
-	s = descBrTagRe.ReplaceAllString(s, "\n")
+	// 改行コードを先頭で統一（(?m)$ を使う正規表現が \r\n で誤動作しないように）
+	s = strings.ReplaceAll(s, "\r\n", "\n")
+	s = strings.ReplaceAll(s, "\r", "\n")
+	// ブロックレベルタグを改行へ変換してから、残りのインラインタグを除去
+	s = descBlockTagRe.ReplaceAllString(s, "\n")
 	s = descHTMLTagRe.ReplaceAllString(s, "")
 	// HTMLエンティティをデコード（&amp; など）
 	s = html.UnescapeString(s)
 	// 末尾の "(Source: ...)" / "（出典: ...）" を除去
 	s = descSourceNoteRe.ReplaceAllString(s, "")
-	// 改行コードを統一
-	s = strings.ReplaceAll(s, "\r\n", "\n")
-	s = strings.ReplaceAll(s, "\r", "\n")
 
 	// 行ごとに連続スペースを圧縮し、行頭・行末の空白を除去
 	lines := strings.Split(s, "\n")
