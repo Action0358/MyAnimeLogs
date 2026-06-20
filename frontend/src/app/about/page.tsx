@@ -77,6 +77,38 @@ const AboutPage: React.FC = () => {
                 </a>
               </li>
               <li>
+                カバー画像・ジャンル:{' '}
+                <a
+                  href="https://anilist.co"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:text-blue-700"
+                >
+                  AniList
+                </a>
+              </li>
+              <li>
+                放送情報:{' '}
+                <a
+                  href="https://myanimelist.net"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:text-blue-700"
+                >
+                  MyAnimeList
+                </a>{' '}
+                （
+                <a
+                  href="https://jikan.moe"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:text-blue-700"
+                >
+                  Jikan API
+                </a>
+                経由）
+              </li>
+              <li>
                 配信情報:{' '}
                 <a
                   href="https://www.themoviedb.org/"
