@@ -74,6 +74,7 @@ func main() {
 	defer db.Close()
 
 	animeService := services.NewAnimeService(db, logger)
+	defer animeService.Close()
 
 	// Ctrl+C / SIGTERM で安全に中断し、ここまでの結果を出力できるようにする
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -86,24 +87,29 @@ func main() {
 		Limit:    *limit,
 		Throttle: time.Duration(*throttleMs) * time.Millisecond,
 	})
-	if err != nil {
-		logger.Error("backfill failed", "error", err)
-		os.Exit(1)
-	}
-	if result.Processed < result.Total {
-		logger.Warn("処理が中断されました（全件未処理）", "processed", result.Processed, "total", result.Total)
+	// DB更新失敗などで中断した場合も、ここまでの集計結果を出力する
+	if result != nil && result.Processed < result.Total {
+		logger.Warn("全件は処理されませんでした（中断またはエラー）", "processed", result.Processed, "total", result.Total)
 	}
 
-	fmt.Println("\n==== Backfill Result ====")
-	fmt.Printf("対象(非空description): %d 件 / 処理済み: %d 件\n", result.Total, result.Processed)
-	fmt.Printf("翻訳候補(英語あらすじ): %d 件\n", result.PendingTranslation)
-	if *dryRun {
-		fmt.Printf("[dry-run] 翻訳見込み: %d 件 / 概算コスト: 約 $%.2f\n",
-			result.PendingTranslation, float64(result.PendingTranslation)*translationUnitCostUSD)
-		fmt.Printf("[dry-run] 書式のみ更新見込み(日本語): %d 件\n", result.FormattedOnly)
-		fmt.Println("※ DBは更新していません。実行するには -dry-run を外してください。")
-	} else {
-		fmt.Printf("翻訳実施: %d / 書式のみ更新: %d / 変更なし: %d / 失敗: %d\n",
-			result.Translated, result.FormattedOnly, result.AlreadyClean, result.Failed)
+	if result != nil {
+		fmt.Println("\n==== Backfill Result ====")
+		fmt.Printf("対象(非空description): %d 件 / 処理済み: %d 件\n", result.Total, result.Processed)
+		fmt.Printf("翻訳候補(英語あらすじ): %d 件\n", result.PendingTranslation)
+		if *dryRun {
+			fmt.Printf("[dry-run] 翻訳見込み: %d 件 / 概算コスト: 約 $%.2f\n",
+				result.PendingTranslation, float64(result.PendingTranslation)*translationUnitCostUSD)
+			fmt.Printf("[dry-run] 書式のみ更新見込み(日本語): %d 件\n", result.FormattedOnly)
+			fmt.Println("※ DBは更新していません。実行するには -dry-run を外してください。")
+		} else {
+			fmt.Printf("翻訳実施: %d / 書式のみ更新: %d / 変更なし: %d / 失敗: %d\n",
+				result.Translated, result.FormattedOnly, result.AlreadyClean, result.Failed)
+		}
+	}
+
+	// DB更新失敗などでエラー終了した場合は、結果を出力した上で非ゼロ終了する
+	if err != nil {
+		logger.Error("backfill aborted", "error", err)
+		os.Exit(1)
 	}
 }
