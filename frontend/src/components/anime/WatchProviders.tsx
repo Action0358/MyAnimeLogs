@@ -38,7 +38,8 @@ const CANONICAL_PROVIDER_GROUPS: {
 function dedupeProviders(providers: WatchProvider[]): WatchProvider[] {
   const byKey = new Map<string, WatchProvider>()
   for (const provider of providers) {
-    const lower = provider.provider_name.toLowerCase()
+    // APIが provider_name を null/undefined で返した場合のクラッシュを防ぐ
+    const lower = (provider.provider_name ?? '').toLowerCase()
     const group = CANONICAL_PROVIDER_GROUPS.find((g) => g.matches(lower))
     const key = group ? group.key : `id:${provider.provider_id}`
     const existing = byKey.get(key)

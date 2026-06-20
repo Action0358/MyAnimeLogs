@@ -74,10 +74,11 @@ func (c *ClaudeClient) TranslateAndFormatSynopsis(ctx context.Context, text stri
 		return "", fmt.Errorf("claude synopsis translation failed: %w", err)
 	}
 
+	// ContentBlockUnion は Text/Type を直接フィールドに持つため、型アサーション不要で抽出できる
 	var sb strings.Builder
 	for _, block := range resp.Content {
-		if t, ok := block.AsAny().(anthropic.TextBlock); ok {
-			sb.WriteString(t.Text)
+		if block.Type == "text" {
+			sb.WriteString(block.Text)
 		}
 	}
 	return strings.TrimSpace(sb.String()), nil
