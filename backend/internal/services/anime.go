@@ -198,6 +198,7 @@ type AnimeService struct {
 	anilistClient       *AniListClient
 	jikanClient         *JikanClient
 	tmdbClient          *TMDBClient   // TMDB APIクライアント
+	claudeClient        *ClaudeClient // Claude APIクライアント（あらすじの日本語翻訳・整形）
 	annictClient        *AnnictClient // Annict APIクライアント（循環参照回避のため後から設定）
 	backgroundTaskQueue chan func()   // バックグラウンドタスク用ワーカープールのキュー
 	cache               *MemoryCache  // レスポンスキャッシュ
@@ -237,6 +238,7 @@ func NewAnimeService(db *database.DB, logger *common.Logger) *AnimeService {
 		anilistClient:       NewAniListClient(),
 		jikanClient:         NewJikanClient(logger),
 		tmdbClient:          NewTMDBClient(logger),
+		claudeClient:        NewClaudeClient(logger),
 		backgroundTaskQueue: make(chan func(), constants.BackgroundTaskQueueSize),
 		cache:               NewMemoryCache(cacheConfig),
 		redisCache:          redisCache,
@@ -1805,6 +1807,33 @@ func (s *AnimeService) enrichAnimesWithCoverImages(animes []models.Anime) {
 // DBにdescriptionがない場合のみAPIを呼び出す
 // TMDBが利用できない場合はAniListにフォールバック
 // シリーズ作品の場合、同じシリーズからあらすじを取得するフォールバックも実装
+// finalizeDescriptionText はあらすじの書式を統一し、日本語でない場合は Claude で日本語へ翻訳する。
+// Claude が無効、または翻訳失敗時は整形済みの原文（英語など）にフォールバックする。
+func (s *AnimeService) finalizeDescriptionText(ctx context.Context, raw string) string {
+	sanitized := sanitizeDescription(raw)
+	if sanitized == "" {
+		return ""
+	}
+	if isJapaneseText(sanitized) {
+		return sanitized
+	}
+	if s.claudeClient == nil || !s.claudeClient.IsEnabled() {
+		return sanitized
+	}
+
+	// 詳細ページ取得時に同期実行されるため、APIが遅い場合は素早く諦めて
+	// 整形済み原文（英語）にフォールバックし、画面遷移をブロックしない。
+	tctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	translated, err := s.claudeClient.TranslateAndFormatSynopsis(tctx, sanitized)
+	if err != nil || translated == "" {
+		s.logger.Debug("Claude synopsis translation unavailable, using original text",
+			"error", err)
+		return sanitized
+	}
+	return sanitizeDescription(translated)
+}
+
 func (s *AnimeService) enrichAnimeWithDescription(anime *models.Anime) {
 	ctx := context.Background()
 
@@ -1826,13 +1855,14 @@ func (s *AnimeService) enrichAnimeWithDescription(anime *models.Anime) {
 
 		overview, tmdbID, err := s.tmdbClient.GetOverviewByMALIDOrTitle(ctx, malID, anime.Title, mediaTypeHint)
 		if err == nil && overview != "" {
-			anime.Description = &overview
+			finalized := s.finalizeDescriptionText(ctx, overview)
+			anime.Description = &finalized
 
 			// DBに保存（非同期）
 			animeID := anime.ID
 			seriesTitle := NormalizeAnimeTitle(anime.Title)
 			s.enqueueBackgroundTask(func() {
-				s.updateAnimeSeriesInfo(context.Background(), animeID, overview, tmdbID, seriesTitle, tmdbID)
+				s.updateAnimeSeriesInfo(context.Background(), animeID, finalized, tmdbID, seriesTitle, tmdbID)
 			})
 			return
 		}
@@ -1852,7 +1882,9 @@ func (s *AnimeService) enrichAnimeWithDescription(anime *models.Anime) {
 		`, seriesTitle).Scan(&seriesDescription, &seriesTMDBID)
 
 		if seriesErr == nil && seriesDescription != "" {
-			anime.Description = &seriesDescription
+			// シリーズDBの値は過去の処理で整形済みだが、念のため整形（翻訳は不要）
+			finalized := sanitizeDescription(seriesDescription)
+			anime.Description = &finalized
 
 			// DBに保存（非同期）
 			animeID := anime.ID
@@ -1861,7 +1893,7 @@ func (s *AnimeService) enrichAnimeWithDescription(anime *models.Anime) {
 				if seriesTMDBID.Valid {
 					tmdbID = int(seriesTMDBID.Int64)
 				}
-				s.updateAnimeSeriesInfo(context.Background(), animeID, seriesDescription, 0, seriesTitle, tmdbID)
+				s.updateAnimeSeriesInfo(context.Background(), animeID, finalized, 0, seriesTitle, tmdbID)
 			})
 			return
 		}
@@ -1892,8 +1924,12 @@ func (s *AnimeService) enrichAnimeWithDescription(anime *models.Anime) {
 		return
 	}
 
-	// アニメ情報に設定
-	anime.Description = &description
+	// 書式統一＋日本語化（AniListは英語あらすじが多い）
+	finalized := s.finalizeDescriptionText(ctx, description)
+	if finalized == "" {
+		return
+	}
+	anime.Description = &finalized
 
 	// DBに保存（非同期）
 	malID := *anime.MalAnimeID
@@ -1902,10 +1938,10 @@ func (s *AnimeService) enrichAnimeWithDescription(anime *models.Anime) {
 		defer cancel()
 
 		_, saveErr := s.db.ExecContext(ctx, `
-			UPDATE animes 
+			UPDATE animes
 			SET description = $1
 			WHERE mal_anime_id = $2
-		`, description, malID)
+		`, finalized, malID)
 		if saveErr != nil {
 			s.logger.Warn("Failed to save description to DB",
 				"error", saveErr,
