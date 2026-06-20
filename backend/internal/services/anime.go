@@ -1814,14 +1814,16 @@ func (s *AnimeService) finalizeDescriptionText(ctx context.Context, raw string) 
 	if sanitized == "" {
 		return ""
 	}
-	if containsJapanese(sanitized) {
+	if isJapaneseText(sanitized) {
 		return sanitized
 	}
 	if s.claudeClient == nil || !s.claudeClient.IsEnabled() {
 		return sanitized
 	}
 
-	tctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	// 詳細ページ取得時に同期実行されるため、APIが遅い場合は素早く諦めて
+	// 整形済み原文（英語）にフォールバックし、画面遷移をブロックしない。
+	tctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	translated, err := s.claudeClient.TranslateAndFormatSynopsis(tctx, sanitized)
 	if err != nil || translated == "" {

@@ -49,22 +49,28 @@ func TestSanitizeDescription(t *testing.T) {
 	}
 }
 
-func TestContainsJapanese(t *testing.T) {
+func TestIsJapaneseText(t *testing.T) {
 	tests := []struct {
+		name string
 		in   string
 		want bool
 	}{
-		{"魔王を倒した勇者一行", true},      // 漢字
-		{"ひらがな", true},            // ひらがな
-		{"カタカナ", true},            // カタカナ
-		{"During their decade-long quest", false}, // 英語
-		{"12345 !?@#", false},      // 記号・数字のみ
-		{"", false},
+		{"日本語の文章", "魔王を倒した勇者一行は、世界を巡る旅に出た。", true},
+		{"ひらがなのみ", "ひらがなのぶんしょう", true},
+		{"カタカナのみ", "カタカナノブンショウ", true},
+		{"英語の文章", "During their decade-long quest to defeat the Demon King", false},
+		// 英語あらすじにタイトル・人名で日本語が部分混入するケース（誤判定しないこと）
+		{"英語＋日本語タイトル混入", "Frieren (フリーレン) is a mage who lives a long life.", false},
+		{"英語＋日本語人名混入", "Based on the manga by Akasaka Aka (赤坂 アカ) and Mengo Yokoyari.", false},
+		{"記号・数字のみ", "12345 !?@#", false},
+		{"空文字", "", false},
 	}
 
 	for _, tt := range tests {
-		if got := containsJapanese(tt.in); got != tt.want {
-			t.Errorf("containsJapanese(%q) = %v, want %v", tt.in, got, tt.want)
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isJapaneseText(tt.in); got != tt.want {
+				t.Errorf("isJapaneseText(%q) = %v, want %v", tt.in, got, tt.want)
+			}
+		})
 	}
 }

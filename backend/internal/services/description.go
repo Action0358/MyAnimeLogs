@@ -48,13 +48,28 @@ func sanitizeDescription(s string) string {
 	return strings.TrimSpace(s)
 }
 
-// containsJapanese は文字列に日本語（ひらがな・カタカナ・漢字）が含まれるかを判定する。
-// あらすじが既に日本語かどうかの判定に用いる。
-func containsJapanese(s string) bool {
+// japaneseTextThreshold は「日本語の文章」とみなす日本語文字の割合のしきい値。
+// 日本語あらすじは大半が日本語文字になる一方、英語あらすじに混入する
+// タイトル・人名（例: "Frieren (フリーレン)"）は低い割合に留まる。
+const japaneseTextThreshold = 0.3
+
+// isJapaneseText は文字列が日本語の文章とみなせるかを判定する。
+// 「1文字でも日本語が含まれれば日本語」とすると、英語あらすじ中に括弧書きで
+// 日本語のタイトル・人名が混入するケース（"Frieren (フリーレン) is a mage..." 等）を
+// 誤って日本語と判定してしまうため、空白を除く文字に占める日本語文字の割合で判定する。
+func isJapaneseText(s string) bool {
+	var japanese, total int
 	for _, r := range s {
+		if unicode.IsSpace(r) {
+			continue
+		}
+		total++
 		if unicode.In(r, unicode.Hiragana, unicode.Katakana, unicode.Han) {
-			return true
+			japanese++
 		}
 	}
-	return false
+	if total == 0 {
+		return false
+	}
+	return float64(japanese)/float64(total) >= japaneseTextThreshold
 }
