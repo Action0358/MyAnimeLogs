@@ -1521,6 +1521,13 @@ components:
           type: string
           format: uri
           description: ロゴ画像URL
+        link:
+          type: string
+          format: uri
+          description: |
+            配信先集約ページ（JustWatch/TMDB）のURL。作品ごとに1本で、全プロバイダで同じ値。
+            TMDBが個別サービス直リンクを公開していないため、TMDBサイトと同様に集約ページへ遷移する。
+            TMDBが返さない場合は省略される。
     Favorite:
       type: object
       properties:

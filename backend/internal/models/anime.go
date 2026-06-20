@@ -65,6 +65,9 @@ type WatchProvider struct {
 	ProviderID   int    `json:"provider_id"`
 	ProviderName string `json:"provider_name"`
 	LogoURL      string `json:"logo_url"`
+	// Link is the JustWatch/TMDB aggregation page URL for this work (per-country, same value
+	// for all providers). Empty if TMDB did not provide one. Frontend links each chip here.
+	Link string `json:"link,omitempty"`
 }
 
 // UserFavorite はお気に入り（ハート）を表す。視聴ステータスは UserWatchStatus に分離した。

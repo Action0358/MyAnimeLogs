@@ -203,6 +203,11 @@ export interface WatchProvider {
   provider_name: string;
   /** ロゴ画像URL */
   logo_url: string;
+  /** 配信先集約ページ（JustWatch/TMDB）のURL。作品ごとに1本で、全プロバイダで同じ値。
+TMDBが個別サービス直リンクを公開していないため、TMDBサイトと同様に集約ページへ遷移する。
+TMDBが返さない場合は省略される。
+ */
+  link?: string;
 }
 
 export interface Favorite {

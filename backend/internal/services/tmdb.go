@@ -520,30 +520,33 @@ func GetProviderLogoURL(logoPath string, size string) string {
 	return fmt.Sprintf("%s/%s%s", tmdbImageBase, size, logoPath)
 }
 
-// GetJapaneseWatchProviders gets streaming providers available in Japan
+// GetJapaneseWatchProviders gets streaming providers available in Japan.
+// It also returns the JustWatch/TMDB aggregation page URL (link) for the work, which is the
+// only per-work watch destination TMDB exposes (empty if not provided).
 // mediaType: "tv" or "movie"
-func (c *TMDBClient) GetJapaneseWatchProviders(ctx context.Context, tmdbID int, mediaType string) ([]TMDBProvider, error) {
+func (c *TMDBClient) GetJapaneseWatchProviders(ctx context.Context, tmdbID int, mediaType string) ([]TMDBProvider, string, error) {
 	providers, err := c.GetWatchProviders(ctx, tmdbID, mediaType)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	jpProviders, ok := providers.Results["JP"]
 	if !ok {
-		return nil, nil // No providers in Japan
+		return nil, "", nil // No providers in Japan
 	}
 
-	// Return flatrate (subscription) providers
-	return jpProviders.Flatrate, nil
+	// Return flatrate (subscription) providers and the aggregation page link
+	return jpProviders.Flatrate, jpProviders.Link, nil
 }
 
 // GetJapaneseWatchProvidersWithFallback searches for watch providers using the specified mediaType,
-// and falls back to the other type if no providers are found.
-func (c *TMDBClient) GetJapaneseWatchProvidersWithFallback(ctx context.Context, tmdbID int, mediaType string) ([]TMDBProvider, error) {
+// and falls back to the other type if no providers are found. It also returns the aggregation
+// page link corresponding to the result that was used.
+func (c *TMDBClient) GetJapaneseWatchProvidersWithFallback(ctx context.Context, tmdbID int, mediaType string) ([]TMDBProvider, string, error) {
 	// Try the specified mediaType first
-	providers, err := c.GetJapaneseWatchProviders(ctx, tmdbID, mediaType)
+	providers, link, err := c.GetJapaneseWatchProviders(ctx, tmdbID, mediaType)
 	if err == nil && len(providers) > 0 {
-		return providers, nil
+		return providers, link, nil
 	}
 
 	// Fallback to the other mediaType
@@ -554,11 +557,11 @@ func (c *TMDBClient) GetJapaneseWatchProvidersWithFallback(ctx context.Context, 
 
 	// The fallback result takes precedence: if the fallback API call succeeds
 	// (even with no results), the overall operation is considered successful.
-	providers, err = c.GetJapaneseWatchProviders(ctx, tmdbID, fallbackType)
+	providers, link, err = c.GetJapaneseWatchProviders(ctx, tmdbID, fallbackType)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
-	return providers, nil
+	return providers, link, nil
 }
 
 // TMDBFindResult represents the result of a find by external ID query

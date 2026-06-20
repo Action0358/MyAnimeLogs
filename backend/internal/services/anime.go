@@ -3416,7 +3416,7 @@ func (s *AnimeService) enrichAnimeWithWatchProviders(animeWithData *models.Anime
 	}
 
 	// Get watch providers from TMDB with fallback (try other mediaType if not found)
-	providers, err := s.tmdbClient.GetJapaneseWatchProvidersWithFallback(ctx, tmdbID, mediaType)
+	providers, providersLink, err := s.tmdbClient.GetJapaneseWatchProvidersWithFallback(ctx, tmdbID, mediaType)
 	if err != nil {
 		s.logger.Debug("Failed to get watch providers from TMDB",
 			"anime_id", animeWithData.ID,
@@ -3437,6 +3437,7 @@ func (s *AnimeService) enrichAnimeWithWatchProviders(animeWithData *models.Anime
 			ProviderID:   p.ProviderID,
 			ProviderName: p.ProviderName,
 			LogoURL:      GetProviderLogoURL(p.LogoPath, "w92"),
+			Link:         providersLink,
 		})
 	}
 

@@ -19,12 +19,15 @@ func newTestTMDBClient(serverURL string) *TMDBClient {
 	}
 }
 
-// watchProviderResponse builds a TMDBWatchProviders JSON with JP flatrate providers.
+// testWatchLink is the JustWatch/TMDB aggregation page URL returned in test responses.
+const testWatchLink = "https://www.themoviedb.org/tv/1575337/watch?locale=JP"
+
+// watchProviderResponse builds a TMDBWatchProviders JSON with JP flatrate providers and link.
 func watchProviderResponse(providers []TMDBProvider) TMDBWatchProviders {
 	return TMDBWatchProviders{
 		ID: 1,
 		Results: map[string]TMDBCountryResult{
-			"JP": {Flatrate: providers},
+			"JP": {Link: testWatchLink, Flatrate: providers},
 		},
 	}
 }
@@ -50,10 +53,11 @@ func TestGetJapaneseWatchProvidersWithFallback_TVFound(t *testing.T) {
 
 	client := newTestTMDBClient(server.URL)
 
-	providers, err := client.GetJapaneseWatchProvidersWithFallback(context.Background(), 1575337, "tv")
+	providers, link, err := client.GetJapaneseWatchProvidersWithFallback(context.Background(), 1575337, "tv")
 	assert.NoError(t, err)
 	assert.Len(t, providers, 1)
 	assert.Equal(t, "Netflix", providers[0].ProviderName)
+	assert.Equal(t, testWatchLink, link)
 }
 
 func TestGetJapaneseWatchProvidersWithFallback_TVFailsFallbackToMovie(t *testing.T) {
@@ -75,10 +79,11 @@ func TestGetJapaneseWatchProvidersWithFallback_TVFailsFallbackToMovie(t *testing
 
 	client := newTestTMDBClient(server.URL)
 
-	providers, err := client.GetJapaneseWatchProvidersWithFallback(context.Background(), 1575337, "tv")
+	providers, link, err := client.GetJapaneseWatchProvidersWithFallback(context.Background(), 1575337, "tv")
 	assert.NoError(t, err)
 	assert.Len(t, providers, 1)
 	assert.Equal(t, "Netflix", providers[0].ProviderName)
+	assert.Equal(t, testWatchLink, link)
 }
 
 func TestGetJapaneseWatchProvidersWithFallback_MovieFailsFallbackToTV(t *testing.T) {
@@ -99,10 +104,11 @@ func TestGetJapaneseWatchProvidersWithFallback_MovieFailsFallbackToTV(t *testing
 
 	client := newTestTMDBClient(server.URL)
 
-	providers, err := client.GetJapaneseWatchProvidersWithFallback(context.Background(), 999, "movie")
+	providers, link, err := client.GetJapaneseWatchProvidersWithFallback(context.Background(), 999, "movie")
 	assert.NoError(t, err)
 	assert.Len(t, providers, 1)
 	assert.Equal(t, "Crunchyroll", providers[0].ProviderName)
+	assert.Equal(t, testWatchLink, link)
 }
 
 func TestGetJapaneseWatchProvidersWithFallback_BothEmpty(t *testing.T) {
@@ -113,9 +119,10 @@ func TestGetJapaneseWatchProvidersWithFallback_BothEmpty(t *testing.T) {
 
 	client := newTestTMDBClient(server.URL)
 
-	providers, err := client.GetJapaneseWatchProvidersWithFallback(context.Background(), 999, "tv")
+	providers, link, err := client.GetJapaneseWatchProvidersWithFallback(context.Background(), 999, "tv")
 	assert.NoError(t, err)
 	assert.Nil(t, providers)
+	assert.Empty(t, link)
 }
 
 func TestGetJapaneseWatchProvidersWithFallback_APIErrorPreserved(t *testing.T) {
@@ -126,9 +133,10 @@ func TestGetJapaneseWatchProvidersWithFallback_APIErrorPreserved(t *testing.T) {
 
 	client := newTestTMDBClient(server.URL)
 
-	providers, err := client.GetJapaneseWatchProvidersWithFallback(context.Background(), 999, "tv")
+	providers, link, err := client.GetJapaneseWatchProvidersWithFallback(context.Background(), 999, "tv")
 	assert.Error(t, err)
 	assert.Nil(t, providers)
+	assert.Empty(t, link)
 	assert.Contains(t, err.Error(), "429")
 }
 
