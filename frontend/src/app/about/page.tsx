@@ -48,12 +48,57 @@ const AboutPage: React.FC = () => {
             </ol>
           </section>
 
-          <section>
+          <section className="mb-12">
             <h2 className="text-2xl font-semibold text-gray-900 mb-4">
               お問い合わせ
             </h2>
             <p className="text-gray-700 leading-relaxed">
               ご質問やご要望がございましたら、お気軽にお問い合わせください。
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-semibold text-gray-900 mb-4">
+              データ提供元
+            </h2>
+            <p className="text-gray-700 leading-relaxed mb-3">
+              本サービスのアニメ情報・配信情報は、以下の各サービスより提供されています。
+            </p>
+            <ul className="space-y-2 text-gray-700 list-disc list-inside marker:text-blue-600">
+              <li>
+                アニメ基本情報:{' '}
+                <a
+                  href="https://annict.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:text-blue-700"
+                >
+                  Annict
+                </a>
+              </li>
+              <li>
+                配信情報:{' '}
+                <a
+                  href="https://www.themoviedb.org/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:text-blue-700"
+                >
+                  TMDB
+                </a>{' '}
+                /{' '}
+                <a
+                  href="https://www.justwatch.com/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:text-blue-700"
+                >
+                  JustWatch
+                </a>
+              </li>
+            </ul>
+            <p className="text-sm text-gray-500 leading-relaxed mt-3">
+              This product uses the TMDB API but is not endorsed or certified by TMDB.
             </p>
           </section>
         </div>

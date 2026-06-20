@@ -50,30 +50,6 @@ const Footer: React.FC = () => {
                 </Link>{' '}
                 より提供
               </p>
-              <p className="text-sm text-gray-500 mt-1">
-                配信情報は{' '}
-                <Link
-                  href="https://www.themoviedb.org/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:text-blue-700"
-                >
-                  TMDB
-                </Link>{' '}
-                /{' '}
-                <Link
-                  href="https://www.justwatch.com/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:text-blue-700"
-                >
-                  JustWatch
-                </Link>{' '}
-                より提供
-              </p>
-              <p className="text-xs text-gray-400 mt-1">
-                This product uses the TMDB API but is not endorsed or certified by TMDB.
-              </p>
             </div>
 
             {/* サイトマップ */}
