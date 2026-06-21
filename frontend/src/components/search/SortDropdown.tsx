@@ -18,7 +18,6 @@ export interface SortDropdownProps {
 
 export const sortOptions: SortOption[] = [
   { value: 'title', label: 'タイトル順' },
-  { value: 'rating', label: '評価順' },
   { value: 'year', label: '放送年順' },
   { value: 'popularity', label: '人気順' },
 ]
