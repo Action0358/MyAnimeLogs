@@ -50,14 +50,10 @@ type Anime struct {
 
 type AnimeWithUserData struct {
 	Anime
-	UserFavorite       *UserFavorite    `json:"user_favorite,omitempty"`
-	UserWatchStatus    *UserWatchStatus `json:"user_watch_status,omitempty"`
-	UserRating         *UserRating      `json:"user_rating,omitempty"`
-	Genres             []string        `json:"genres,omitempty"`
-	AverageRating      *float64        `json:"average_rating,omitempty"`
-	RatingCount        int             `json:"rating_count"`
-	RatingDistribution map[int]int     `json:"rating_distribution,omitempty"`
-	WatchProviders     []WatchProvider `json:"watch_providers,omitempty"`
+	UserFavorite    *UserFavorite    `json:"user_favorite,omitempty"`
+	UserWatchStatus *UserWatchStatus `json:"user_watch_status,omitempty"`
+	Genres          []string         `json:"genres,omitempty"`
+	WatchProviders  []WatchProvider  `json:"watch_providers,omitempty"`
 }
 
 // WatchProvider represents a streaming service provider
@@ -90,21 +86,6 @@ type UserWatchStatusRequest struct {
 	Status string `json:"status" binding:"required,oneof=watching completed planned"`
 }
 
-type UserRating struct {
-	ID        int       `json:"id" db:"id"`
-	UserID    int       `json:"user_id" db:"user_id"`
-	AnimeID   int       `json:"anime_id" db:"anime_id"`
-	Rating    float64   `json:"rating" db:"rating"`
-	Comment   *string   `json:"comment" db:"comment"`
-	CreatedAt time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
-}
-
-type UserRatingRequest struct {
-	Rating  float64 `json:"rating" binding:"required,min=1.0,max=5.0"`
-	Comment *string `json:"comment,omitempty" binding:"omitempty,max=1000"`
-}
-
 type AnimeGenre struct {
 	ID      int    `json:"id" db:"id"`
 	AnimeID int    `json:"anime_id" db:"anime_id"`
@@ -128,8 +109,6 @@ type AdvancedSearchParams struct {
 	Genres     []string `form:"genre"`
 	Year       int      `form:"year"`
 	Season     string   `form:"season"`
-	MinRating  float64  `form:"min_rating"`
-	MaxRating  float64  `form:"max_rating"`
 	Status     string   `form:"status"`
 	UserStatus string   `form:"user_status"` // watching, completed, etc.
 	Sort       string   `form:"sort"`
@@ -143,21 +122,12 @@ type FilterOptions struct {
 	Genres  []GenreInfo `json:"genres"`
 	Years   []int       `json:"years"`
 	Seasons []string    `json:"seasons"`
-	Ratings RatingStats `json:"ratings"`
 }
 
 // GenreInfo - ジャンル情報
 type GenreInfo struct {
 	Name  string `json:"name"`
 	Count int    `json:"count"`
-}
-
-// RatingStats - 評価統計
-type RatingStats struct {
-	Min     float64 `json:"min"`
-	Max     float64 `json:"max"`
-	Average float64 `json:"average"`
-	Count   int     `json:"count"`
 }
 
 // SearchLog - 検索ログ

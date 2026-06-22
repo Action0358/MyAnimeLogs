@@ -475,8 +475,6 @@ func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int
 	// Build ORDER BY clause
 	orderBy := "ORDER BY title"
 	switch params.Sort {
-	case "rating":
-		orderBy = "ORDER BY (SELECT AVG(rating) FROM user_ratings WHERE anime_id = animes.id) DESC NULLS LAST"
 	case "year":
 		orderBy = "ORDER BY season DESC"
 	}
@@ -553,10 +551,10 @@ func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int
 // generateAdvancedSearchCacheKey - 高度検索パラメータからキャッシュキーを生成
 func (s *AnimeService) generateAdvancedSearchCacheKey(params models.AdvancedSearchParams) string {
 	genresKey := strings.Join(params.Genres, ",")
-	return fmt.Sprintf("%sq:%s:g:%s:y:%d:s:%s:mr:%v:xr:%v:st:%s:so:%s:o:%s:p:%d:pp:%d",
+	return fmt.Sprintf("%sq:%s:g:%s:y:%d:s:%s:st:%s:so:%s:o:%s:p:%d:pp:%d",
 		constants.CacheKeyAdvSearch,
 		params.Query, genresKey, params.Year, params.Season,
-		params.MinRating, params.MaxRating, params.Status,
+		params.Status,
 		params.Sort, params.Order, params.Page, params.PerPage)
 }
 
@@ -803,64 +801,6 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 		}
 	}
 
-	// Get rating statistics (average and count)
-	// Using database aggregation for better performance and scalability
-	var avgRating sql.NullFloat64
-	var ratingCount int
-	err = s.db.QueryRow(`
-		SELECT AVG(rating), COUNT(*)
-		FROM user_ratings
-		WHERE anime_id = $1
-	`, animeID).Scan(&avgRating, &ratingCount)
-	if err != nil && err != sql.ErrNoRows {
-		s.logger.Warn("Failed to get rating statistics",
-			"anime_id", animeID,
-			"error", err)
-	} else if err == nil && avgRating.Valid {
-		animeWithData.AverageRating = &avgRating.Float64
-		animeWithData.RatingCount = ratingCount
-	}
-
-	// Get rating distribution
-	// Using database GROUP BY for efficient aggregation
-	rows, err := s.db.Query(`
-		SELECT FLOOR(rating) as rating_floor, COUNT(*) as count
-		FROM user_ratings
-		WHERE anime_id = $1
-		GROUP BY FLOOR(rating)
-		ORDER BY rating_floor
-	`, animeID)
-	if err != nil {
-		s.logger.Warn("Failed to get rating distribution",
-			"anime_id", animeID,
-			"error", err)
-	} else {
-		defer rows.Close()
-		distribution := make(map[int]int)
-		for rows.Next() {
-			var rating int
-			var count int
-			if err := rows.Scan(&rating, &count); err != nil {
-				s.logger.Warn("Failed to scan rating distribution row",
-					"anime_id", animeID,
-					"error", err)
-				continue
-			}
-			distribution[rating] = count
-		}
-
-		// Check for errors during iteration
-		if err := rows.Err(); err != nil {
-			s.logger.Warn("Error during rating distribution iteration",
-				"anime_id", animeID,
-				"error", err)
-		}
-
-		if len(distribution) > 0 {
-			animeWithData.RatingDistribution = distribution
-		}
-	}
-
 	// Add user data if authenticated
 	if userID != nil {
 		// Get user favorite (heart)
@@ -893,23 +833,6 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 		} else if err == nil {
 			animeWithData.UserWatchStatus = &watchStatus
 		}
-
-		// Get user rating
-		var userRating models.UserRating
-		err = s.db.QueryRow(`
-			SELECT id, user_id, anime_id, rating, comment, created_at, updated_at
-			FROM user_ratings WHERE user_id = $1 AND anime_id = $2
-		`, *userID, animeID).Scan(&userRating.ID, &userRating.UserID, &userRating.AnimeID, &userRating.Rating, &userRating.Comment, &userRating.CreatedAt, &userRating.UpdatedAt)
-		if err != nil && err != sql.ErrNoRows {
-			// Log error but don't fail the entire request
-			s.logger.Warn("Failed to get user rating",
-				"user_id", *userID,
-				"anime_id", animeID,
-				"error", err)
-		} else if err == nil {
-			animeWithData.UserRating = &userRating
-		}
-
 	}
 
 	// Get watch providers from TMDB (if TMDB ID is available or can be found)
@@ -1223,44 +1146,6 @@ func (s *AnimeService) DeleteWatchStatus(userID, animeID int) error {
 	return nil
 }
 
-func (s *AnimeService) UpdateRating(userID, animeID int, rating float64, comment *string) (*models.UserRating, error) {
-	// Check if anime exists
-	var exists bool
-	err := s.db.QueryRow("SELECT EXISTS(SELECT 1 FROM animes WHERE id = $1)", animeID).Scan(&exists)
-	if err != nil {
-		return nil, fmt.Errorf("failed to check anime existence: %w", err)
-	}
-	if !exists {
-		return nil, ErrAnimeNotFound
-	}
-
-	// Upsert rating
-	var userRating models.UserRating
-	err = s.db.QueryRow(`
-		INSERT INTO user_ratings (user_id, anime_id, rating, comment, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-		ON CONFLICT (user_id, anime_id)
-		DO UPDATE SET rating = $3, comment = $4, updated_at = CURRENT_TIMESTAMP
-		RETURNING id, user_id, anime_id, rating, comment, created_at, updated_at
-	`, userID, animeID, rating, comment).Scan(&userRating.ID, &userRating.UserID, &userRating.AnimeID, &userRating.Rating, &userRating.Comment, &userRating.CreatedAt, &userRating.UpdatedAt)
-	if err != nil {
-		return nil, fmt.Errorf("failed to update rating: %w", err)
-	}
-
-	return &userRating, nil
-}
-
-func (s *AnimeService) DeleteRating(userID, animeID int) error {
-	_, err := s.db.Exec(`
-		DELETE FROM user_ratings WHERE user_id = $1 AND anime_id = $2
-	`, userID, animeID)
-	if err != nil {
-		return fmt.Errorf("failed to delete rating: %w", err)
-	}
-
-	return nil
-}
-
 // batchGetUserFavorites - 複数アニメのお気に入り情報を一括取得（N+1クエリ解消）
 func (s *AnimeService) batchGetUserFavorites(userID int, animeIDs []int) (map[int]*models.UserFavorite, error) {
 	if len(animeIDs) == 0 {
@@ -1363,12 +1248,6 @@ func (s *AnimeService) GetFilterOptions() (*models.FilterOptions, error) {
 		Genres:  []models.GenreInfo{},
 		Years:   []int{},
 		Seasons: []string{},
-		Ratings: models.RatingStats{
-			Min:     1.0,
-			Max:     5.0,
-			Average: 3.0,
-			Count:   0,
-		},
 	}
 
 	// ジャンル一覧を取得（エラーがあっても他の情報は取得を続行）
@@ -1459,24 +1338,6 @@ func (s *AnimeService) GetFilterOptions() (*models.FilterOptions, error) {
 		filterOptions.Seasons = seasons
 	}
 
-	// 評価統計を取得
-	var ratingStats models.RatingStats
-	err = s.db.QueryRow(`
-		SELECT 
-			COALESCE(MIN(rating), 1.0) as min_rating,
-			COALESCE(MAX(rating), 5.0) as max_rating,
-			COALESCE(AVG(rating), 3.0) as avg_rating,
-			COUNT(*) as count
-		FROM user_ratings
-		WHERE rating IS NOT NULL AND rating >= 1.0 AND rating <= 5.0
-	`).Scan(&ratingStats.Min, &ratingStats.Max, &ratingStats.Average, &ratingStats.Count)
-	if err != nil {
-		s.logger.Error("Failed to get rating stats", "error", err)
-		// デフォルト値はすでに設定済み
-	} else {
-		filterOptions.Ratings = ratingStats
-	}
-
 	// Redisキャッシュに保存
 	if s.redisCache != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -1523,8 +1384,6 @@ func (s *AnimeService) logAdvancedSearch(params models.AdvancedSearchParams, use
 		"genres":      params.Genres,
 		"year":        params.Year,
 		"season":      params.Season,
-		"min_rating":  params.MinRating,
-		"max_rating":  params.MaxRating,
 		"status":      params.Status,
 		"user_status": params.UserStatus,
 		"sort":        params.Sort,
@@ -2327,26 +2186,15 @@ func (s *AnimeService) setSearchDefaults(params *models.AdvancedSearchParams) {
 
 // buildBaseQuery - ベースクエリとJOINを構築
 func (s *AnimeService) buildBaseQuery(params models.AdvancedSearchParams, userID *int) string {
-	const SortByRating = "rating"
-
 	baseQuery := "FROM animes_with_computed_status a"
 
 	// Track which JOINs are needed
 	needGenreJoin := len(params.Genres) > 0
-	needRatingJoin := params.MinRating > 0 || params.MaxRating > 0 || params.Sort == SortByRating
 	needWatchStatusJoin := userID != nil && params.UserStatus != ""
 
 	// Add JOINs only when needed
 	if needGenreJoin {
 		baseQuery += "\n\t\tLEFT JOIN anime_genres ag ON a.id = ag.anime_id"
-	}
-	if needRatingJoin {
-		baseQuery += `
-		LEFT JOIN (
-			SELECT anime_id, AVG(rating) as avg_rating
-			FROM user_ratings
-			GROUP BY anime_id
-		) AS avg_ratings ON a.id = avg_ratings.anime_id`
 	}
 	if needWatchStatusJoin {
 		baseQuery += `
@@ -2405,23 +2253,6 @@ func (s *AnimeService) buildWhereClause(params models.AdvancedSearchParams, user
 		argIndex++
 	}
 
-	// 評価範囲検索
-	if params.MinRating > 0 || params.MaxRating > 0 {
-		if params.MinRating > 0 && params.MaxRating > 0 {
-			whereClauses = append(whereClauses, fmt.Sprintf("avg_ratings.avg_rating BETWEEN $%d AND $%d", argIndex, argIndex+1))
-			args = append(args, params.MinRating, params.MaxRating)
-			argIndex += 2
-		} else if params.MinRating > 0 {
-			whereClauses = append(whereClauses, fmt.Sprintf("avg_ratings.avg_rating >= $%d", argIndex))
-			args = append(args, params.MinRating)
-			argIndex++
-		} else if params.MaxRating > 0 {
-			whereClauses = append(whereClauses, fmt.Sprintf("avg_ratings.avg_rating <= $%d", argIndex))
-			args = append(args, params.MaxRating)
-			argIndex++
-		}
-	}
-
 	// ユーザーステータス検索（認証時のみ）
 	// JOINを使用するため、WHERE句で条件を追加
 	if userID != nil && params.UserStatus != "" {
@@ -2445,7 +2276,6 @@ func (s *AnimeService) buildWhereClause(params models.AdvancedSearchParams, user
 func (s *AnimeService) buildOrderByClause(params models.AdvancedSearchParams) string {
 	const (
 		SortByTitle      = "title"
-		SortByRating     = "rating"
 		SortByYear       = "year"
 		SortByPopularity = "popularity"
 		SortByUpdated    = "updated"
@@ -2460,8 +2290,6 @@ func (s *AnimeService) buildOrderByClause(params models.AdvancedSearchParams) st
 	switch params.Sort {
 	case SortByTitle:
 		return fmt.Sprintf("ORDER BY a.title %s", orderDirection)
-	case SortByRating:
-		return fmt.Sprintf("ORDER BY avg_ratings.avg_rating %s NULLS LAST", orderDirection)
 	case SortByYear:
 		// season から年を抽出してソート
 		// NOTE: SUBSTRING関数を使用しているため、インデックスが利用されません
