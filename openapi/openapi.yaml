@@ -198,10 +198,6 @@ paths:
                     type: array
                     items:
                       $ref: "#/components/schemas/WatchStatus"
-                  ratings:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/Rating"
             text/csv:
               schema:
                 type: string
@@ -392,66 +388,6 @@ paths:
       responses:
         "204":
           description: No Content
-  /animes/{id}/rating:
-    put:
-      summary: アニメの評価を登録・更新
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                rating:
-                  type: number
-                  format: float
-                  minimum: 1.0
-                  maximum: 5.0
-                comment:
-                  type: string
-                  maxLength: 1000
-              required:
-                - rating
-      responses:
-        "200":
-          description: 評価を登録しました
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                  rating:
-                    $ref: "#/components/schemas/Rating"
-    delete:
-      summary: アニメの評価を削除
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: integer
-      responses:
-        "200":
-          description: 評価を削除しました
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
   /search/animes:
     get:
       summary: 基本的なアニメ検索
@@ -475,7 +411,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: ["title", "rating", "year"]
+            enum: ["title", "year"]
           description: ソート条件
         - name: page
           in: query
@@ -537,22 +473,6 @@ paths:
             type: string
           description: 放送時期絞り込み（形式 YYYY-season または YYYY年季節）
           example: "2024-spring"
-        - name: min_rating
-          in: query
-          schema:
-            type: number
-            format: float
-            minimum: 1.0
-            maximum: 5.0
-          description: 最低評価
-        - name: max_rating
-          in: query
-          schema:
-            type: number
-            format: float
-            minimum: 1.0
-            maximum: 5.0
-          description: 最高評価
         - name: status
           in: query
           schema:
@@ -569,7 +489,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: ["title", "rating", "year", "popularity", "updated"]
+            enum: ["title", "year", "popularity", "updated"]
             default: "title"
           description: ソート条件
         - name: order
@@ -786,20 +706,6 @@ paths:
                     items:
                       type: string
                       enum: ["spring", "summer", "autumn", "winter"]
-                  ratings:
-                    type: object
-                    properties:
-                      min:
-                        type: number
-                        format: float
-                      max:
-                        type: number
-                        format: float
-                      average:
-                        type: number
-                        format: float
-                      count:
-                        type: integer
   /annict/works:
     get:
       summary: Annict APIからアニメ作品を取得
@@ -1476,23 +1382,6 @@ components:
           $ref: "#/components/schemas/WatchStatus"
           nullable: true
           description: ユーザーの視聴ステータス情報（認証時のみ）
-        user_rating:
-          $ref: "#/components/schemas/Rating"
-          nullable: true
-          description: ユーザーの評価情報（認証時のみ）
-        average_rating:
-          type: number
-          format: float
-          nullable: true
-          description: 平均評価
-        rating_count:
-          type: integer
-          description: 評価数
-        rating_distribution:
-          type: object
-          additionalProperties:
-            type: integer
-          description: 評価分布（キー：評価値、値：件数）
         watch_providers:
           type: array
           items:
@@ -1554,21 +1443,6 @@ components:
         updated_at:
           type: string
           format: date-time
-    Rating:
-      type: object
-      properties:
-        anime_id:
-          type: integer
-        rating:
-          type: number
-          format: float
-          minimum: 1.0
-          maximum: 5.0
-        comment:
-          type: string
-        created_at:
-          type: string
-          format: date-time
     SearchResultAnime:
       type: object
       properties:
@@ -1576,9 +1450,6 @@ components:
           type: integer
         title:
           type: string
-        rating:
-          type: number
-          format: float
         genre:
           type: array
           items:

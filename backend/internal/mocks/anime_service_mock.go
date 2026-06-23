@@ -153,25 +153,6 @@ func (m *MockAnimeService) DeleteWatchStatus(userID, animeID int) error {
 	return args.Error(0)
 }
 
-// UpdateRating mocks the UpdateRating method
-func (m *MockAnimeService) UpdateRating(userID, animeID int, rating float64, comment *string) (*models.UserRating, error) {
-	args := m.Called(userID, animeID, rating, comment)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	result, ok := args.Get(0).(*models.UserRating)
-	if !ok {
-		panic("mock: UpdateRating return value is not *models.UserRating")
-	}
-	return result, args.Error(1)
-}
-
-// DeleteRating mocks the DeleteRating method
-func (m *MockAnimeService) DeleteRating(userID, animeID int) error {
-	args := m.Called(userID, animeID)
-	return args.Error(0)
-}
-
 // GetCurrentSeasonAnimes mocks the GetCurrentSeasonAnimes method
 func (m *MockAnimeService) GetCurrentSeasonAnimes(limit int) ([]models.Anime, error) {
 	args := m.Called(limit)

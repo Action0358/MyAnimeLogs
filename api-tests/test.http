@@ -170,35 +170,9 @@ Authorization: Bearer {{supabaseToken}}
 DELETE {{baseUrl}}/api/users/me/watch-status/1
 Authorization: Bearer {{supabaseToken}}
 
-### ===== 評価システムAPI =====
-
-### 26. アニメ評価登録
-PUT {{baseUrl}}/api/animes/1/rating
-Content-Type: {{contentType}}
-Authorization: Bearer {{supabaseToken}}
-
-{
-  "rating": 4.5,
-  "comment": "とても面白いアニメでした！"
-}
-
-### 27. アニメ評価更新
-PUT {{baseUrl}}/api/animes/1/rating
-Content-Type: {{contentType}}
-Authorization: Bearer {{supabaseToken}}
-
-{
-  "rating": 5.0,
-  "comment": "最高のアニメです！"
-}
-
-### 28. アニメ評価削除
-DELETE {{baseUrl}}/api/animes/1/rating
-Authorization: Bearer {{supabaseToken}}
-
 ### ===== お気に入りエラーケーステスト =====
 
-### 30. 存在しないアニメをお気に入り登録（404エラー）
+### 28. 存在しないアニメをお気に入り登録（404エラー）
 PUT {{baseUrl}}/api/users/me/favorites/99999
 Content-Type: {{contentType}}
 Authorization: Bearer {{supabaseToken}}
@@ -207,7 +181,7 @@ Authorization: Bearer {{supabaseToken}}
   "status": "watching"
 }
 
-### 31. 無効なステータスでお気に入り登録（400エラー）
+### 29. 無効なステータスでお気に入り登録（400エラー）
 PUT {{baseUrl}}/api/users/me/favorites/1
 Content-Type: {{contentType}}
 Authorization: Bearer {{supabaseToken}}
@@ -216,19 +190,9 @@ Authorization: Bearer {{supabaseToken}}
   "status": "invalid_status"
 }
 
-### 32. 無効な評価値でアニメ評価（400エラー）
-PUT {{baseUrl}}/api/animes/1/rating
-Content-Type: {{contentType}}
-Authorization: Bearer {{supabaseToken}}
-
-{
-  "rating": 6.0,
-  "comment": "範囲外の評価値"
-}
-
 ### ===== 管理者API（データ同期） =====
 
-### 33. 今期アニメをデータベースに同期
+### 30. 今期アニメをデータベースに同期
 POST {{baseUrl}}/api/admin/sync/season
 Content-Type: {{contentType}}
 Authorization: Bearer {{supabaseToken}}
@@ -237,236 +201,224 @@ Authorization: Bearer {{supabaseToken}}
   "season": "2024-autumn"
 }
 
-### 34. 人気アニメをデータベースに同期
+### 31. 人気アニメをデータベースに同期
 POST {{baseUrl}}/api/admin/sync/popular
 Content-Type: {{contentType}}
 Authorization: Bearer {{supabaseToken}}
 
-### 35. 全アニメのジャンル情報を同期
+### 32. 全アニメのジャンル情報を同期
 POST {{baseUrl}}/api/admin/sync/genres
 Content-Type: {{contentType}}
 Authorization: Bearer {{supabaseToken}}
 
-### 36. 全アニメのステータスを同期
+### 33. 全アニメのステータスを同期
 POST {{baseUrl}}/api/admin/sync/statuses
 Content-Type: {{contentType}}
 Authorization: Bearer {{supabaseToken}}
 
-### 37. 全アニメの放送開始日を同期
+### 34. 全アニメの放送開始日を同期
 POST {{baseUrl}}/api/admin/sync/released-on
 Content-Type: {{contentType}}
 Authorization: Bearer {{supabaseToken}}
 
-### 38. 同期ステータス取得
+### 35. 同期ステータス取得
 GET {{baseUrl}}/api/admin/sync/status
 Authorization: Bearer {{supabaseToken}}
 
-### 39. キャッシュクリア
+### 36. キャッシュクリア
 POST {{baseUrl}}/api/admin/cache/clear
 Authorization: Bearer {{supabaseToken}}
 
-### 40. 管理者APIエラーケース（認証なし）
+### 37. 管理者APIエラーケース（認証なし）
 POST {{baseUrl}}/api/admin/sync/genres
 Content-Type: {{contentType}}
 
-### 41. 管理者APIエラーケース（無効なトークン）
+### 38. 管理者APIエラーケース（無効なトークン）
 POST {{baseUrl}}/api/admin/sync/genres
 Content-Type: {{contentType}}
 Authorization: Bearer invalid.token.here
 
 ### ===== 監視API =====
 
-### 42. エラーメトリクス取得
+### 39. エラーメトリクス取得
 GET {{baseUrl}}/api/admin/errors/metrics
 Authorization: Bearer {{supabaseToken}}
 
-### 43. トップエラー取得
+### 40. トップエラー取得
 GET {{baseUrl}}/api/admin/errors/top?limit=5
 Authorization: Bearer {{supabaseToken}}
 
-### 44. エラーメトリクスリセット
+### 41. エラーメトリクスリセット
 POST {{baseUrl}}/api/admin/errors/reset
 Authorization: Bearer {{supabaseToken}}
 
 ### ===== 検索・フィルタリングAPI =====
 
-### 45. フィルター情報取得
+### 42. フィルター情報取得
 GET {{baseUrl}}/api/filters
 
-### 46. 検索候補取得
+### 43. 検索候補取得
 GET {{baseUrl}}/api/search/suggestions?q=進撃
 
-### 47. 人気検索キーワード取得
+### 44. 人気検索キーワード取得
 GET {{baseUrl}}/api/search/popular
 
-### 48. 人気検索キーワード取得（件数指定）
+### 45. 人気検索キーワード取得（件数指定）
 GET {{baseUrl}}/api/search/popular?limit=5
 
 ### ===== 高度検索API =====
 
-### 49. 高度検索（基本クエリ）
+### 46. 高度検索（基本クエリ）
 GET {{baseUrl}}/api/search/advanced?q=進撃
 Authorization: Bearer {{supabaseToken}}
 
-### 50. 高度検索（複数ジャンル）
+### 47. 高度検索（複数ジャンル）
 GET {{baseUrl}}/api/search/advanced?genre=アクション&genre=ドラマ
 Authorization: Bearer {{supabaseToken}}
 
-### 51. 高度検索（年指定）
+### 48. 高度検索（年指定）
 GET {{baseUrl}}/api/search/advanced?year=2024
 Authorization: Bearer {{supabaseToken}}
 
-### 52. 高度検索（シーズン指定）
+### 49. 高度検索（シーズン指定）
 GET {{baseUrl}}/api/search/advanced?season=autumn
 Authorization: Bearer {{supabaseToken}}
 
-### 53. 高度検索（評価範囲指定）
-GET {{baseUrl}}/api/search/advanced?min_rating=4.0&max_rating=5.0
-Authorization: Bearer {{supabaseToken}}
-
-### 54. 高度検索（ユーザーステータス指定）
+### 50. 高度検索（ユーザーステータス指定）
 GET {{baseUrl}}/api/search/advanced?user_status=watching
 Authorization: Bearer {{supabaseToken}}
 
-### 55. 高度検索（タイトル順ソート・昇順）
+### 51. 高度検索（タイトル順ソート・昇順）
 GET {{baseUrl}}/api/search/advanced?sort=title&order=asc
 Authorization: Bearer {{supabaseToken}}
 
-### 56. 高度検索（評価順ソート・降順）
-GET {{baseUrl}}/api/search/advanced?sort=rating&order=desc
-Authorization: Bearer {{supabaseToken}}
-
-### 57. 高度検索（複合条件）
+### 52. 高度検索（複合条件）
 GET {{baseUrl}}/api/search/advanced?q=進撃&genre=アクション&year=2024
 Authorization: Bearer {{supabaseToken}}
 
-### 58. 高度検索（全条件指定）
-GET {{baseUrl}}/api/search/advanced?q=アニメ&genre=アクション&genre=ドラマ&year=2024&season=autumn&min_rating=3.0&max_rating=5.0&user_status=watching&sort=rating&order=desc&page=1&per_page=10
+### 53. 高度検索（全条件指定）
+GET {{baseUrl}}/api/search/advanced?q=アニメ&genre=アクション&genre=ドラマ&year=2024&season=autumn&user_status=watching&sort=year&order=desc&page=1&per_page=10
 Authorization: Bearer {{supabaseToken}}
 
-### 59. 高度検索（ページネーション1ページ目）
+### 54. 高度検索（ページネーション1ページ目）
 GET {{baseUrl}}/api/search/advanced?page=1&per_page=5
 Authorization: Bearer {{supabaseToken}}
 
-### 60. 高度検索（ページネーション2ページ目）
+### 55. 高度検索（ページネーション2ページ目）
 GET {{baseUrl}}/api/search/advanced?page=2&per_page=5
-Authorization: Bearer {{supabaseToken}}
-
-### 61. 高度検索エラーケース（無効な評価範囲）
-GET {{baseUrl}}/api/search/advanced?min_rating=6.0&max_rating=10.0
 Authorization: Bearer {{supabaseToken}}
 
 ### ===== パフォーマンステスト =====
 
-### 62. 大量データでのアニメ一覧取得
+### 56. 大量データでのアニメ一覧取得
 GET {{baseUrl}}/api/animes?per_page=100
 Authorization: Bearer {{supabaseToken}}
 
-### 63. 高度検索（大量結果）
+### 57. 高度検索（大量結果）
 GET {{baseUrl}}/api/search/advanced?per_page=100
 Authorization: Bearer {{supabaseToken}}
 
 ### ===== 今期・人気アニメAPI =====
 
-### 64. 今期アニメ取得（デフォルト12件）
+### 58. 今期アニメ取得（デフォルト12件）
 GET {{baseUrl}}/api/animes/current
 
-### 65. 今期アニメ取得（件数指定）
+### 59. 今期アニメ取得（件数指定）
 GET {{baseUrl}}/api/animes/current?limit=24
 
-### 66. 人気アニメ取得（デフォルト12件）
+### 60. 人気アニメ取得（デフォルト12件）
 GET {{baseUrl}}/api/animes/popular
 
-### 67. 人気アニメ取得（件数指定）
+### 61. 人気アニメ取得（件数指定）
 GET {{baseUrl}}/api/animes/popular?limit=50
 
 ### ===== 検索履歴API =====
 
-### 68. 検索実行（履歴が記録される）
+### 62. 検索実行（履歴が記録される）
 # @name searchWithHistory
 GET {{baseUrl}}/api/search/animes?keyword=鬼滅
 Authorization: Bearer {{supabaseToken}}
 
-### 69. 検索履歴取得（デフォルト20件）
+### 63. 検索履歴取得（デフォルト20件）
 # @name getSearchHistory
 GET {{baseUrl}}/api/search/history
 Authorization: Bearer {{supabaseToken}}
 
-### 70. 検索履歴取得（件数指定）
+### 64. 検索履歴取得（件数指定）
 GET {{baseUrl}}/api/search/history?limit=10
 Authorization: Bearer {{supabaseToken}}
 
-### 71. 検索履歴削除（個別）
+### 65. 検索履歴削除（個別）
 DELETE {{baseUrl}}/api/search/history/{{getSearchHistory.response.body.history[0].id}}
 Authorization: Bearer {{supabaseToken}}
 
-### 72. 検索履歴削除（全件）
+### 66. 検索履歴削除（全件）
 DELETE {{baseUrl}}/api/search/history
 Authorization: Bearer {{supabaseToken}}
 
-### 73. 検索履歴エラーケース（認証なし）
+### 67. 検索履歴エラーケース（認証なし）
 GET {{baseUrl}}/api/search/history
 
-### 74. 存在しない検索履歴を削除（404エラー）
+### 68. 存在しない検索履歴を削除（404エラー）
 DELETE {{baseUrl}}/api/search/history/99999
 Authorization: Bearer {{supabaseToken}}
 
 ### ===== ジャンル関連テスト =====
 
-### 75. ジャンル情報確認
+### 69. ジャンル情報確認
 GET {{baseUrl}}/api/filters
 
-### 76. ジャンルでアニメ検索
+### 70. ジャンルでアニメ検索
 GET {{baseUrl}}/api/animes?genre=アクション
 Authorization: Bearer {{supabaseToken}}
 
-### 77. 複数ジャンルで高度検索
+### 71. 複数ジャンルで高度検索
 GET {{baseUrl}}/api/search/advanced?genre=アクション&genre=コメディ
 Authorization: Bearer {{supabaseToken}}
 
-### 78. ジャンル名の日本語変換確認
+### 72. ジャンル名の日本語変換確認
 # フィルター情報で日本語のジャンル名が返されることを確認
 # 例: "Action" → "アクション", "Comedy" → "コメディ"
 GET {{baseUrl}}/api/filters
 
 ### ===== キャッシュ検証テスト =====
 
-### 79. 検索キャッシュテスト（1回目 - キャッシュなし）
+### 73. 検索キャッシュテスト（1回目 - キャッシュなし）
 GET {{baseUrl}}/api/search/animes?keyword=進撃
 
-### 80. 検索キャッシュテスト（2回目 - キャッシュあり）
+### 74. 検索キャッシュテスト（2回目 - キャッシュあり）
 # ログに "Cache hit for search" が出力される
 GET {{baseUrl}}/api/search/animes?keyword=進撃
 
-### 81. 今期アニメキャッシュテスト（1回目）
+### 75. 今期アニメキャッシュテスト（1回目）
 GET {{baseUrl}}/api/animes/current?limit=12
 
-### 82. 今期アニメキャッシュテスト（2回目）
+### 76. 今期アニメキャッシュテスト（2回目）
 # ログに "Cache hit for current season animes" が出力される
 GET {{baseUrl}}/api/animes/current?limit=12
 
-### 83. フィルター情報キャッシュテスト（1回目）
+### 77. フィルター情報キャッシュテスト（1回目）
 GET {{baseUrl}}/api/filters
 
-### 84. フィルター情報キャッシュテスト（2回目）
+### 78. フィルター情報キャッシュテスト（2回目）
 # ログに "Cache hit for filter options" が出力される
 GET {{baseUrl}}/api/filters
 
 ### ===== ステータス同期テスト =====
 
-### 85. ステータス同期後の確認
+### 79. ステータス同期後の確認
 GET {{baseUrl}}/api/animes/1
 Authorization: Bearer {{supabaseToken}}
 
-### 86. 放送中のアニメ検索
+### 80. 放送中のアニメ検索
 GET {{baseUrl}}/api/search/advanced?status=airing
 Authorization: Bearer {{supabaseToken}}
 
-### 87. 完結済みアニメ検索
+### 81. 完結済みアニメ検索
 GET {{baseUrl}}/api/search/advanced?status=finished
 Authorization: Bearer {{supabaseToken}}
 
 ### ===== 開発用エンドポイント =====
 
-### 88. ホットリロードテスト（開発環境のみ）
+### 82. ホットリロードテスト（開発環境のみ）
 GET {{baseUrl}}/test-hot-reload
