@@ -37,8 +37,6 @@ type AnimeServiceInterface interface {
 	GetUserWatchStatuses(userID int, status string) ([]models.AnimeWithUserData, error)
 	UpdateWatchStatus(userID, animeID int, status string) (*models.UserWatchStatus, error)
 	DeleteWatchStatus(userID, animeID int) error
-	UpdateRating(userID, animeID int, rating float64, comment *string) (*models.UserRating, error)
-	DeleteRating(userID, animeID int) error
 	GetFilterOptions() (*models.FilterOptions, error)
 	GetPopularSearches(limit int) ([]string, error)
 	GetSearchSuggestions(query string, limit int) ([]string, error)

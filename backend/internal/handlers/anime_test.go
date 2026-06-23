@@ -143,41 +143,6 @@ func TestAnimeHandler_UpdateWatchStatus_InvalidJSON(t *testing.T) {
 	assert.Contains(t, response, "message")
 }
 
-func TestAnimeHandler_UpdateRating_InvalidAnimeID(t *testing.T) {
-	handler := setupAnimeHandler()
-
-	// Setup Gin router
-	gin.SetMode(gin.TestMode)
-	router := gin.New()
-	router.PUT("/animes/:id/rating", func(c *gin.Context) {
-		c.Set("user_id", 123) // Mock authentication
-		handler.UpdateRating(c)
-	})
-
-	// Create request with invalid anime ID
-	requestBody := map[string]interface{}{
-		"rating":  4.5,
-		"comment": "Great anime!",
-	}
-	jsonBody, _ := json.Marshal(requestBody)
-
-	req, _ := http.NewRequest("PUT", "/animes/invalid/rating", bytes.NewBuffer(jsonBody))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	// Execute request
-	router.ServeHTTP(w, req)
-
-	// Assert response
-	assert.Equal(t, http.StatusBadRequest, w.Code)
-
-	var response map[string]interface{}
-	err := json.Unmarshal(w.Body.Bytes(), &response)
-	assert.NoError(t, err)
-	assert.Contains(t, response, "message")
-	assert.Equal(t, "無効なアニメIDです", response["message"])
-}
-
 func TestAnimeHandler_DeleteFavorite_InvalidAnimeID(t *testing.T) {
 	handler := setupAnimeHandler()
 
@@ -229,8 +194,6 @@ func TestAnimeHandler_BasicFunctionality(t *testing.T) {
 	assert.NotNil(t, handler.GetWatchStatuses)
 	assert.NotNil(t, handler.UpdateWatchStatus)
 	assert.NotNil(t, handler.DeleteWatchStatus)
-	assert.NotNil(t, handler.UpdateRating)
-	assert.NotNil(t, handler.DeleteRating)
 }
 
 // ===== 検索機能のテスト =====
@@ -345,7 +308,6 @@ func TestAnimeHandler_GetFilterOptions_Success(t *testing.T) {
 				Genres:  []models.GenreInfo{{Name: "アクション", Count: 10}, {Name: "コメディ", Count: 5}},
 				Years:   []int{2024, 2023, 2022},
 				Seasons: []string{"spring", "summer", "autumn", "winter"},
-				Ratings: models.RatingStats{Min: 1.0, Max: 5.0, Average: 3.5, Count: 100},
 			},
 			mockError:         nil,
 			expectedStatus:    http.StatusOK,
@@ -357,7 +319,6 @@ func TestAnimeHandler_GetFilterOptions_Success(t *testing.T) {
 				Genres:  []models.GenreInfo{},
 				Years:   []int{},
 				Seasons: []string{},
-				Ratings: models.RatingStats{Min: 1.0, Max: 5.0, Average: 0.0, Count: 0},
 			},
 			mockError:         nil,
 			expectedStatus:    http.StatusOK,
@@ -395,26 +356,17 @@ func TestAnimeHandler_GetFilterOptions_Success(t *testing.T) {
 			assert.NotNil(t, response.Genres)
 			assert.NotNil(t, response.Years)
 			assert.NotNil(t, response.Seasons)
-			assert.NotNil(t, response.Ratings)
 
 			if tt.expectDefaultData {
 				// デフォルト値が返されることを確認
 				assert.Equal(t, 0, len(response.Genres))
 				assert.Equal(t, 0, len(response.Years))
 				assert.NotNil(t, response.Seasons)
-				assert.Equal(t, 1.0, response.Ratings.Min)
-				assert.Equal(t, 5.0, response.Ratings.Max)
-				assert.Equal(t, 3.0, response.Ratings.Average)
-				assert.Equal(t, 0, response.Ratings.Count)
 			} else if tt.mockReturn != nil {
 				// モックの戻り値と完全に一致することを確認
 				assert.Equal(t, len(tt.mockReturn.Genres), len(response.Genres))
 				assert.Equal(t, len(tt.mockReturn.Years), len(response.Years))
 				assert.Equal(t, len(tt.mockReturn.Seasons), len(response.Seasons))
-				assert.Equal(t, tt.mockReturn.Ratings.Min, response.Ratings.Min)
-				assert.Equal(t, tt.mockReturn.Ratings.Max, response.Ratings.Max)
-				assert.Equal(t, tt.mockReturn.Ratings.Average, response.Ratings.Average)
-				assert.Equal(t, tt.mockReturn.Ratings.Count, response.Ratings.Count)
 			}
 
 			mockService.AssertExpectations(t)
@@ -564,14 +516,13 @@ func TestAnimeHandler_AdvancedSearchAnimes(t *testing.T) {
 		},
 		{
 			name:        "複数フィルター",
-			queryParams: "q=アニメ&genre=アクション&year=2024&season=spring&min_rating=4.0&page=1",
+			queryParams: "q=アニメ&genre=アクション&year=2024&season=spring&page=1",
 			expectedParams: models.AdvancedSearchParams{
-				Query:     "アニメ",
-				Genres:    []string{"アクション"},
-				Year:      2024,
-				Season:    "spring",
-				MinRating: 4.0,
-				Page:      1,
+				Query:  "アニメ",
+				Genres: []string{"アクション"},
+				Year:   2024,
+				Season: "spring",
+				Page:   1,
 			},
 			mockReturn: &models.PaginatedResponse{
 				Data: []models.AnimeWithUserData{},
@@ -586,10 +537,10 @@ func TestAnimeHandler_AdvancedSearchAnimes(t *testing.T) {
 		},
 		{
 			name:        "ソート指定",
-			queryParams: "q=test&sort=rating&order=desc&page=1",
+			queryParams: "q=test&sort=year&order=desc&page=1",
 			expectedParams: models.AdvancedSearchParams{
 				Query: "test",
-				Sort:  "rating",
+				Sort:  "year",
 				Order: "desc",
 				Page:  1,
 			},
@@ -649,12 +600,6 @@ func TestAnimeHandler_AdvancedSearchAnimes(t *testing.T) {
 						return false
 					}
 					if params.Season != tt.expectedParams.Season {
-						return false
-					}
-					if params.MinRating != tt.expectedParams.MinRating {
-						return false
-					}
-					if params.MaxRating != tt.expectedParams.MaxRating {
 						return false
 					}
 					// ジャンルの検証

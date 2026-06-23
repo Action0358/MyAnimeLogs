@@ -225,65 +225,6 @@ func (h *AnimeHandler) DeleteWatchStatus(c *gin.Context) {
 	})
 }
 
-func (h *AnimeHandler) UpdateRating(c *gin.Context) {
-	userID, err := h.validator.GetUserIDFromContext(c)
-	if err != nil {
-		h.response.UnauthorizedError(c, "認証が必要です")
-		return
-	}
-
-	animeID, err := h.validator.ParseIDParam(c, "id")
-	if err != nil {
-		h.response.ValidationError(c, "無効なアニメIDです")
-		return
-	}
-
-	var req models.UserRatingRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		h.response.ValidationError(c, err.Error())
-		return
-	}
-
-	rating, err := h.animeService.UpdateRating(userID, animeID, req.Rating, req.Comment)
-	if err != nil {
-		if err == services.ErrAnimeNotFound {
-			h.response.UnprocessableEntityError(c, "存在しないアニメです")
-			return
-		}
-		h.response.InternalServerError(c, "評価の更新に失敗しました")
-		return
-	}
-
-	h.response.Success(c, gin.H{
-		"message": "評価を登録しました",
-		"rating":  rating,
-	})
-}
-
-func (h *AnimeHandler) DeleteRating(c *gin.Context) {
-	userID, err := h.validator.GetUserIDFromContext(c)
-	if err != nil {
-		h.response.UnauthorizedError(c, "認証が必要です")
-		return
-	}
-
-	animeID, err := h.validator.ParseIDParam(c, "id")
-	if err != nil {
-		h.response.ValidationError(c, "無効なアニメIDです")
-		return
-	}
-
-	err = h.animeService.DeleteRating(userID, animeID)
-	if err != nil {
-		h.response.InternalServerError(c, "評価の削除に失敗しました")
-		return
-	}
-
-	h.response.Success(c, gin.H{
-		"message": "評価を削除しました",
-	})
-}
-
 // AdvancedSearchAnimes 高度検索API
 func (h *AnimeHandler) AdvancedSearchAnimes(c *gin.Context) {
 	var params models.AdvancedSearchParams
@@ -322,12 +263,6 @@ func (h *AnimeHandler) GetFilterOptions(c *gin.Context) {
 			Genres:  []models.GenreInfo{},
 			Years:   []int{},
 			Seasons: constants.DefaultSeasons,
-			Ratings: models.RatingStats{
-				Min:     1.0,
-				Max:     5.0,
-				Average: 3.0,
-				Count:   0,
-			},
 		}
 		h.response.Success(c, defaultOptions)
 		return

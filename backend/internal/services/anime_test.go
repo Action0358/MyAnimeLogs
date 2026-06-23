@@ -43,12 +43,12 @@ func TestAnimeService_SetSearchDefaults(t *testing.T) {
 			name: "一部のパラメータのみ指定 - 残りはデフォルト",
 			input: models.AdvancedSearchParams{
 				Page: 2,
-				Sort: "rating",
+				Sort: "year",
 			},
 			expected: models.AdvancedSearchParams{
 				Page:    2,
 				PerPage: 20,
-				Sort:    "rating",
+				Sort:    "year",
 				Order:   "asc",
 			},
 		},
@@ -130,14 +130,6 @@ func TestAnimeService_BuildOrderByClause(t *testing.T) {
 			expected: "ORDER BY a.title DESC",
 		},
 		{
-			name: "評価降順",
-			params: models.AdvancedSearchParams{
-				Sort:  "rating",
-				Order: "desc",
-			},
-			expected: "ORDER BY avg_ratings.avg_rating DESC NULLS LAST",
-		},
-		{
 			name: "年降順",
 			params: models.AdvancedSearchParams{
 				Sort:  "year",
@@ -200,7 +192,6 @@ func TestAnimeService_BuildBaseQuery(t *testing.T) {
 			},
 			shouldNotContain: []string{
 				"LEFT JOIN anime_genres",
-				"LEFT JOIN (", // avg_ratings subquery
 				"INNER JOIN user_watch_status",
 			},
 		},
@@ -213,31 +204,6 @@ func TestAnimeService_BuildBaseQuery(t *testing.T) {
 			shouldContain: []string{
 				"FROM animes_with_computed_status a",
 				"LEFT JOIN anime_genres ag",
-			},
-		},
-		{
-			name: "評価フィルター - 評価サブクエリJOIN",
-			params: models.AdvancedSearchParams{
-				MinRating: 4.0,
-			},
-			userID: nil,
-			shouldContain: []string{
-				"FROM animes_with_computed_status a",
-				"LEFT JOIN (",
-				"SELECT anime_id, AVG(rating) as avg_rating",
-				"FROM user_ratings",
-				"AS avg_ratings",
-			},
-		},
-		{
-			name: "評価ソート - 評価サブクエリJOIN",
-			params: models.AdvancedSearchParams{
-				Sort: "rating",
-			},
-			userID: nil,
-			shouldContain: []string{
-				"LEFT JOIN (",
-				"avg_ratings",
 			},
 		},
 		{
@@ -254,14 +220,11 @@ func TestAnimeService_BuildBaseQuery(t *testing.T) {
 			name: "複合フィルター - 複数JOIN",
 			params: models.AdvancedSearchParams{
 				Genres:     []string{"アクション"},
-				MinRating:  4.0,
 				UserStatus: "watching",
 			},
 			userID: func() *int { id := 123; return &id }(),
 			shouldContain: []string{
 				"LEFT JOIN anime_genres ag",
-				"LEFT JOIN (",
-				"avg_ratings",
 				"INNER JOIN user_watch_status ws",
 			},
 		},
@@ -357,29 +320,6 @@ func TestAnimeService_BuildWhereClause(t *testing.T) {
 			},
 		},
 		{
-			name: "評価範囲フィルター（両方指定）",
-			params: models.AdvancedSearchParams{
-				MinRating: 3.0,
-				MaxRating: 5.0,
-			},
-			userID:       nil,
-			expectedArgs: 2,
-			shouldContain: []string{
-				"avg_ratings.avg_rating BETWEEN",
-			},
-		},
-		{
-			name: "評価範囲フィルター（最小のみ）",
-			params: models.AdvancedSearchParams{
-				MinRating: 4.0,
-			},
-			userID:       nil,
-			expectedArgs: 1,
-			shouldContain: []string{
-				"avg_ratings.avg_rating >=",
-			},
-		},
-		{
 			name: "ユーザーステータスフィルター",
 			params: models.AdvancedSearchParams{
 				UserStatus: "watching",
@@ -398,16 +338,14 @@ func TestAnimeService_BuildWhereClause(t *testing.T) {
 				Year:       2024,
 				Season:     "2024-spring",
 				Genres:     []string{"アクション"},
-				MinRating:  4.0,
 				UserStatus: "watching",
 			},
 			userID:       func() *int { id := 123; return &id }(),
-			expectedArgs: 9, // query(3: original, katakana, hiragana) + year + season + genre + minRating + user_id + userStatus
+			expectedArgs: 8, // query(3: original, katakana, hiragana) + year + season + genre + user_id + userStatus
 			shouldContain: []string{
 				"ILIKE",
 				"a.season LIKE",
 				"ag.genre IN",
-				"avg_ratings.avg_rating >=",
 				"ws.user_id",
 				"ws.status",
 			},

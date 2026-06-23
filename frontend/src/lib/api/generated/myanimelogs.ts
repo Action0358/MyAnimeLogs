@@ -81,11 +81,6 @@ export const AnimeStatus = {
   upcoming: 'upcoming',
 } as const;
 
-/**
- * 評価分布（キー：評価値、値：件数）
- */
-export type AnimeRatingDistribution = {[key: string]: number};
-
 export interface Anime {
   id?: number;
   title?: string;
@@ -176,20 +171,6 @@ export interface Anime {
    * @nullable
    */
   user_watch_status?: WatchStatus;
-  /**
-   * ユーザーの評価情報（認証時のみ）
-   * @nullable
-   */
-  user_rating?: Rating;
-  /**
-   * 平均評価
-   * @nullable
-   */
-  average_rating?: number | null;
-  /** 評価数 */
-  rating_count?: number;
-  /** 評価分布（キー：評価値、値：件数） */
-  rating_distribution?: AnimeRatingDistribution;
   /** 配信サービス一覧 */
   watch_providers?: WatchProvider[];
   created_at?: string;
@@ -232,21 +213,9 @@ export interface WatchStatus {
   updated_at?: string;
 }
 
-export interface Rating {
-  anime_id?: number;
-  /**
-   * @minimum 1
-   * @maximum 5
-   */
-  rating?: number;
-  comment?: string;
-  created_at?: string;
-}
-
 export interface SearchResultAnime {
   id?: number;
   title?: string;
-  rating?: number;
   genre?: string[];
 }
 
@@ -405,7 +374,6 @@ export type GetUsersMeExport200One = {
   user_info?: User;
   favorites?: Favorite[];
   watch_statuses?: WatchStatus[];
-  ratings?: Rating[];
 };
 
 export type GetAnimesParams = {
@@ -473,25 +441,6 @@ export type PutUsersMeWatchStatusAnimeIdBody = {
   status: PutUsersMeWatchStatusAnimeIdBodyStatus;
 };
 
-export type PutAnimesIdRatingBody = {
-  /**
-   * @minimum 1
-   * @maximum 5
-   */
-  rating: number;
-  /** @maxLength 1000 */
-  comment?: string;
-};
-
-export type PutAnimesIdRating200 = {
-  message?: string;
-  rating?: Rating;
-};
-
-export type DeleteAnimesIdRating200 = {
-  message?: string;
-};
-
 export type GetSearchAnimesParams = {
 /**
  * 検索クエリ
@@ -519,7 +468,6 @@ export type GetSearchAnimesSort = typeof GetSearchAnimesSort[keyof typeof GetSea
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 export const GetSearchAnimesSort = {
   title: 'title',
-  rating: 'rating',
   year: 'year',
 } as const;
 
@@ -552,18 +500,6 @@ year?: number;
  * 放送時期絞り込み（形式 YYYY-season または YYYY年季節）
  */
 season?: string;
-/**
- * 最低評価
- * @minimum 1
- * @maximum 5
- */
-min_rating?: number;
-/**
- * 最高評価
- * @minimum 1
- * @maximum 5
- */
-max_rating?: number;
 /**
  * 放送状態
  */
@@ -610,7 +546,6 @@ export type GetSearchAdvancedSort = typeof GetSearchAdvancedSort[keyof typeof Ge
 // eslint-disable-next-line @typescript-eslint/no-redeclare
 export const GetSearchAdvancedSort = {
   title: 'title',
-  rating: 'rating',
   year: 'year',
   popularity: 'popularity',
   updated: 'updated',
@@ -700,18 +635,10 @@ export const GetFilters200SeasonsItem = {
   winter: 'winter',
 } as const;
 
-export type GetFilters200Ratings = {
-  min?: number;
-  max?: number;
-  average?: number;
-  count?: number;
-};
-
 export type GetFilters200 = {
   genres?: GetFilters200GenresItem[];
   years?: number[];
   seasons?: GetFilters200SeasonsItem[];
-  ratings?: GetFilters200Ratings;
 };
 
 export type GetAnnictWorksParams = {
@@ -1853,130 +1780,6 @@ export const useDeleteUsersMeWatchStatusAnimeId = <TError = AxiosError<unknown>,
       > => {
 
       const mutationOptions = getDeleteUsersMeWatchStatusAnimeIdMutationOptions(options);
-
-      return useMutation(mutationOptions , queryClient);
-    }
-    
-/**
- * @summary アニメの評価を登録・更新
- */
-export const putAnimesIdRating = (
-    id: number,
-    putAnimesIdRatingBody: PutAnimesIdRatingBody, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<PutAnimesIdRating200>> => {
-    
-    
-    return axios.put(
-      `/animes/${id}/rating`,
-      putAnimesIdRatingBody,options
-    );
-  }
-
-
-
-export const getPutAnimesIdRatingMutationOptions = <TError = AxiosError<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putAnimesIdRating>>, TError,{id: number;data: PutAnimesIdRatingBody}, TContext>, axios?: AxiosRequestConfig}
-): UseMutationOptions<Awaited<ReturnType<typeof putAnimesIdRating>>, TError,{id: number;data: PutAnimesIdRatingBody}, TContext> => {
-
-const mutationKey = ['putAnimesIdRating'];
-const {mutation: mutationOptions, axios: axiosOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, axios: undefined};
-
-      
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof putAnimesIdRating>>, {id: number;data: PutAnimesIdRatingBody}> = (props) => {
-          const {id,data} = props ?? {};
-
-          return  putAnimesIdRating(id,data,axiosOptions)
-        }
-
-        
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type PutAnimesIdRatingMutationResult = NonNullable<Awaited<ReturnType<typeof putAnimesIdRating>>>
-    export type PutAnimesIdRatingMutationBody = PutAnimesIdRatingBody
-    export type PutAnimesIdRatingMutationError = AxiosError<unknown>
-
-    /**
- * @summary アニメの評価を登録・更新
- */
-export const usePutAnimesIdRating = <TError = AxiosError<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putAnimesIdRating>>, TError,{id: number;data: PutAnimesIdRatingBody}, TContext>, axios?: AxiosRequestConfig}
- , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof putAnimesIdRating>>,
-        TError,
-        {id: number;data: PutAnimesIdRatingBody},
-        TContext
-      > => {
-
-      const mutationOptions = getPutAnimesIdRatingMutationOptions(options);
-
-      return useMutation(mutationOptions , queryClient);
-    }
-    
-/**
- * @summary アニメの評価を削除
- */
-export const deleteAnimesIdRating = (
-    id: number, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<DeleteAnimesIdRating200>> => {
-    
-    
-    return axios.delete(
-      `/animes/${id}/rating`,options
-    );
-  }
-
-
-
-export const getDeleteAnimesIdRatingMutationOptions = <TError = AxiosError<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAnimesIdRating>>, TError,{id: number}, TContext>, axios?: AxiosRequestConfig}
-): UseMutationOptions<Awaited<ReturnType<typeof deleteAnimesIdRating>>, TError,{id: number}, TContext> => {
-
-const mutationKey = ['deleteAnimesIdRating'];
-const {mutation: mutationOptions, axios: axiosOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, axios: undefined};
-
-      
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteAnimesIdRating>>, {id: number}> = (props) => {
-          const {id} = props ?? {};
-
-          return  deleteAnimesIdRating(id,axiosOptions)
-        }
-
-        
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type DeleteAnimesIdRatingMutationResult = NonNullable<Awaited<ReturnType<typeof deleteAnimesIdRating>>>
-    
-    export type DeleteAnimesIdRatingMutationError = AxiosError<unknown>
-
-    /**
- * @summary アニメの評価を削除
- */
-export const useDeleteAnimesIdRating = <TError = AxiosError<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteAnimesIdRating>>, TError,{id: number}, TContext>, axios?: AxiosRequestConfig}
- , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof deleteAnimesIdRating>>,
-        TError,
-        {id: number},
-        TContext
-      > => {
-
-      const mutationOptions = getDeleteAnimesIdRatingMutationOptions(options);
 
       return useMutation(mutationOptions , queryClient);
     }

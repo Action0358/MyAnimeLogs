@@ -103,28 +103,10 @@ func (s *AuthService) ExportUserData(userID int, format string) (interface{}, er
 		watchStatuses = append(watchStatuses, ws)
 	}
 
-	ratings := []models.UserRating{}
-	rows, err = s.db.Query(`
-		SELECT id, user_id, anime_id, rating, comment, created_at, updated_at
-		FROM user_ratings WHERE user_id = $1
-	`, userID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get ratings: %w", err)
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var rating models.UserRating
-		if err := rows.Scan(&rating.ID, &rating.UserID, &rating.AnimeID, &rating.Rating, &rating.Comment, &rating.CreatedAt, &rating.UpdatedAt); err != nil {
-			continue
-		}
-		ratings = append(ratings, rating)
-	}
-
 	data := map[string]interface{}{
 		"user_info":      user,
 		"favorites":      favorites,
 		"watch_statuses": watchStatuses,
-		"ratings":        ratings,
 		"exported_at":    time.Now(),
 	}
 

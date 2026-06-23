@@ -66,19 +66,6 @@ func (m *MockAnimeService) DeleteFavorite(userID, animeID int) error {
 	return args.Error(0)
 }
 
-func (m *MockAnimeService) UpdateRating(userID, animeID int, rating float64, comment *string) (*models.UserRating, error) {
-	args := m.Called(userID, animeID, rating, comment)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*models.UserRating), args.Error(1)
-}
-
-func (m *MockAnimeService) DeleteRating(userID, animeID int) error {
-	args := m.Called(userID, animeID)
-	return args.Error(0)
-}
-
 func (m *MockAnimeService) GetFilterOptions() (*models.FilterOptions, error) {
 	args := m.Called()
 	if args.Get(0) == nil {

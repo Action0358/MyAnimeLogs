@@ -121,10 +121,6 @@ func Setup(db *database.DB, cfg *config.Config, syncScheduler handlers.SyncSched
 			protected.PUT("/users/me/watch-status/:anime_id", animeHandler.UpdateWatchStatus)
 			protected.DELETE("/users/me/watch-status/:anime_id", animeHandler.DeleteWatchStatus)
 
-			// 評価
-			protected.PUT("/animes/:id/rating", animeHandler.UpdateRating)
-			protected.DELETE("/animes/:id/rating", animeHandler.DeleteRating)
-
 			// 検索履歴
 			protected.GET("/search/history", animeHandler.GetSearchHistory)
 			protected.DELETE("/search/history", animeHandler.DeleteSearchHistory)
