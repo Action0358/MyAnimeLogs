@@ -529,3 +529,28 @@ func TestIsSeasonBefore(t *testing.T) {
 		})
 	}
 }
+
+func TestIsCatastrophicMetadataFailure(t *testing.T) {
+	tests := []struct {
+		name      string
+		failures  int
+		attempted int
+		expected  bool
+	}{
+		{"試行数ゼロ", 0, 0, false},
+		{"最小サンプル未満は率判定しない", 5, 5, false},
+		{"最小サンプル未満(全失敗でも)", 9, 9, false},
+		{"十分なサンプルで閾値超過(全失敗)", 50, 50, true},
+		{"十分なサンプルで閾値超過(過半数)", 6, 10, true},
+		{"十分なサンプルだが閾値ちょうど(50%)は致命ではない", 5, 10, false},
+		{"十分なサンプルで散発的(20%)", 4, 20, false},
+		{"大規模で少数失敗", 3, 8000, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isCatastrophicMetadataFailure(tt.failures, tt.attempted)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
