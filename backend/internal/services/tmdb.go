@@ -11,6 +11,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"myanimelogs/internal/common"
 )
@@ -375,43 +377,164 @@ func (c *TMDBClient) GetWatchProviders(ctx context.Context, tmdbID int, mediaTyp
 // Prioritizes Japanese anime (origin_country contains "JP")
 // Tries multiple search strategies: original title, normalized title (without season suffix)
 func (c *TMDBClient) SearchTVByTitle(ctx context.Context, title string) (*TMDBTVShow, error) {
-	// Try original title first
+	// Try original title first. Propagate real API/config errors immediately so they are
+	// not masked by the generic "no results" error below (a successful-but-empty response
+	// returns no error and falls through to the normalized search).
 	result, err := c.SearchTV(ctx, title, "ja-JP")
-	if err == nil && len(result.Results) > 0 {
-		if show := c.findBestMatch(result.Results); show != nil {
+	if err != nil {
+		return nil, err
+	}
+	if len(result.Results) > 0 {
+		if show := c.findBestMatch(result.Results, title); show != nil {
 			return show, nil
 		}
 	}
 
-	// Try normalized title (remove season suffixes like "第3期", "Season 2", etc.)
+	// Try normalized title (remove season suffixes like "第3期", "Season 2", etc.).
+	// Skip when normalization is a no-op or empties the title to avoid a redundant /
+	// invalid (empty-query) API call.
 	normalizedTitle := NormalizeAnimeTitle(title)
-	if normalizedTitle != title {
-		result, err = c.SearchTV(ctx, normalizedTitle, "ja-JP")
-		if err == nil && len(result.Results) > 0 {
-			if show := c.findBestMatch(result.Results); show != nil {
-				return show, nil
-			}
+	if normalizedTitle == "" || normalizedTitle == title {
+		return nil, fmt.Errorf("no results found for title: %s", title)
+	}
+
+	result, err = c.SearchTV(ctx, normalizedTitle, "ja-JP")
+	if err != nil {
+		return nil, err
+	}
+	if len(result.Results) > 0 {
+		if show := c.findBestMatch(result.Results, normalizedTitle); show != nil {
+			return show, nil
 		}
 	}
 
 	return nil, fmt.Errorf("no results found for title: %s", title)
 }
 
-// findBestMatch finds the best matching TV show from search results
-// Prioritizes Japanese anime (origin_country contains "JP")
-func (c *TMDBClient) findBestMatch(results []TMDBTVShow) *TMDBTVShow {
-	// Prioritize Japanese anime
+// findBestMatch finds the best matching TV show from search results.
+// It prioritizes Japanese anime (origin_country contains "JP"), but only accepts a
+// result whose title is sufficiently similar to the query, so an unrelated work is not
+// returned just because it happened to be first in the search results.
+func (c *TMDBClient) findBestMatch(results []TMDBTVShow, title string) *TMDBTVShow {
+	query := normalizeForComparison(title)
+
+	// First pass: prefer a Japanese-origin result with a similar title.
 	for i := range results {
-		if slices.Contains(results[i].OriginCountry, "JP") {
+		if slices.Contains(results[i].OriginCountry, "JP") &&
+			titlesSimilar(query, results[i].Name, results[i].OriginalName) {
 			return &results[i]
 		}
 	}
 
-	// If no Japanese show found, return the first result
-	if len(results) > 0 {
-		return &results[0]
+	// Second pass: any result with a similar title.
+	for i := range results {
+		if titlesSimilar(query, results[i].Name, results[i].OriginalName) {
+			return &results[i]
+		}
 	}
+
+	// No sufficiently similar match; returning nil lets the caller fall back rather
+	// than surface a wrong work's data.
 	return nil
+}
+
+// titleSimilarityThreshold is the minimum Levenshtein-based similarity ratio (0..1)
+// required to accept a fuzzy title match.
+const titleSimilarityThreshold = 0.5
+
+// minContainmentRunes is the minimum length (in runes) of the shorter string for a
+// substring-containment match to count. Without this, very short normalized strings
+// (e.g. "no", "in") would falsely match any title that happens to contain them.
+const minContainmentRunes = 3
+
+// normalizeForComparison lowercases a title and strips everything except letters and
+// numbers (including spaces and punctuation) so titles can be compared loosely.
+func normalizeForComparison(s string) string {
+	var b strings.Builder
+	b.Grow(len(s))
+	for _, r := range s {
+		if unicode.IsLetter(r) || unicode.IsNumber(r) {
+			b.WriteRune(unicode.ToLower(r))
+		}
+	}
+	return b.String()
+}
+
+// titlesSimilar reports whether the normalized query matches either of the candidate
+// titles by containment (either direction) or Levenshtein similarity.
+func titlesSimilar(normalizedQuery, name, originalName string) bool {
+	if normalizedQuery == "" {
+		return false
+	}
+	return titleSimilar(normalizedQuery, name) || titleSimilar(normalizedQuery, originalName)
+}
+
+// titleSimilar reports whether a single candidate title matches the normalized query
+// by containment (either direction) or Levenshtein similarity.
+func titleSimilar(normalizedQuery, candidate string) bool {
+	c := normalizeForComparison(candidate)
+	if c == "" {
+		return false
+	}
+	if containmentMatch(normalizedQuery, c) {
+		return true
+	}
+	return similarityRatio(normalizedQuery, c) >= titleSimilarityThreshold
+}
+
+// containmentMatch reports whether the shorter of the two strings is a substring of the
+// longer one, requiring the shorter string to be at least minContainmentRunes long to
+// avoid false positives from very short strings.
+func containmentMatch(a, b string) bool {
+	shorter, longer := a, b
+	if utf8.RuneCountInString(a) > utf8.RuneCountInString(b) {
+		shorter, longer = b, a
+	}
+	if utf8.RuneCountInString(shorter) < minContainmentRunes {
+		return false
+	}
+	return strings.Contains(longer, shorter)
+}
+
+// similarityRatio returns a 0..1 similarity score based on the Levenshtein distance.
+func similarityRatio(a, b string) float64 {
+	ra, rb := []rune(a), []rune(b)
+	maxLen := max(len(ra), len(rb))
+	if maxLen == 0 {
+		return 1
+	}
+	return 1 - float64(levenshtein(ra, rb))/float64(maxLen)
+}
+
+// levenshtein computes the edit distance between two rune slices using a single
+// reused row, keeping space at O(min(len(a), len(b))).
+func levenshtein(a, b []rune) int {
+	// Ensure b is the shorter slice so the row stays small.
+	if len(a) < len(b) {
+		a, b = b, a
+	}
+	if len(b) == 0 {
+		return len(a)
+	}
+
+	row := make([]int, len(b)+1)
+	for j := range row {
+		row[j] = j
+	}
+	for i := 1; i <= len(a); i++ {
+		prevDiag := row[0] // distance for (i-1, j-1)
+		row[0] = i
+		for j := 1; j <= len(b); j++ {
+			cost := 1
+			if a[i-1] == b[j-1] {
+				cost = 0
+			}
+			cur := min(row[j]+1, min(row[j-1]+1, prevDiag+cost))
+			prevDiag = row[j]
+			row[j] = cur
+		}
+	}
+	return row[len(b)]
 }
 
 // Pre-compiled regex patterns for anime title normalization (performance optimization)
@@ -428,17 +551,15 @@ var animeTitlePatterns = []*regexp.Regexp{
 	regexp.MustCompile(`第[一二三四五六七八九十百]+期.*`),     // "第二期" (no space)
 	regexp.MustCompile(` 第[一二三四五六七八九十百]+シーズン.*`), // " 第二シーズン"
 	regexp.MustCompile(`第[一二三四五六七八九十百]+シーズン.*`),  // "第二シーズン"
-	// English season patterns (greedy: removes everything after match)
-	regexp.MustCompile(` Season \d+.*`),       // " Season 3 Part.2" etc.
-	regexp.MustCompile(` The Final Season.*`), // " The Final Season Part 2"
-	regexp.MustCompile(` Final Season.*`),     // " Final Season"
-	regexp.MustCompile(` Part[.\s]*\d+$`),     // " Part 2", " Part.2"
-	// Roman numerals
-	regexp.MustCompile(` [IVX]+$`), // " II", " III", etc.
-	// Other common suffixes
-	regexp.MustCompile(` \d+nd Season.*`), // " 2nd Season"
-	regexp.MustCompile(` \d+rd Season.*`), // " 3rd Season"
-	regexp.MustCompile(` \d+th Season.*`), // " 4th Season"
+	// English season patterns (case-insensitive, greedy: removes everything after match)
+	// (?i) is required because titles use mixed casing such as "4th season" / "Final Season".
+	regexp.MustCompile(`(?i) season \d+.*`),                // " Season 3 Part.2", " season 3" etc.
+	regexp.MustCompile(`(?i) the final season.*`),          // " The Final Season Part 2"
+	regexp.MustCompile(`(?i) final season.*`),              // " Final Season"
+	regexp.MustCompile(`(?i) \d+(?:st|nd|rd|th) season.*`), // " 2nd Season", " 4th season 喪失編"
+	regexp.MustCompile(`(?i) part[.\s]*\d+\s*$`),           // " Part 2", " Part.2" (allow trailing spaces)
+	// Roman numerals (uppercase only to avoid over-matching lowercase i/v/x)
+	regexp.MustCompile(` [IVX]+\s*$`), // " II", " III", etc. (allow trailing spaces)
 }
 
 // NormalizeAnimeTitle removes season suffixes and other variations from anime titles
@@ -561,82 +682,17 @@ func (c *TMDBClient) GetJapaneseWatchProvidersWithFallback(ctx context.Context, 
 	return providers, nil
 }
 
-// TMDBFindResult represents the result of a find by external ID query
-type TMDBFindResult struct {
-	TVResults    []TMDBTVShow `json:"tv_results"`
-	MovieResults []TMDBMovie  `json:"movie_results"`
-}
-
-// FindByMALID searches for a TV show or movie by MyAnimeList ID
-// Returns the TMDB ID and media type ("tv" or "movie") if found
-func (c *TMDBClient) FindByMALID(ctx context.Context, malID string) (int, string, error) {
-	if !c.IsEnabled() {
-		return 0, "", fmt.Errorf("TMDB API is not configured")
-	}
-
-	if malID == "" {
-		return 0, "", fmt.Errorf("MAL ID is empty")
-	}
-
-	endpoint := fmt.Sprintf("%s/find/%s", tmdbBaseURL, malID)
-	params := url.Values{}
-	params.Set("api_key", c.apiKey)
-	params.Set("external_source", "myanimelist_id")
-
-	req, err := http.NewRequestWithContext(ctx, "GET", endpoint+"?"+params.Encode(), nil)
-	if err != nil {
-		return 0, "", fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Accept", "application/json")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return 0, "", fmt.Errorf("failed to execute request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return 0, "", fmt.Errorf("TMDB API returned status %d", resp.StatusCode)
-	}
-
-	var result TMDBFindResult
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return 0, "", fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	// Check TV results first
-	if len(result.TVResults) > 0 {
-		return result.TVResults[0].ID, "tv", nil
-	}
-
-	// Check movie results
-	if len(result.MovieResults) > 0 {
-		return result.MovieResults[0].ID, "movie", nil
-	}
-
-	return 0, "", fmt.Errorf("no TV show or movie found for MAL ID: %s", malID)
-}
-
-// FindTMDBID tries to find TMDB ID using MAL ID first, then falls back to title search
-// Returns TMDB ID and media type ("tv" or "movie")
-// mediaTypeHint: "MOVIE", "TV", or "" (empty for unknown) - from AniList format
+// FindTMDBID finds a TMDB ID and media type ("tv" or "movie") by title search.
+// mediaTypeHint: "MOVIE", "TV", or "" (empty for unknown) - from AniList format.
+//
+// Note: the malID argument is retained for API compatibility but is no longer used for a
+// TMDB /find lookup. TMDB's /find endpoint does not support "myanimelist_id" as an
+// external_source (only imdb_id / tvdb_id / wikidata_id etc.), so that lookup always
+// returned 0 results and wasted an API call. Title search is the only working path.
 func (c *TMDBClient) FindTMDBID(ctx context.Context, malID string, title string, mediaTypeHint string) (int, string, error) {
-	// First, try to find by MAL ID (most accurate)
-	if malID != "" {
-		tmdbID, mediaType, err := c.FindByMALID(ctx, malID)
-		if err == nil && tmdbID > 0 {
-			return tmdbID, mediaType, nil
-		}
-		// Log but continue to title search
-		if c.logger != nil {
-			c.logger.Debug("MAL ID lookup failed, falling back to title search",
-				"mal_id", malID,
-				"error", err)
-		}
-	}
+	_ = malID // unused: see note above
 
-	// Fall back to title search based on media type hint
+	// Search by title based on media type hint.
 	// If hint is MOVIE, search movie first; otherwise search TV first
 	if mediaTypeHint == "MOVIE" {
 		// Search movie first for movies
@@ -668,42 +724,61 @@ func (c *TMDBClient) FindTMDBID(ctx context.Context, malID string, title string,
 // SearchMovieByTitle searches for a movie and returns the best match
 // Prioritizes Japanese anime movies (original_language is "ja")
 func (c *TMDBClient) SearchMovieByTitle(ctx context.Context, title string) (*TMDBMovie, error) {
-	// Try original title first
+	// Try original title first. Propagate real API/config errors immediately rather than
+	// swallowing them (an empty-but-successful response falls through to normalized search).
 	result, err := c.SearchMovie(ctx, title, "ja-JP")
-	if err == nil && len(result.Results) > 0 {
-		if movie := c.findBestMovieMatch(result.Results); movie != nil {
+	if err != nil {
+		return nil, err
+	}
+	if len(result.Results) > 0 {
+		if movie := c.findBestMovieMatch(result.Results, title); movie != nil {
 			return movie, nil
 		}
 	}
 
-	// Try normalized title
+	// Try normalized title. Skip when normalization is a no-op or empties the title to
+	// avoid a redundant / invalid (empty-query) API call.
 	normalizedTitle := NormalizeAnimeTitle(title)
-	if normalizedTitle != title {
-		result, err = c.SearchMovie(ctx, normalizedTitle, "ja-JP")
-		if err == nil && len(result.Results) > 0 {
-			if movie := c.findBestMovieMatch(result.Results); movie != nil {
-				return movie, nil
-			}
+	if normalizedTitle == "" || normalizedTitle == title {
+		return nil, fmt.Errorf("no movie found for title: %s", title)
+	}
+
+	result, err = c.SearchMovie(ctx, normalizedTitle, "ja-JP")
+	if err != nil {
+		return nil, err
+	}
+	if len(result.Results) > 0 {
+		if movie := c.findBestMovieMatch(result.Results, normalizedTitle); movie != nil {
+			return movie, nil
 		}
 	}
 
 	return nil, fmt.Errorf("no movie found for title: %s", title)
 }
 
-// findBestMovieMatch finds the best matching movie from search results
-// Prioritizes Japanese anime movies (original_language is "ja")
-func (c *TMDBClient) findBestMovieMatch(results []TMDBMovie) *TMDBMovie {
-	// Prioritize Japanese movies
+// findBestMovieMatch finds the best matching movie from search results.
+// It prioritizes Japanese anime movies (original_language is "ja"), but only accepts a
+// result whose title is sufficiently similar to the query, mirroring findBestMatch for
+// TV shows so an unrelated movie is not returned just because it was first.
+func (c *TMDBClient) findBestMovieMatch(results []TMDBMovie, title string) *TMDBMovie {
+	query := normalizeForComparison(title)
+
+	// First pass: prefer a Japanese-language movie with a similar title.
 	for i := range results {
-		if results[i].OriginalLanguage == "ja" {
+		if results[i].OriginalLanguage == "ja" &&
+			titlesSimilar(query, results[i].Title, results[i].OriginalTitle) {
 			return &results[i]
 		}
 	}
 
-	// If no Japanese movie found, return the first result
-	if len(results) > 0 {
-		return &results[0]
+	// Second pass: any movie with a similar title.
+	for i := range results {
+		if titlesSimilar(query, results[i].Title, results[i].OriginalTitle) {
+			return &results[i]
+		}
 	}
+
+	// No sufficiently similar match; let the caller fall back.
 	return nil
 }
 
