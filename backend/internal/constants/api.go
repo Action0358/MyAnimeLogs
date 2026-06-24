@@ -24,6 +24,21 @@ const (
 	AniListAPIRateLimitDelay = 700 * time.Millisecond
 )
 
+// AniList APIリトライ関連の定数
+const (
+	// AniListMaxRetries - executeGraphQLQuery のリトライ上限
+	// レート制限(429)はRetry-Afterを尊重して待機するため、分単位のリセット窓を
+	// またげるよう従来の3回から増やす
+	AniListMaxRetries = 5
+
+	// AniListBaseRetryDelay - Retry-Afterが無い場合の指数バックオフ基準時間
+	AniListBaseRetryDelay = 2 * time.Second
+
+	// AniListMaxRetryBackoff - リトライ時の最大待機時間（Retry-After含む上限）
+	// AniListのレート制限窓は1分のため、最大1分まで待機を許容する
+	AniListMaxRetryBackoff = 60 * time.Second
+)
+
 // キャッシュ関連の定数
 const (
 	// CoverImageCacheTTL - カバー画像キャッシュの有効期限
@@ -104,6 +119,14 @@ const (
 	// CoverImageSyncWorkerPoolSize - カバー画像同期用ワーカープールのサイズ
 	// AniListのレートリミッターと連携して並列処理を行う
 	CoverImageSyncWorkerPoolSize = 5
+
+	// MetadataRetryCooldown - メタデータ同期失敗(sync_status='failed')作品を
+	// 再試行対象に含めるまでのクールダウン期間。失敗直後の連続再試行を避けつつ、
+	// レート制限で滞留した作品を次回以降のバッチで解消する
+	MetadataRetryCooldown = 6 * time.Hour
+
+	// MetadataRetryBatchLimit - 1回のバッチで再試行する失敗作品の上限
+	MetadataRetryBatchLimit = 50
 )
 
 // 同期処理タイムアウト関連の定数

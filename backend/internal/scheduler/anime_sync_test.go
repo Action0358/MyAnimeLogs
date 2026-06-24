@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"myanimelogs/internal/common"
+	"myanimelogs/internal/models"
 	"myanimelogs/internal/services"
 
 	"github.com/stretchr/testify/assert"
@@ -528,4 +529,47 @@ func TestIsSeasonBefore(t *testing.T) {
 			assert.Equal(t, tt.expected, result)
 		})
 	}
+}
+
+func TestIsCatastrophicMetadataFailure(t *testing.T) {
+	tests := []struct {
+		name      string
+		failures  int
+		attempted int
+		expected  bool
+	}{
+		{"試行数ゼロ", 0, 0, false},
+		{"最小サンプル未満は率判定しない", 5, 5, false},
+		{"最小サンプル未満(全失敗でも)", 9, 9, false},
+		{"十分なサンプルで閾値超過(全失敗)", 50, 50, true},
+		{"十分なサンプルで閾値超過(過半数)", 6, 10, true},
+		{"十分なサンプルだが閾値ちょうど(50%)は致命ではない", 5, 10, false},
+		{"十分なサンプルで散発的(20%)", 4, 20, false},
+		{"大規模で少数失敗", 3, 8000, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := isCatastrophicMetadataFailure(tt.failures, tt.attempted)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestSyncMetadataForAnimes_ContextCancelled(t *testing.T) {
+	// ctx が既にキャンセル済みなら、外部API/DBに触れずに即中断する
+	// （nil クライアントでも panic しないことで確認）。
+	s := &AnimeSyncScheduler{logger: newTestLogger()}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // 事前にキャンセル
+
+	malID := "53065"
+	animes := []models.Anime{{ID: 1, MalAnimeID: &malID}}
+
+	failCount, successCount, samples := s.syncMetadataForAnimes(ctx, animes, "test")
+
+	assert.Equal(t, 0, failCount, "中断時は失敗扱いにしない")
+	assert.Equal(t, 0, successCount)
+	assert.Empty(t, samples)
 }
