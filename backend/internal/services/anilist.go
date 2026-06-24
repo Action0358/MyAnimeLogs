@@ -5,10 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"myanimelogs/internal/constants"
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"golang.org/x/time/rate"
@@ -340,8 +342,7 @@ func (c *AniListClient) GetMediaFormatByMALId(ctx context.Context, malId string)
 
 // executeGraphQLQuery - GraphQLクエリを送信し、レスポンスを解析する共通ヘルパー（ジェネリクス版）
 func executeGraphQLQuery[T any](c *AniListClient, ctx context.Context, query string, variables map[string]interface{}) (*T, error) {
-	const maxRetries = 3
-	const retryDelay = 2 * time.Second
+	maxRetries := constants.AniListMaxRetries
 
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		// レートリミッターを使用してリクエストを制御
@@ -374,22 +375,26 @@ func executeGraphQLQuery[T any](c *AniListClient, ctx context.Context, query str
 		// リクエスト送信
 		resp, err := c.httpClient.Do(req)
 		if err != nil {
+			// ネットワークエラー: 指数バックオフでリトライ
 			if attempt < maxRetries {
-				// 指数バックオフ: 2秒, 4秒, 8秒...
-				backoffDuration := retryDelay * time.Duration(1<<uint(attempt-1))
-				time.Sleep(backoffDuration)
+				if waitErr := sleepWithContext(ctx, retryBackoff(attempt, 0, false)); waitErr != nil {
+					return nil, waitErr
+				}
 				continue
 			}
 			return nil, fmt.Errorf("failed to send request: %w", err)
 		}
-		defer resp.Body.Close()
 
-		// レート制限の場合はリトライ
+		// レート制限(429): サーバーのRetry-Afterを尊重して待機後にリトライ
+		// 固定の短いバックオフ(2/4秒)では1分単位のリセット窓を超えられず、
+		// リトライも429で失敗していたため、Retry-Afterを優先する
 		if resp.StatusCode == http.StatusTooManyRequests {
+			retryAfter, hasRetryAfter := parseRetryAfter(resp.Header.Get("Retry-After"))
+			resp.Body.Close()
 			if attempt < maxRetries {
-				// 指数バックオフ: 2秒, 4秒, 8秒...
-				backoffDuration := retryDelay * time.Duration(1<<uint(attempt-1))
-				time.Sleep(backoffDuration)
+				if waitErr := sleepWithContext(ctx, retryBackoff(attempt, retryAfter, hasRetryAfter)); waitErr != nil {
+					return nil, waitErr
+				}
 				continue
 			}
 			return nil, fmt.Errorf("rate limited after %d attempts", maxRetries)
@@ -397,19 +402,58 @@ func executeGraphQLQuery[T any](c *AniListClient, ctx context.Context, query str
 
 		// ステータスコード確認
 		if resp.StatusCode != http.StatusOK {
+			resp.Body.Close()
 			return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
 		}
 
 		// レスポンス解析
 		var result T
-		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-			return nil, fmt.Errorf("failed to decode response: %w", err)
+		decodeErr := json.NewDecoder(resp.Body).Decode(&result)
+		resp.Body.Close()
+		if decodeErr != nil {
+			return nil, fmt.Errorf("failed to decode response: %w", decodeErr)
 		}
 
 		return &result, nil
 	}
 
 	return nil, fmt.Errorf("failed after %d attempts", maxRetries)
+}
+
+// parseRetryAfter parses an HTTP Retry-After header expressed as delay-seconds.
+// Returns (0, false) when the header is absent or not a valid non-negative integer.
+func parseRetryAfter(header string) (time.Duration, bool) {
+	header = strings.TrimSpace(header)
+	if header == "" {
+		return 0, false
+	}
+	if secs, err := strconv.Atoi(header); err == nil && secs >= 0 {
+		return time.Duration(secs) * time.Second, true
+	}
+	return 0, false
+}
+
+// retryBackoff computes how long to wait before the next attempt. When retryAfter > 0
+// (from the server's Retry-After header) it is honored; otherwise an exponential backoff
+// (2s, 4s, 8s, ...) is used. The result is capped at AniListMaxRetryBackoff and gets
+// additive-only jitter so concurrent callers desync without ever undershooting a
+// server-mandated delay.
+func retryBackoff(attempt int, retryAfter time.Duration, hasRetryAfter bool) time.Duration {
+	var d time.Duration
+	if hasRetryAfter {
+		// サーバー指定のRetry-Afterを尊重（0秒の即時リトライ指示も含む）
+		d = retryAfter
+	} else {
+		d = constants.AniListBaseRetryDelay * time.Duration(1<<uint(attempt-1))
+	}
+	if d > constants.AniListMaxRetryBackoff {
+		d = constants.AniListMaxRetryBackoff
+	}
+	if d > 0 {
+		// additive jitter: 0 〜 +10%
+		d += time.Duration(rand.Int63n(int64(d)/10 + 1))
+	}
+	return d
 }
 
 // translateGenre - ジャンル名を英語から日本語に変換

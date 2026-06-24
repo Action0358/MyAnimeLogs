@@ -720,6 +720,23 @@ func (s *AnimeSyncScheduler) getAnimesWithStaleMetadata(staleDuration time.Durat
 	`, staleThreshold, string(constants.SyncStatusFailed))
 }
 
+// getFailedMetadataAnimes - 同期失敗(sync_status='failed')作品を再試行対象として取得
+// 通常の取得クエリは failed を除外するため、レート制限で失敗した作品が永続的に滞留する。
+// クールダウン(updated_at が cooldown より前)を満たす作品のみを対象とし、
+// 失敗直後の連続再試行を避けつつ滞留を解消する。
+func (s *AnimeSyncScheduler) getFailedMetadataAnimes(cooldown time.Duration) ([]models.Anime, error) {
+	cooldownThreshold := time.Now().Add(-cooldown)
+	return s.getAnimesByQuery(`
+		SELECT id, mal_anime_id, title, annict_id
+		FROM animes
+		WHERE sync_status = $1
+		AND mal_anime_id IS NOT NULL
+		AND updated_at < $2
+		ORDER BY updated_at ASC
+		LIMIT $3
+	`, string(constants.SyncStatusFailed), cooldownThreshold, constants.MetadataRetryBatchLimit)
+}
+
 // updateMetadataSyncTime - メタデータ同期日時を更新
 func (s *AnimeSyncScheduler) updateMetadataSyncTime(animeID int) error {
 	_, err := s.annictClient.DB.Exec(`
@@ -780,6 +797,18 @@ func (s *AnimeSyncScheduler) syncMetadataIncrementally() ([]string, int) {
 		s.logger.Info("Syncing metadata for stale animes", "count", len(staleAnimes))
 		staleErrs, syncCount := s.syncMetadataForAnimes(staleAnimes, "stale")
 		syncErrors = append(syncErrors, staleErrs...)
+		metadataSyncedCount += syncCount
+	}
+
+	// 優先度4: 同期失敗作品の再試行（クールダウン経過後）
+	// レート制限で failed になり通常クエリから除外され滞留した作品を解消する
+	retryAnimes, err := s.getFailedMetadataAnimes(constants.MetadataRetryCooldown)
+	if err != nil {
+		syncErrors = append(syncErrors, fmt.Sprintf("Failed to get retry-target animes: %s", err))
+	} else if len(retryAnimes) > 0 {
+		s.logger.Info("Retrying metadata for previously failed animes", "count", len(retryAnimes))
+		retryErrs, syncCount := s.syncMetadataForAnimes(retryAnimes, "retry-failed")
+		syncErrors = append(syncErrors, retryErrs...)
 		metadataSyncedCount += syncCount
 	}
 
