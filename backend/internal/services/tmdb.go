@@ -433,9 +433,10 @@ const titleSimilarityThreshold = 0.5
 // numbers (including spaces and punctuation) so titles can be compared loosely.
 func normalizeForComparison(s string) string {
 	var b strings.Builder
-	for _, r := range strings.ToLower(s) {
+	b.Grow(len(s))
+	for _, r := range s {
 		if unicode.IsLetter(r) || unicode.IsNumber(r) {
-			b.WriteRune(r)
+			b.WriteRune(unicode.ToLower(r))
 		}
 	}
 	return b.String()
@@ -447,19 +448,20 @@ func titlesSimilar(normalizedQuery, name, originalName string) bool {
 	if normalizedQuery == "" {
 		return false
 	}
-	for _, candidate := range []string{name, originalName} {
-		c := normalizeForComparison(candidate)
-		if c == "" {
-			continue
-		}
-		if strings.Contains(c, normalizedQuery) || strings.Contains(normalizedQuery, c) {
-			return true
-		}
-		if similarityRatio(normalizedQuery, c) >= titleSimilarityThreshold {
-			return true
-		}
+	return titleSimilar(normalizedQuery, name) || titleSimilar(normalizedQuery, originalName)
+}
+
+// titleSimilar reports whether a single candidate title matches the normalized query
+// by containment (either direction) or Levenshtein similarity.
+func titleSimilar(normalizedQuery, candidate string) bool {
+	c := normalizeForComparison(candidate)
+	if c == "" {
+		return false
 	}
-	return false
+	if strings.Contains(c, normalizedQuery) || strings.Contains(normalizedQuery, c) {
+		return true
+	}
+	return similarityRatio(normalizedQuery, c) >= titleSimilarityThreshold
 }
 
 // similarityRatio returns a 0..1 similarity score based on the Levenshtein distance.
@@ -472,25 +474,35 @@ func similarityRatio(a, b string) float64 {
 	return 1 - float64(levenshtein(ra, rb))/float64(maxLen)
 }
 
-// levenshtein computes the edit distance between two rune slices.
+// levenshtein computes the edit distance between two rune slices using a single
+// reused row, keeping space at O(min(len(a), len(b))).
 func levenshtein(a, b []rune) int {
-	prev := make([]int, len(b)+1)
-	for j := range prev {
-		prev[j] = j
+	// Ensure b is the shorter slice so the row stays small.
+	if len(a) < len(b) {
+		a, b = b, a
+	}
+	if len(b) == 0 {
+		return len(a)
+	}
+
+	row := make([]int, len(b)+1)
+	for j := range row {
+		row[j] = j
 	}
 	for i := 1; i <= len(a); i++ {
-		curr := make([]int, len(b)+1)
-		curr[0] = i
+		prevDiag := row[0] // distance for (i-1, j-1)
+		row[0] = i
 		for j := 1; j <= len(b); j++ {
 			cost := 1
 			if a[i-1] == b[j-1] {
 				cost = 0
 			}
-			curr[j] = min(prev[j]+1, min(curr[j-1]+1, prev[j-1]+cost))
+			cur := min(row[j]+1, min(row[j-1]+1, prevDiag+cost))
+			prevDiag = row[j]
+			row[j] = cur
 		}
-		prev = curr
 	}
-	return prev[len(b)]
+	return row[len(b)]
 }
 
 // Pre-compiled regex patterns for anime title normalization (performance optimization)

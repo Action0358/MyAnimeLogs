@@ -140,3 +140,27 @@ func TestTitlesSimilar(t *testing.T) {
 		})
 	}
 }
+
+func TestLevenshtein(t *testing.T) {
+	tests := []struct {
+		name     string
+		a        string
+		b        string
+		expected int
+	}{
+		{"同一", "kitten", "kitten", 0},
+		{"古典例", "kitten", "sitting", 3},
+		{"片方空", "", "abc", 3},
+		{"両方空", "", "", 0},
+		{"長さ非対称（引数順入替）", "abc", "abcdef", 3},
+		{"日本語", "リゼロ", "リセロ", 1},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, levenshtein([]rune(tt.a), []rune(tt.b)))
+			// 引数の順序に依存しないこと（対称性）
+			assert.Equal(t, tt.expected, levenshtein([]rune(tt.b), []rune(tt.a)))
+		})
+	}
+}
