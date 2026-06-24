@@ -376,22 +376,34 @@ func (c *TMDBClient) GetWatchProviders(ctx context.Context, tmdbID int, mediaTyp
 // Prioritizes Japanese anime (origin_country contains "JP")
 // Tries multiple search strategies: original title, normalized title (without season suffix)
 func (c *TMDBClient) SearchTVByTitle(ctx context.Context, title string) (*TMDBTVShow, error) {
-	// Try original title first
+	// Try original title first. Propagate real API/config errors immediately so they are
+	// not masked by the generic "no results" error below (a successful-but-empty response
+	// returns no error and falls through to the normalized search).
 	result, err := c.SearchTV(ctx, title, "ja-JP")
-	if err == nil && len(result.Results) > 0 {
+	if err != nil {
+		return nil, err
+	}
+	if len(result.Results) > 0 {
 		if show := c.findBestMatch(result.Results, title); show != nil {
 			return show, nil
 		}
 	}
 
-	// Try normalized title (remove season suffixes like "第3期", "Season 2", etc.)
+	// Try normalized title (remove season suffixes like "第3期", "Season 2", etc.).
+	// Skip when normalization is a no-op or empties the title to avoid a redundant /
+	// invalid (empty-query) API call.
 	normalizedTitle := NormalizeAnimeTitle(title)
-	if normalizedTitle != title {
-		result, err = c.SearchTV(ctx, normalizedTitle, "ja-JP")
-		if err == nil && len(result.Results) > 0 {
-			if show := c.findBestMatch(result.Results, normalizedTitle); show != nil {
-				return show, nil
-			}
+	if normalizedTitle == "" || normalizedTitle == title {
+		return nil, fmt.Errorf("no results found for title: %s", title)
+	}
+
+	result, err = c.SearchTV(ctx, normalizedTitle, "ja-JP")
+	if err != nil {
+		return nil, err
+	}
+	if len(result.Results) > 0 {
+		if show := c.findBestMatch(result.Results, normalizedTitle); show != nil {
+			return show, nil
 		}
 	}
 
@@ -692,22 +704,32 @@ func (c *TMDBClient) FindTMDBID(ctx context.Context, malID string, title string,
 // SearchMovieByTitle searches for a movie and returns the best match
 // Prioritizes Japanese anime movies (original_language is "ja")
 func (c *TMDBClient) SearchMovieByTitle(ctx context.Context, title string) (*TMDBMovie, error) {
-	// Try original title first
+	// Try original title first. Propagate real API/config errors immediately rather than
+	// swallowing them (an empty-but-successful response falls through to normalized search).
 	result, err := c.SearchMovie(ctx, title, "ja-JP")
-	if err == nil && len(result.Results) > 0 {
+	if err != nil {
+		return nil, err
+	}
+	if len(result.Results) > 0 {
 		if movie := c.findBestMovieMatch(result.Results); movie != nil {
 			return movie, nil
 		}
 	}
 
-	// Try normalized title
+	// Try normalized title. Skip when normalization is a no-op or empties the title to
+	// avoid a redundant / invalid (empty-query) API call.
 	normalizedTitle := NormalizeAnimeTitle(title)
-	if normalizedTitle != title {
-		result, err = c.SearchMovie(ctx, normalizedTitle, "ja-JP")
-		if err == nil && len(result.Results) > 0 {
-			if movie := c.findBestMovieMatch(result.Results); movie != nil {
-				return movie, nil
-			}
+	if normalizedTitle == "" || normalizedTitle == title {
+		return nil, fmt.Errorf("no movie found for title: %s", title)
+	}
+
+	result, err = c.SearchMovie(ctx, normalizedTitle, "ja-JP")
+	if err != nil {
+		return nil, err
+	}
+	if len(result.Results) > 0 {
+		if movie := c.findBestMovieMatch(result.Results); movie != nil {
+			return movie, nil
 		}
 	}
 
