@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 	"unicode"
+	"unicode/utf8"
 
 	"myanimelogs/internal/common"
 )
@@ -441,6 +442,11 @@ func (c *TMDBClient) findBestMatch(results []TMDBTVShow, title string) *TMDBTVSh
 // required to accept a fuzzy title match.
 const titleSimilarityThreshold = 0.5
 
+// minContainmentRunes is the minimum length (in runes) of the shorter string for a
+// substring-containment match to count. Without this, very short normalized strings
+// (e.g. "no", "in") would falsely match any title that happens to contain them.
+const minContainmentRunes = 3
+
 // normalizeForComparison lowercases a title and strips everything except letters and
 // numbers (including spaces and punctuation) so titles can be compared loosely.
 func normalizeForComparison(s string) string {
@@ -470,10 +476,24 @@ func titleSimilar(normalizedQuery, candidate string) bool {
 	if c == "" {
 		return false
 	}
-	if strings.Contains(c, normalizedQuery) || strings.Contains(normalizedQuery, c) {
+	if containmentMatch(normalizedQuery, c) {
 		return true
 	}
 	return similarityRatio(normalizedQuery, c) >= titleSimilarityThreshold
+}
+
+// containmentMatch reports whether the shorter of the two strings is a substring of the
+// longer one, requiring the shorter string to be at least minContainmentRunes long to
+// avoid false positives from very short strings.
+func containmentMatch(a, b string) bool {
+	shorter, longer := a, b
+	if utf8.RuneCountInString(a) > utf8.RuneCountInString(b) {
+		shorter, longer = b, a
+	}
+	if utf8.RuneCountInString(shorter) < minContainmentRunes {
+		return false
+	}
+	return strings.Contains(longer, shorter)
 }
 
 // similarityRatio returns a 0..1 similarity score based on the Levenshtein distance.
@@ -537,9 +557,9 @@ var animeTitlePatterns = []*regexp.Regexp{
 	regexp.MustCompile(`(?i) the final season.*`),          // " The Final Season Part 2"
 	regexp.MustCompile(`(?i) final season.*`),              // " Final Season"
 	regexp.MustCompile(`(?i) \d+(?:st|nd|rd|th) season.*`), // " 2nd Season", " 4th season 喪失編"
-	regexp.MustCompile(`(?i) part[.\s]*\d+$`),              // " Part 2", " Part.2"
+	regexp.MustCompile(`(?i) part[.\s]*\d+\s*$`),           // " Part 2", " Part.2" (allow trailing spaces)
 	// Roman numerals (uppercase only to avoid over-matching lowercase i/v/x)
-	regexp.MustCompile(` [IVX]+$`), // " II", " III", etc.
+	regexp.MustCompile(` [IVX]+\s*$`), // " II", " III", etc. (allow trailing spaces)
 }
 
 // NormalizeAnimeTitle removes season suffixes and other variations from anime titles
@@ -711,7 +731,7 @@ func (c *TMDBClient) SearchMovieByTitle(ctx context.Context, title string) (*TMD
 		return nil, err
 	}
 	if len(result.Results) > 0 {
-		if movie := c.findBestMovieMatch(result.Results); movie != nil {
+		if movie := c.findBestMovieMatch(result.Results, title); movie != nil {
 			return movie, nil
 		}
 	}
@@ -728,7 +748,7 @@ func (c *TMDBClient) SearchMovieByTitle(ctx context.Context, title string) (*TMD
 		return nil, err
 	}
 	if len(result.Results) > 0 {
-		if movie := c.findBestMovieMatch(result.Results); movie != nil {
+		if movie := c.findBestMovieMatch(result.Results, normalizedTitle); movie != nil {
 			return movie, nil
 		}
 	}
@@ -736,20 +756,29 @@ func (c *TMDBClient) SearchMovieByTitle(ctx context.Context, title string) (*TMD
 	return nil, fmt.Errorf("no movie found for title: %s", title)
 }
 
-// findBestMovieMatch finds the best matching movie from search results
-// Prioritizes Japanese anime movies (original_language is "ja")
-func (c *TMDBClient) findBestMovieMatch(results []TMDBMovie) *TMDBMovie {
-	// Prioritize Japanese movies
+// findBestMovieMatch finds the best matching movie from search results.
+// It prioritizes Japanese anime movies (original_language is "ja"), but only accepts a
+// result whose title is sufficiently similar to the query, mirroring findBestMatch for
+// TV shows so an unrelated movie is not returned just because it was first.
+func (c *TMDBClient) findBestMovieMatch(results []TMDBMovie, title string) *TMDBMovie {
+	query := normalizeForComparison(title)
+
+	// First pass: prefer a Japanese-language movie with a similar title.
 	for i := range results {
-		if results[i].OriginalLanguage == "ja" {
+		if results[i].OriginalLanguage == "ja" &&
+			titlesSimilar(query, results[i].Title, results[i].OriginalTitle) {
 			return &results[i]
 		}
 	}
 
-	// If no Japanese movie found, return the first result
-	if len(results) > 0 {
-		return &results[0]
+	// Second pass: any movie with a similar title.
+	for i := range results {
+		if titlesSimilar(query, results[i].Title, results[i].OriginalTitle) {
+			return &results[i]
+		}
 	}
+
+	// No sufficiently similar match; let the caller fall back.
 	return nil
 }
 
