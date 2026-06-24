@@ -25,6 +25,8 @@ func TestParseRetryAfter(t *testing.T) {
 		{"空文字", "", 0, false},
 		{"非数値(HTTP-date等)", "Wed, 21 Oct 2026 07:28:00 GMT", 0, false},
 		{"負数", "-1", 0, false},
+		{"上限超はクランプ", "61", constants.AniListMaxRetryBackoff, true},
+		{"極端に大きい値もオーバーフローせずクランプ", "10000000000", constants.AniListMaxRetryBackoff, true},
 	}
 
 	for _, tt := range tests {

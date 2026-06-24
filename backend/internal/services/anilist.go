@@ -427,10 +427,19 @@ func parseRetryAfter(header string) (time.Duration, bool) {
 	if header == "" {
 		return 0, false
 	}
-	if secs, err := strconv.Atoi(header); err == nil && secs >= 0 {
-		return time.Duration(secs) * time.Second, true
+	secs, err := strconv.Atoi(header)
+	if err != nil || secs < 0 {
+		return 0, false
 	}
-	return 0, false
+	// 防御: 過大な秒数を time.Second と乗算すると time.Duration(int64ナノ秒)が
+	// オーバーフローして負値にラップし、上限キャップを回避して即時リトライになる。
+	// どのみち retryBackoff で AniListMaxRetryBackoff にキャップされるため、
+	// その秒数で事前にクランプして安全に防ぐ。
+	maxSecs := int(constants.AniListMaxRetryBackoff / time.Second)
+	if secs > maxSecs {
+		secs = maxSecs
+	}
+	return time.Duration(secs) * time.Second, true
 }
 
 // retryBackoff computes how long to wait before the next attempt. When retryAfter > 0

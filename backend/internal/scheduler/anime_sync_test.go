@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"myanimelogs/internal/common"
+	"myanimelogs/internal/models"
 	"myanimelogs/internal/services"
 
 	"github.com/stretchr/testify/assert"
@@ -553,4 +554,22 @@ func TestIsCatastrophicMetadataFailure(t *testing.T) {
 			assert.Equal(t, tt.expected, result)
 		})
 	}
+}
+
+func TestSyncMetadataForAnimes_ContextCancelled(t *testing.T) {
+	// ctx が既にキャンセル済みなら、外部API/DBに触れずに即中断する
+	// （nil クライアントでも panic しないことで確認）。
+	s := &AnimeSyncScheduler{logger: newTestLogger()}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // 事前にキャンセル
+
+	malID := "53065"
+	animes := []models.Anime{{ID: 1, MalAnimeID: &malID}}
+
+	failCount, successCount, samples := s.syncMetadataForAnimes(ctx, animes, "test")
+
+	assert.Equal(t, 0, failCount, "中断時は失敗扱いにしない")
+	assert.Equal(t, 0, successCount)
+	assert.Empty(t, samples)
 }

@@ -349,8 +349,8 @@ func (s *AnimeSyncScheduler) Stop() {
 // syncAllSeasons syncs all seasons from syncStartYear-spring to current season
 // nextSyncTime is the time of the next scheduled sync (not 24 hours from now)
 func (s *AnimeSyncScheduler) syncAllSeasons(nextSyncTime time.Time) {
-	// 初回フル同期にタイムアウト制御を適用（12時間）
-	ctx, cancel := context.WithTimeout(context.Background(), initialSyncTimeout)
+	// 初回フル同期にタイムアウト制御を適用（12時間）。シャットダウン時も即中断する。
+	ctx, cancel := s.newSyncContext(initialSyncTimeout)
 	defer cancel()
 
 	s.logger.Info("Starting initial full sync of all seasons (differential mode)")
@@ -418,7 +418,7 @@ func (s *AnimeSyncScheduler) syncAllSeasons(nextSyncTime time.Time) {
 
 	// 初回同期時はメタデータも同期（優先度ベース）
 	s.logger.Info("Starting initial metadata sync")
-	metadata := s.syncMetadataIncrementally()
+	metadata := s.syncMetadataIncrementally(ctx)
 	syncErrors = append(syncErrors, metadata.opErrors...)
 	metadataSyncedCount := metadata.syncedCount
 
@@ -456,6 +456,22 @@ func (s *AnimeSyncScheduler) syncAllSeasons(nextSyncTime time.Time) {
 	}
 }
 
+// newSyncContext creates a timeout context that is ALSO cancelled when the scheduler
+// receives a shutdown signal (stopChan). This ensures long-running phases (e.g. metadata
+// sync, which makes many rate-limited AniList calls) stop promptly on graceful shutdown
+// instead of running until the timeout. The watcher goroutine exits on either signal.
+func (s *AnimeSyncScheduler) newSyncContext(timeout time.Duration) (context.Context, context.CancelFunc) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	go func() {
+		select {
+		case <-s.stopChan:
+			cancel()
+		case <-ctx.Done():
+		}
+	}()
+	return ctx, cancel
+}
+
 // checkSyncTimeout checks if the context has been cancelled and handles timeout logging/status update.
 // Returns true if timed out (caller should return), false if OK to continue.
 func (s *AnimeSyncScheduler) checkSyncTimeout(ctx context.Context, stepName string, startTime time.Time, totalAnimeCount int, syncErrors []string) bool {
@@ -473,8 +489,8 @@ func (s *AnimeSyncScheduler) checkSyncTimeout(ctx context.Context, stepName stri
 
 // syncCurrentSeasonAnimes syncs animes for the current and previous season
 func (s *AnimeSyncScheduler) syncCurrentSeasonAnimes() {
-	// 処理全体のタイムアウト: 6時間
-	ctx, cancel := context.WithTimeout(context.Background(), syncTimeout)
+	// 処理全体のタイムアウト: 6時間。シャットダウン時も即中断する。
+	ctx, cancel := s.newSyncContext(syncTimeout)
 	defer cancel()
 
 	s.logger.Info("Starting scheduled anime sync (differential mode with timeout)")
@@ -545,7 +561,7 @@ func (s *AnimeSyncScheduler) syncCurrentSeasonAnimes() {
 	// Step 2: メタデータの段階的同期（優先度ベース）
 	// 全作品ではなく、優先度の高いもののみ同期
 	s.logger.Info("Starting incremental metadata sync")
-	metadata := s.syncMetadataIncrementally()
+	metadata := s.syncMetadataIncrementally(ctx)
 	syncErrors = append(syncErrors, metadata.opErrors...)
 	metadataSyncedCount := metadata.syncedCount
 
@@ -819,7 +835,8 @@ type metadataSyncResult struct {
 }
 
 // syncMetadataIncrementally - 優先度ベースでメタデータを段階的に同期
-func (s *AnimeSyncScheduler) syncMetadataIncrementally() metadataSyncResult {
+// ctx はタイムアウト/シャットダウンの伝播に使用する。
+func (s *AnimeSyncScheduler) syncMetadataIncrementally(ctx context.Context) metadataSyncResult {
 	var result metadataSyncResult
 
 	addItemResult := func(failCount, syncCount int, samples []string) {
@@ -839,7 +856,7 @@ func (s *AnimeSyncScheduler) syncMetadataIncrementally() metadataSyncResult {
 		result.opErrors = append(result.opErrors, fmt.Sprintf("Failed to get new animes: %s", err))
 	} else {
 		s.logger.Info("Syncing metadata for new animes", "count", len(newAnimes))
-		addItemResult(s.syncMetadataForAnimes(newAnimes, "new"))
+		addItemResult(s.syncMetadataForAnimes(ctx, newAnimes, "new"))
 	}
 
 	// 優先度2: 放送中作品（週次更新）
@@ -848,7 +865,7 @@ func (s *AnimeSyncScheduler) syncMetadataIncrementally() metadataSyncResult {
 		result.opErrors = append(result.opErrors, fmt.Sprintf("Failed to get airing animes: %s", err))
 	} else {
 		s.logger.Info("Syncing metadata for airing animes", "count", len(airingAnimes))
-		addItemResult(s.syncMetadataForAnimes(airingAnimes, "airing"))
+		addItemResult(s.syncMetadataForAnimes(ctx, airingAnimes, "airing"))
 	}
 
 	// 優先度3: 古いメタデータ（月次更新）
@@ -857,7 +874,7 @@ func (s *AnimeSyncScheduler) syncMetadataIncrementally() metadataSyncResult {
 		result.opErrors = append(result.opErrors, fmt.Sprintf("Failed to get stale animes: %s", err))
 	} else {
 		s.logger.Info("Syncing metadata for stale animes", "count", len(staleAnimes))
-		addItemResult(s.syncMetadataForAnimes(staleAnimes, "stale"))
+		addItemResult(s.syncMetadataForAnimes(ctx, staleAnimes, "stale"))
 	}
 
 	// 優先度4: 同期失敗作品の再試行（クールダウン経過後）
@@ -867,7 +884,7 @@ func (s *AnimeSyncScheduler) syncMetadataIncrementally() metadataSyncResult {
 		result.opErrors = append(result.opErrors, fmt.Sprintf("Failed to get retry-target animes: %s", err))
 	} else if len(retryAnimes) > 0 {
 		s.logger.Info("Retrying metadata for previously failed animes", "count", len(retryAnimes))
-		addItemResult(s.syncMetadataForAnimes(retryAnimes, "retry-failed"))
+		addItemResult(s.syncMetadataForAnimes(ctx, retryAnimes, "retry-failed"))
 	}
 
 	return result
@@ -879,8 +896,9 @@ const metadataSampleErrorLimit = 10
 // syncMetadataForAnimes - アニメリストのメタデータを同期
 // 個別ジャンル同期の失敗は recoverable（次回バッチで再試行可能）として扱い、
 // 失敗件数と少数のサンプルエラーを返す（バッチ全体の成功判定とは分離する）。
+// ctx がキャンセル/タイムアウトされた場合は途中で中断する（graceful shutdown対応）。
 // Returns: failure count, success count, sample error messages (capped)
-func (s *AnimeSyncScheduler) syncMetadataForAnimes(animes []models.Anime, category string) (int, int, []string) {
+func (s *AnimeSyncScheduler) syncMetadataForAnimes(ctx context.Context, animes []models.Anime, category string) (int, int, []string) {
 	var sampleErrors []string
 	successCount := 0
 	failureCount := 0
@@ -899,6 +917,15 @@ func (s *AnimeSyncScheduler) syncMetadataForAnimes(animes []models.Anime, catego
 	}
 
 	for _, anime := range animes {
+		// タイムアウト/シャットダウン時は新たな作品の処理を開始しない。
+		// 未処理分は failed にせず、次回バッチで処理する。
+		if ctx.Err() != nil {
+			s.logger.Info("Metadata sync interrupted (context cancelled)",
+				"category", category,
+				"processed", successCount+failureCount)
+			break
+		}
+
 		if anime.MalAnimeID == nil || *anime.MalAnimeID == "" {
 			continue
 		}
@@ -907,9 +934,16 @@ func (s *AnimeSyncScheduler) syncMetadataForAnimes(animes []models.Anime, catego
 
 		// ジャンル同期（AniList API: 90req/min = 1.5req/sec）
 		// 構造体フィールドのanilistClientを再利用（レートリミッター共有）
-		ctx := context.Background()
 		genres, genreErr := s.anilistClient.GetGenresByMALId(ctx, malID)
 		if genreErr != nil {
+			// ctxキャンセル/タイムアウトが原因の失敗は failed 扱いにせず中断する
+			// （回復可能。次回バッチで再試行される）
+			if ctx.Err() != nil {
+				s.logger.Info("Metadata sync interrupted during fetch (context cancelled)",
+					"category", category,
+					"processed", successCount+failureCount)
+				break
+			}
 			s.logger.Warn("Failed to get genres",
 				"anime_id", anime.ID,
 				"mal_id", malID,
