@@ -2700,27 +2700,23 @@ func (s *AnimeService) SyncDescriptionsFromTMDB() (int, int, int, error) {
 	return s.SyncTMDBMetadata(context.Background(), 0)
 }
 
-// SyncTMDBMetadata resolves tmdb_id and Japanese descriptions from TMDB for animes that
-// need them (missing description, or an English one detected by HTML tags / lack of
-// Japanese punctuation). Resolving the description also persists tmdb_id / series_tmdb_id
-// as a side effect, so this doubles as the TMDB ID backfill.
-//
-// It honors the TMDB rate limit (~40 req/10s) via batching, stops early when ctx is
-// cancelled (graceful shutdown / timeout), and processes at most `limit` animes per run
-// (limit <= 0 means unlimited). Returns: success, not-found, failure counts.
-func (s *AnimeService) SyncTMDBMetadata(ctx context.Context, limit int) (int, int, int, error) {
-	s.logger.Info("Starting TMDB metadata sync", "limit", limit)
+// tmdbAnimeInfo holds the minimal anime fields needed for TMDB metadata resolution.
+type tmdbAnimeInfo struct {
+	ID    int
+	Title string
+	MalID *string
+}
 
-	// Check if TMDB client is enabled
-	if s.tmdbClient == nil || !s.tmdbClient.IsEnabled() {
-		return 0, 0, 0, fmt.Errorf("TMDB client is not configured")
-	}
-
-	// Get animes that need description update:
+// loadAnimesNeedingTMDBMetadata returns up to `limit` animes that need TMDB metadata
+// (missing description, or an English one). The DB connection is released before the
+// caller's long TMDB processing loop (rows are read fully here), and rows.Close() is
+// deferred so the connection is always returned to the pool even on early return/panic.
+func (s *AnimeService) loadAnimesNeedingTMDBMetadata(ctx context.Context, limit int) ([]tmdbAnimeInfo, error) {
+	// Animes that need description update:
 	// 1. No description (NULL or empty)
-	// 2. English description (contains HTML tags like <i>, <br>, or starts with ASCII and has no Japanese punctuation)
-	// Ordered by popularity so resolvable (popular) works are filled first; bounded by limit
-	// per run to control TMDB API load.
+	// 2. English description (HTML tags like <i>, <br>, or ASCII start without Japanese punctuation)
+	// Ordered by popularity so resolvable (popular) works are filled first; bounded by
+	// limit per run to control TMDB API load.
 	query := `
 		SELECT id, title, mal_anime_id
 		FROM animes
@@ -2738,25 +2734,47 @@ func (s *AnimeService) SyncTMDBMetadata(ctx context.Context, limit int) (int, in
 
 	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
-		return 0, 0, 0, fmt.Errorf("failed to get animes: %w", err)
+		return nil, fmt.Errorf("failed to get animes: %w", err)
 	}
+	defer rows.Close()
 
-	type animeInfo struct {
-		ID    int
-		Title string
-		MalID *string
-	}
-	var animes []animeInfo
-
+	var animes []tmdbAnimeInfo
 	for rows.Next() {
-		var a animeInfo
+		var a tmdbAnimeInfo
 		if err := rows.Scan(&a.ID, &a.Title, &a.MalID); err != nil {
 			s.logger.Warn("Failed to scan anime", "error", err)
 			continue
 		}
 		animes = append(animes, a)
 	}
-	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating animes: %w", err)
+	}
+
+	return animes, nil
+}
+
+// SyncTMDBMetadata resolves tmdb_id and Japanese descriptions from TMDB for animes that
+// need them (missing description, or an English one detected by HTML tags / lack of
+// Japanese punctuation). Resolving the description also persists tmdb_id / series_tmdb_id
+// as a side effect, so this doubles as the TMDB ID backfill.
+//
+// It honors the TMDB rate limit (~40 req/10s) via batching, stops early when ctx is
+// cancelled (graceful shutdown / timeout), and processes at most `limit` animes per run
+// (limit <= 0 means unlimited). Returns: success, not-found, failure counts.
+func (s *AnimeService) SyncTMDBMetadata(ctx context.Context, limit int) (int, int, int, error) {
+	s.logger.Info("Starting TMDB metadata sync", "limit", limit)
+
+	// Check if TMDB client is enabled
+	if s.tmdbClient == nil || !s.tmdbClient.IsEnabled() {
+		return 0, 0, 0, fmt.Errorf("TMDB client is not configured")
+	}
+
+	// 対象作品を取得（接続は読み取り後すぐ解放し、長時間のTMDB処理中は保持しない）
+	animes, err := s.loadAnimesNeedingTMDBMetadata(ctx, limit)
+	if err != nil {
+		return 0, 0, 0, err
+	}
 
 	totalAnimes := len(animes)
 	if totalAnimes == 0 {
@@ -2815,6 +2833,16 @@ func (s *AnimeService) SyncTMDBMetadata(ctx context.Context, limit int) (int, in
 
 			overview, tmdbID, err := s.tmdbClient.GetOverviewByMALIDOrTitle(itemCtx, malID, anime.Title, mediaTypeHint)
 			cancel()
+
+			// 親ctxがキャンセル/タイムアウトした場合は、フォールバックDBクエリや
+			// notFound計上をせず即中断する（err は context.Canceled 等になる）。
+			// itemCtx の10秒タイムアウト（親は生存）の場合は ctx.Err()==nil のため
+			// 通常どおり not-found 扱いで継続する。
+			if ctx.Err() != nil {
+				s.logger.Info("TMDB metadata sync interrupted during fetch (context cancelled)",
+					"processed", successCount+notFoundCount+failureCount)
+				break
+			}
 
 			if err != nil || overview == "" {
 				// TMDBから直接取得できなかった場合、シリーズフォールバックを試行
