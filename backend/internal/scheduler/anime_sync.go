@@ -190,6 +190,12 @@ type AnimeService interface {
 	SyncCoverImagesForAllAnimes() (int, int, []string, error)
 	SyncReleasedOnForCurrentSeason(ctx context.Context, currentSeason, previousSeason string) (int, int, error)
 	SyncAllAnimeStatuses(ctx context.Context) (int, int, error)
+	// SyncTMDBMetadata resolves tmdb_id and Japanese descriptions from TMDB for up to
+	// `limit` animes that need them (limit <= 0 means unlimited). Returns success,
+	// not-found, failure counts.
+	SyncTMDBMetadata(ctx context.Context, limit int) (int, int, int, error)
+	// IsTMDBEnabled reports whether the TMDB client is configured/usable.
+	IsTMDBEnabled() bool
 	ClearAnimeCache() // キャッシュクリア
 }
 
@@ -422,6 +428,9 @@ func (s *AnimeSyncScheduler) syncAllSeasons(nextSyncTime time.Time) {
 	syncErrors = append(syncErrors, metadata.opErrors...)
 	metadataSyncedCount := metadata.syncedCount
 
+	// TMDBメタデータ解決（tmdb_id・日本語あらすじ）
+	syncErrors = s.runTMDBMetadataStage(ctx, syncErrors)
+
 	duration := time.Since(startTime)
 	// 成功判定: operation-level の致命エラーが無く、かつ個別失敗が全体障害レベルでない場合のみ成功。
 	// レート制限等による散発的な個別ジャンル失敗（再試行可能）ではバッチを失敗扱いにしない。
@@ -454,6 +463,27 @@ func (s *AnimeSyncScheduler) syncAllSeasons(nextSyncTime time.Time) {
 			"total_animes", totalAnimeCount,
 			"note", "Metadata sync completed with priority-based approach")
 	}
+}
+
+// runTMDBMetadataStage resolves TMDB-derived metadata (tmdb_id / Japanese description)
+// for a bounded number of animes per run. Skipped when TMDB is not configured or ctx is
+// already cancelled. Only operation-level errors are appended to syncErrors (per-item
+// not-found/failures are recoverable and retried in later runs).
+func (s *AnimeSyncScheduler) runTMDBMetadataStage(ctx context.Context, syncErrors []string) []string {
+	if ctx.Err() != nil || !s.animeService.IsTMDBEnabled() {
+		return syncErrors
+	}
+
+	s.logger.Info("Starting TMDB metadata sync")
+	success, notFound, failure, err := s.animeService.SyncTMDBMetadata(ctx, constants.TMDBMetadataBatchLimit)
+	if err != nil {
+		return append(syncErrors, fmt.Sprintf("TMDB metadata sync: %s", err))
+	}
+	s.logger.Info("TMDB metadata sync completed",
+		"success", success,
+		"not_found", notFound,
+		"failure", failure)
+	return syncErrors
 }
 
 // newSyncContext creates a timeout context that is ALSO cancelled when the scheduler
@@ -564,6 +594,9 @@ func (s *AnimeSyncScheduler) syncCurrentSeasonAnimes() {
 	metadata := s.syncMetadataIncrementally(ctx)
 	syncErrors = append(syncErrors, metadata.opErrors...)
 	metadataSyncedCount := metadata.syncedCount
+
+	// Step 3: TMDBメタデータ解決（tmdb_id・日本語あらすじ）
+	syncErrors = s.runTMDBMetadataStage(ctx, syncErrors)
 
 	duration := time.Since(startTime)
 	// 成功判定: operation-level の致命エラーが無く、かつ個別失敗が全体障害レベルでない場合のみ成功。
