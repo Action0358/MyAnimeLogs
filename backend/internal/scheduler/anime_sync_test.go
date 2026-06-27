@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
 	"sync"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"myanimelogs/internal/common"
+	"myanimelogs/internal/constants"
 	"myanimelogs/internal/models"
 	"myanimelogs/internal/services"
 
@@ -45,6 +47,14 @@ func (m *mockAnimeService) SyncReleasedOnForCurrentSeason(ctx context.Context, c
 
 func (m *mockAnimeService) SyncAllAnimeStatuses(ctx context.Context) (int, int, error) {
 	return 0, 0, nil
+}
+
+func (m *mockAnimeService) SyncTMDBMetadata(ctx context.Context, limit int) (int, int, int, error) {
+	return 0, 0, 0, nil
+}
+
+func (m *mockAnimeService) IsTMDBEnabled() bool {
+	return false
 }
 
 func (m *mockAnimeService) ClearAnimeCache() {
@@ -307,6 +317,14 @@ func (m *mockAnimeServiceWithDelay) SyncReleasedOnForCurrentSeason(ctx context.C
 
 func (m *mockAnimeServiceWithDelay) SyncAllAnimeStatuses(ctx context.Context) (int, int, error) {
 	return 0, 0, nil
+}
+
+func (m *mockAnimeServiceWithDelay) SyncTMDBMetadata(ctx context.Context, limit int) (int, int, int, error) {
+	return 0, 0, 0, nil
+}
+
+func (m *mockAnimeServiceWithDelay) IsTMDBEnabled() bool {
+	return false
 }
 
 func (m *mockAnimeServiceWithDelay) ClearAnimeCache() {
@@ -587,4 +605,62 @@ func TestSyncMetadataIncrementally_ContextCancelled(t *testing.T) {
 	assert.Equal(t, 0, result.syncedCount)
 	assert.Equal(t, 0, result.recoverableFailures)
 	assert.Empty(t, result.opErrors)
+}
+
+// tmdbStageMock は runTMDBMetadataStage 検証用のモック。
+// mockAnimeService を埋め込み、TMDB関連メソッドのみ上書きする。
+type tmdbStageMock struct {
+	mockAnimeService
+	enabled   bool
+	err       error
+	calls     int
+	lastLimit int
+}
+
+func (m *tmdbStageMock) IsTMDBEnabled() bool { return m.enabled }
+
+func (m *tmdbStageMock) SyncTMDBMetadata(ctx context.Context, limit int) (int, int, int, error) {
+	m.calls++
+	m.lastLimit = limit
+	if m.err != nil {
+		return 0, 0, 0, m.err
+	}
+	return 1, 0, 0, nil
+}
+
+func TestRunTMDBMetadataStage(t *testing.T) {
+	t.Run("TMDB有効なら制限付きで呼び出される", func(t *testing.T) {
+		mock := &tmdbStageMock{enabled: true}
+		s := &AnimeSyncScheduler{logger: newTestLogger(), animeService: mock}
+		errs := s.runTMDBMetadataStage(context.Background(), nil)
+		assert.Equal(t, 1, mock.calls)
+		assert.Equal(t, constants.TMDBMetadataBatchLimit, mock.lastLimit)
+		assert.Empty(t, errs)
+	})
+
+	t.Run("TMDB無効ならスキップ", func(t *testing.T) {
+		mock := &tmdbStageMock{enabled: false}
+		s := &AnimeSyncScheduler{logger: newTestLogger(), animeService: mock}
+		errs := s.runTMDBMetadataStage(context.Background(), nil)
+		assert.Equal(t, 0, mock.calls)
+		assert.Empty(t, errs)
+	})
+
+	t.Run("ctxキャンセル済みならスキップ", func(t *testing.T) {
+		mock := &tmdbStageMock{enabled: true}
+		s := &AnimeSyncScheduler{logger: newTestLogger(), animeService: mock}
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		errs := s.runTMDBMetadataStage(ctx, nil)
+		assert.Equal(t, 0, mock.calls)
+		assert.Empty(t, errs)
+	})
+
+	t.Run("operation-levelエラーはsyncErrorsに追加", func(t *testing.T) {
+		mock := &tmdbStageMock{enabled: true, err: fmt.Errorf("db down")}
+		s := &AnimeSyncScheduler{logger: newTestLogger(), animeService: mock}
+		errs := s.runTMDBMetadataStage(context.Background(), nil)
+		assert.Equal(t, 1, mock.calls)
+		assert.Len(t, errs, 1)
+	})
 }

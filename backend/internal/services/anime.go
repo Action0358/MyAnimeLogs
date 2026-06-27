@@ -2687,11 +2687,29 @@ func (s *AnimeService) CleanupOldSearchHistory(userID int) error {
 	return nil
 }
 
-// SyncDescriptionsFromTMDB syncs Japanese descriptions from TMDB for all animes without description
-// Also updates animes with English descriptions (detected by HTML tags or lack of Japanese characters)
+// IsTMDBEnabled reports whether the TMDB client is configured and usable.
+func (s *AnimeService) IsTMDBEnabled() bool {
+	return s.tmdbClient != nil && s.tmdbClient.IsEnabled()
+}
+
+// SyncDescriptionsFromTMDB syncs Japanese descriptions (and tmdb_id) from TMDB for all
+// animes that need them. Thin wrapper over SyncTMDBMetadata with no per-run limit,
+// used by the manual full-sync script.
 // Returns: success count, not found count, failure count, error
 func (s *AnimeService) SyncDescriptionsFromTMDB() (int, int, int, error) {
-	s.logger.Info("Starting TMDB description sync")
+	return s.SyncTMDBMetadata(context.Background(), 0)
+}
+
+// SyncTMDBMetadata resolves tmdb_id and Japanese descriptions from TMDB for animes that
+// need them (missing description, or an English one detected by HTML tags / lack of
+// Japanese punctuation). Resolving the description also persists tmdb_id / series_tmdb_id
+// as a side effect, so this doubles as the TMDB ID backfill.
+//
+// It honors the TMDB rate limit (~40 req/10s) via batching, stops early when ctx is
+// cancelled (graceful shutdown / timeout), and processes at most `limit` animes per run
+// (limit <= 0 means unlimited). Returns: success, not-found, failure counts.
+func (s *AnimeService) SyncTMDBMetadata(ctx context.Context, limit int) (int, int, int, error) {
+	s.logger.Info("Starting TMDB metadata sync", "limit", limit)
 
 	// Check if TMDB client is enabled
 	if s.tmdbClient == nil || !s.tmdbClient.IsEnabled() {
@@ -2701,7 +2719,9 @@ func (s *AnimeService) SyncDescriptionsFromTMDB() (int, int, int, error) {
 	// Get animes that need description update:
 	// 1. No description (NULL or empty)
 	// 2. English description (contains HTML tags like <i>, <br>, or starts with ASCII and has no Japanese punctuation)
-	rows, err := s.db.Query(`
+	// Ordered by popularity so resolvable (popular) works are filled first; bounded by limit
+	// per run to control TMDB API load.
+	query := `
 		SELECT id, title, mal_anime_id
 		FROM animes
 		WHERE description IS NULL
@@ -2709,8 +2729,14 @@ func (s *AnimeService) SyncDescriptionsFromTMDB() (int, int, int, error) {
 		   OR description LIKE '%<i>%'
 		   OR description LIKE '%<br>%'
 		   OR (description ~ '^[A-Za-z]' AND description NOT LIKE '%。%' AND description NOT LIKE '%、%')
-		ORDER BY watchers_count DESC NULLS LAST, id
-	`)
+		ORDER BY watchers_count DESC NULLS LAST, id`
+	var args []interface{}
+	if limit > 0 {
+		query += " LIMIT $1"
+		args = append(args, limit)
+	}
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return 0, 0, 0, fmt.Errorf("failed to get animes: %w", err)
 	}
@@ -2734,11 +2760,11 @@ func (s *AnimeService) SyncDescriptionsFromTMDB() (int, int, int, error) {
 
 	totalAnimes := len(animes)
 	if totalAnimes == 0 {
-		s.logger.Info("All animes already have descriptions")
+		s.logger.Info("All animes already have TMDB metadata")
 		return 0, 0, 0, nil
 	}
 
-	s.logger.Info("Found animes without description", "count", totalAnimes)
+	s.logger.Info("Found animes needing TMDB metadata", "count", totalAnimes)
 
 	// TMDB rate limit: ~40 requests/10 seconds
 	const batchSize = 40
@@ -2750,6 +2776,13 @@ func (s *AnimeService) SyncDescriptionsFromTMDB() (int, int, int, error) {
 
 	// Process in batches
 	for i := 0; i < totalAnimes; i += batchSize {
+		// タイムアウト/シャットダウン時は中断（未処理分は次回バッチで処理）
+		if ctx.Err() != nil {
+			s.logger.Info("TMDB metadata sync interrupted (context cancelled)",
+				"processed", successCount+notFoundCount+failureCount)
+			break
+		}
+
 		end := i + batchSize
 		if end > totalAnimes {
 			end = totalAnimes
@@ -2760,7 +2793,11 @@ func (s *AnimeService) SyncDescriptionsFromTMDB() (int, int, int, error) {
 			"progress", fmt.Sprintf("%d/%d", end, totalAnimes))
 
 		for _, anime := range batch {
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			if ctx.Err() != nil {
+				break
+			}
+
+			itemCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 
 			malID := ""
 			if anime.MalID != nil {
@@ -2770,13 +2807,13 @@ func (s *AnimeService) SyncDescriptionsFromTMDB() (int, int, int, error) {
 			// AniListからメディアタイプを取得（MOVIE, TV等）
 			mediaTypeHint := ""
 			if malID != "" {
-				format, formatErr := s.anilistClient.GetMediaFormatByMALId(ctx, malID)
+				format, formatErr := s.anilistClient.GetMediaFormatByMALId(itemCtx, malID)
 				if formatErr == nil {
 					mediaTypeHint = format
 				}
 			}
 
-			overview, tmdbID, err := s.tmdbClient.GetOverviewByMALIDOrTitle(ctx, malID, anime.Title, mediaTypeHint)
+			overview, tmdbID, err := s.tmdbClient.GetOverviewByMALIDOrTitle(itemCtx, malID, anime.Title, mediaTypeHint)
 			cancel()
 
 			if err != nil || overview == "" {
@@ -2817,13 +2854,17 @@ func (s *AnimeService) SyncDescriptionsFromTMDB() (int, int, int, error) {
 			successCount++
 		}
 
-		// Wait before next batch (except for last batch)
+		// Wait before next batch (except for last batch); abort early on cancellation
 		if end < totalAnimes {
-			time.Sleep(batchInterval)
+			if err := sleepWithContext(ctx, batchInterval); err != nil {
+				s.logger.Info("TMDB metadata sync interrupted during backoff",
+					"processed", successCount+notFoundCount+failureCount)
+				break
+			}
 		}
 	}
 
-	s.logger.Info("TMDB description sync completed",
+	s.logger.Info("TMDB metadata sync completed",
 		"success", successCount,
 		"not_found", notFoundCount,
 		"failure", failureCount)

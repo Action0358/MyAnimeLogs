@@ -127,6 +127,11 @@ const (
 
 	// MetadataRetryBatchLimit - 1回のバッチで再試行する失敗作品の上限
 	MetadataRetryBatchLimit = 50
+
+	// TMDBMetadataBatchLimit - 1回の定期同期で解決するTMDBメタデータ作品の上限
+	// TMDBレート制限(40req/10秒)下でバッチ処理(40件/約11秒)するため、200件で約55秒。
+	// 滞留分は次回以降の定期同期で段階的に解消する。
+	TMDBMetadataBatchLimit = 200
 )
 
 // 同期処理タイムアウト関連の定数
