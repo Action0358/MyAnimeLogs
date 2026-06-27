@@ -573,3 +573,18 @@ func TestSyncMetadataForAnimes_ContextCancelled(t *testing.T) {
 	assert.Equal(t, 0, successCount)
 	assert.Empty(t, samples)
 }
+
+func TestSyncMetadataIncrementally_ContextCancelled(t *testing.T) {
+	// ctx が既にキャンセル済みなら、最初のDBクエリ前に早期returnし、
+	// nil クライアントに触れない（panic しない）ことで確認する。
+	s := &AnimeSyncScheduler{logger: newTestLogger()}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	result := s.syncMetadataIncrementally(ctx)
+
+	assert.Equal(t, 0, result.syncedCount)
+	assert.Equal(t, 0, result.recoverableFailures)
+	assert.Empty(t, result.opErrors)
+}

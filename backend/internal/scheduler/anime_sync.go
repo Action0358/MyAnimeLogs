@@ -850,7 +850,14 @@ func (s *AnimeSyncScheduler) syncMetadataIncrementally(ctx context.Context) meta
 		}
 	}
 
+	// 各優先度のDBクエリ前に ctx を確認し、キャンセル/タイムアウト時は早期returnする。
+	// これがないと、syncMetadataForAnimes が即中断するにもかかわらず、後続優先度の
+	// DBクエリと "Syncing ..." ログだけが無駄に実行されてしまう。
+
 	// 優先度1: 新規作品（メタデータ未取得）
+	if ctx.Err() != nil {
+		return result
+	}
 	newAnimes, err := s.getAnimesWithoutMetadata()
 	if err != nil {
 		result.opErrors = append(result.opErrors, fmt.Sprintf("Failed to get new animes: %s", err))
@@ -860,6 +867,9 @@ func (s *AnimeSyncScheduler) syncMetadataIncrementally(ctx context.Context) meta
 	}
 
 	// 優先度2: 放送中作品（週次更新）
+	if ctx.Err() != nil {
+		return result
+	}
 	airingAnimes, err := s.getAiringAnimes()
 	if err != nil {
 		result.opErrors = append(result.opErrors, fmt.Sprintf("Failed to get airing animes: %s", err))
@@ -869,6 +879,9 @@ func (s *AnimeSyncScheduler) syncMetadataIncrementally(ctx context.Context) meta
 	}
 
 	// 優先度3: 古いメタデータ（月次更新）
+	if ctx.Err() != nil {
+		return result
+	}
 	staleAnimes, err := s.getAnimesWithStaleMetadata(constants.StaleDataThreshold)
 	if err != nil {
 		result.opErrors = append(result.opErrors, fmt.Sprintf("Failed to get stale animes: %s", err))
@@ -879,6 +892,9 @@ func (s *AnimeSyncScheduler) syncMetadataIncrementally(ctx context.Context) meta
 
 	// 優先度4: 同期失敗作品の再試行（クールダウン経過後）
 	// レート制限で failed になり通常クエリから除外され滞留した作品を解消する
+	if ctx.Err() != nil {
+		return result
+	}
 	retryAnimes, err := s.getFailedMetadataAnimes(constants.MetadataRetryCooldown)
 	if err != nil {
 		result.opErrors = append(result.opErrors, fmt.Sprintf("Failed to get retry-target animes: %s", err))
