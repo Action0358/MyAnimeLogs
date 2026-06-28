@@ -27,7 +27,7 @@ export const FavoriteCard: React.FC<FavoriteCardProps> = ({
       'hover:shadow-md transition-shadow',
       isUpdating && 'opacity-70'
     )}>
-      <Link href={`/anime/${anime.id}` as Route} className="block">
+      <Link href={`/anime/${anime.id}` as Route} prefetch={false} className="block">
         <div className="relative aspect-[3/4] bg-gray-100">
           <Image
             src={imageUrl}
@@ -58,7 +58,7 @@ export const FavoriteCard: React.FC<FavoriteCardProps> = ({
       </button>
 
       <div className="p-3">
-        <Link href={`/anime/${anime.id}` as Route}>
+        <Link href={`/anime/${anime.id}` as Route} prefetch={false}>
           <h3 className="font-medium text-gray-900 line-clamp-2 hover:text-blue-600 transition-colors">
             {anime.title}
           </h3>
