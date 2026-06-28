@@ -135,7 +135,7 @@ export const AnimeCard: React.FC<AnimeCardProps> = ({
   }
 
   return (
-    <Link href={`/anime/${anime.id}` as Route} className="block">
+    <Link href={`/anime/${anime.id}` as Route} prefetch={false} className="block">
       {CardContent}
     </Link>
   )
