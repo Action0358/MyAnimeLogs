@@ -28,6 +28,7 @@ export const WatchStatusCard: React.FC<WatchStatusCardProps> = ({
   return (
     <Link
       href={`/anime/${anime.id}` as Route}
+      prefetch={false}
       className={cn('block', isUpdating && 'pointer-events-none')}
       aria-disabled={isUpdating}
       tabIndex={isUpdating ? -1 : undefined}
