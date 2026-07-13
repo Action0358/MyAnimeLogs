@@ -1,0 +1,91 @@
+,,,,,,,,,,No,リレーションシップ
+,,users,,,,animes,,,,1,users ↔ animes (多対多)
+,,id,SERIAL(PK),,,id,SERIAL(PK),,,,"* 中間テーブル: user_favorites
+* 1人のユーザーが複数のアニメをお気に入り登録できます。
+* 1つのアニメが複数のユーザーにお気に入り登録されます。"
+,,name,VARCHAR(50),,,title,VARCHAR(255),,,2,animes ↔ episodes (1対多)
+,,email,VARCHAR(255),,,title_kana,VARCHAR(255),,,,"* 1つのアニメに複数のエピソードが紐づきます。
+* FK: episodes.anime_id → animes.id"
+,,password,VARCHAR(255),,,title_en,VARCHAR(255),,,3,users ↔ episodes (多対多)
+,,description,VARCHAR(500),,,description,TEXT,,,,"* 中間テーブル: watch_statuses
+* 1人のユーザーが複数のエピソードの視聴状況を持ちます。
+* 1つのエピソードが複数のユーザーに視聴記録されます。"
+,,icon,VARCHAR(500),,,image_url,VARCHAR(500),,,,4,users ↔ animes (多対多) - 評価
+,,favorite_anime,VARCHAR(200),,,season,VARCHAR(50),,,,"* 中間テーブル: user_ratings
+* 1人のユーザーが複数のアニメを評価できます。
+* 1つのアニメが複数のユーザーに評価されます。"
+,,sns_link,VARCHAR(500),,,season_year,INTEGER,,,,5,users ↔ episodes (多対多) - 視聴履歴
+,,failed_login_attempts,INTEGER,,,status,VARCHAR(50),,,,"* 中間テーブル: watch_history
+* 1人のユーザーが複数のエピソードの視聴履歴を持ちます。
+* 1つのエピソードが複数のユーザーの視聴履歴に記録されます。"
+,,last_failed_login_at,TIMESTAMPTZ,,,media,VARCHAR(50),,,,6,animes ↔ genres (多対多)
+,,locked_until,TIMESTAMPTZ,,,episodes_count,INTEGER,,,,"* 中間テーブル: anime_genres
+* 1つのアニメが複数のジャンルに属します。
+* 1つのジャンルが複数のアニメに適用されます。"
+,,created_at,TIMESTAMP,,,official_site_url,VARCHAR(500),,,,7,users ↔ search_logs (1対多)
+,,updated_at,TIMESTAMP,,,wikipedia_url,VARCHAR(500),,,,"* 1人のユーザーが複数の検索ログを持ちます。
+* FK: search_logs.user_id → users.id (NULL可)"
+,,,,,twitter_username,VARCHAR(100),,,,8,animes ↔ search_logs (1対多)
+,,,,,twitter_hashtag,VARCHAR(100),,,,"* 1つのアニメが複数の検索ログでクリックされます。
+* FK: search_logs.clicked_anime_id → animes.id (NULL可)"
+,,,,,mal_anime_id,VARCHAR(50),,,,9,users ↔ sessions (1対多)
+,,,,,annict_id,INTEGER,,,,"* 1人のユーザーが複数のセッションを持ちます。
+* FK: sessions.user_id → users.id"
+,,,,,watchers_count,INTEGER,,,,
+,,,,,reviews_count,INTEGER,,,,
+,,,,,cover_image_large,VARCHAR(500),,,,
+,,,,,cover_image_medium,VARCHAR(500),,,,
+,,,,,cover_image_updated_at,TIMESTAMP,,,,
+,,,,,genres_synced_at,TIMESTAMP,,,,
+,,,,,created_at,TIMESTAMP,,,,
+,,,,,updated_at,TIMESTAMP,,,,
+
+,,,,,,,,,,,
+,,,,,,,,,,,
+,,episodes,,,,,,,,
+,,id,SERIAL(PK),,,,,,,
+,,anime_id,INT (FK → animes.id),,,,,,,
+,,title,VARCHAR(255),,,,,,,
+,,episode_number,INT,,,,,,,
+,,air_date,DATE,,,,,,,
+,,duration_minutes,INTEGER,,,,,,,
+,,created_at,TIMESTAMP,,,,,,,
+,,updated_at,TIMESTAMP,,,,,,,
+,,,,,,,,,,,
+,,,,,,,,,,,
+,,user_favorites,,,,search_logs,,,,,
+,,id,SERIAL(PK),,,id,SERIAL(PK),,,,
+,,user_id,INT (FK→users.id),,,user_id,INT (FK→users.id),,,,
+,,anime_id,INT (FK→animes.id),,,query,VARCHAR(500),,,,
+,,status,VARCHAR(50),,,filters,JSONB,,,,
+,,created_at,TIMESTAMP,,,result_count,INTEGER,,,,
+,,updated_at,TIMESTAMP,,,clicked_anime_id,INT (FK→animes.id),,,,
+,,,,,searched_at,TIMESTAMP,,,,
+,,,,,,,,,,,
+,,,,,,,,,,,
+,,watch_statuses,,,,user_ratings,,,,,
+,,id,SERIAL(PK),,,id,SERIAL(PK),,,,
+,,user_id,INT (FK→users.id),,,user_id,INT (FK→users.id),,,,
+,,episode_id,INT (FK→episodes.id),,,anime_id,INT (FK→animes.id),,,,
+,,viewed,BOOLEAN,,,rating,DECIMAL(3,2),,,,
+,,updated_at,TIMESTAMP,,,comment,TEXT,,,,
+,,,,,created_at,TIMESTAMP,,,,
+,,,,,updated_at,TIMESTAMP,,,,
+,,,,,,,,,,,
+,,watch_history,,,,anime_genres,,,,,
+,,id,SERIAL(PK),,,id,SERIAL(PK),,,,
+,,user_id,INT (FK→users.id),,,anime_id,INT (FK→animes.id),,,,
+,,episode_id,INT (FK→episodes.id),,,genre,VARCHAR(100),,,,
+,,watched_at,TIMESTAMP,,,,,,,,
+,,,,,,,,,,,
+,,sessions,,,,,,,,
+,,id,SERIAL(PK),,,,,,,
+,,user_id,INT (FK→users.id),,,,,,,
+,,refresh_token,VARCHAR(44),,,,,,,
+,,access_token_jti,VARCHAR(36),,,,,,,
+,,user_agent,TEXT,,,,,,,
+,,ip_address,VARCHAR(45),,,,,,,
+,,expires_at,TIMESTAMP,,,,,,,
+,,created_at,TIMESTAMP,,,,,,,
+,,updated_at,TIMESTAMP,,,,,,,
+,,last_activity_at,TIMESTAMP,,,,,,,

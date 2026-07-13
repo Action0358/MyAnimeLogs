@@ -1,0 +1,47 @@
+No,リソース,メソッド,URLパス,機能概要,リクエスト例,レスポンス例,備考,実装状況
+1,新規登録,POST,/api/register,新規ユーザー作成。,"""json { ""name"": ""山田 太郎"", ""email"": ""taro@example.com"", ""password"": ""password123"" } ""","""json { ""message"": ""ユーザー登録が完了しました。"", ""user"": { ""id"": 10, ""name"": ""山田 太郎"", ""email"": ""taro@example.com"" } } """,認証不要,✅
+2,ログイン（トークン発行）,POST,/api/login,ログインしてJWTを取得する。,"""json { ""email"": ""taro@example.com"", ""password"": ""password123"" } ""","""json { ""access_token"": ""eyJ..."", ""token_type"": ""Bearer"", ""user"": { ""id"": 10, ""name"": ""山田 太郎"", ""email"": ""taro@example.com"" } } """,認証不要・アカウントロックアウト対応,✅
+3,ログアウト,POST,/api/logout,ログアウトしてリフレッシュトークンを無効化,POST /api/logout,"""json { ""message"": ""ログアウトしました"" } """,認証不要（Cookieからトークン取得）,✅
+4,トークンリフレッシュ,POST,/api/auth/refresh,リフレッシュトークンを使用してアクセストークンを更新,POST /api/auth/refresh,"""json { ""access_token"": ""eyJ..."", ""token_type"": ""Bearer"" } """,認証不要（Cookieからトークン取得）,✅
+5,マイページ情報の取得,GET,/api/users/me,ログインユーザー自身のプロフィール情報を取得する。,/api/users/me,"""json { ""id"": 10, ""name"": ""佐藤太郎"", ""email"": ""taro@example.com"", ""description"": ""アニメ大好き社会人"", ""icon"": ""..."" } """,要認証,✅
+6,マイページ情報の更新,PUT,/api/users/me,ユーザー自身のプロフィール情報を編集・更新する。,"""json { ""name"": ""田中花子"", ""description"": ""毎日アニメを観てます！"" } ""","""json { ""message"": ""プロフィールを更新しました。"", ""user"": { ... } } """,要認証,✅
+7,アイコンアップロード,POST,/api/users/me/icon,ユーザーアイコン画像をアップロード,multipart/form-data,"""json { ""message"": ""アイコンをアップロードしました"", ""icon_url"": ""..."" } """,要認証・JPEG/PNG/GIF/WebP対応,✅
+8,アイコン削除,DELETE,/api/users/me/icon,ユーザーアイコン画像を削除,DELETE /api/users/me/icon,"""json { ""message"": ""アイコンを削除しました"" } """,要認証,✅
+9,視聴統計取得,GET,/api/users/me/stats,ユーザーの視聴統計情報を取得する,/api/users/me/stats,"""json { ""total_episodes_watched"": 245, ""total_animes_completed"": 12, ""total_watch_time_hours"": 98.5, ""favorite_genres"": [...], ""this_month_episodes"": 15 } """,要認証,✅
+10,データエクスポート,GET,/api/users/me/export,ユーザーの視聴データをエクスポート,/api/users/me/export?format=json,"""json { ""user_info"": {...}, ""favorites"": [...], ""watch_history"": [...], ""ratings"": [...] } """,要認証,✅
+11,セッション一覧取得,GET,/api/users/me/sessions,ログインユーザーのセッション一覧を取得,/api/users/me/sessions,"""json { ""sessions"": [{ ""id"": 1, ""user_agent"": ""..."", ""ip_address"": ""..."", ""last_activity_at"": ""..."" }] } """,要認証,✅
+12,セッション削除,DELETE,/api/users/me/sessions/:id,指定したセッションを削除（ログアウト）,DELETE /api/users/me/sessions/1,"""json { ""message"": ""セッションを削除しました"" } """,要認証,✅
+13,全デバイスログアウト,POST,/api/users/me/logout-all,全てのデバイスからログアウト,POST /api/users/me/logout-all,"""json { ""message"": ""全てのデバイスからログアウトしました"" } """,要認証,✅
+14,アニメ一覧取得,GET,/api/animes,クールやキーワードでアニメを検索する,/api/animes?season=2025-summer,"""json { ""data"": [...], ""meta"": { ""total_pages"": 10, ""current_page"": 1 } } """,認証オプション,✅
+15,アニメ詳細取得,GET,/api/animes/:id,指定したアニメの詳細情報を取得する,/api/animes/1,"""json { ""id"": 1, ""title"": ""アニメA"", ""description"": ""..."", ""user_favorite"": {...}, ""watch_progress"": 25.5 } """,認証オプション（認証時はお気に入り状態含む）,✅
+16,エピソード一覧取得,GET,/api/animes/:id/episodes,指定アニメのエピソード一覧を取得する,/api/animes/1/episodes,"""json { ""anime_id"": 1, ""anime_title"": ""..."", ""episodes"": [...] } """,認証オプション（認証時は視聴状態含む）,✅
+17,今期アニメ取得,GET,/api/animes/current,今期放送中のアニメ一覧を取得,/api/animes/current,"""json { ""data"": [...], ""meta"": {...} } """,認証不要,✅
+18,人気アニメ取得,GET,/api/animes/popular,人気アニメ一覧を取得,/api/animes/popular,"""json { ""data"": [...], ""meta"": {...} } """,認証不要,✅
+19,お気に入り一覧取得,GET,/api/users/me/favorites,ログインユーザーのお気に入りアニメ一覧を取得する,/api/users/me/favorites?status=watching,"""json [ { ""id"": 1, ""title"": ""アニメA"", ""status"": ""watching"" }, ... ] """,要認証,✅
+20,お気に入り登録・更新,PUT,/api/users/me/favorites/:anime_id,アニメをお気に入りに追加、またはステータスを更新する,"""PUT /api/users/me/favorites/1 { ""status"": ""watching"" } ""","""json { ""message"": ""お気に入りを更新しました"", ""favorite"": {...} } """,要認証,✅
+21,お気に入り削除,DELETE,/api/users/me/favorites/:anime_id,お気に入りからアニメを削除する,DELETE /api/users/me/favorites/1,"""json { ""message"": ""お気に入りから削除しました"" } """,要認証,✅
+22,エピソード視聴状態更新,PUT,/api/episodes/:episode_id/watch,エピソードを視聴済み、または未視聴にする,"""PUT /api/episodes/101/watch { ""viewed"": true } ""","""json { ""message"": ""視聴状態を更新しました"", ""watch_status"": {...} } """,要認証,✅
+23,アニメ評価登録,PUT,/api/animes/:id/rating,アニメに評価とコメントを登録する,"""PUT /api/animes/1/rating { ""rating"": 4.5, ""comment"": ""とても面白かった！"" } ""","""json { ""message"": ""評価を登録しました"", ""rating"": {...} } """,要認証,✅
+24,アニメ評価削除,DELETE,/api/animes/:id/rating,アニメの評価を削除する,DELETE /api/animes/1/rating,"""json { ""message"": ""評価を削除しました"" } """,要認証,✅
+25,最近視聴したエピソード,GET,/api/users/me/recently-watched,最近視聴したエピソードの履歴を取得,/api/users/me/recently-watched?limit=5,"""json [ { ""episode_id"": 101, ""anime_title"": ""..."", ""episode_title"": ""..."", ""watched_at"": ""..."" }, ... ] """,要認証,✅
+26,視聴予定リスト,GET,/api/users/me/watchlist,視聴予定のアニメ一覧を取得,/api/users/me/watchlist,"""json [ { ""id"": 5, ""title"": ""新作アニメ"", ""season"": ""2025-spring"", ""added_at"": ""..."" }, ... ] """,要認証,✅
+27,高度なアニメ検索,GET,/api/search/animes,ジャンルや年代での詳細検索,/api/search/animes?genre=アクション&year=2024,"""json { ""data"": [...], ""meta"": {...} } """,認証オプション,✅
+28,詳細検索,GET,/api/search/advanced,複数条件での詳細検索,/api/search/advanced?title=進撃&genre=アクション,"""json { ""data"": [...], ""meta"": {...} } """,認証オプション,✅
+29,検索サジェスト,GET,/api/search/suggestions,検索候補を取得,/api/search/suggestions?q=進撃,"""json { ""suggestions"": [""進撃の巨人"", ...] } """,認証不要,✅
+30,人気検索ワード,GET,/api/search/popular,人気の検索ワードを取得,/api/search/popular?limit=10,"""json { ""popular_searches"": [...] } """,認証不要,✅
+31,フィルターオプション取得,GET,/api/filters,検索フィルターの選択肢を取得,/api/filters,"""json { ""seasons"": [...], ""genres"": [...], ""years"": [...] } """,認証不要,✅
+32,Annict作品取得（シーズン別）,GET,/api/annict/works,Annictから指定シーズンの作品を取得,/api/annict/works?season=2025-winter&year=2025,"""json { ""data"": [...], ""meta"": {...} } """,認証不要,✅
+33,Annict人気作品取得,GET,/api/annict/popular-works,Annictから人気作品を取得,/api/annict/popular-works?limit=20,"""json { ""data"": [...] } """,認証不要,✅
+34,シーズン別作品同期,POST,/api/admin/sync/season,指定シーズンの作品をAnnictから同期,"""POST /api/admin/sync/season { ""season"": ""2025-winter"", ""year"": 2025 } ""","""json { ""message"": ""同期が完了しました"", ""synced_count"": 45 } """,要認証（管理者）,✅
+35,人気作品同期,POST,/api/admin/sync/popular,人気作品をAnnictから同期,POST /api/admin/sync/popular,"""json { ""message"": ""同期が完了しました"", ""synced_count"": 20 } """,要認証（管理者）,✅
+36,エピソード再生時間同期,POST,/api/admin/sync/episode-durations,エピソードの再生時間をJikan APIから同期,POST /api/admin/sync/episode-durations,"""json { ""message"": ""同期が完了しました"" } """,要認証（管理者）,✅
+37,エピソード一括作成,POST,/api/admin/create-episodes,全アニメのエピソードを作成,POST /api/admin/create-episodes,"""json { ""message"": ""エピソード作成が完了しました"" } """,要認証（管理者）,✅
+38,エピソードタイトル補完,POST,/api/admin/enrich/episode-titles,エピソードタイトルをAnilistから補完,POST /api/admin/enrich/episode-titles,"""json { ""message"": ""タイトル補完が完了しました"" } """,要認証（管理者）,✅
+39,ジャンル同期,POST,/api/admin/sync/genres,全アニメのジャンルをAnilistから同期,POST /api/admin/sync/genres,"""json { ""message"": ""ジャンル同期が完了しました"" } """,要認証（管理者）,✅
+40,同期ステータス取得,GET,/api/admin/sync/status,データ同期の進行状況を取得,/api/admin/sync/status,"""json { ""status"": ""running"", ""progress"": 50 } """,要認証（管理者）,✅
+41,エピソード同期ステータス取得,GET,/api/admin/episode-sync-status,エピソード同期の進行状況を取得,/api/admin/episode-sync-status,"""json { ""status"": ""completed"", ""synced_count"": 100 } """,要認証（管理者）,✅
+42,エラーメトリクス取得,GET,/api/admin/errors/metrics,エラー統計情報を取得,/api/admin/errors/metrics,"""json { ""total_errors"": 123, ""error_rate"": 0.05 } """,要認証（管理者）,✅
+43,トップエラー取得,GET,/api/admin/errors/top,頻発エラーのトップリストを取得,/api/admin/errors/top?limit=10,"""json { ""errors"": [...] } """,要認証（管理者）,✅
+44,エラーメトリクスリセット,POST,/api/admin/errors/reset,エラー統計をリセット,POST /api/admin/errors/reset,"""json { ""message"": ""エラーメトリクスをリセットしました"" } """,要認証（管理者）,✅
+45,ヘルスチェック,GET,/health,APIの稼働状態を確認,/health,"""json { ""status"": ""ok"" } """,認証不要,✅
+46,詳細ヘルスチェック,GET,/health/detailed,APIの詳細な稼働状態を確認,/health/detailed,"""json { ""status"": ""ok"", ""database"": ""connected"", ""uptime"": 12345 } """,認証不要,✅
