@@ -1,0 +1,39 @@
+項目,仕様,説明
+,,
+Annict API,,
+連携API,Annict API (GraphQL),アニメ・エピソード情報の取得元
+APIキー,環境変数ANNICT_API_KEY,Annictから取得したAPIキー
+APIエンドポイント,https://api.annict.com/graphql,Annict GraphQL API
+レート制限,1秒間に5リクエスト,Annict APIの制限に準拠（レートリミッター実装済み）
+同期対象データ,"アニメ情報（タイトル、タイトルかな、英語タイトル、画像、シーズン、エピソード数、公式サイト、Wikipedia、Twitter等）",Annict APIから取得した作品情報をローカルDBに保存
+同期開始年,1979年春,初代ガンダム放送開始を起点として設定
+,,
+Anilist API,,
+連携API,Anilist API (GraphQL),画像・ジャンル・エピソード詳細情報の取得元
+APIキー,不要,Anilist APIは認証不要
+APIエンドポイント,https://graphql.anilist.co,Anilist GraphQL API
+レート制限,1分間に90リクエスト,Anilist APIの制限に準拠（レートリミッター実装済み）
+同期対象データ,"カバー画像（large/medium）、ジャンル、エピソードタイトル",MAL IDを使用してAnilistからデータを取得
+画像TTL,7日間,cover_image_updated_atで管理し、期限切れ時に再取得
+画像優先順位,cover_image_large > cover_image_medium > image_url（Annict）,Anilist画像を優先的に使用
+,,
+Jikan API（MyAnimeList非公式API）,,
+連携API,Jikan API v4 (REST),エピソード再生時間・ジャンル情報の取得元
+APIキー,不要,Jikan APIは認証不要
+APIエンドポイント,https://api.jikan.moe/v4,Jikan REST API
+レート制限,1秒間に3リクエスト,Jikan APIの制限に準拠（レートリミッター実装済み）
+同期対象データ,"エピソード再生時間（duration_minutes）、ジャンル情報",MAL IDを使用してJikanからデータを取得
+リトライ戦略,最大3回・指数バックオフ（1秒→2秒→4秒）,レート制限・サーバーエラー時に自動リトライ
+エラーハンドリング,ErrJikanNotFound・ErrJikanRateLimitのセンチネルエラー,404・429エラーを適切にハンドリング
+,,
+共通設定,,
+データ同期方法,管理者API経由の手動同期 + スケジューラーによる自動同期,/api/admin/sync/* エンドポイント
+自動同期スケジュール,定期実行（スケジューラー実装済み）,syncAllSeasons関数で全シーズンを順次同期
+エラーハンドリング,構造化ログとエラーモニタリング,エラー発生時は詳細ログを出力し、エラーメトリクスを記録
+エラーモニタリング,/api/admin/errors/* エンドポイント,エラー統計・頻発エラーの確認・メトリクスリセット機能
+キャッシュ戦略,データベースキャッシュ,同期したアニメ情報はローカルDBに保存し、再利用
+フォールバック,ローカルデータベース,外部API障害時はローカルデータを使用
+データ更新頻度,手動または定期実行,管理者が必要に応じて同期を実行
+検索機能,全文検索インデックス（PostgreSQL GIN）,タイトル・タイトルかな・英語タイトルでの高速検索を実現
+ログ出力,構造化ログ（JSON形式）,API呼び出し・エラー・同期結果を詳細に記録
+ヘルスチェック,/health および /health/detailed,API稼働状態とデータベース接続状態の監視

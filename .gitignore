@@ -53,10 +53,6 @@ yarn-error.log*
 myanimelogs_test_migration
 myanimelogs_sql_validation
 
-# Documentation files
-/docs/*.csv
-/docs/README.md
-
 # Claude Code configuration
 .claude/
 

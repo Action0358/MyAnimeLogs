@@ -1,6 +1,8 @@
 # MyAnimeLogs
 
-アニメ視聴管理Webアプリ。アニメ検索・お気に入り・視聴進捗管理・評価レビューが可能。
+アニメ視聴管理Webアプリ。アニメ検索・お気に入り・視聴進捗管理が可能。
+
+> 注: 評価(rating)機能は2026-06に撤去済み（commit 943c4db2 / migration 043_drop_user_ratings_table）。
 
 ## 技術スタック
 
