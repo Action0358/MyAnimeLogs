@@ -160,6 +160,20 @@ func getJWKSPublicKey(kid, jwksURL string) (*ecdsa.PublicKey, error) {
 	return key, nil
 }
 
+// isAdminFromClaims reports whether the Supabase JWT grants the admin role.
+// The role is read from app_metadata, which can only be set server-side
+// (via the Supabase Admin API), never by the user's self-service signup —
+// so it is safe to trust as an authorization signal.
+func isAdminFromClaims(claims *SupabaseClaims) bool {
+	if claims == nil || claims.AppMetadata == nil {
+		return false
+	}
+	if role, ok := claims.AppMetadata["role"].(string); ok && role == "admin" {
+		return true
+	}
+	return false
+}
+
 // nameFromClaims extracts a display name from Supabase JWT metadata.
 func nameFromClaims(claims *SupabaseClaims) string {
 	if claims.UserMetadata != nil {
@@ -319,6 +333,7 @@ func SupabaseAuthMiddleware(db *database.DB, jwtSecret string, logger *common.Lo
 		c.Set("user_id", userID)
 		c.Set("user_email", email)
 		c.Set("user_name", name)
+		c.Set("is_admin", isAdminFromClaims(claims))
 		c.Next()
 	}
 }
@@ -356,6 +371,7 @@ func OptionalSupabaseAuthMiddleware(db *database.DB, jwtSecret string, logger *c
 		c.Set("user_id", userID)
 		c.Set("user_email", email)
 		c.Set("user_name", name)
+		c.Set("is_admin", isAdminFromClaims(claims))
 		c.Next()
 	}
 }
