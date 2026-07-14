@@ -86,6 +86,11 @@ func TestIsAdminFromClaims(t *testing.T) {
 			claims: &SupabaseClaims{AppMetadata: map[string]interface{}{"role": 1}},
 			want:   false,
 		},
+		{
+			name:   "nil claims",
+			claims: nil,
+			want:   false,
+		},
 	}
 
 	for _, tt := range tests {

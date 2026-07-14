@@ -165,7 +165,7 @@ func getJWKSPublicKey(kid, jwksURL string) (*ecdsa.PublicKey, error) {
 // (via the Supabase Admin API), never by the user's self-service signup —
 // so it is safe to trust as an authorization signal.
 func isAdminFromClaims(claims *SupabaseClaims) bool {
-	if claims.AppMetadata == nil {
+	if claims == nil || claims.AppMetadata == nil {
 		return false
 	}
 	if role, ok := claims.AppMetadata["role"].(string); ok && role == "admin" {
