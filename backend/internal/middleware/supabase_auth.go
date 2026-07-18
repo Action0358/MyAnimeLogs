@@ -168,7 +168,7 @@ func isAdminFromClaims(claims *SupabaseClaims) bool {
 	if claims == nil || claims.AppMetadata == nil {
 		return false
 	}
-	if role, ok := claims.AppMetadata["role"].(string); ok && role == "admin" {
+	if role, ok := claims.AppMetadata["role"].(string); ok && strings.ToLower(role) == "admin" {
 		return true
 	}
 	return false

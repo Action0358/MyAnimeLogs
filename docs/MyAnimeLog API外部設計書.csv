@@ -21,8 +21,6 @@ No,リソース,メソッド,URLパス,機能概要,リクエスト例,レスポ
 20,お気に入り登録・更新,PUT,/api/users/me/favorites/:anime_id,アニメをお気に入りに追加、またはステータスを更新する,"""PUT /api/users/me/favorites/1 { ""status"": ""watching"" } ""","""json { ""message"": ""お気に入りを更新しました"", ""favorite"": {...} } """,要認証,✅
 21,お気に入り削除,DELETE,/api/users/me/favorites/:anime_id,お気に入りからアニメを削除する,DELETE /api/users/me/favorites/1,"""json { ""message"": ""お気に入りから削除しました"" } """,要認証,✅
 22,エピソード視聴状態更新,PUT,/api/episodes/:episode_id/watch,エピソードを視聴済み、または未視聴にする,"""PUT /api/episodes/101/watch { ""viewed"": true } ""","""json { ""message"": ""視聴状態を更新しました"", ""watch_status"": {...} } """,要認証,✅
-23,アニメ評価登録,PUT,/api/animes/:id/rating,アニメに評価とコメントを登録する,"""PUT /api/animes/1/rating { ""rating"": 4.5, ""comment"": ""とても面白かった！"" } ""","""json { ""message"": ""評価を登録しました"", ""rating"": {...} } """,要認証,✅
-24,アニメ評価削除,DELETE,/api/animes/:id/rating,アニメの評価を削除する,DELETE /api/animes/1/rating,"""json { ""message"": ""評価を削除しました"" } """,要認証,✅
 25,最近視聴したエピソード,GET,/api/users/me/recently-watched,最近視聴したエピソードの履歴を取得,/api/users/me/recently-watched?limit=5,"""json [ { ""episode_id"": 101, ""anime_title"": ""..."", ""episode_title"": ""..."", ""watched_at"": ""..."" }, ... ] """,要認証,✅
 26,視聴予定リスト,GET,/api/users/me/watchlist,視聴予定のアニメ一覧を取得,/api/users/me/watchlist,"""json [ { ""id"": 5, ""title"": ""新作アニメ"", ""season"": ""2025-spring"", ""added_at"": ""..."" }, ... ] """,要認証,✅
 27,高度なアニメ検索,GET,/api/search/animes,ジャンルや年代での詳細検索,/api/search/animes?genre=アクション&year=2024,"""json { ""data"": [...], ""meta"": {...} } """,認証オプション,✅

@@ -10,27 +10,25 @@
 ,,description,VARCHAR(500),,,description,TEXT,,,,"* 中間テーブル: watch_statuses
 * 1人のユーザーが複数のエピソードの視聴状況を持ちます。
 * 1つのエピソードが複数のユーザーに視聴記録されます。"
-,,icon,VARCHAR(500),,,image_url,VARCHAR(500),,,,4,users ↔ animes (多対多) - 評価
-,,favorite_anime,VARCHAR(200),,,season,VARCHAR(50),,,,"* 中間テーブル: user_ratings
-* 1人のユーザーが複数のアニメを評価できます。
-* 1つのアニメが複数のユーザーに評価されます。"
-,,sns_link,VARCHAR(500),,,season_year,INTEGER,,,,5,users ↔ episodes (多対多) - 視聴履歴
-,,failed_login_attempts,INTEGER,,,status,VARCHAR(50),,,,"* 中間テーブル: watch_history
+,,icon,VARCHAR(500),,,image_url,VARCHAR(500),,,,4,users ↔ episodes (多対多) - 視聴履歴
+,,favorite_anime,VARCHAR(200),,,season,VARCHAR(50),,,,"* 中間テーブル: watch_history
 * 1人のユーザーが複数のエピソードの視聴履歴を持ちます。
 * 1つのエピソードが複数のユーザーの視聴履歴に記録されます。"
-,,last_failed_login_at,TIMESTAMPTZ,,,media,VARCHAR(50),,,,6,animes ↔ genres (多対多)
-,,locked_until,TIMESTAMPTZ,,,episodes_count,INTEGER,,,,"* 中間テーブル: anime_genres
+,,sns_link,VARCHAR(500),,,season_year,INTEGER,,,,5,animes ↔ genres (多対多)
+,,failed_login_attempts,INTEGER,,,status,VARCHAR(50),,,,"* 中間テーブル: anime_genres
 * 1つのアニメが複数のジャンルに属します。
 * 1つのジャンルが複数のアニメに適用されます。"
-,,created_at,TIMESTAMP,,,official_site_url,VARCHAR(500),,,,7,users ↔ search_logs (1対多)
-,,updated_at,TIMESTAMP,,,wikipedia_url,VARCHAR(500),,,,"* 1人のユーザーが複数の検索ログを持ちます。
+,,last_failed_login_at,TIMESTAMPTZ,,,media,VARCHAR(50),,,,6,users ↔ search_logs (1対多)
+,,locked_until,TIMESTAMPTZ,,,episodes_count,INTEGER,,,,"* 1人のユーザーが複数の検索ログを持ちます。
 * FK: search_logs.user_id → users.id (NULL可)"
-,,,,,twitter_username,VARCHAR(100),,,,8,animes ↔ search_logs (1対多)
-,,,,,twitter_hashtag,VARCHAR(100),,,,"* 1つのアニメが複数の検索ログでクリックされます。
+,,created_at,TIMESTAMP,,,official_site_url,VARCHAR(500),,,,7,animes ↔ search_logs (1対多)
+,,updated_at,TIMESTAMP,,,wikipedia_url,VARCHAR(500),,,,"* 1つのアニメが複数の検索ログでクリックされます。
 * FK: search_logs.clicked_anime_id → animes.id (NULL可)"
-,,,,,mal_anime_id,VARCHAR(50),,,,9,users ↔ sessions (1対多)
-,,,,,annict_id,INTEGER,,,,"* 1人のユーザーが複数のセッションを持ちます。
+,,,,,twitter_username,VARCHAR(100),,,,8,users ↔ sessions (1対多)
+,,,,,twitter_hashtag,VARCHAR(100),,,,"* 1人のユーザーが複数のセッションを持ちます。
 * FK: sessions.user_id → users.id"
+,,,,,mal_anime_id,VARCHAR(50),,,,
+,,,,,annict_id,INTEGER,,,,,
 ,,,,,watchers_count,INTEGER,,,,
 ,,,,,reviews_count,INTEGER,,,,
 ,,,,,cover_image_large,VARCHAR(500),,,,
@@ -63,14 +61,12 @@
 ,,,,,searched_at,TIMESTAMP,,,,
 ,,,,,,,,,,,
 ,,,,,,,,,,,
-,,watch_statuses,,,,user_ratings,,,,,
-,,id,SERIAL(PK),,,id,SERIAL(PK),,,,
-,,user_id,INT (FK→users.id),,,user_id,INT (FK→users.id),,,,
-,,episode_id,INT (FK→episodes.id),,,anime_id,INT (FK→animes.id),,,,
-,,viewed,BOOLEAN,,,rating,DECIMAL(3,2),,,,
-,,updated_at,TIMESTAMP,,,comment,TEXT,,,,
-,,,,,created_at,TIMESTAMP,,,,
-,,,,,updated_at,TIMESTAMP,,,,
+,,watch_statuses,,,,,,,,,,
+,,id,SERIAL(PK),,,,,,,,,
+,,user_id,INT (FK→users.id),,,,,,,,,
+,,episode_id,INT (FK→episodes.id),,,,,,,,,
+,,viewed,BOOLEAN,,,,,,,,,
+,,updated_at,TIMESTAMP,,,,,,,,,
 ,,,,,,,,,,,
 ,,watch_history,,,,anime_genres,,,,,
 ,,id,SERIAL(PK),,,id,SERIAL(PK),,,,

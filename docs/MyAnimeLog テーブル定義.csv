@@ -66,15 +66,6 @@ episode_id,INT(FK → episodes.id),対象エピソードID,,"NOT NULL, REFERENCE
 viewed,BOOLEAN,視聴済みフラグ（トグル）,DEFAULT FALSE,NOT NULL,
 updated_at,TIMESTAMP,最終更新日時,DEFAULT CURRENT_TIMESTAMP,,"UNIQUE(user_id, episode_id)"
 ,,,,,
-user_ratings,,,,,
-id,SERIAL (PK),評価ID,AUTO_INCREMENT,NOT NULL,
-user_id,INT (FK→users.id),ユーザーID,,"NOT NULL, REFERENCES users(id) ON DELETE CASCADE",INDEX(user_id)
-anime_id,INT (FK→animes.id),アニメID,,"NOT NULL, REFERENCES animes(id) ON DELETE CASCADE",INDEX(anime_id)
-rating,DECIMAL(3,2),評価（1.0〜5.0）,DEFAULT 3.0,"NOT NULL, CHECK (rating >= 1.0 AND rating <= 5.0)",INDEX(rating)
-comment,TEXT,評価コメント（最大1000文字）,NULL,CHECK (LENGTH(comment) <= 1000),
-created_at,TIMESTAMP,評価日時,DEFAULT CURRENT_TIMESTAMP,,
-updated_at,TIMESTAMP,更新日時,DEFAULT CURRENT_TIMESTAMP,,"UNIQUE(user_id, anime_id)"
-,,,,,
 watch_history,,,,,
 id,SERIAL (PK),視聴履歴ID,AUTO_INCREMENT,NOT NULL,
 user_id,INT (FK→users.id),ユーザーID,,"NOT NULL, REFERENCES users(id) ON DELETE CASCADE","INDEX(user_id), INDEX(user_id, watched_at DESC)"
