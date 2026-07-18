@@ -1,0 +1,99 @@
+カラム名,型,説明,初期値,制約,インデックス
+users,,,,,
+id,SERIAL (PK),ユーザーID（自動）,AUTO_INCREMENT,NOT NULL,
+name,VARCHAR(50),ユーザー表示名,,NOT NULL,
+email,VARCHAR(255),メールアドレス（ログイン用）,,NOT NULL,"UNIQUE, INDEX(email)"
+password,VARCHAR(255),ハッシュ化されたパスワード,,NOT NULL,
+description,VARCHAR(500),プロフィール説明（最大500文字）,DEFAULT '' ,,
+icon,VARCHAR(500),アイコン画像ファイル名またはURL,NULL,,
+favorite_anime,VARCHAR(200),好きなアニメ（最大200文字）,NULL,,
+sns_link,VARCHAR(500),SNSリンク,NULL,,
+failed_login_attempts,INTEGER,連続ログイン失敗回数,DEFAULT 0,,
+last_failed_login_at,TIMESTAMP WITH TIME ZONE,最終ログイン失敗日時,NULL,,
+locked_until,TIMESTAMP WITH TIME ZONE,アカウントロック解除日時,NULL,,INDEX(locked_until) WHERE locked_until IS NOT NULL
+created_at,TIMESTAMP,登録日時,DEFAULT CURRENT_TIMESTAMP,,
+updated_at,TIMESTAMP,更新日時,DEFAULT CURRENT_TIMESTAMP,,
+,,,,,
+animes,,,,,
+id,SERIAL (PK),アニメID（自動）,AUTO_INCREMENT,NOT NULL,
+title,VARCHAR(255),アニメタイトル,,NOT NULL,INDEX(GIN full-text)
+title_kana,VARCHAR(255),アニメタイトル（かな）,NULL,,INDEX(GIN full-text)
+title_en,VARCHAR(255),アニメタイトル（英語）,NULL,,INDEX(GIN full-text)
+description,TEXT,アニメ概要,DEFAULT '' ,,
+image_url,VARCHAR(500),サムネイル画像（Annict）,NULL,,
+season,VARCHAR(50),放送時期（例: 2025-summer）,NULL,,INDEX(season)
+season_year,INTEGER,放送年,NULL,,INDEX(season_year)
+status,VARCHAR(50),放送状況（例: airing finished）,NULL,,INDEX(status)
+media,VARCHAR(50),メディアタイプ,NULL,,
+episodes_count,INTEGER,エピソード数,DEFAULT 0,,
+official_site_url,VARCHAR(500),公式サイトURL,NULL,,
+wikipedia_url,VARCHAR(500),Wikipedia URL,NULL,,
+twitter_username,VARCHAR(100),Twitter ユーザー名,NULL,,
+twitter_hashtag,VARCHAR(100),Twitter ハッシュタグ,NULL,,
+mal_anime_id,VARCHAR(50),MyAnimeList ID,NULL,,INDEX(mal_anime_id) WHERE mal_anime_id IS NOT NULL
+annict_id,INTEGER,Annict ID,NULL,UNIQUE,INDEX(annict_id)
+watchers_count,INTEGER,視聴者数,DEFAULT 0,,
+reviews_count,INTEGER,レビュー数,DEFAULT 0,,
+cover_image_large,VARCHAR(500),Anilist大サイズ画像URL,NULL,,
+cover_image_medium,VARCHAR(500),Anilist中サイズ画像URL,NULL,,
+cover_image_updated_at,TIMESTAMP,画像更新日時（TTL管理用）,NULL,,INDEX(cover_image_updated_at) WHERE cover_image_updated_at IS NOT NULL
+genres_synced_at,TIMESTAMP,ジャンル同期日時,NULL,,INDEX(genres_synced_at) WHERE mal_anime_id IS NOT NULL
+created_at,TIMESTAMP,作成日時,DEFAULT CURRENT_TIMESTAMP,,
+updated_at,TIMESTAMP,更新日時,DEFAULT CURRENT_TIMESTAMP,,
+,,,,,
+episodes（Annict APIから取得）,,,,,
+id,SERIAL (PK),エピソードID（自動）,AUTO_INCREMENT,NOT NULL,
+anime_id,INT (FK → animes.id),関連アニメID,,"NOT NULL, REFERENCES animes(id) ON DELETE CASCADE",INDEX(anime_id)
+title,VARCHAR(255),エピソードタイトル,,NOT NULL,
+episode_number,INT,エピソード番号,,"NOT NULL, CHECK (episode_number > 0)","UNIQUE(anime_id, episode_number)"
+air_date,DATE,放送日,NULL,,INDEX(air_date)
+duration_minutes,INTEGER,再生時間（分）,NULL,,
+created_at,TIMESTAMP,作成日時,DEFAULT CURRENT_TIMESTAMP,,
+updated_at,TIMESTAMP,更新日時,DEFAULT CURRENT_TIMESTAMP,,
+,,,,,
+user_favorites,,,,,
+id,SERIAL (PK),お気に入りID,AUTO_INCREMENT,NOT NULL,
+user_id,INT (FK→users.id),ユーザーID,,"NOT NULL, REFERENCES users(id) ON DELETE CASCADE",INDEX(user_id)
+anime_id,INT (FK→animes.id),アニメID,,"NOT NULL, REFERENCES animes(id) ON DELETE CASCADE",INDEX(anime_id)
+status,VARCHAR(50),視聴ステータス(watching completed planned dropped on_hold),DEFAULT 'planned',"NOT NULL, CHECK (status IN ('watching', 'completed', 'planned', 'dropped', 'on_hold'))",INDEX(status)
+created_at,TIMESTAMP,登録日時,DEFAULT CURRENT_TIMESTAMP,,
+updated_at,TIMESTAMP,更新日時,DEFAULT CURRENT_TIMESTAMP,,"UNIQUE(user_id, anime_id)"
+,,,,,
+watch_statuses,,,,,
+id,SERIAL (PK),視聴ステータスID,AUTO_INCREMENT,NOT NULL,
+user_id,INT(FK→ users.id),ユーザーID,,"NOT NULL, REFERENCES users(id) ON DELETE CASCADE",INDEX(user_id)
+episode_id,INT(FK → episodes.id),対象エピソードID,,"NOT NULL, REFERENCES episodes(id) ON DELETE CASCADE","INDEX(episode_id), INDEX(viewed)"
+viewed,BOOLEAN,視聴済みフラグ（トグル）,DEFAULT FALSE,NOT NULL,
+updated_at,TIMESTAMP,最終更新日時,DEFAULT CURRENT_TIMESTAMP,,"UNIQUE(user_id, episode_id)"
+,,,,,
+watch_history,,,,,
+id,SERIAL (PK),視聴履歴ID,AUTO_INCREMENT,NOT NULL,
+user_id,INT (FK→users.id),ユーザーID,,"NOT NULL, REFERENCES users(id) ON DELETE CASCADE","INDEX(user_id), INDEX(user_id, watched_at DESC)"
+episode_id,INT (FK→episodes.id),エピソードID,,"NOT NULL, REFERENCES episodes(id) ON DELETE CASCADE",INDEX(episode_id)
+watched_at,TIMESTAMP,視聴日時,DEFAULT CURRENT_TIMESTAMP,NOT NULL,INDEX(watched_at)
+,,,,,
+anime_genres,,,,,
+id,SERIAL (PK),ジャンルID,AUTO_INCREMENT,NOT NULL,
+anime_id,INT (FK→animes.id),アニメID,,"NOT NULL, REFERENCES animes(id) ON DELETE CASCADE","INDEX(anime_id), INDEX(genre, anime_id)"
+genre,VARCHAR(100),ジャンル名,,NOT NULL,"INDEX(genre), UNIQUE(anime_id, genre)"
+,,,,,
+search_logs,,,,,
+id,SERIAL (PK),検索ログID,AUTO_INCREMENT,NOT NULL,
+user_id,INT (FK→users.id),ユーザーID（NULL可）,NULL,REFERENCES users(id) ON DELETE SET NULL,INDEX(user_id)
+query,VARCHAR(500),検索クエリ,,NOT NULL,INDEX(query)
+filters,JSONB,検索フィルター（JSON形式）,NULL,,INDEX(GIN)
+result_count,INTEGER,検索結果数,DEFAULT 0,NOT NULL,
+clicked_anime_id,INT (FK→animes.id),クリックされたアニメID,NULL,REFERENCES animes(id) ON DELETE SET NULL,
+searched_at,TIMESTAMP,検索日時,DEFAULT CURRENT_TIMESTAMP,,INDEX(searched_at)
+,,,,,
+sessions,,,,,
+id,SERIAL (PK),セッションID,AUTO_INCREMENT,NOT NULL,
+user_id,INT (FK→users.id),ユーザーID,,"NOT NULL, REFERENCES users(id) ON DELETE CASCADE",INDEX(user_id)
+refresh_token,VARCHAR(44),リフレッシュトークン（SHA-256ハッシュ Base64）,,NOT NULL,UNIQUE INDEX(refresh_token)
+access_token_jti,VARCHAR(36),アクセストークンJTI（UUID v4）,,NOT NULL,INDEX(access_token_jti)
+user_agent,TEXT,ユーザーエージェント,NULL,,
+ip_address,VARCHAR(45),IPアドレス,NULL,,
+expires_at,TIMESTAMP,有効期限,,NOT NULL,INDEX(expires_at)
+created_at,TIMESTAMP,作成日時,DEFAULT CURRENT_TIMESTAMP,,
+updated_at,TIMESTAMP,更新日時,DEFAULT CURRENT_TIMESTAMP,,
+last_activity_at,TIMESTAMP,最終アクティビティ日時,DEFAULT CURRENT_TIMESTAMP,,INDEX(last_activity_at)

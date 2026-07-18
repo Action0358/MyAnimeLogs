@@ -1,0 +1,69 @@
+No,内部エンドポイント,メソッド,機能概要,認証,フィールド,パラメータ,型,必須,制約,備考
+1,/api/register,POST,新規ユーザー作成,不要,name,body,string,✅,1〜50文字,
+,,,,,email,body,string,✅,メール形式、ユニーク,
+,,,,,password,body,string,✅,8文字以上,
+2,/api/login,POST,認証トークン発行,不要,email,body,string,✅,存在するユーザーであること,
+,,,,,password,body,string,✅,,アカウントロックアウト対応（5回失敗で15分ロック）
+3,/api/logout,POST,ログアウト処理,不要（Cookie）,,,,,,Cookieからリフレッシュトークンを取得して無効化
+4,/api/auth/refresh,POST,アクセストークンの更新,不要（Cookie）,,,,,,Cookieからリフレッシュトークンを取得して新しいアクセストークンを発行
+5,/api/users/me,GET,マイページ情報を取得,必須（JWT）,,,,,,
+6,/api/users/me,PUT,マイページ情報を更新,必須（JWT）,name,body,string,⛔（任意）,1〜50文字,
+,,,,,description,body,string,⛔（任意）,500文字以下,
+,,,,,favorite_anime,body,string,⛔（任意）,200文字以下,
+,,,,,sns_link,body,string,⛔（任意）,URL形式,
+7,/api/users/me/icon,POST,アイコン画像アップロード,必須（JWT）,icon,body,file,✅,画像ファイル（JPEG/PNG/GIF/WebP）,multipart/form-data形式
+8,/api/users/me/icon,DELETE,アイコン画像削除,必須（JWT）,,,,,,
+9,/api/users/me/stats,GET,ユーザーの視聴統計情報取得,必須（JWT）,,,,,,視聴済みエピソード数・完了アニメ数・視聴時間など
+10,/api/users/me/export,GET,ユーザーデータのエクスポート,必須（JWT）,format,query,string,⛔（任意）,"json, csv",
+11,/api/users/me/sessions,GET,セッション一覧取得,必須（JWT）,,,,,,ユーザーの全セッション情報を返す
+12,/api/users/me/sessions/:id,DELETE,セッション削除,必須（JWT）,id,path,int,✅,,指定したセッションを削除
+13,/api/users/me/logout-all,POST,全デバイスログアウト,必須（JWT）,,,,,,現在のセッション以外を全て削除
+14,/api/animes,GET,アニメ検索・一覧取得,オプション（JWT）,keyword,query,string,⛔（任意）,タイトル・説明で部分一致,
+,,,,,season,query,string,⛔（任意）,"例: ""2025-summer""",
+,,,,,status,query,string,⛔（任意）,"例: ""airing"", ""finished""",
+,,,,,page,query,int,⛔（任意）,デフォルト: 1,
+,,,,,per_page,query,int,⛔（任意）,デフォルト: 20,
+15,/api/animes/:id,GET,指定アニメの詳細情報取得,オプション（JWT）,id,path,int,✅,認証済みの場合、レスポンスにお気に入り状態や視聴進捗を含む,
+16,/api/animes/:id/episodes,GET,指定アニメのエピソード一覧取得,オプション（JWT）,id,path,int,✅,認証済みの場合、レスポンスに各話の視聴状態を含む,
+17,/api/animes/current,GET,今期アニメ一覧取得,不要,page,query,int,⛔（任意）,デフォルト: 1,
+,,,,,per_page,query,int,⛔（任意）,デフォルト: 20,
+18,/api/animes/popular,GET,人気アニメ一覧取得,不要,page,query,int,⛔（任意）,デフォルト: 1,
+,,,,,per_page,query,int,⛔（任意）,デフォルト: 20,
+19,/api/users/me/favorites,GET,自分のお気に入りアニメ一覧取得,必須（JWT）,status,query,string,⛔（任意）,"watching, completed, planned, dropped, on_hold",
+20,/api/users/me/favorites/:anime_id,PUT,お気に入りにアニメを追加・更新,必須（JWT）,anime_id,path,int,✅,,
+,,,,,status,body,string,✅,"watching, completed, planned, dropped, on_hold",
+21,/api/users/me/favorites/:anime_id,DELETE,お気に入りからアニメを削除,必須（JWT）,anime_id,path,int,✅,,
+22,/api/episodes/:episode_id/watch,PUT,エピソードの視聴状態を更新,必須（JWT）,episode_id,path,int,✅,,
+,,,,,viewed,body,boolean,✅,"true: 視聴済み, false: 未視聴",
+25,/api/users/me/recently-watched,GET,最近視聴したエピソード一覧,必須（JWT）,limit,query,int,⛔（任意）,デフォルト: 10,
+26,/api/users/me/watchlist,GET,視聴予定リスト取得,必須（JWT）,,,,,,status=plannedのお気に入りアニメ一覧
+27,/api/search/animes,GET,高度なアニメ検索,オプション（JWT）,q,query,string,⛔（任意）,検索クエリ,
+,,,,,genre,query,string,⛔（任意）,ジャンル絞り込み,
+,,,,,year,query,int,⛔（任意）,放送年絞り込み,
+,,,,,sort,query,string,⛔（任意）,"title, rating, year",
+28,/api/search/advanced,GET,複数条件での詳細検索,オプション（JWT）,title,query,string,⛔（任意）,タイトル検索,
+,,,,,genre,query,string,⛔（任意）,ジャンル絞り込み,
+,,,,,season,query,string,⛔（任意）,シーズン絞り込み,
+,,,,,year,query,int,⛔（任意）,年絞り込み,
+,,,,,status,query,string,⛔（任意）,放送状況絞り込み,
+29,/api/search/suggestions,GET,検索候補を取得,不要,q,query,string,✅,検索クエリ（部分一致）,
+30,/api/search/popular,GET,人気検索ワードを取得,不要,limit,query,int,⛔（任意）,デフォルト: 10,
+31,/api/filters,GET,検索フィルターの選択肢を取得,不要,,,,,,利用可能なシーズン・ジャンル・年のリストを返す
+32,/api/annict/works,GET,Annictから指定シーズンの作品を取得,不要,season,query,string,✅,"winter, spring, summer, autumn",
+,,,,,year,query,int,✅,年（例: 2025）,
+,,,,,page,query,int,⛔（任意）,ページ番号,
+33,/api/annict/popular-works,GET,Annictから人気作品を取得,不要,limit,query,int,⛔（任意）,デフォルト: 20,
+34,/api/admin/sync/season,POST,指定シーズンの作品をAnnictから同期,必須（JWT・管理者）,season,body,string,✅,"winter, spring, summer, autumn",
+,,,,,year,body,int,✅,年（例: 2025）,
+35,/api/admin/sync/popular,POST,人気作品をAnnictから同期,必須（JWT・管理者）,,,,,,
+36,/api/admin/sync/episode-durations,POST,エピソード再生時間同期,必須（JWT・管理者）,,,,,,Jikan APIからエピソード再生時間を取得して更新
+37,/api/admin/create-episodes,POST,エピソード一括作成,必須（JWT・管理者）,,,,,,全アニメのエピソードをAnnictから作成
+38,/api/admin/enrich/episode-titles,POST,エピソードタイトル補完,必須（JWT・管理者）,,,,,,Anilist APIからエピソードタイトルを取得して補完
+39,/api/admin/sync/genres,POST,ジャンル同期,必須（JWT・管理者）,,,,,,Anilist APIから全アニメのジャンルを同期
+40,/api/admin/sync/status,GET,同期ステータス取得,必須（JWT・管理者）,,,,,,現在実行中の同期処理の進行状況を返す
+41,/api/admin/episode-sync-status,GET,エピソード同期ステータス取得,必須（JWT・管理者）,,,,,,エピソード同期の進行状況を返す
+42,/api/admin/errors/metrics,GET,エラー統計情報を取得,必須（JWT・管理者）,,,,,,エラー発生数・エラー率などの統計情報
+43,/api/admin/errors/top,GET,頻発エラーのトップリストを取得,必須（JWT・管理者）,limit,query,int,⛔（任意）,デフォルト: 10,
+44,/api/admin/errors/reset,POST,エラー統計をリセット,必須（JWT・管理者）,,,,,,
+45,/health,GET,APIの稼働状態を確認,不要,,,,,,"シンプルなヘルスチェック（status: ok）"
+46,/health/detailed,GET,APIの詳細な稼働状態を確認,不要,,,,,,データベース接続状態・稼働時間などの詳細情報

@@ -1,0 +1,21 @@
+項目,設定値,説明
+アルゴリズム,HS256,HMAC SHA-256を使用
+アクセストークン有効期限,15分,短い有効期限でセキュリティを向上
+リフレッシュトークン有効期限,7日間,長期間のセッション維持に使用
+秘密鍵,環境変数JWT_SECRET,256bit以上のランダム文字列を推奨
+発行者(iss),MyAnimeLog,トークンの発行者識別子
+対象者(aud),MyAnimeLog-users,トークンの対象者
+ペイロード,user_id・email・name・jti,トークンに含めるユーザー情報（jtiはセッション識別用UUID v4）
+ヘッダー形式,Bearer {token},Authorization ヘッダーの形式
+トークン更新,/api/auth/refresh,リフレッシュトークンを使用して新しいアクセストークンを取得
+リフレッシュトークン保存,HttpOnly Cookie,XSS攻撃からの保護のためCookieに保存
+リフレッシュトークン形式,SHA-256ハッシュ（Base64 44文字）,セキュアなランダムトークン
+セッション管理,sessionsテーブル,サーバー側でセッションを管理しトークン無効化が可能
+セッション情報,user_agent・ip_address・last_activity_at,デバイス識別とアクティビティ追跡
+無効化,ログアウト時にセッション削除,サーバー側でセッションを削除しリフレッシュトークンを無効化
+全デバイスログアウト,/api/users/me/logout-all,ユーザーの全セッションを削除
+セッション一覧,/api/users/me/sessions,ログイン中のデバイス一覧を取得
+個別セッション削除,/api/users/me/sessions/:id,特定のデバイスからログアウト
+アカウントロックアウト,5回連続失敗で15分ロック,ブルートフォース攻撃対策
+ロックアウト追跡,failed_login_attempts・last_failed_login_at・locked_until,usersテーブルで管理
+セキュリティ考慮,HTTPS必須・XSS対策・CSRF対策,本番環境では必ずHTTPS通信を使用

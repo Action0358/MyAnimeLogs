@@ -1,0 +1,11 @@
+,,,,
+コンポーネント,カテゴリ,役割,使用技術/サービス,備考
+ユーザー,クライアント,アプリ利用者,ブラウザ,Next.jsアプリを操作
+フロントエンド,Web UI,操作画面表示・入力処理,Next.js + TypeScript,Cloudflare Pagesでホスティング
+バックエンド,APIサーバー,データ処理・認証・API提供,Go + Gin,Fly.ioでホスティング
+データベース,永続化,ユーザー/進捗/作品データ保存,Supabase,PostgreSQL互換
+外部API（Annict）,データ連携,アニメ作品・エピソード情報の取得,Annict API,GraphQL APIで作品情報取得
+外部API（Anilist）,データ連携,画像・ジャンル・エピソード詳細の取得,Anilist API,GraphQL APIでMAL ID経由でデータ取得
+CDN・WAF,高速化・セキュリティ,配信最適化・DDoS防御,Cloudflare,"DNS, SSL, CDN機能含む"
+認証,ユーザー管理,ログイン/セッション管理,JWT + セッション管理,アクセストークン（15分）とリフレッシュトークン（7日）の2トークン方式
+ソース管理,バージョン管理,コードの履歴管理・共有,GitHub,チーム開発対応
