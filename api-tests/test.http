@@ -17,6 +17,9 @@
 @baseUrl = http://localhost:8080
 @contentType = application/json
 @supabaseToken = <ここにSupabaseのJWTアクセストークンを貼り付ける>
+# 管理者API（/admin/*）は app_metadata.role="admin" のユーザーのJWTが必要。
+# 一般ユーザーのトークンでは 403 を返す。
+@nonAdminToken = <管理者ロールを持たない一般ユーザーのJWTを貼り付ける>
 
 ### ===== ヘルスチェック =====
 
@@ -237,6 +240,11 @@ Content-Type: {{contentType}}
 POST {{baseUrl}}/api/admin/sync/genres
 Content-Type: {{contentType}}
 Authorization: Bearer invalid.token.here
+
+### 39. 管理者APIエラーケース（一般ユーザー＝管理者ロールなし → 403）
+POST {{baseUrl}}/api/admin/sync/genres
+Content-Type: {{contentType}}
+Authorization: Bearer {{nonAdminToken}}
 
 ### ===== 監視API =====
 

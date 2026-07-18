@@ -5,6 +5,16 @@ export { Toast, ToastContainer } from './Toast';
 export { Pagination } from './Pagination';
 export { Skeleton, SkeletonCard, SkeletonList } from './SkeletonLoader';
 export { EmptyState } from './EmptyState';
+export {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+} from './Card';
+export { Badge, badgeVariants } from './Badge';
+export type { BadgeProps } from './Badge';
 export type { PaginationProps } from './Pagination';
 export type { SkeletonProps, SkeletonCardProps, SkeletonListProps } from './SkeletonLoader';
 export type { EmptyStateProps } from './EmptyState';

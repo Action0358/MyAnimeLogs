@@ -779,7 +779,7 @@ paths:
                     example: "Failed to connect to Annict API"
   /admin/sync/season:
     post:
-      summary: シーズンアニメをデータベースに同期
+      summary: シーズンアニメをデータベースに同期（要管理者ロール・非管理者は403）
       security:
         - bearerAuth: []
       parameters:
@@ -789,6 +789,8 @@ paths:
             type: string
           description: シーズン（例：2025-autumn）
       responses:
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
         "200":
           description: 同期成功
           content:
@@ -808,10 +810,12 @@ paths:
                 $ref: "#/components/schemas/Error"
   /admin/sync/popular:
     post:
-      summary: 人気アニメをデータベースに同期
+      summary: 人気アニメをデータベースに同期（要管理者ロール・非管理者は403）
       security:
         - bearerAuth: []
       responses:
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
         "200":
           description: 同期成功
           content:
@@ -831,10 +835,12 @@ paths:
                 $ref: "#/components/schemas/Error"
   /admin/errors/metrics:
     get:
-      summary: エラーメトリクスを取得
+      summary: エラーメトリクスを取得（要管理者ロール・非管理者は403）
       security:
         - bearerAuth: []
       responses:
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
         "200":
           description: エラーメトリクス
           content:
@@ -853,7 +859,7 @@ paths:
                       type: integer
   /admin/errors/top:
     get:
-      summary: トップエラーを取得
+      summary: トップエラーを取得（要管理者ロール・非管理者は403）
       security:
         - bearerAuth: []
       parameters:
@@ -869,6 +875,8 @@ paths:
             enum: ["count", "rate"]
             default: "count"
       responses:
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
         "200":
           description: トップエラー一覧
           content:
@@ -887,10 +895,12 @@ paths:
                       format: float
   /admin/errors/reset:
     post:
-      summary: エラーメトリクスをリセット
+      summary: エラーメトリクスをリセット（要管理者ロール・非管理者は403）
       security:
         - bearerAuth: []
       responses:
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
         "200":
           description: リセット成功
           content:
@@ -902,11 +912,13 @@ paths:
                     type: string
   /admin/sync/genres:
     post:
-      summary: アニメジャンル情報をAniList APIから同期
+      summary: アニメジャンル情報をAniList APIから同期（要管理者ロール・非管理者は403）
       description: AniList APIからジャンル情報を取得してデータベースに保存します。MAL IDが設定されている全アニメを処理します。
       security:
         - bearerAuth: []
       responses:
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
         "200":
           description: ジャンル同期完了
           content:
@@ -948,11 +960,13 @@ paths:
                 $ref: "#/components/schemas/Error"
   /admin/sync/status:
     get:
-      summary: 同期ステータスを取得
+      summary: 同期ステータスを取得（要管理者ロール・非管理者は403）
       description: アニメ同期スケジューラーの現在のステータスを取得します
       security:
         - bearerAuth: []
       responses:
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
         "200":
           description: 同期ステータス
           content:
@@ -1070,11 +1084,13 @@ paths:
                     description: 返却されたアニメ数
   /admin/sync/statuses:
     post:
-      summary: 全アニメのステータスを同期
+      summary: 全アニメのステータスを同期（要管理者ロール・非管理者は403）
       description: season（放送シーズン）とreleased_on（放送開始日）に基づいて全アニメのステータスを更新します。外部API呼び出しなしでDB内のデータのみで判定するため高速に処理されます。
       security:
         - bearerAuth: []
       responses:
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
         "200":
           description: ステータス同期完了
           content:
@@ -1107,11 +1123,13 @@ paths:
                 $ref: "#/components/schemas/Error"
   /admin/sync/released-on:
     post:
-      summary: 放送開始日をJikan APIから同期
+      summary: 放送開始日をJikan APIから同期（要管理者ロール・非管理者は403）
       description: Jikan APIから放送開始日を取得して全アニメのreleased_onフィールドを更新します
       security:
         - bearerAuth: []
       responses:
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
         "200":
           description: 放送開始日同期完了
           content:
@@ -1148,11 +1166,13 @@ paths:
                 $ref: "#/components/schemas/Error"
   /admin/cache/clear:
     post:
-      summary: キャッシュクリア
+      summary: キャッシュクリア（要管理者ロール・非管理者は403）
       description: アニメ関連のキャッシュ（フィルター情報、人気検索、今期アニメ等）をクリアします
       security:
         - bearerAuth: []
       responses:
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
         "200":
           description: キャッシュクリア成功
           content:
@@ -1227,6 +1247,13 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: Supabase Authが発行するJWTアクセストークン
+  responses:
+    ForbiddenError:
+      description: 管理者権限がありません（管理者以外のユーザー）
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
   schemas:
     Error:
       type: object
