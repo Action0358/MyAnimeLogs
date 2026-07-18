@@ -1,76 +1,73 @@
 カラム名,型,説明,初期値,制約,インデックス
 users,,,,,
 id,SERIAL (PK),ユーザーID（自動）,AUTO_INCREMENT,NOT NULL,
+auth_user_id,UUID,Supabase Auth（auth.users.id）への参照,NULL,REFERENCES auth.users(id) ON DELETE CASCADE,"UNIQUE INDEX(auth_user_id) WHERE auth_user_id IS NOT NULL"
 name,VARCHAR(50),ユーザー表示名,,NOT NULL,
-email,VARCHAR(255),メールアドレス（ログイン用）,,NOT NULL,"UNIQUE, INDEX(email)"
-password,VARCHAR(255),ハッシュ化されたパスワード,,NOT NULL,
+email,VARCHAR(255),メールアドレス,,NOT NULL,"UNIQUE, INDEX(email)"
 description,VARCHAR(500),プロフィール説明（最大500文字）,DEFAULT '' ,,
 icon,VARCHAR(500),アイコン画像ファイル名またはURL,NULL,,
 favorite_anime,VARCHAR(200),好きなアニメ（最大200文字）,NULL,,
 sns_link,VARCHAR(500),SNSリンク,NULL,,
-failed_login_attempts,INTEGER,連続ログイン失敗回数,DEFAULT 0,,
-last_failed_login_at,TIMESTAMP WITH TIME ZONE,最終ログイン失敗日時,NULL,,
-locked_until,TIMESTAMP WITH TIME ZONE,アカウントロック解除日時,NULL,,INDEX(locked_until) WHERE locked_until IS NOT NULL
 created_at,TIMESTAMP,登録日時,DEFAULT CURRENT_TIMESTAMP,,
 updated_at,TIMESTAMP,更新日時,DEFAULT CURRENT_TIMESTAMP,,
+,※パスワード・ログインロックアウト・セッションはSupabase Authが管理（auth.usersに保持）。本テーブルには保存しない。管理者判定はSupabase JWTのクレームで行い、role列は持たない,,,,
 ,,,,,
 animes,,,,,
 id,SERIAL (PK),アニメID（自動）,AUTO_INCREMENT,NOT NULL,
 title,VARCHAR(255),アニメタイトル,,NOT NULL,INDEX(GIN full-text)
 title_kana,VARCHAR(255),アニメタイトル（かな）,NULL,,INDEX(GIN full-text)
 title_en,VARCHAR(255),アニメタイトル（英語）,NULL,,INDEX(GIN full-text)
-description,TEXT,アニメ概要,DEFAULT '' ,,
+description,TEXT,アニメ概要（AniList / TMDB）,DEFAULT '' ,,
 image_url,VARCHAR(500),サムネイル画像（Annict）,NULL,,
 season,VARCHAR(50),放送時期（例: 2025-summer）,NULL,,INDEX(season)
 season_year,INTEGER,放送年,NULL,,INDEX(season_year)
-status,VARCHAR(50),放送状況（例: airing finished）,NULL,,INDEX(status)
-media,VARCHAR(50),メディアタイプ,NULL,,
-episodes_count,INTEGER,エピソード数,DEFAULT 0,,
+status,VARCHAR(50),放送状況（airing / finished / upcoming）,NULL,,INDEX(status)
+media,VARCHAR(50),メディアタイプ（TV / OVA / Movie 等）,NULL,,
+released_on,VARCHAR(50),放送・公開開始日（Annict）,NULL,,
 official_site_url,VARCHAR(500),公式サイトURL,NULL,,
 wikipedia_url,VARCHAR(500),Wikipedia URL,NULL,,
 twitter_username,VARCHAR(100),Twitter ユーザー名,NULL,,
 twitter_hashtag,VARCHAR(100),Twitter ハッシュタグ,NULL,,
-mal_anime_id,VARCHAR(50),MyAnimeList ID,NULL,,INDEX(mal_anime_id) WHERE mal_anime_id IS NOT NULL
+mal_anime_id,VARCHAR(50),MyAnimeList ID（AniList/Jikan/TMDB横断キー）,NULL,,INDEX(mal_anime_id) WHERE mal_anime_id IS NOT NULL
 annict_id,INTEGER,Annict ID,NULL,UNIQUE,INDEX(annict_id)
+tmdb_id,INTEGER,TMDB ID,NULL,,
 watchers_count,INTEGER,視聴者数,DEFAULT 0,,
 reviews_count,INTEGER,レビュー数,DEFAULT 0,,
-cover_image_large,VARCHAR(500),Anilist大サイズ画像URL,NULL,,
-cover_image_medium,VARCHAR(500),Anilist中サイズ画像URL,NULL,,
+cover_image_extra_large,VARCHAR(500),AniList特大サイズ画像URL,NULL,,
+cover_image_large,VARCHAR(500),AniList大サイズ画像URL,NULL,,
+cover_image_medium,VARCHAR(500),AniList中サイズ画像URL,NULL,,
 cover_image_updated_at,TIMESTAMP,画像更新日時（TTL管理用）,NULL,,INDEX(cover_image_updated_at) WHERE cover_image_updated_at IS NOT NULL
+series_title,VARCHAR(255),正規化後のシリーズ名（内部識別用）,NULL,,
+series_tmdb_id,INTEGER,シリーズ代表のTMDB ID,NULL,,
+broadcast_day,VARCHAR(50),放送曜日（Jikan・例: Fridays）,NULL,,
+broadcast_time,VARCHAR(50),放送時間（Jikan・例: 23:30）,NULL,,
+broadcast_timezone,VARCHAR(50),タイムゾーン（Jikan・例: Asia/Tokyo）,NULL,,
+duration_minutes,INTEGER,上映・再生時間（分・Jikan）,NULL,,
 genres_synced_at,TIMESTAMP,ジャンル同期日時,NULL,,INDEX(genres_synced_at) WHERE mal_anime_id IS NOT NULL
+last_synced_at,TIMESTAMP,最終同期日時（差分同期用）,NULL,,
+annict_updated_at,TIMESTAMP,Annict側の更新日時（差分同期用）,NULL,,
+metadata_synced_at,TIMESTAMP,メタデータ最終同期日時,NULL,,
+sync_status,VARCHAR(50),同期ステータス（pending / synced / failed）,DEFAULT 'pending',,INDEX(sync_status)
+sync_error,TEXT,同期エラー内容,NULL,,
 created_at,TIMESTAMP,作成日時,DEFAULT CURRENT_TIMESTAMP,,
 updated_at,TIMESTAMP,更新日時,DEFAULT CURRENT_TIMESTAMP,,
-,,,,,
-episodes（Annict APIから取得）,,,,,
-id,SERIAL (PK),エピソードID（自動）,AUTO_INCREMENT,NOT NULL,
-anime_id,INT (FK → animes.id),関連アニメID,,"NOT NULL, REFERENCES animes(id) ON DELETE CASCADE",INDEX(anime_id)
-title,VARCHAR(255),エピソードタイトル,,NOT NULL,
-episode_number,INT,エピソード番号,,"NOT NULL, CHECK (episode_number > 0)","UNIQUE(anime_id, episode_number)"
-air_date,DATE,放送日,NULL,,INDEX(air_date)
-duration_minutes,INTEGER,再生時間（分）,NULL,,
-created_at,TIMESTAMP,作成日時,DEFAULT CURRENT_TIMESTAMP,,
-updated_at,TIMESTAMP,更新日時,DEFAULT CURRENT_TIMESTAMP,,
+,※動的な放送状況は animes_with_computed_status ビューが released_on/season を考慮して computed_status を算出する,,,,
 ,,,,,
 user_favorites,,,,,
 id,SERIAL (PK),お気に入りID,AUTO_INCREMENT,NOT NULL,
 user_id,INT (FK→users.id),ユーザーID,,"NOT NULL, REFERENCES users(id) ON DELETE CASCADE",INDEX(user_id)
 anime_id,INT (FK→animes.id),アニメID,,"NOT NULL, REFERENCES animes(id) ON DELETE CASCADE",INDEX(anime_id)
-status,VARCHAR(50),視聴ステータス(watching completed planned dropped on_hold),DEFAULT 'planned',"NOT NULL, CHECK (status IN ('watching', 'completed', 'planned', 'dropped', 'on_hold'))",INDEX(status)
 created_at,TIMESTAMP,登録日時,DEFAULT CURRENT_TIMESTAMP,,
 updated_at,TIMESTAMP,更新日時,DEFAULT CURRENT_TIMESTAMP,,"UNIQUE(user_id, anime_id)"
+,※お気に入り（ハート）専用。視聴ステータスは user_watch_status に分離済（migration 042）,,,,
 ,,,,,
-watch_statuses,,,,,
+user_watch_status,,,,,
 id,SERIAL (PK),視聴ステータスID,AUTO_INCREMENT,NOT NULL,
-user_id,INT(FK→ users.id),ユーザーID,,"NOT NULL, REFERENCES users(id) ON DELETE CASCADE",INDEX(user_id)
-episode_id,INT(FK → episodes.id),対象エピソードID,,"NOT NULL, REFERENCES episodes(id) ON DELETE CASCADE","INDEX(episode_id), INDEX(viewed)"
-viewed,BOOLEAN,視聴済みフラグ（トグル）,DEFAULT FALSE,NOT NULL,
-updated_at,TIMESTAMP,最終更新日時,DEFAULT CURRENT_TIMESTAMP,,"UNIQUE(user_id, episode_id)"
-,,,,,
-watch_history,,,,,
-id,SERIAL (PK),視聴履歴ID,AUTO_INCREMENT,NOT NULL,
-user_id,INT (FK→users.id),ユーザーID,,"NOT NULL, REFERENCES users(id) ON DELETE CASCADE","INDEX(user_id), INDEX(user_id, watched_at DESC)"
-episode_id,INT (FK→episodes.id),エピソードID,,"NOT NULL, REFERENCES episodes(id) ON DELETE CASCADE",INDEX(episode_id)
-watched_at,TIMESTAMP,視聴日時,DEFAULT CURRENT_TIMESTAMP,NOT NULL,INDEX(watched_at)
+user_id,INT (FK→users.id),ユーザーID,,"NOT NULL, REFERENCES users(id) ON DELETE CASCADE",INDEX(user_id)
+anime_id,INT (FK→animes.id),アニメID,,"NOT NULL, REFERENCES animes(id) ON DELETE CASCADE",INDEX(anime_id)
+status,VARCHAR(50),視聴ステータス（watching / completed / planned）,,"NOT NULL, CHECK (status IN ('watching', 'completed', 'planned'))",INDEX(status)
+created_at,TIMESTAMP,登録日時,DEFAULT CURRENT_TIMESTAMP,,
+updated_at,TIMESTAMP,更新日時,DEFAULT CURRENT_TIMESTAMP,,"UNIQUE(user_id, anime_id)"
 ,,,,,
 anime_genres,,,,,
 id,SERIAL (PK),ジャンルID,AUTO_INCREMENT,NOT NULL,
@@ -86,14 +83,8 @@ result_count,INTEGER,検索結果数,DEFAULT 0,NOT NULL,
 clicked_anime_id,INT (FK→animes.id),クリックされたアニメID,NULL,REFERENCES animes(id) ON DELETE SET NULL,
 searched_at,TIMESTAMP,検索日時,DEFAULT CURRENT_TIMESTAMP,,INDEX(searched_at)
 ,,,,,
-sessions,,,,,
-id,SERIAL (PK),セッションID,AUTO_INCREMENT,NOT NULL,
-user_id,INT (FK→users.id),ユーザーID,,"NOT NULL, REFERENCES users(id) ON DELETE CASCADE",INDEX(user_id)
-refresh_token,VARCHAR(44),リフレッシュトークン（SHA-256ハッシュ Base64）,,NOT NULL,UNIQUE INDEX(refresh_token)
-access_token_jti,VARCHAR(36),アクセストークンJTI（UUID v4）,,NOT NULL,INDEX(access_token_jti)
-user_agent,TEXT,ユーザーエージェント,NULL,,
-ip_address,VARCHAR(45),IPアドレス,NULL,,
-expires_at,TIMESTAMP,有効期限,,NOT NULL,INDEX(expires_at)
-created_at,TIMESTAMP,作成日時,DEFAULT CURRENT_TIMESTAMP,,
-updated_at,TIMESTAMP,更新日時,DEFAULT CURRENT_TIMESTAMP,,
-last_activity_at,TIMESTAMP,最終アクティビティ日時,DEFAULT CURRENT_TIMESTAMP,,INDEX(last_activity_at)
+sync_stats,,,,,
+id,SERIAL (PK),同期統計ID,AUTO_INCREMENT,NOT NULL,
+,※同期処理の実行統計を記録。詳細は backend/migrations/030_create_sync_stats_table.sql を参照,,,,
+,,,,,
+,※廃止済みテーブル（ドキュメント整合のため記載）: sessions・user_ratings（Supabase Auth移行・評価機能撤去）／episodes・watch_statuses・watch_history（エピソード機能撤去 migration 040）,,,,
