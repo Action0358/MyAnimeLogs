@@ -394,7 +394,7 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork, existingAnime
 					"error", err)
 			}
 		} else {
-			err = saveGenresToDatabase(c.DB, c.logger, anime.ID, genres)
+			err = SaveGenresToDatabase(c.DB, c.logger, anime.ID, genres)
 			if err != nil {
 				if c.logger != nil {
 					c.logger.Error("Failed to save genres",

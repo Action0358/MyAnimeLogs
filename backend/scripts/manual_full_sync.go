@@ -14,6 +14,7 @@ import (
 	"myanimelogs/internal/constants"
 	"myanimelogs/internal/database"
 	"myanimelogs/internal/services"
+	"myanimelogs/internal/utils"
 
 	"github.com/joho/godotenv"
 )
@@ -89,21 +90,8 @@ func runPriority(logger *common.Logger, env string) error {
 	}
 	defer db.Close()
 
-	// Determine current season
-	now := time.Now()
-	year := now.Year()
-	var seasonName string
-	switch {
-	case now.Month() >= 1 && now.Month() <= 3:
-		seasonName = "winter"
-	case now.Month() >= 4 && now.Month() <= 6:
-		seasonName = "spring"
-	case now.Month() >= 7 && now.Month() <= 9:
-		seasonName = "summer"
-	default:
-		seasonName = "autumn"
-	}
-	currentSeason := fmt.Sprintf("%d-%s", year, seasonName)
+	// Determine current season (shared single source of truth with scheduler/service)
+	currentSeason := utils.SeasonForTime(time.Now())
 
 	fmt.Printf("\n=== Priority Sync (%s) ===\n", env)
 	fmt.Printf("Current season: %s\n", currentSeason)
