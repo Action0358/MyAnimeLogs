@@ -177,6 +177,7 @@ func TestIsSeasonBefore(t *testing.T) {
 		// Malformed / unknown input must return false (no zero-value fallback)
 		{"season1 unparseable", "garbage", "2024-spring", false},
 		{"season2 unparseable", "2024-spring", "garbage", false},
+		{"non-numeric year", "abcd-spring", "2024-spring", false},
 		{"season1 unknown name", "2024-fall", "2024-spring", false},
 		{"season2 unknown name", "2024-spring", "2024-fall", false},
 		{"both empty", "", "", false},
