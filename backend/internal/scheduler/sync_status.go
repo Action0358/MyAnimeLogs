@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"myanimelogs/internal/models"
+	"myanimelogs/internal/utils"
 )
 
 // SyncStatusTracker tracks the status of anime synchronization
@@ -78,8 +79,8 @@ func (t *SyncStatusTracker) GetStatus(now time.Time) models.SyncStatus {
 		TotalSyncsToday:  t.totalSyncsToday,
 		IsRunning:        t.isRunning,
 		Enabled:          t.enabled,
-		CurrentSeason:    getSeasonForTime(now),
-		PreviousSeason:   getPreviousSeasonForTime(now),
+		CurrentSeason:    utils.SeasonForTime(now),
+		PreviousSeason:   utils.PreviousSeasonForTime(now),
 	}
 }
 

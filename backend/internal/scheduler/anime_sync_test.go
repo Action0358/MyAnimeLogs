@@ -13,6 +13,7 @@ import (
 	"myanimelogs/internal/constants"
 	"myanimelogs/internal/models"
 	"myanimelogs/internal/services"
+	"myanimelogs/internal/utils"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -65,50 +66,9 @@ func newTestAnimeService() AnimeService {
 	return &mockAnimeService{}
 }
 
-func TestGetSeasonForTime(t *testing.T) {
-	tests := []struct {
-		name     string
-		time     time.Time
-		expected string
-	}{
-		{"January - Winter", time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC), "2025-winter"},
-		{"March - Winter", time.Date(2025, 3, 31, 0, 0, 0, 0, time.UTC), "2025-winter"},
-		{"April - Spring", time.Date(2025, 4, 1, 0, 0, 0, 0, time.UTC), "2025-spring"},
-		{"June - Spring", time.Date(2025, 6, 30, 0, 0, 0, 0, time.UTC), "2025-spring"},
-		{"July - Summer", time.Date(2025, 7, 1, 0, 0, 0, 0, time.UTC), "2025-summer"},
-		{"September - Summer", time.Date(2025, 9, 30, 0, 0, 0, 0, time.UTC), "2025-summer"},
-		{"October - Autumn", time.Date(2025, 10, 1, 0, 0, 0, 0, time.UTC), "2025-autumn"},
-		{"December - Autumn", time.Date(2025, 12, 31, 0, 0, 0, 0, time.UTC), "2025-autumn"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := getSeasonForTime(tt.time)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
-func TestGetPreviousSeasonForTime(t *testing.T) {
-	tests := []struct {
-		name     string
-		time     time.Time
-		expected string
-	}{
-		{"January - Previous Autumn", time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC), "2024-autumn"},
-		{"April - Previous Winter", time.Date(2025, 4, 15, 0, 0, 0, 0, time.UTC), "2025-winter"},
-		{"July - Previous Spring", time.Date(2025, 7, 15, 0, 0, 0, 0, time.UTC), "2025-spring"},
-		{"October - Previous Summer", time.Date(2025, 10, 15, 0, 0, 0, 0, time.UTC), "2025-summer"},
-		{"Year boundary", time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC), "2024-autumn"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := getPreviousSeasonForTime(tt.time)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
+// シーズン算出関数（旧 getSeasonForTime / getPreviousSeasonForTime /
+// generateAllSeasons / isSeasonBefore）は utils パッケージへ集約された。
+// それらの単体テストは utils/season_test.go を参照。
 
 func TestNewAnimeSyncScheduler(t *testing.T) {
 	logger := newTestLogger()
@@ -157,8 +117,8 @@ func TestGetStatus(t *testing.T) {
 	status := scheduler.GetStatus()
 
 	assert.True(t, status.Enabled)
-	assert.Equal(t, "2025-autumn", getSeasonForTime(now))
-	assert.Equal(t, "2025-summer", getPreviousSeasonForTime(now))
+	assert.Equal(t, "2025-autumn", utils.SeasonForTime(now))
+	assert.Equal(t, "2025-summer", utils.PreviousSeasonForTime(now))
 }
 
 func TestSyncStatusTracker_DayReset(t *testing.T) {
@@ -451,102 +411,6 @@ func TestSyncLockWithDefer(t *testing.T) {
 	assert.True(t, scheduler.tryAcquireSyncLock(), "Lock should be released after defer")
 
 	scheduler.releaseSyncLock()
-}
-
-// TestGenerateAllSeasons tests the generateAllSeasons function
-func TestGenerateAllSeasons(t *testing.T) {
-	tests := []struct {
-		name      string
-		startYear int
-		endYear   int
-		endSeason string
-		expected  []string
-	}{
-		{
-			name:      "Single year - spring to autumn",
-			startYear: 2024,
-			endYear:   2024,
-			endSeason: "2024-autumn",
-			expected:  []string{"2024-spring", "2024-summer", "2024-autumn"},
-		},
-		{
-			name:      "Single year - spring to summer",
-			startYear: 2024,
-			endYear:   2024,
-			endSeason: "2024-summer",
-			expected:  []string{"2024-spring", "2024-summer"},
-		},
-		{
-			name:      "Single year - spring only",
-			startYear: 2024,
-			endYear:   2024,
-			endSeason: "2024-spring",
-			expected:  []string{"2024-spring"},
-		},
-		{
-			name:      "Edge case - endSeason is winter of startYear (before effective start)",
-			startYear: 2024,
-			endYear:   2024,
-			endSeason: "2024-winter",
-			expected:  nil,
-		},
-		{
-			name:      "Cross year - 2024 spring to 2025 winter",
-			startYear: 2024,
-			endYear:   2025,
-			endSeason: "2025-winter",
-			expected:  []string{"2024-spring", "2024-summer", "2024-autumn", "2025-winter"},
-		},
-		{
-			name:      "Multiple years - 1979 to 1980 autumn",
-			startYear: 1979,
-			endYear:   1980,
-			endSeason: "1980-autumn",
-			expected: []string{
-				"1979-spring", "1979-summer", "1979-autumn",
-				"1980-winter", "1980-spring", "1980-summer", "1980-autumn",
-			},
-		},
-		{
-			name:      "Edge case - endSeason before startYear",
-			startYear: 2024,
-			endYear:   2024,
-			endSeason: "2023-autumn",
-			expected:  nil,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := generateAllSeasons(tt.startYear, tt.endYear, tt.endSeason)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
-// TestIsSeasonBefore tests the isSeasonBefore helper function
-func TestIsSeasonBefore(t *testing.T) {
-	tests := []struct {
-		name     string
-		season1  string
-		season2  string
-		expected bool
-	}{
-		{"Same season", "2024-spring", "2024-spring", false},
-		{"Earlier year", "2023-autumn", "2024-spring", true},
-		{"Later year", "2025-winter", "2024-autumn", false},
-		{"Same year - winter before spring", "2024-winter", "2024-spring", true},
-		{"Same year - spring before summer", "2024-spring", "2024-summer", true},
-		{"Same year - summer before autumn", "2024-summer", "2024-autumn", true},
-		{"Same year - autumn after summer", "2024-autumn", "2024-summer", false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := isSeasonBefore(tt.season1, tt.season2)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
 }
 
 func TestIsCatastrophicMetadataFailure(t *testing.T) {

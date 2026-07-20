@@ -57,7 +57,7 @@ func (s *AnimeService) GetCurrentSeasonAnimes(limit int) ([]models.Anime, error)
 	}
 
 	// Get current season string (e.g., "2026-winter")
-	currentSeason := getSeasonStringFromTime(time.Now())
+	currentSeason := utils.SeasonForTime(time.Now())
 
 	// キャッシュキーを生成
 	cacheKey := fmt.Sprintf("%s%s:%d", constants.CacheKeyCurrentSeason, currentSeason, limit)
@@ -144,52 +144,15 @@ func scanAnime(rows *sql.Rows) (models.Anime, error) {
 }
 
 func (s *AnimeService) getAnimesByQuery(query string, args []interface{}, queryName string) ([]models.Anime, error) {
-	rows, err := s.db.Query(query, args...)
+	animes, err := queryAnimes(s.db, s.logger, queryName, query, args, scanAnime)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get %s: %w", queryName, err)
-	}
-	defer rows.Close()
-
-	animes := []models.Anime{}
-	for rows.Next() {
-		anime, err := scanAnime(rows)
-		if err != nil {
-			s.logger.Warn("Failed to scan anime row", "query", queryName, "error", err)
-			continue
-		}
-		animes = append(animes, anime)
-	}
-
-	if err := rows.Err(); err != nil {
-		s.logger.Error("Error iterating anime rows", "query", queryName, "error", err)
-		return nil, fmt.Errorf("error iterating %s: %w", queryName, err)
+		return nil, err
 	}
 
 	// DBキャッシュがないアニメのみ外部APIから画像を取得
 	s.enrichAnimesWithCoverImagesIfNeeded(animes)
 
 	return animes, nil
-}
-
-// getSeasonStringFromTime returns the season string in format "YYYY-season" for a given time
-// This function accepts time.Time as a parameter to improve testability
-func getSeasonStringFromTime(t time.Time) string {
-	year := t.Year()
-	month := t.Month()
-
-	var season string
-	switch {
-	case month >= 1 && month <= 3:
-		season = "winter"
-	case month >= 4 && month <= 6:
-		season = "spring"
-	case month >= 7 && month <= 9:
-		season = "summer"
-	default:
-		season = "autumn"
-	}
-
-	return fmt.Sprintf("%d-%s", year, season)
 }
 
 type AnimeService struct {
@@ -2448,7 +2411,7 @@ func (s *AnimeService) syncGenresForAnime(animeID int, malAnimeID string) error 
 	}
 
 	// Save genres to database using shared function
-	if err := saveGenresToDatabase(s.db, s.logger, animeID, genres); err != nil {
+	if err := SaveGenresToDatabase(s.db, s.logger, animeID, genres); err != nil {
 		return err
 	}
 

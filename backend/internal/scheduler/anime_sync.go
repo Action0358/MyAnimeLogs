@@ -10,10 +10,8 @@ import (
 	"myanimelogs/internal/constants"
 	"myanimelogs/internal/models"
 	"myanimelogs/internal/services"
+	"myanimelogs/internal/utils"
 )
-
-// seasonOrder defines the order of seasons in a year
-var seasonOrder = []string{"winter", "spring", "summer", "autumn"}
 
 // backgroundSyncDelay is the delay before starting background sync after initial sync
 const backgroundSyncDelay = 30 * time.Second
@@ -367,10 +365,10 @@ func (s *AnimeSyncScheduler) syncAllSeasons(nextSyncTime time.Time) {
 
 	// Use startTime for all time-based calculations to ensure consistency
 	currentYear := startTime.Year()
-	currentSeason := getSeasonForTime(startTime)
+	currentSeason := utils.SeasonForTime(startTime)
 
 	// Generate all seasons from syncStartYear-spring to current
-	seasons := generateAllSeasons(syncStartYear, currentYear, currentSeason)
+	seasons := utils.GenerateAllSeasons(syncStartYear, currentYear, currentSeason)
 
 	totalAnimeCount := 0
 	var syncErrors []string
@@ -390,7 +388,7 @@ func (s *AnimeSyncScheduler) syncAllSeasons(nextSyncTime time.Time) {
 	}
 
 	// 今期・前期作品のreleased_on同期（Jikan API）
-	previousSeason := getPreviousSeasonForTime(startTime)
+	previousSeason := utils.PreviousSeasonForTime(startTime)
 	s.logger.Info("Syncing released_on for current/previous season animes (initial sync)")
 	releasedOnSuccess, releasedOnFailure, releasedOnErr := s.animeService.SyncReleasedOnForCurrentSeason(ctx, currentSeason, previousSeason)
 	if releasedOnErr != nil {
@@ -531,8 +529,8 @@ func (s *AnimeSyncScheduler) syncCurrentSeasonAnimes() {
 	s.statusTracker.StartSync(nextSyncTime)
 
 	// Use startTime for all time-based calculations to ensure consistency
-	currentSeason := getSeasonForTime(startTime)
-	previousSeason := getPreviousSeasonForTime(startTime)
+	currentSeason := utils.SeasonForTime(startTime)
+	previousSeason := utils.PreviousSeasonForTime(startTime)
 
 	// Step 1: 基本情報の差分同期（Annict）
 	// needsSyncメソッドにより変更があるもののみUPDATE
@@ -655,130 +653,9 @@ func (s *AnimeSyncScheduler) syncSeason(season string) (int, error) {
 	return len(animes), nil
 }
 
-// getSeasonForTime returns the season string for a given time (e.g., "2025-autumn")
-// This is a pure function that takes time as input for easier testing
-func getSeasonForTime(t time.Time) string {
-	year := t.Year()
-	month := t.Month()
-
-	var season string
-	switch {
-	case month >= 1 && month <= 3:
-		season = "winter"
-	case month >= 4 && month <= 6:
-		season = "spring"
-	case month >= 7 && month <= 9:
-		season = "summer"
-	default:
-		season = "autumn"
-	}
-
-	return fmt.Sprintf("%d-%s", year, season)
-}
-
-// getPreviousSeasonForTime returns the previous season string for a given time
-// This is a pure function that takes time as input for easier testing
-func getPreviousSeasonForTime(t time.Time) string {
-	year := t.Year()
-	month := t.Month()
-
-	var season string
-	switch {
-	case month >= 1 && month <= 3:
-		season = "autumn"
-		year--
-	case month >= 4 && month <= 6:
-		season = "winter"
-	case month >= 7 && month <= 9:
-		season = "spring"
-	default:
-		season = "summer"
-	}
-
-	return fmt.Sprintf("%d-%s", year, season)
-}
-
-// generateAllSeasons generates all season strings from startYear-spring to endSeason
-// For startYear=1979, it starts from 1979-spring (skipping 1979-winter)
-// Returns empty slice if endSeason is before the effective start season (startYear-spring)
-func generateAllSeasons(startYear, endYear int, endSeason string) []string {
-	var result []string
-
-	// Effective start season is spring of startYear (winter is skipped)
-	effectiveStartSeason := fmt.Sprintf("%d-spring", startYear)
-
-	// Check if endSeason is before effective start season
-	// This handles cases like generateAllSeasons(2024, 2024, "2024-winter")
-	if isSeasonBefore(endSeason, effectiveStartSeason) {
-		return result
-	}
-
-	for year := startYear; year <= endYear; year++ {
-		for _, season := range seasonOrder {
-			// Skip winter of the start year (e.g., 1979-winter)
-			if year == startYear && season == "winter" {
-				continue
-			}
-
-			seasonStr := fmt.Sprintf("%d-%s", year, season)
-			result = append(result, seasonStr)
-
-			// Stop if we've reached the end season
-			if seasonStr == endSeason {
-				return result
-			}
-		}
-	}
-
-	return result
-}
-
-// isSeasonBefore returns true if season1 is chronologically before season2
-func isSeasonBefore(season1, season2 string) bool {
-	var year1, year2 int
-	var seasonName1, seasonName2 string
-
-	fmt.Sscanf(season1, "%d-%s", &year1, &seasonName1)
-	fmt.Sscanf(season2, "%d-%s", &year2, &seasonName2)
-
-	if year1 != year2 {
-		return year1 < year2
-	}
-
-	// Compare season order within the same year
-	seasonIndex := map[string]int{"winter": 0, "spring": 1, "summer": 2, "autumn": 3}
-	return seasonIndex[seasonName1] < seasonIndex[seasonName2]
-}
-
-// getAnimesByQuery - 共通のアニメ取得ヘルパー関数
-func (s *AnimeSyncScheduler) getAnimesByQuery(query string, args ...interface{}) ([]models.Anime, error) {
-	var animes []models.Anime
-
-	rows, err := s.annictClient.DB.Query(query, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var anime models.Anime
-		if err := rows.Scan(&anime.ID, &anime.MalAnimeID, &anime.Title, &anime.AnnictID); err != nil {
-			s.logger.Warn("Failed to scan anime", "error", err)
-			continue
-		}
-		animes = append(animes, anime)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating anime rows: %w", err)
-	}
-
-	return animes, nil
-}
-
 // getAnimesWithoutMetadata - メタデータ未取得作品を取得
 func (s *AnimeSyncScheduler) getAnimesWithoutMetadata() ([]models.Anime, error) {
-	return s.getAnimesByQuery(`
+	return services.QueryAnimeSyncTargets(s.annictClient.DB, s.logger, "animes without metadata", `
 		SELECT id, mal_anime_id, title, annict_id
 		FROM animes
 		WHERE metadata_synced_at IS NULL
@@ -791,7 +668,7 @@ func (s *AnimeSyncScheduler) getAnimesWithoutMetadata() ([]models.Anime, error) 
 
 // getAiringAnimes - 放送中作品を取得
 func (s *AnimeSyncScheduler) getAiringAnimes() ([]models.Anime, error) {
-	return s.getAnimesByQuery(`
+	return services.QueryAnimeSyncTargets(s.annictClient.DB, s.logger, "airing animes", `
 		SELECT id, mal_anime_id, title, annict_id
 		FROM animes
 		WHERE status = $1
@@ -805,7 +682,7 @@ func (s *AnimeSyncScheduler) getAiringAnimes() ([]models.Anime, error) {
 // getAnimesWithStaleMetadata - 古いメタデータを持つ作品を取得
 func (s *AnimeSyncScheduler) getAnimesWithStaleMetadata(staleDuration time.Duration) ([]models.Anime, error) {
 	staleThreshold := time.Now().Add(-staleDuration)
-	return s.getAnimesByQuery(`
+	return services.QueryAnimeSyncTargets(s.annictClient.DB, s.logger, "animes with stale metadata", `
 		SELECT id, mal_anime_id, title, annict_id
 		FROM animes
 		WHERE metadata_synced_at < $1
@@ -822,7 +699,7 @@ func (s *AnimeSyncScheduler) getAnimesWithStaleMetadata(staleDuration time.Durat
 // 失敗直後の連続再試行を避けつつ滞留を解消する。
 func (s *AnimeSyncScheduler) getFailedMetadataAnimes(cooldown time.Duration) ([]models.Anime, error) {
 	cooldownThreshold := time.Now().Add(-cooldown)
-	return s.getAnimesByQuery(`
+	return services.QueryAnimeSyncTargets(s.annictClient.DB, s.logger, "failed metadata animes", `
 		SELECT id, mal_anime_id, title, annict_id
 		FROM animes
 		WHERE sync_status = $1
@@ -1001,8 +878,8 @@ func (s *AnimeSyncScheduler) syncMetadataForAnimes(ctx context.Context, animes [
 			continue
 		}
 
-		// ジャンル保存
-		if saveErr := s.saveGenres(anime.ID, genres); saveErr != nil {
+		// ジャンル保存（service/annict と同一の共通関数を使用。genres_synced_at も更新される）
+		if saveErr := services.SaveGenresToDatabase(s.annictClient.DB, s.logger, anime.ID, genres); saveErr != nil {
 			s.logger.Error("Failed to save genres", "anime_id", anime.ID, "error", saveErr)
 			recordFailure(anime.ID, saveErr)
 			continue
@@ -1020,40 +897,6 @@ func (s *AnimeSyncScheduler) syncMetadataForAnimes(ctx context.Context, animes [
 		"failure", failureCount)
 
 	return failureCount, successCount, sampleErrors
-}
-
-// saveGenres - ジャンルをDBに保存（トランザクション対応）
-func (s *AnimeSyncScheduler) saveGenres(animeID int, genres []string) error {
-	// トランザクション開始
-	tx, err := s.annictClient.DB.Begin()
-	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %w", err)
-	}
-	defer tx.Rollback()
-
-	// 既存のジャンルを削除
-	_, err = tx.Exec("DELETE FROM anime_genres WHERE anime_id = $1", animeID)
-	if err != nil {
-		return fmt.Errorf("failed to delete existing genres: %w", err)
-	}
-
-	// 新しいジャンルを挿入
-	for _, genre := range genres {
-		_, err := tx.Exec(`
-			INSERT INTO anime_genres (anime_id, genre)
-			VALUES ($1, $2)
-		`, animeID, genre)
-		if err != nil {
-			return fmt.Errorf("failed to insert genre %s: %w", genre, err)
-		}
-	}
-
-	// コミット
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("failed to commit transaction: %w", err)
-	}
-
-	return nil
 }
 
 // recordSyncStats - 同期統計をDBに記録
