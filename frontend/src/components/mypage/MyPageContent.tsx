@@ -14,6 +14,7 @@ import {
 import { useWatchStatus, WatchStatusAnime } from '@/hooks/useWatchStatus'
 import { WatchStatusStatus } from '@/lib/api/generated/myanimelogs'
 import { buildIconUrl } from '@/lib/utils'
+import { getProfileFieldValues } from '@/lib/profile'
 import { get, ApiClientError } from '@/lib/api/client'
 
 // マイページに表示する視聴ステータスの最大件数
@@ -89,8 +90,9 @@ export const MyPageContent: React.FC = () => {
   // ユーザー情報から好きなアニメとSNSリンクを設定
   useEffect(() => {
     if (user) {
-      setFavoriteAnime(user.favorite_anime || '')
-      setSnsLink(user.sns_link || '')
+      const { favoriteAnime, snsLink } = getProfileFieldValues(user)
+      setFavoriteAnime(favoriteAnime)
+      setSnsLink(snsLink)
     }
   }, [user])
 
