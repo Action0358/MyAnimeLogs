@@ -3,6 +3,7 @@ package utils
 import (
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -96,13 +97,25 @@ func GenerateAllSeasons(startYear, endYear int, endSeason string) []string {
 // Malformed input (unparseable "YYYY-season" or an unknown season name) is treated
 // as "not before" and returns false, so callers never rely on zero-value fallbacks.
 func IsSeasonBefore(season1, season2 string) bool {
-	var year1, year2 int
-	var seasonName1, seasonName2 string
-
-	if n, _ := fmt.Sscanf(season1, "%d-%s", &year1, &seasonName1); n != 2 {
+	// Parse "YYYY-season" with strings.Cut + strconv.Atoi (faster and more
+	// idiomatic than fmt.Sscanf, which relies on reflection/format parsing).
+	year1Str, seasonName1, found1 := strings.Cut(season1, "-")
+	year2Str, seasonName2, found2 := strings.Cut(season2, "-")
+	if !found1 || !found2 {
 		return false
 	}
-	if n, _ := fmt.Sscanf(season2, "%d-%s", &year2, &seasonName2); n != 2 {
+
+	year1, err1 := strconv.Atoi(year1Str)
+	year2, err2 := strconv.Atoi(year2Str)
+	if err1 != nil || err2 != nil {
+		return false
+	}
+
+	// Validate season names before comparing years, so unknown names return
+	// false even when the years differ (honors the "malformed -> false" contract).
+	idx1, ok1 := seasonIndex[seasonName1]
+	idx2, ok2 := seasonIndex[seasonName2]
+	if !ok1 || !ok2 {
 		return false
 	}
 
@@ -110,12 +123,7 @@ func IsSeasonBefore(season1, season2 string) bool {
 		return year1 < year2
 	}
 
-	// Compare season order within the same year (unknown names are not comparable)
-	idx1, ok1 := seasonIndex[seasonName1]
-	idx2, ok2 := seasonIndex[seasonName2]
-	if !ok1 || !ok2 {
-		return false
-	}
+	// Compare season order within the same year
 	return idx1 < idx2
 }
 
