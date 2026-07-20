@@ -12,29 +12,8 @@ import (
 // fixedNow はテスト用の固定時刻（2025年5月15日 = spring シーズン中）
 var fixedNow = time.Date(2025, 5, 15, 12, 0, 0, 0, time.UTC)
 
-func TestGetSeasonStringFromTime(t *testing.T) {
-	tests := []struct {
-		name     string
-		time     time.Time
-		expected string
-	}{
-		{"1月 → winter", time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC), "2025-winter"},
-		{"3月 → winter", time.Date(2025, 3, 31, 0, 0, 0, 0, time.UTC), "2025-winter"},
-		{"4月 → spring", time.Date(2025, 4, 1, 0, 0, 0, 0, time.UTC), "2025-spring"},
-		{"6月 → spring", time.Date(2025, 6, 30, 0, 0, 0, 0, time.UTC), "2025-spring"},
-		{"7月 → summer", time.Date(2025, 7, 1, 0, 0, 0, 0, time.UTC), "2025-summer"},
-		{"9月 → summer", time.Date(2025, 9, 30, 0, 0, 0, 0, time.UTC), "2025-summer"},
-		{"10月 → autumn", time.Date(2025, 10, 1, 0, 0, 0, 0, time.UTC), "2025-autumn"},
-		{"12月 → autumn", time.Date(2025, 12, 31, 0, 0, 0, 0, time.UTC), "2025-autumn"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := getSeasonStringFromTime(tt.time)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
+// シーズン文字列算出（旧 getSeasonStringFromTime）は utils.SeasonForTime へ集約された。
+// そのテストは utils/season_test.go の TestSeasonForTime を参照。
 
 func TestDetermineStatusBySeasonAt(t *testing.T) {
 	tests := []struct {
