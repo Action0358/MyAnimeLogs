@@ -180,6 +180,10 @@ func TestIsSeasonBefore(t *testing.T) {
 		{"non-numeric year", "abcd-spring", "2024-spring", false},
 		{"season1 unknown name", "2024-fall", "2024-spring", false},
 		{"season2 unknown name", "2024-spring", "2024-fall", false},
+		// Unknown season name must return false even when years differ
+		// (regression: previously the year comparison short-circuited validation)
+		{"season1 unknown name diff year", "2023-fall", "2024-spring", false},
+		{"season2 unknown name diff year", "2023-spring", "2024-fall", false},
 		{"both empty", "", "", false},
 		{"missing season name", "2024-", "2024-spring", false},
 	}

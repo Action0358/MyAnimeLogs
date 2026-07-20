@@ -111,16 +111,19 @@ func IsSeasonBefore(season1, season2 string) bool {
 		return false
 	}
 
-	if year1 != year2 {
-		return year1 < year2
-	}
-
-	// Compare season order within the same year (unknown names are not comparable)
+	// Validate season names before comparing years, so unknown names return
+	// false even when the years differ (honors the "malformed -> false" contract).
 	idx1, ok1 := seasonIndex[seasonName1]
 	idx2, ok2 := seasonIndex[seasonName2]
 	if !ok1 || !ok2 {
 		return false
 	}
+
+	if year1 != year2 {
+		return year1 < year2
+	}
+
+	// Compare season order within the same year
 	return idx1 < idx2
 }
 
