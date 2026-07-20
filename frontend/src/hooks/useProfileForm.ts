@@ -176,7 +176,7 @@ export const useProfileForm = (): UseProfileFormResult => {
 
   const handleCancel = () => {
     if (hasChanges) {
-      if (confirm('変更内容が保存されていません。破棄してもよろしいですか？')) {
+      if (window.confirm('変更内容が保存されていません。破棄してもよろしいですか？')) {
         router.push('/mypage')
       }
     } else {
