@@ -92,20 +92,31 @@ func GenerateAllSeasons(startYear, endYear int, endSeason string) []string {
 	return result
 }
 
-// IsSeasonBefore returns true if season1 is chronologically before season2
+// IsSeasonBefore returns true if season1 is chronologically before season2.
+// Malformed input (unparseable "YYYY-season" or an unknown season name) is treated
+// as "not before" and returns false, so callers never rely on zero-value fallbacks.
 func IsSeasonBefore(season1, season2 string) bool {
 	var year1, year2 int
 	var seasonName1, seasonName2 string
 
-	fmt.Sscanf(season1, "%d-%s", &year1, &seasonName1)
-	fmt.Sscanf(season2, "%d-%s", &year2, &seasonName2)
+	if n, _ := fmt.Sscanf(season1, "%d-%s", &year1, &seasonName1); n != 2 {
+		return false
+	}
+	if n, _ := fmt.Sscanf(season2, "%d-%s", &year2, &seasonName2); n != 2 {
+		return false
+	}
 
 	if year1 != year2 {
 		return year1 < year2
 	}
 
-	// Compare season order within the same year
-	return seasonIndex[seasonName1] < seasonIndex[seasonName2]
+	// Compare season order within the same year (unknown names are not comparable)
+	idx1, ok1 := seasonIndex[seasonName1]
+	idx2, ok2 := seasonIndex[seasonName2]
+	if !ok1 || !ok2 {
+		return false
+	}
+	return idx1 < idx2
 }
 
 // seasonMapping maps Japanese season names to English

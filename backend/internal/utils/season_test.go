@@ -173,6 +173,14 @@ func TestIsSeasonBefore(t *testing.T) {
 		{"Same year - spring before summer", "2024-spring", "2024-summer", true},
 		{"Same year - summer before autumn", "2024-summer", "2024-autumn", true},
 		{"Same year - autumn after summer", "2024-autumn", "2024-summer", false},
+
+		// Malformed / unknown input must return false (no zero-value fallback)
+		{"season1 unparseable", "garbage", "2024-spring", false},
+		{"season2 unparseable", "2024-spring", "garbage", false},
+		{"season1 unknown name", "2024-fall", "2024-spring", false},
+		{"season2 unknown name", "2024-spring", "2024-fall", false},
+		{"both empty", "", "", false},
+		{"missing season name", "2024-", "2024-spring", false},
 	}
 
 	for _, tt := range tests {

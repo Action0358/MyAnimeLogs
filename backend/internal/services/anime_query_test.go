@@ -62,6 +62,38 @@ func TestQueryAnimeSyncTargets_QueryError(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
+func TestQueryAnimeSyncTargets_NilDB(t *testing.T) {
+	// db が nil でもパニックせずエラーを返す（Exported 関数の防御的ガード）
+	animes, err := QueryAnimeSyncTargets(nil, newTestServiceLogger(), "sync targets",
+		`SELECT id, mal_anime_id, title, annict_id FROM animes`)
+
+	assert.Error(t, err)
+	assert.Nil(t, animes)
+	assert.Contains(t, err.Error(), "database connection not available")
+}
+
+func TestQueryAnimeSyncTargets_NilLoggerDoesNotPanic(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	dbWrapper := &database.DB{DB: db}
+
+	// スキャン失敗する行を含めて logger.Warn 経路を通す。logger=nil でもパニックしないこと。
+	rows := sqlmock.NewRows([]string{"id", "mal_anime_id", "title", "annict_id"}).
+		AddRow("not-a-number", "100", "Broken", 11)
+
+	mock.ExpectQuery(`SELECT id, mal_anime_id, title, annict_id FROM animes`).
+		WillReturnRows(rows)
+
+	animes, err := QueryAnimeSyncTargets(dbWrapper, nil, "sync targets",
+		`SELECT id, mal_anime_id, title, annict_id FROM animes`)
+
+	assert.NoError(t, err)
+	assert.Empty(t, animes)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
 func TestQueryAnimeSyncTargets_SkipsInvalidRows(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
