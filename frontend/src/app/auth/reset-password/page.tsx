@@ -4,9 +4,11 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { translateAuthError } from '@/contexts/AuthContext'
-import { Container } from '@/components/layout'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
+import { AuthCard } from '@/components/auth/AuthCard'
+import { AuthMessages } from '@/components/auth/AuthMessages'
+import { Container } from '@/components/layout'
 
 const RESET_PASSWORD_DEFAULT_ERROR =
   'リセットメールの送信に失敗しました。しばらく時間をおいて再度お試しください'
@@ -57,22 +59,12 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <Container className="py-12">
-      <div className="max-w-md mx-auto">
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">パスワードリセット</h1>
-          <p className="text-gray-600 text-sm">
-            登録済みのメールアドレスを入力してください。リセット用リンクをお送りします。
-          </p>
-        </div>
-
-        <div className="bg-white rounded-lg border border-gray-200 p-8 shadow-sm">
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {error && (
-              <div className="p-4 bg-red-50 border border-red-200 rounded-md">
-                <p className="text-sm text-red-600">{error}</p>
-              </div>
-            )}
+    <AuthCard
+      title="パスワードリセット"
+      subtitle="登録済みのメールアドレスを入力してください。リセット用リンクをお送りします。"
+    >
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <AuthMessages error={error} />
 
             <Input
               label="メールアドレス"
@@ -84,24 +76,22 @@ export default function ResetPasswordPage() {
               autoComplete="email"
             />
 
-            <Button
-              type="submit"
-              variant="primary"
-              size="lg"
-              isLoading={isLoading}
-              className="w-full"
-            >
-              リセットメールを送信
-            </Button>
-          </form>
+        <Button
+          type="submit"
+          variant="primary"
+          size="lg"
+          isLoading={isLoading}
+          className="w-full"
+        >
+          リセットメールを送信
+        </Button>
+      </form>
 
-          <div className="mt-6 pt-6 border-t border-gray-200 text-center">
-            <Link href="/login" className="text-sm text-blue-600 hover:text-blue-700 transition-colors">
-              ログインページに戻る
-            </Link>
-          </div>
-        </div>
+      <div className="mt-6 pt-6 border-t border-gray-200 text-center">
+        <Link href="/login" className="text-sm text-blue-600 hover:text-blue-700 transition-colors">
+          ログインページに戻る
+        </Link>
       </div>
-    </Container>
+    </AuthCard>
   )
 }
