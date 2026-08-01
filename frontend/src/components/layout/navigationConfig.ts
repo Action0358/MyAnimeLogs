@@ -23,4 +23,4 @@ export const NAV_ITEMS: NavItem[] = [
 ]
 
 // ナビゲーション共通のテキストスタイル
-export const NAV_TEXT_STYLES = 'text-base font-bold'
+export const NAV_TEXT_STYLES = 'text-sm font-medium'
