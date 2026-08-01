@@ -3,6 +3,7 @@
 import React from 'react';
 import Image from 'next/image';
 import SearchContainer from './SearchContainer';
+import HeroBackdrop from './HeroBackdrop';
 import { HERO_LOGO_PATH } from '@/lib/constants';
 
 const HeroSection: React.FC = () => {
@@ -11,26 +12,31 @@ const HeroSection: React.FC = () => {
   // これにより、子要素のz-index（タブのz-10など）がモバイルメニューに影響を与えなくなります。
 
   return (
-    <section className="relative flex flex-col items-center bg-gradient-to-br from-blue-600 to-blue-800 text-white px-4 pt-44 pb-24 md:pt-52 md:pb-32 z-0">
-      {/* キャッチコピー */}
-      <h2 className="text-base md:text-xl text-center mb-4 md:mb-6 font-bold">
-        あなたのアニメ視聴体験を記録・管理しよう
-      </h2>
+    <section className="relative flex flex-col items-center text-primary-foreground px-4 pt-36 pb-20 md:pt-44 md:pb-28 z-0">
+      <HeroBackdrop />
 
-      {/* ロゴ */}
-      <div className="mb-16 md:mb-20">
-        <Image
-          src={HERO_LOGO_PATH}
-          alt="MyAnimeLogs"
-          width={930}
-          height={470}
-          priority
-          className="h-28 md:h-40 w-auto brightness-0 invert"
-        />
+      {/* 前景コンテンツ（背景の上に重ねる） */}
+      <div className="relative flex flex-col items-center w-full">
+        {/* ロゴ */}
+        <div className="mb-5 md:mb-6">
+          <Image
+            src={HERO_LOGO_PATH}
+            alt="MyAnimeLogs"
+            width={930}
+            height={470}
+            priority
+            className="h-24 md:h-36 w-auto brightness-0 invert drop-shadow-lg"
+          />
+        </div>
+
+        {/* キャッチコピー（ページ唯一のh1。ロゴは画像のため見出しにならない） */}
+        <h1 className="text-sm md:text-lg text-center mb-10 md:mb-12 font-bold text-primary-foreground/90 drop-shadow">
+          あなたのアニメ視聴体験を記録・管理しよう
+        </h1>
+
+        {/* 検索コンテナ */}
+        <SearchContainer />
       </div>
-
-      {/* 検索コンテナ */}
-      <SearchContainer />
     </section>
   );
 };

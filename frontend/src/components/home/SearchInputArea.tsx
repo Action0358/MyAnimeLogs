@@ -46,7 +46,8 @@ const SearchInputArea: React.FC<SearchInputAreaProps> = ({ activeTab }) => {
     }
   };
 
-  const searchButtonBase = 'bg-blue-600 text-white font-bold text-base hover:bg-blue-700 active:bg-blue-800 transition-all duration-150 tracking-widest disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-blue-600';
+  const searchButtonBase =
+    'bg-primary text-primary-foreground font-bold text-base hover:bg-primary/90 active:bg-primary/80 transition-all duration-150 tracking-widest focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground/70 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-primary';
 
   const searchButton = (disabled = false) => (
     <button
@@ -59,13 +60,13 @@ const SearchInputArea: React.FC<SearchInputAreaProps> = ({ activeTab }) => {
   );
 
   return (
-    <div className="relative mt-3 backdrop-blur-sm bg-white/10 border border-white/20 rounded-2xl p-4 md:p-5 shadow-lg shadow-black/10">
+    <div className="relative mt-3 backdrop-blur-md bg-primary-foreground/10 border border-primary-foreground/20 rounded-2xl p-4 md:p-5 shadow-xl shadow-black/20">
       {/* キーワード検索 */}
       {activeTab === 'keyword' && (
         <div className="flex overflow-hidden rounded-xl shadow-sm">
           <div className="relative flex-1">
             <svg
-              className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400"
+              className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -84,8 +85,8 @@ const SearchInputArea: React.FC<SearchInputAreaProps> = ({ activeTab }) => {
               onChange={(e) => setKeyword(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="作品を探す"
-              className="w-full pl-12 pr-4 py-4 bg-white text-gray-900
-                placeholder:text-gray-400 placeholder:font-bold focus:outline-none text-base font-bold"
+              className="w-full pl-12 pr-4 py-4 bg-card text-foreground
+                placeholder:text-muted-foreground placeholder:font-bold focus:outline-none text-base font-bold"
             />
           </div>
           {searchButton(!keyword.trim())}
@@ -97,7 +98,7 @@ const SearchInputArea: React.FC<SearchInputAreaProps> = ({ activeTab }) => {
         <div className="flex overflow-hidden rounded-xl shadow-sm">
           <div className="relative flex-1">
             <svg
-              className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none"
+              className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -113,9 +114,9 @@ const SearchInputArea: React.FC<SearchInputAreaProps> = ({ activeTab }) => {
             <select
               value={season}
               onChange={(e) => setSeason(e.target.value)}
-              className={`w-full pl-12 pr-4 py-4 bg-white
+              className={`w-full pl-12 pr-4 py-4 bg-card
                 focus:outline-none text-base font-bold appearance-none cursor-pointer
-                ${season ? 'text-gray-900' : 'text-gray-400'}`}
+                ${season ? 'text-foreground' : 'text-muted-foreground'}`}
             >
               <option value="" disabled hidden>放送時期を選択</option>
               {SEASONS.map((s) => (
@@ -140,10 +141,11 @@ const SearchInputArea: React.FC<SearchInputAreaProps> = ({ activeTab }) => {
                 className={`
                   px-3.5 py-1.5 rounded-full text-[13px] font-bold
                   transition-all duration-150
+                  focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground/70
                   ${
                     selectedGenres.includes(genre)
-                      ? 'bg-white text-blue-700 shadow-md scale-105'
-                      : 'bg-white/15 text-white/90 hover:bg-white/25 hover:scale-105'
+                      ? 'bg-card text-primary shadow-md scale-105'
+                      : 'bg-primary-foreground/15 text-primary-foreground/90 hover:bg-primary-foreground/25 hover:scale-105'
                   }
                 `}
               >
