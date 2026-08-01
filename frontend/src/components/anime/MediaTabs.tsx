@@ -24,7 +24,7 @@ export const MediaTabs: React.FC<MediaTabsProps> = ({
 }) => (
   <div
     className={cn(
-      'flex gap-1 border-b border-gray-200 overflow-x-auto scrollbar-hide touch-pan-x',
+      'flex gap-1.5 pb-1 overflow-x-auto scrollbar-hide touch-pan-x',
       className
     )}
     role="tablist"
@@ -39,13 +39,12 @@ export const MediaTabs: React.FC<MediaTabsProps> = ({
           aria-selected={isActive}
           onClick={() => onTabChange(tab.id)}
           className={cn(
-            'relative px-3 py-2 md:px-4 md:py-3 text-xs md:text-sm font-medium',
+            'relative rounded-full px-3.5 py-2 md:px-4 md:py-2.5 text-xs md:text-sm',
             'whitespace-nowrap flex-shrink-0 transition-colors duration-200',
-            'border-b-2 hover:text-blue-600 hover:bg-blue-50/50',
-            'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+            'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
             isActive
-              ? 'text-blue-600 border-blue-600 bg-blue-50/30'
-              : 'text-gray-600 border-transparent'
+              ? 'bg-primary/10 text-primary font-semibold'
+              : 'text-muted-foreground font-medium hover:text-foreground hover:bg-muted'
           )}
         >
           <span>{tab.label}</span>
