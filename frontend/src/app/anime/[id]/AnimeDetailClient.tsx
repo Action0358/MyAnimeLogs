@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { decode as heDecodeEntities } from 'he'
 import { Container } from '@/components/layout'
-import { Button } from '@/components/ui'
+import { Badge, Button, Card, CardContent, SectionHeading } from '@/components/ui'
 import { WatchProviders } from '@/components/anime'
 import { FavoriteButton, StatusSelector } from '@/components/favorites'
 import { getAnimesId } from '@/lib/api/generated/myanimelogs'
@@ -70,11 +70,11 @@ const AnimeDetailClient: React.FC = () => {
       <Container className="py-12">
         <div className="animate-pulse max-w-4xl mx-auto">
           <div className="flex flex-col md:flex-row gap-8">
-            <div className="w-full md:w-64 aspect-[3/4] bg-gray-200 rounded-lg" />
+            <div className="w-full md:w-64 aspect-[3/4] bg-muted rounded-lg" />
             <div className="flex-1 space-y-4">
-              <div className="h-8 bg-gray-200 rounded w-3/4" />
-              <div className="h-4 bg-gray-200 rounded w-1/4" />
-              <div className="h-24 bg-gray-200 rounded" />
+              <div className="h-8 bg-muted rounded w-3/4" />
+              <div className="h-4 bg-muted rounded w-1/4" />
+              <div className="h-24 bg-muted rounded" />
             </div>
           </div>
         </div>
@@ -87,8 +87,8 @@ const AnimeDetailClient: React.FC = () => {
       <Container className="py-12">
         <div className="text-center">
           <span className="text-6xl mb-4 block">😢</span>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">無効なアニメIDです</h1>
-          <p className="text-gray-600 mb-6">正しいURLでアクセスしてください。</p>
+          <h1 className="text-2xl font-bold text-foreground mb-2">無効なアニメIDです</h1>
+          <p className="text-muted-foreground mb-6">正しいURLでアクセスしてください。</p>
           <Link href="/search">
             <Button>アニメを検索する</Button>
           </Link>
@@ -102,8 +102,8 @@ const AnimeDetailClient: React.FC = () => {
       <Container className="py-12">
         <div className="text-center">
           <span className="text-6xl mb-4 block">😢</span>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">アニメが見つかりません</h1>
-          <p className="text-gray-600 mb-6">お探しのアニメは存在しないか、削除された可能性があります。</p>
+          <h1 className="text-2xl font-bold text-foreground mb-2">アニメが見つかりません</h1>
+          <p className="text-muted-foreground mb-6">お探しのアニメは存在しないか、削除された可能性があります。</p>
           <Link href="/search">
             <Button>アニメを検索する</Button>
           </Link>
@@ -161,85 +161,50 @@ const AnimeDetailClient: React.FC = () => {
   }
 
   return (
-    <Container className="py-8">
-      <div className="max-w-4xl mx-auto">
-        {/* パンくずリスト */}
-        <nav className="mb-6 text-sm">
-          <ol className="flex items-center gap-2 text-gray-500">
-            <li>
-              <Link href="/" className="hover:text-blue-600">ホーム</Link>
-            </li>
-            <li>/</li>
-            <li>
-              <Link href="/search" className="hover:text-blue-600">検索</Link>
-            </li>
-            <li>/</li>
-            <li className="text-gray-900 font-medium truncate max-w-[200px]">{anime.title}</li>
-          </ol>
-        </nav>
+    <Container size="xl" className="py-8">
+      {/* パンくずリスト */}
+      <nav aria-label="パンくずリスト" className="mb-6 text-sm">
+        <ol className="flex items-center gap-2 text-muted-foreground">
+          <li>
+            <Link href="/" className="hover:text-primary transition-colors">ホーム</Link>
+          </li>
+          <li aria-hidden="true">/</li>
+          <li>
+            <Link href="/search" className="hover:text-primary transition-colors">検索</Link>
+          </li>
+          <li aria-hidden="true">/</li>
+          <li className="text-foreground font-medium truncate max-w-[200px]" aria-current="page">
+            {anime.title}
+          </li>
+        </ol>
+      </nav>
 
-        {/* ヘッダーセクション: カバー画像 + 基本情報 */}
-        <div className="flex flex-col md:flex-row gap-6 mb-8 bg-white rounded-lg border p-4 md:p-6">
-          {/* カバー画像 */}
-          <div className="w-full md:w-48 flex-shrink-0">
-            <div className="relative aspect-[3/4] bg-gray-100 rounded-lg overflow-hidden shadow-md">
-              {imageUrl && !imageError ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={imageUrl}
-                  alt={anime.title || 'アニメ画像'}
-                  className="w-full h-full object-cover"
-                  onError={() => setImageError(true)}
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-100 to-purple-100">
-                  <span className="text-5xl">📺</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* 基本情報 */}
-          <div className="flex-1 min-w-0">
-            {/* タイトル */}
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-1">{anime.title}</h1>
-
-            {/* メタ情報（放送時期・状況） */}
-            <div className="flex flex-wrap items-center gap-2 mb-3">
-              {anime.season && (
-                <span className="inline-flex items-center px-2.5 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
-                  {anime.season}
-                </span>
-              )}
-              {statusInfo.label && (
-                <span
-                  className={cn(
-                    'inline-flex items-center px-2.5 py-1 rounded-full text-sm font-medium',
-                    statusInfo.className
-                  )}
-                >
-                  {statusInfo.label}
-                </span>
-              )}
-            </div>
-
-            {/* ジャンルタグ */}
-            {anime.genres && anime.genres.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mb-4">
-                {anime.genres.map((genre) => (
-                  <Link
-                    key={genre}
-                    href={`/search?genre=${encodeURIComponent(genre)}`}
-                    className="inline-flex items-center px-2 py-0.5 bg-purple-50 text-purple-700 rounded text-xs hover:bg-purple-100 transition-colors"
-                  >
-                    {genre}
-                  </Link>
-                ))}
+      {/* 2カラム: 左=カバー画像と操作 / 右=テキスト情報 */}
+      <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-6 lg:gap-10 items-start">
+        {/* 左カラム（PCでは追従表示） */}
+        <div className="lg:sticky lg:top-28 space-y-5">
+          <div className="flex flex-col sm:flex-row lg:flex-col gap-5">
+            {/* カバー画像 */}
+            <div className="w-40 sm:w-48 lg:w-full flex-shrink-0 mx-auto sm:mx-0">
+              <div className="relative aspect-[3/4] bg-muted rounded-lg overflow-hidden shadow-lg ring-1 ring-border">
+                {imageUrl && !imageError ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={imageUrl}
+                    alt={anime.title || 'アニメ画像'}
+                    className="w-full h-full object-cover"
+                    onError={() => setImageError(true)}
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/15 to-primary/5">
+                    <span className="text-5xl">📺</span>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
 
-            {/* アクションボタン：お気に入り（ハート）と視聴ステータスは独立 */}
-            <div className="flex flex-wrap items-start gap-2">
+            {/* お気に入り・視聴ステータス操作 */}
+            <div className="flex-1 min-w-0 flex flex-col justify-center lg:justify-start gap-2">
               {isAuthenticated ? (
                 <>
                   <FavoriteButton
@@ -260,89 +225,132 @@ const AnimeDetailClient: React.FC = () => {
                 </>
               ) : (
                 <Link href="/login">
-                  <Button size="sm">ログインしてお気に入り・視聴管理</Button>
+                  <Button size="sm" className="w-full">ログインしてお気に入り・視聴管理</Button>
                 </Link>
               )}
             </div>
           </div>
+
+          {/* 配信サービス */}
+          {anime.watch_providers && anime.watch_providers.length > 0 && (
+            <WatchProviders providers={anime.watch_providers} />
+          )}
         </div>
 
-        {/* あらすじセクション */}
-        {anime.description && (
-          <div className="mb-6 bg-white rounded-lg border p-4 md:p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-3">あらすじ</h2>
-            <p className="text-gray-700 leading-relaxed whitespace-pre-wrap text-sm md:text-base">
-              {stripHtmlTags(anime.description)}
-            </p>
+        {/* 右カラム */}
+        <div className="min-w-0 space-y-6">
+          {/* タイトルとメタ情報 */}
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-foreground tracking-tight mb-3">
+              {anime.title}
+            </h1>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {anime.season && <Badge variant="secondary">{anime.season}</Badge>}
+              {statusInfo.label && (
+                <span
+                  className={cn(
+                    'inline-flex items-center px-2.5 py-0.5 rounded-full border border-transparent text-xs font-semibold',
+                    statusInfo.className
+                  )}
+                >
+                  {statusInfo.label}
+                </span>
+              )}
+              {anime.media && <Badge variant="outline">{getMediaLabel(anime.media)}</Badge>}
+            </div>
+
+            {/* ジャンルタグ */}
+            {anime.genres && anime.genres.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-3">
+                {anime.genres.map((genre) => (
+                  <Link
+                    key={genre}
+                    href={`/search?genre=${encodeURIComponent(genre)}`}
+                    className="inline-flex items-center px-2.5 py-0.5 rounded-full border border-border text-xs font-medium text-muted-foreground hover:border-primary hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                  >
+                    {genre}
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
-        )}
 
-        {/* 作品情報セクション */}
-        {(anime.released_on || anime.media || anime.official_site_url) && (
-          <div className="mb-6 bg-white rounded-lg border p-4 md:p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-3">作品情報</h2>
-            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-              {anime.released_on && (
-                <div className="flex">
-                  <dt className="text-gray-500 w-24 flex-shrink-0">放送開始</dt>
-                  <dd className="text-gray-900">{formatReleasedOn(anime.released_on)}</dd>
-                </div>
-              )}
-              {anime.broadcast_day && (
-                <div className="flex">
-                  <dt className="text-gray-500 w-24 flex-shrink-0">放送日</dt>
-                  <dd className="text-gray-900">{translateBroadcastDay(anime.broadcast_day)}</dd>
-                </div>
-              )}
-              {anime.broadcast_time && (
-                <div className="flex">
-                  <dt className="text-gray-500 w-24 flex-shrink-0">放送時間</dt>
-                  <dd className="text-gray-900">{anime.broadcast_time}</dd>
-                </div>
-              )}
-              {/* 映画の上映時間 */}
-              {anime.media === 'movie' && anime.duration_minutes && (
-                <div className="flex">
-                  <dt className="text-gray-500 w-24 flex-shrink-0">上映時間</dt>
-                  <dd className="text-gray-900">{formatDuration(anime.duration_minutes)}</dd>
-                </div>
-              )}
-              {anime.media && (
-                <div className="flex">
-                  <dt className="text-gray-500 w-24 flex-shrink-0">メディア</dt>
-                  <dd className="text-gray-900">{getMediaLabel(anime.media)}</dd>
-                </div>
-              )}
-              {anime.official_site_url && (
-                <div className="flex sm:col-span-2">
-                  <dt className="text-gray-500 w-24 flex-shrink-0">公式サイト</dt>
-                  <dd>
-                    <a
-                      href={anime.official_site_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-800 hover:underline truncate block max-w-xs"
-                    >
-                      {(() => {
-                        try {
-                          return new URL(anime.official_site_url).hostname
-                        } catch {
-                          return anime.official_site_url
-                        }
-                      })()}
-                    </a>
-                  </dd>
-                </div>
-              )}
-            </dl>
-          </div>
-        )}
+          {/* あらすじ */}
+          {anime.description && (
+            <Card>
+              <CardContent className="p-4 md:p-6">
+                <SectionHeading as="h2" size="sm">あらすじ</SectionHeading>
+                <p className="text-foreground/80 leading-relaxed whitespace-pre-wrap text-sm md:text-base">
+                  {stripHtmlTags(anime.description)}
+                </p>
+              </CardContent>
+            </Card>
+          )}
 
-        {/* 配信サービスセクション */}
-        {anime.watch_providers && anime.watch_providers.length > 0 && (
-          <WatchProviders providers={anime.watch_providers} />
-        )}
-
+          {/* 作品情報 */}
+          {(anime.released_on || anime.media || anime.official_site_url) && (
+            <Card>
+              <CardContent className="p-4 md:p-6">
+                <SectionHeading as="h2" size="sm">作品情報</SectionHeading>
+                <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                  {anime.released_on && (
+                    <div className="flex">
+                      <dt className="text-muted-foreground w-24 flex-shrink-0">放送開始</dt>
+                      <dd className="text-foreground">{formatReleasedOn(anime.released_on)}</dd>
+                    </div>
+                  )}
+                  {anime.broadcast_day && (
+                    <div className="flex">
+                      <dt className="text-muted-foreground w-24 flex-shrink-0">放送日</dt>
+                      <dd className="text-foreground">{translateBroadcastDay(anime.broadcast_day)}</dd>
+                    </div>
+                  )}
+                  {anime.broadcast_time && (
+                    <div className="flex">
+                      <dt className="text-muted-foreground w-24 flex-shrink-0">放送時間</dt>
+                      <dd className="text-foreground">{anime.broadcast_time}</dd>
+                    </div>
+                  )}
+                  {/* 映画の上映時間 */}
+                  {anime.media === 'movie' && anime.duration_minutes && (
+                    <div className="flex">
+                      <dt className="text-muted-foreground w-24 flex-shrink-0">上映時間</dt>
+                      <dd className="text-foreground">{formatDuration(anime.duration_minutes)}</dd>
+                    </div>
+                  )}
+                  {anime.media && (
+                    <div className="flex">
+                      <dt className="text-muted-foreground w-24 flex-shrink-0">メディア</dt>
+                      <dd className="text-foreground">{getMediaLabel(anime.media)}</dd>
+                    </div>
+                  )}
+                  {anime.official_site_url && (
+                    <div className="flex sm:col-span-2">
+                      <dt className="text-muted-foreground w-24 flex-shrink-0">公式サイト</dt>
+                      <dd className="min-w-0">
+                        <a
+                          href={anime.official_site_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline truncate block"
+                        >
+                          {(() => {
+                            try {
+                              return new URL(anime.official_site_url).hostname
+                            } catch {
+                              return anime.official_site_url
+                            }
+                          })()}
+                        </a>
+                      </dd>
+                    </div>
+                  )}
+                </dl>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       </div>
     </Container>
   )

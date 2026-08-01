@@ -4,7 +4,7 @@ import type React from 'react'
 import Link from 'next/link'
 import type { Route } from 'next'
 import { useQuery } from '@tanstack/react-query'
-import { Button } from '@/components/ui'
+import { Button, SectionHeading } from '@/components/ui'
 import { AnimeCard, type AnimeCardData } from './AnimeCard'
 import { AnimeCarousel, CarouselSkeleton } from './AnimeCarousel'
 import { SkeletonCard } from './SkeletonCard'
@@ -72,15 +72,15 @@ const AnimeSection: React.FC<AnimeSectionProps> = ({
   const cardAnimes = displayAnimes.map(convertToAnimeCardFormat)
 
   const SectionHeader = (
-    <div className="flex items-end justify-between gap-4 mb-5">
-      <h2 className="relative pl-3 text-xl md:text-2xl font-bold text-foreground tracking-tight
-        before:absolute before:left-0 before:top-1 before:bottom-1 before:w-1 before:rounded-full before:bg-primary">
-        {title}
-      </h2>
-      <Button variant="outline-gray" size="sm" asChild className="font-bold flex-shrink-0">
-        <Link href={linkHref as Route}>{linkText}</Link>
-      </Button>
-    </div>
+    <SectionHeading
+      action={
+        <Button variant="outline-gray" size="sm" asChild className="font-bold">
+          <Link href={linkHref as Route}>{linkText}</Link>
+        </Button>
+      }
+    >
+      {title}
+    </SectionHeading>
   )
 
   if (isLoading) {
