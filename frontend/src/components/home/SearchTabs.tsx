@@ -16,21 +16,24 @@ const SearchTabs: React.FC<SearchTabsProps> = ({ activeTab, onTabChange }) => {
   ];
 
   return (
-    <div className="flex gap-1 md:gap-2">
+    <div className="flex gap-1 md:gap-2" role="tablist" aria-label="検索方法">
       {tabs.map((tab) => {
         const isActive = activeTab === tab.id;
         return (
           <button
             key={tab.id}
+            role="tab"
+            aria-selected={isActive}
             onClick={() => onTabChange(tab.id)}
             className={`
               relative flex-1 flex items-center justify-center gap-1.5
               px-3 py-3 md:py-3.5 text-xs md:text-sm font-bold
               transition-all duration-200 ease-out rounded-t-xl
+              focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground/70
               ${
                 isActive
-                  ? 'bg-white text-blue-700 shadow-lg shadow-black/10 z-10'
-                  : 'bg-white/10 text-white/80 hover:bg-white/20 hover:text-white'
+                  ? 'bg-card text-primary shadow-lg shadow-black/10 z-10'
+                  : 'bg-primary-foreground/10 text-primary-foreground/80 hover:bg-primary-foreground/20 hover:text-primary-foreground'
               }
             `}
           >
@@ -38,7 +41,7 @@ const SearchTabs: React.FC<SearchTabsProps> = ({ activeTab, onTabChange }) => {
             {/* 吹き出し三角形 */}
             {isActive && (
               <span
-                className="absolute left-1/2 -translate-x-1/2 -bottom-[6px] w-3 h-3 bg-white rotate-45 shadow-sm"
+                className="absolute left-1/2 -translate-x-1/2 -bottom-[6px] w-3 h-3 bg-card rotate-45 shadow-sm"
               />
             )}
           </button>
