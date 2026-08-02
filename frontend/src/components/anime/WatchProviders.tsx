@@ -64,14 +64,15 @@ export const WatchProviders: React.FC<WatchProvidersProps> = ({ providers }) => 
 
   return (
     <Card>
-      <CardContent className="p-4 md:p-5">
+      <CardContent className="p-5 md:px-6 md:py-5">
         <SectionHeading as="h2" size="sm">配信サービス</SectionHeading>
-        <div className="flex flex-wrap gap-2.5">
+        {/* ロゴは元画像の縦横比・余白がまちまちなため、均一なタイルに収めて揃える */}
+        <div className="flex flex-wrap gap-2.5 md:gap-3">
           {visibleProviders.map((provider) => (
-            // ロゴ単体で表示（サービス名はチップ上には表示せず、title/alt で保持）
+            // ロゴ単体で表示（サービス名はタイル上には表示せず、title/alt で保持）
             <div
               key={provider.provider_id}
-              className="flex items-center justify-center p-2 bg-muted rounded-lg hover:bg-accent transition-colors"
+              className="w-14 h-14 md:w-16 md:h-16 flex items-center justify-center p-2 bg-muted border border-border rounded-[10px] hover:bg-accent transition-colors"
               title={provider.provider_name}
             >
               {provider.logo_url ? (
@@ -79,15 +80,15 @@ export const WatchProviders: React.FC<WatchProvidersProps> = ({ providers }) => 
                 <img
                   src={provider.logo_url}
                   alt={provider.provider_name}
-                  className="w-8 h-8 rounded object-contain"
+                  className="max-w-full max-h-full rounded object-contain"
                 />
               ) : (
                 <div
-                  className="w-8 h-8 bg-muted-foreground/20 rounded flex items-center justify-center"
+                  className="w-full h-full flex items-center justify-center bg-muted-foreground/10 rounded"
                   role="img"
                   aria-label={provider.provider_name}
                 >
-                  <span className="text-xs text-muted-foreground">📺</span>
+                  <span className="text-lg text-muted-foreground">📺</span>
                 </div>
               )}
             </div>
