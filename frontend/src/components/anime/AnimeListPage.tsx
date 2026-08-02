@@ -103,7 +103,7 @@ export const AnimeListPage: React.FC<AnimeListPageProps> = ({
     return (
       <Container className="py-8">
         <div className="text-center py-12">
-          <p className="text-red-600 mb-4">{errorMessage}</p>
+          <p className="text-destructive mb-4">{errorMessage}</p>
         </div>
       </Container>
     )
@@ -115,12 +115,12 @@ export const AnimeListPage: React.FC<AnimeListPageProps> = ({
         {/* ヘッダー */}
         <div className="mb-6">
           <div className="flex items-center gap-2">
-            <h1 className="text-3xl font-bold text-gray-900">{title}</h1>
+            <h1 className="text-3xl font-bold text-foreground">{title}</h1>
             {isFetching && !isLoading && (
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
             )}
           </div>
-          <p className="text-gray-600 mt-1">
+          <p className="text-muted-foreground mt-1">
             {isLoading ? 'アニメを読み込み中...' : totalLabel(total)}
           </p>
         </div>

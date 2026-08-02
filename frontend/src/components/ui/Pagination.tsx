@@ -52,7 +52,7 @@ export const Pagination: React.FC<PaginationProps> = ({
   }, [currentPage, totalPages, showPageNumbers, mobileMaxPages, desktopMaxPages])
 
   const buttonBase =
-    'inline-flex items-center justify-center min-w-[36px] sm:min-w-[44px] h-9 sm:h-11 px-2 sm:px-3 text-sm font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
+    'inline-flex items-center justify-center min-w-[36px] sm:min-w-[44px] h-9 sm:h-11 px-2 sm:px-3 text-sm font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2'
 
   // ページ番号ボタンのレンダリングを共通化
   const renderPageNumbers = (pages: number[], keyPrefix: string) =>
@@ -63,8 +63,8 @@ export const Pagination: React.FC<PaginationProps> = ({
         className={cn(
           buttonBase,
           page === currentPage
-            ? 'bg-blue-600 text-white border border-blue-600'
-            : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+            ? 'bg-primary text-primary-foreground border border-primary'
+            : 'bg-background text-foreground border border-border hover:bg-muted'
         )}
         aria-current={page === currentPage ? 'page' : undefined}
       >
@@ -84,10 +84,10 @@ export const Pagination: React.FC<PaginationProps> = ({
           disabled={currentPage === 1}
           className={cn(
             buttonBase,
-            'border border-gray-300',
+            'border border-border',
             currentPage === 1
-              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-              : 'bg-white text-gray-700 hover:bg-gray-50'
+              ? 'bg-muted text-muted-foreground cursor-not-allowed'
+              : 'bg-background text-foreground hover:bg-muted'
           )}
           aria-label="最初のページ"
         >
@@ -100,10 +100,10 @@ export const Pagination: React.FC<PaginationProps> = ({
           disabled={currentPage === 1}
           className={cn(
             buttonBase,
-            'border border-gray-300',
+            'border border-border',
             currentPage === 1
-              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-              : 'bg-white text-gray-700 hover:bg-gray-50'
+              ? 'bg-muted text-muted-foreground cursor-not-allowed'
+              : 'bg-background text-foreground hover:bg-muted'
           )}
           aria-label="前のページ"
         >
@@ -134,10 +134,10 @@ export const Pagination: React.FC<PaginationProps> = ({
           disabled={currentPage === totalPages}
           className={cn(
             buttonBase,
-            'border border-gray-300',
+            'border border-border',
             currentPage === totalPages
-              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-              : 'bg-white text-gray-700 hover:bg-gray-50'
+              ? 'bg-muted text-muted-foreground cursor-not-allowed'
+              : 'bg-background text-foreground hover:bg-muted'
           )}
           aria-label="次のページ"
         >
@@ -150,10 +150,10 @@ export const Pagination: React.FC<PaginationProps> = ({
           disabled={currentPage === totalPages}
           className={cn(
             buttonBase,
-            'border border-gray-300',
+            'border border-border',
             currentPage === totalPages
-              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-              : 'bg-white text-gray-700 hover:bg-gray-50'
+              ? 'bg-muted text-muted-foreground cursor-not-allowed'
+              : 'bg-background text-foreground hover:bg-muted'
           )}
           aria-label="最後のページ"
         >

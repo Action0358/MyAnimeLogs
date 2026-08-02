@@ -73,14 +73,14 @@ export const AnimeCard: React.FC<AnimeCardProps> = ({
   const CardContent = (
     <div
       className={cn(
-        'group relative bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden',
-        'hover:shadow-lg hover:border-gray-300 transition-all duration-200',
+        'group relative bg-card rounded-lg shadow-sm border border-border overflow-hidden',
+        'hover:shadow-lg hover:border-primary/30 transition-all duration-200',
         'cursor-pointer',
         className
       )}
       onClick={onClick ? handleClick : undefined}
     >
-      <div className={cn('relative bg-gray-100', config.aspectRatio)}>
+      <div className={cn('relative bg-muted', config.aspectRatio)}>
         {imageUrl && !imageError ? (
           // 外部画像URLは様々なドメインから取得されるため、next/imageではなくimgタグを使用
           // next.config.jsにすべてのドメインを登録することは現実的ではない
@@ -93,7 +93,7 @@ export const AnimeCard: React.FC<AnimeCardProps> = ({
             loading="lazy"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-100 to-purple-100">
+          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/20">
             <span className="text-4xl">📺</span>
           </div>
         )}
@@ -116,7 +116,7 @@ export const AnimeCard: React.FC<AnimeCardProps> = ({
       <div className={cn(config.padding, config.contentHeight, 'flex flex-col')}>
         <h3
           className={cn(
-            'font-medium text-gray-900 group-hover:text-blue-600 transition-colors',
+            'font-medium text-foreground group-hover:text-primary transition-colors',
             'line-clamp-2',
             config.titleClass
           )}
@@ -124,7 +124,7 @@ export const AnimeCard: React.FC<AnimeCardProps> = ({
           {anime.title}
         </h3>
         {anime.season && (
-          <p className="text-xs text-gray-500 mt-auto">{formatSeason(anime.season)}</p>
+          <p className="text-xs text-muted-foreground mt-auto">{formatSeason(anime.season)}</p>
         )}
       </div>
     </div>
