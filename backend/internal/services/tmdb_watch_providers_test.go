@@ -3,10 +3,12 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -146,4 +148,46 @@ func (t *rewriteTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 	}
 	newReq.Header = req.Header
 	return http.DefaultTransport.RoundTrip(newReq)
+}
+
+// フォールバック先のTMDBが応答しない場合でも、呼び出しが長時間ブロックされず、
+// 最初の呼び出しの結果が返ることを確認する（アニメ詳細が約10秒固まっていた不具合の回帰防止）。
+func TestGetJapaneseWatchProvidersWithFallback_FallbackHangs(t *testing.T) {
+	released := make(chan struct{})
+	defer close(released)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/tv/") {
+			// 正常応答だがJPの配信情報は無い → フォールバックが走る
+			json.NewEncoder(w).Encode(emptyWatchProviderResponse())
+			return
+		}
+		// フォールバック先は応答しない（本番でTMDBが無反応だった状況を再現）
+		select {
+		case <-r.Context().Done():
+		case <-released:
+		}
+	}))
+	defer server.Close()
+
+	client := newTestTMDBClient(server.URL)
+
+	start := time.Now()
+	providers, err := client.GetJapaneseWatchProvidersWithFallback(context.Background(), 1575337, "tv")
+	elapsed := time.Since(start)
+
+	assert.NoError(t, err)
+	assert.Empty(t, providers)
+	assert.Less(t, elapsed, tmdbFallbackTimeout+2*time.Second,
+		"フォールバックが無応答でも tmdbFallbackTimeout 程度で打ち切られること")
+}
+
+// API キーがトランスポートエラー経由でログに漏れないことを確認する。
+func TestRedactAPIKey(t *testing.T) {
+	client := &TMDBClient{apiKey: "super-secret-key"}
+
+	err := client.redactAPIKey(errors.New(`Get "https://api.themoviedb.org/3/tv/1/watch/providers?api_key=super-secret-key": context deadline exceeded`))
+
+	assert.NotContains(t, err.Error(), "super-secret-key")
+	assert.Contains(t, err.Error(), "REDACTED")
 }
