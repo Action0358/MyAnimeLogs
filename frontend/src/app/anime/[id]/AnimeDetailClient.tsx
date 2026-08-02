@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils'
 import { getAnimeStatusLabel, type BroadcastStatusLabel } from '@/utils/animeStatus'
 import { translateBroadcastDay } from '@/utils/broadcast'
 import { formatDuration } from '@/utils/duration'
+import { formatSeason } from '@/utils/formatSeason'
 
 const AnimeDetailClient: React.FC = () => {
   const params = useParams()
@@ -252,8 +253,9 @@ const AnimeDetailClient: React.FC = () => {
               {anime.title}
             </h1>
 
+            {/* 作品の属性（放送時期・放送状況・メディア）は塗りのバッジで示す */}
             <div className="flex flex-wrap items-center gap-2">
-              {anime.season && <Badge variant="secondary">{anime.season}</Badge>}
+              {anime.season && <Badge variant="secondary">{formatSeason(anime.season)}</Badge>}
               {statusInfo.label && (
                 <span
                   className={cn(
@@ -264,21 +266,24 @@ const AnimeDetailClient: React.FC = () => {
                   {statusInfo.label}
                 </span>
               )}
-              {anime.media && <Badge variant="outline">{getMediaLabel(anime.media)}</Badge>}
+              {anime.media && <Badge variant="secondary">{getMediaLabel(anime.media)}</Badge>}
             </div>
 
-            {/* ジャンルタグ */}
+            {/* ジャンルは遷移リンクなので、属性バッジと混同しないようラベル付きの枠線チップにする */}
             {anime.genres && anime.genres.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mt-3">
-                {anime.genres.map((genre) => (
-                  <Link
-                    key={genre}
-                    href={`/search?genre=${encodeURIComponent(genre)}`}
-                    className="inline-flex items-center px-2.5 py-0.5 rounded-full border border-border text-xs font-medium text-muted-foreground hover:border-primary hover:text-primary transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                  >
-                    {genre}
-                  </Link>
-                ))}
+              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-2 mt-4">
+                <span className="text-xs font-medium text-muted-foreground">ジャンル</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {anime.genres.map((genre) => (
+                    <Link
+                      key={genre}
+                      href={`/search?genre=${encodeURIComponent(genre)}`}
+                      className="inline-flex items-center px-2.5 py-0.5 rounded-full border border-border text-xs font-medium text-foreground/70 hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                    >
+                      {genre}
+                    </Link>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -300,41 +305,41 @@ const AnimeDetailClient: React.FC = () => {
             <Card>
               <CardContent className="p-4 md:p-6">
                 <SectionHeading as="h2" size="sm">作品情報</SectionHeading>
-                <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2.5 text-sm">
                   {anime.released_on && (
                     <div className="flex">
-                      <dt className="text-muted-foreground w-24 flex-shrink-0">放送開始</dt>
+                      <dt className="text-muted-foreground w-20 flex-shrink-0">放送開始</dt>
                       <dd className="text-foreground">{formatReleasedOn(anime.released_on)}</dd>
                     </div>
                   )}
                   {anime.broadcast_day && (
                     <div className="flex">
-                      <dt className="text-muted-foreground w-24 flex-shrink-0">放送日</dt>
+                      <dt className="text-muted-foreground w-20 flex-shrink-0">放送日</dt>
                       <dd className="text-foreground">{translateBroadcastDay(anime.broadcast_day)}</dd>
                     </div>
                   )}
                   {anime.broadcast_time && (
                     <div className="flex">
-                      <dt className="text-muted-foreground w-24 flex-shrink-0">放送時間</dt>
+                      <dt className="text-muted-foreground w-20 flex-shrink-0">放送時間</dt>
                       <dd className="text-foreground">{anime.broadcast_time}</dd>
                     </div>
                   )}
                   {/* 映画の上映時間 */}
                   {anime.media === 'movie' && anime.duration_minutes && (
                     <div className="flex">
-                      <dt className="text-muted-foreground w-24 flex-shrink-0">上映時間</dt>
+                      <dt className="text-muted-foreground w-20 flex-shrink-0">上映時間</dt>
                       <dd className="text-foreground">{formatDuration(anime.duration_minutes)}</dd>
                     </div>
                   )}
                   {anime.media && (
                     <div className="flex">
-                      <dt className="text-muted-foreground w-24 flex-shrink-0">メディア</dt>
+                      <dt className="text-muted-foreground w-20 flex-shrink-0">メディア</dt>
                       <dd className="text-foreground">{getMediaLabel(anime.media)}</dd>
                     </div>
                   )}
                   {anime.official_site_url && (
                     <div className="flex sm:col-span-2">
-                      <dt className="text-muted-foreground w-24 flex-shrink-0">公式サイト</dt>
+                      <dt className="text-muted-foreground w-20 flex-shrink-0">公式サイト</dt>
                       <dd className="min-w-0">
                         <a
                           href={anime.official_site_url}
