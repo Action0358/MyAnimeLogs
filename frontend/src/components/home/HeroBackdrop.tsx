@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { animeApi } from '@/lib/api/annict';
+import { currentSeasonAnimeQuery } from '@/lib/queries/currentSeasonAnime';
 
 /** 背景に敷くタイル数（レスポンシブで表示数を絞る） */
 const BACKDROP_TILE_COUNT = 12;
@@ -20,15 +20,10 @@ const tileVisibilityClass = (index: number): string => {
  * ヒーロー背景。今期アニメのカバー画像をタイル状に敷き、
  * ぼかし＋primaryトーンのオーバーレイで前景テキストの可読性を確保する。
  *
- * queryKeyは CurrentSeasonAnime と共有しているため、追加のAPIリクエストは発生しない。
+ * クエリ定義は CurrentSeasonAnime と共有しているため、追加のAPIリクエストは発生しない。
  */
 const HeroBackdrop: React.FC = () => {
-  const { data } = useQuery({
-    queryKey: ['currentSeasonAnime'],
-    queryFn: () => animeApi.getCurrentSeasonAnimes(20),
-    staleTime: 1000 * 60 * 15,
-    gcTime: 1000 * 60 * 30,
-  });
+  const { data } = useQuery(currentSeasonAnimeQuery);
 
   const tiles = (data?.animes ?? [])
     .map((anime) => ({

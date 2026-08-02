@@ -102,6 +102,12 @@ export const POPULAR_ANIME_LIMIT = 100
 export const CURRENT_SEASON_ANIME_LIMIT = 100
 
 /**
+ * トップページで表示する今期アニメの取得上限
+ * 一覧ページ（CURRENT_SEASON_ANIME_LIMIT）とは別枠で、カルーセルとヒーロー背景が共有する
+ */
+export const HOME_CURRENT_SEASON_ANIME_LIMIT = 20
+
+/**
  * アニメのステータス型
  */
 export type AnimeStatus = 'airing' | 'finished' | 'upcoming'
