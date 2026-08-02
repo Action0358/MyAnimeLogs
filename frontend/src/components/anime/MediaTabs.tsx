@@ -24,7 +24,7 @@ export const MediaTabs: React.FC<MediaTabsProps> = ({
 }) => (
   <div
     className={cn(
-      'flex gap-1.5 pb-1 overflow-x-auto scrollbar-hide touch-pan-x',
+      'flex gap-1.5 pb-3 border-b border-border overflow-x-auto scrollbar-hide touch-pan-x',
       className
     )}
     role="tablist"
