@@ -41,10 +41,10 @@ export const SortDropdown: React.FC<SortDropdownProps> = ({
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          'inline-flex items-center justify-between gap-2 px-4 py-2',
-          'bg-white border border-gray-300 rounded-lg',
-          'text-sm text-gray-700 hover:bg-gray-50',
-          'focus:outline-none focus:ring-2 focus:ring-blue-500',
+          'inline-flex items-center justify-between gap-2 h-[38px] px-3.5',
+          'bg-background border border-input rounded-lg',
+          'text-sm font-medium text-foreground hover:bg-muted',
+          'focus:outline-none focus:ring-2 focus:ring-ring',
           'min-w-[140px]'
         )}
         aria-haspopup="listbox"
@@ -63,7 +63,7 @@ export const SortDropdown: React.FC<SortDropdownProps> = ({
 
       {isOpen && (
         <div
-          className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg"
+          className="absolute z-10 w-full mt-1 bg-popover border border-border rounded-lg shadow-lg"
           role="listbox"
         >
           <ul className="py-1">
@@ -75,8 +75,8 @@ export const SortDropdown: React.FC<SortDropdownProps> = ({
                 className={cn(
                   'px-4 py-2 text-sm cursor-pointer',
                   option.value === value
-                    ? 'bg-blue-50 text-blue-700'
-                    : 'text-gray-700 hover:bg-gray-50'
+                    ? 'bg-primary/10 text-primary font-semibold'
+                    : 'text-popover-foreground hover:bg-muted'
                 )}
                 onClick={() => {
                   onChange(option.value)

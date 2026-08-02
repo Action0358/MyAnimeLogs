@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import { ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SEASONS, GENRES } from '@/constants/search'
 
@@ -12,8 +13,47 @@ export interface FilterPanelProps {
   onGenreChange: (genre: string | undefined) => void
   onStatusChange: (status: 'airing' | 'finished' | 'not_yet_aired' | undefined) => void
   onClear: () => void
+  /** 'inline': デスクトップツールバー用の横並びチップ / 'sheet': モバイルシート用の縦並び+ラベル付き */
+  variant?: 'inline' | 'sheet'
   className?: string
 }
+
+const STATUS_VALUES = ['airing', 'finished', 'not_yet_aired'] as const
+
+const STATUS_LABELS: Record<(typeof STATUS_VALUES)[number], string> = {
+  airing: '放送中',
+  finished: '完結',
+  not_yet_aired: '放送予定',
+}
+
+interface ChipSelectProps {
+  ariaLabel: string
+  value: string
+  options: { value: string; label: string }[]
+  onChange: (value: string) => void
+}
+
+const ChipSelect: React.FC<ChipSelectProps> = ({ ariaLabel, value, options, onChange }) => (
+  <div className="relative inline-flex items-center">
+    <select
+      aria-label={ariaLabel}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className={cn(
+        'h-[38px] pl-3.5 pr-8 rounded-lg border border-input bg-background',
+        'text-sm font-medium text-foreground appearance-none cursor-pointer',
+        'focus:outline-none focus:ring-2 focus:ring-ring'
+      )}
+    >
+      {options.map((opt) => (
+        <option key={opt.value} value={opt.value}>
+          {opt.label}
+        </option>
+      ))}
+    </select>
+    <ChevronDown className="w-3.5 h-3.5 text-muted-foreground absolute right-2.5 pointer-events-none" />
+  </div>
+)
 
 export const FilterPanel: React.FC<FilterPanelProps> = ({
   selectedSeason,
@@ -23,33 +63,33 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
   onGenreChange,
   onStatusChange,
   onClear,
+  variant = 'inline',
   className,
 }) => {
   const hasFilters = selectedSeason || selectedGenre || selectedStatus
 
-  return (
-    <div className={cn('bg-white border border-gray-200 rounded-lg p-4', className)}>
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-semibold text-gray-900">フィルター</h3>
-        {hasFilters && (
-          <button
-            type="button"
-            onClick={onClear}
-            className="text-sm text-blue-600 hover:text-blue-700"
-          >
-            クリア
-          </button>
-        )}
-      </div>
+  if (variant === 'sheet') {
+    return (
+      <div className={cn('space-y-4', className)}>
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-foreground">フィルター</h3>
+          {hasFilters && (
+            <button
+              type="button"
+              onClick={onClear}
+              className="text-sm text-primary hover:text-primary/80"
+            >
+              クリア
+            </button>
+          )}
+        </div>
 
-      <div className="space-y-4">
-        {/* 放送時期 */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">放送時期</label>
+          <label className="block text-sm font-medium text-foreground mb-2">放送時期</label>
           <select
             value={selectedSeason || ''}
             onChange={(e) => onSeasonChange(e.target.value || undefined)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-input bg-background rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           >
             <option value="">すべて</option>
             {SEASONS.map((season) => (
@@ -60,13 +100,12 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
           </select>
         </div>
 
-        {/* ジャンル */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">ジャンル</label>
+          <label className="block text-sm font-medium text-foreground mb-2">ジャンル</label>
           <select
             value={selectedGenre || ''}
             onChange={(e) => onGenreChange(e.target.value || undefined)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-input bg-background rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           >
             <option value="">すべて</option>
             {GENRES.map((genre) => (
@@ -77,61 +116,69 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
           </select>
         </div>
 
-        {/* 放送状態 */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">放送状態</label>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => onStatusChange(undefined)}
-              className={cn(
-                'flex-1 px-3 py-2 text-sm rounded-lg border transition-colors',
-                !selectedStatus
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-              )}
-            >
-              すべて
-            </button>
-            <button
-              type="button"
-              onClick={() => onStatusChange('airing')}
-              className={cn(
-                'flex-1 px-3 py-2 text-sm rounded-lg border transition-colors',
-                selectedStatus === 'airing'
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-              )}
-            >
-              放送中
-            </button>
-            <button
-              type="button"
-              onClick={() => onStatusChange('finished')}
-              className={cn(
-                'flex-1 px-3 py-2 text-sm rounded-lg border transition-colors',
-                selectedStatus === 'finished'
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-              )}
-            >
-              完結
-            </button>
-            <button
-              type="button"
-              onClick={() => onStatusChange('not_yet_aired')}
-              className={cn(
-                'flex-1 px-3 py-2 text-sm rounded-lg border transition-colors',
-                selectedStatus === 'not_yet_aired'
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-              )}
-            >
-              放送予定
-            </button>
-          </div>
+          <label className="block text-sm font-medium text-foreground mb-2">放送状態</label>
+          <select
+            value={selectedStatus || ''}
+            onChange={(e) =>
+              onStatusChange(
+                (e.target.value || undefined) as 'airing' | 'finished' | 'not_yet_aired' | undefined
+              )
+            }
+            className="w-full px-3 py-2 border border-input bg-background rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            <option value="">すべて</option>
+            {STATUS_VALUES.map((status) => (
+              <option key={status} value={status}>
+                {STATUS_LABELS[status]}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
+    )
+  }
+
+  return (
+    <div className={cn('flex items-center gap-2.5 flex-wrap', className)}>
+      <ChipSelect
+        ariaLabel="放送時期"
+        value={selectedSeason || ''}
+        options={[
+          { value: '', label: '放送時期：すべて' },
+          ...SEASONS.map((season) => ({ value: season, label: season })),
+        ]}
+        onChange={(v) => onSeasonChange(v || undefined)}
+      />
+      <ChipSelect
+        ariaLabel="ジャンル"
+        value={selectedGenre || ''}
+        options={[
+          { value: '', label: 'ジャンル：すべて' },
+          ...GENRES.map((genre) => ({ value: genre, label: genre })),
+        ]}
+        onChange={(v) => onGenreChange(v || undefined)}
+      />
+      <ChipSelect
+        ariaLabel="放送状態"
+        value={selectedStatus || ''}
+        options={[
+          { value: '', label: '放送状態：すべて' },
+          ...STATUS_VALUES.map((status) => ({ value: status, label: STATUS_LABELS[status] })),
+        ]}
+        onChange={(v) =>
+          onStatusChange((v || undefined) as 'airing' | 'finished' | 'not_yet_aired' | undefined)
+        }
+      />
+      {hasFilters && (
+        <button
+          type="button"
+          onClick={onClear}
+          className="text-sm text-primary hover:text-primary/80 whitespace-nowrap"
+        >
+          クリア
+        </button>
+      )}
     </div>
   )
 }
