@@ -4,6 +4,7 @@ import React from 'react'
 import { cn } from '@/lib/utils'
 import { AnimeCard } from './AnimeCard'
 import { SkeletonCard } from './SkeletonCard'
+import { EmptyState } from '@/components/ui/EmptyState'
 import type { Anime } from '@/lib/api/generated/myanimelogs'
 
 export interface AnimeGridProps {
@@ -48,7 +49,7 @@ export const AnimeGrid: React.FC<AnimeGridProps> = ({
   if (isLoading && animes.length === 0) {
     return (
       <div className={className}>
-        <div className={cn('grid gap-2 sm:gap-4', gridCols)}>
+        <div className={cn('grid gap-2 sm:gap-4 md:gap-5 lg:gap-6', gridCols)}>
           {Array.from({ length: 12 }).map((_, i) => (
             <SkeletonCard key={i} />
           ))}
@@ -58,17 +59,12 @@ export const AnimeGrid: React.FC<AnimeGridProps> = ({
   }
 
   if (!isLoading && animes.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 text-center">
-        <span className="text-6xl mb-4">🔍</span>
-        <p className="text-gray-500 text-lg">{emptyMessage}</p>
-      </div>
-    )
+    return <EmptyState title={emptyMessage} icon={<span className="text-6xl">🔍</span>} />
   }
 
   return (
     <div className={className}>
-      <div className={cn('grid gap-2 sm:gap-4', gridCols)}>
+      <div className={cn('grid gap-2 sm:gap-4 md:gap-5 lg:gap-6', gridCols)}>
         {animes.map((anime) => (
           <AnimeCard key={anime.id} anime={anime} size={cardSize} />
         ))}
@@ -80,7 +76,7 @@ export const AnimeGrid: React.FC<AnimeGridProps> = ({
         <div className="flex justify-center mt-8">
           <button
             onClick={onLoadMore}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
           >
             もっと見る
           </button>
