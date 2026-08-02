@@ -67,14 +67,21 @@ const AnimeDetailClient: React.FC = () => {
   // ローディング表示
   if (isNaN(animeId) || isLoadingAnime) {
     return (
-      <Container className="py-12">
-        <div className="animate-pulse max-w-4xl mx-auto">
-          <div className="flex flex-col md:flex-row gap-8">
-            <div className="w-full md:w-64 aspect-[3/4] bg-muted rounded-lg" />
-            <div className="flex-1 space-y-4">
-              <div className="h-8 bg-muted rounded w-3/4" />
-              <div className="h-4 bg-muted rounded w-1/4" />
-              <div className="h-24 bg-muted rounded" />
+      <Container size="xl" className="py-8">
+        <div className="animate-pulse">
+          <div className="h-4 bg-muted rounded w-48 mb-6" />
+          <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-6 lg:gap-10 items-start">
+            <div className="space-y-5">
+              <div className="w-40 sm:w-48 lg:w-full aspect-[3/4] bg-muted rounded-lg mx-auto sm:mx-0" />
+              <div className="h-9 bg-muted rounded" />
+            </div>
+            <div className="space-y-6">
+              <div className="space-y-3">
+                <div className="h-8 bg-muted rounded w-3/4" />
+                <div className="h-5 bg-muted rounded w-1/3" />
+              </div>
+              <div className="h-32 bg-muted rounded-lg" />
+              <div className="h-24 bg-muted rounded-lg" />
             </div>
           </div>
         </div>
@@ -182,7 +189,7 @@ const AnimeDetailClient: React.FC = () => {
       {/* 2カラム: 左=カバー画像と操作 / 右=テキスト情報 */}
       <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-6 lg:gap-10 items-start">
         {/* 左カラム（PCでは追従表示） */}
-        <div className="lg:sticky lg:top-28 space-y-5">
+        <div className="lg:sticky lg:top-6 space-y-5">
           <div className="flex flex-col sm:flex-row lg:flex-col gap-5">
             {/* カバー画像 */}
             <div className="w-40 sm:w-48 lg:w-full flex-shrink-0 mx-auto sm:mx-0">
