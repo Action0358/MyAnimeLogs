@@ -1,9 +1,131 @@
 package utils
 
 import (
+	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
+	"time"
 )
+
+// seasonOrder defines the chronological order of seasons within a year
+var seasonOrder = []string{"winter", "spring", "summer", "autumn"}
+
+// seasonIndex maps season names to their chronological order within a year
+var seasonIndex = map[string]int{"winter": 0, "spring": 1, "summer": 2, "autumn": 3}
+
+// SeasonForTime returns the season string for a given time (e.g., "2025-autumn")
+// This is a pure function that takes time as input for easier testing.
+// Shared by the scheduler and AnimeService so season boundaries stay in one place.
+func SeasonForTime(t time.Time) string {
+	year := t.Year()
+	month := t.Month()
+
+	var season string
+	switch {
+	case month >= 1 && month <= 3:
+		season = "winter"
+	case month >= 4 && month <= 6:
+		season = "spring"
+	case month >= 7 && month <= 9:
+		season = "summer"
+	default:
+		season = "autumn"
+	}
+
+	return fmt.Sprintf("%d-%s", year, season)
+}
+
+// PreviousSeasonForTime returns the previous season string for a given time
+// This is a pure function that takes time as input for easier testing
+func PreviousSeasonForTime(t time.Time) string {
+	year := t.Year()
+	month := t.Month()
+
+	var season string
+	switch {
+	case month >= 1 && month <= 3:
+		season = "autumn"
+		year--
+	case month >= 4 && month <= 6:
+		season = "winter"
+	case month >= 7 && month <= 9:
+		season = "spring"
+	default:
+		season = "summer"
+	}
+
+	return fmt.Sprintf("%d-%s", year, season)
+}
+
+// GenerateAllSeasons generates all season strings from startYear-spring to endSeason
+// For startYear=1979, it starts from 1979-spring (skipping 1979-winter)
+// Returns empty slice if endSeason is before the effective start season (startYear-spring)
+func GenerateAllSeasons(startYear, endYear int, endSeason string) []string {
+	var result []string
+
+	// Effective start season is spring of startYear (winter is skipped)
+	effectiveStartSeason := fmt.Sprintf("%d-spring", startYear)
+
+	// Check if endSeason is before effective start season
+	// This handles cases like GenerateAllSeasons(2024, 2024, "2024-winter")
+	if IsSeasonBefore(endSeason, effectiveStartSeason) {
+		return result
+	}
+
+	for year := startYear; year <= endYear; year++ {
+		for _, season := range seasonOrder {
+			// Skip winter of the start year (e.g., 1979-winter)
+			if year == startYear && season == "winter" {
+				continue
+			}
+
+			seasonStr := fmt.Sprintf("%d-%s", year, season)
+			result = append(result, seasonStr)
+
+			// Stop if we've reached the end season
+			if seasonStr == endSeason {
+				return result
+			}
+		}
+	}
+
+	return result
+}
+
+// IsSeasonBefore returns true if season1 is chronologically before season2.
+// Malformed input (unparseable "YYYY-season" or an unknown season name) is treated
+// as "not before" and returns false, so callers never rely on zero-value fallbacks.
+func IsSeasonBefore(season1, season2 string) bool {
+	// Parse "YYYY-season" with strings.Cut + strconv.Atoi (faster and more
+	// idiomatic than fmt.Sscanf, which relies on reflection/format parsing).
+	year1Str, seasonName1, found1 := strings.Cut(season1, "-")
+	year2Str, seasonName2, found2 := strings.Cut(season2, "-")
+	if !found1 || !found2 {
+		return false
+	}
+
+	year1, err1 := strconv.Atoi(year1Str)
+	year2, err2 := strconv.Atoi(year2Str)
+	if err1 != nil || err2 != nil {
+		return false
+	}
+
+	// Validate season names before comparing years, so unknown names return
+	// false even when the years differ (honors the "malformed -> false" contract).
+	idx1, ok1 := seasonIndex[seasonName1]
+	idx2, ok2 := seasonIndex[seasonName2]
+	if !ok1 || !ok2 {
+		return false
+	}
+
+	if year1 != year2 {
+		return year1 < year2
+	}
+
+	// Compare season order within the same year
+	return idx1 < idx2
+}
 
 // seasonMapping maps Japanese season names to English
 var seasonMapping = map[string]string{

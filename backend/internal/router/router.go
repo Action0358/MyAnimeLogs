@@ -84,9 +84,9 @@ func Setup(db *database.DB, cfg *config.Config, syncScheduler handlers.SyncSched
 		api.GET("/annict/works", annictHandler.GetWorksBySeason)
 		api.GET("/annict/popular-works", annictHandler.GetPopularWorks)
 
-		// 管理者ルート（認証必須）
+		// 管理者ルート（認証 + 管理者ロール必須）
 		admin := api.Group("/admin")
-		admin.Use(authRequired)
+		admin.Use(authRequired, middleware.RequireAdmin())
 		{
 			admin.POST("/sync/season", annictHandler.SyncWorksBySeason)
 			admin.POST("/sync/popular", annictHandler.SyncPopularWorks)

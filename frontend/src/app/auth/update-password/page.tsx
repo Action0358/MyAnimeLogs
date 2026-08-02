@@ -4,9 +4,12 @@ import { Suspense, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { Container } from '@/components/layout'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
+import { AuthCard } from '@/components/auth/AuthCard'
+import { AuthMessages } from '@/components/auth/AuthMessages'
+import { AuthFormSkeleton } from '@/components/auth/AuthFormSkeleton'
+import { Container } from '@/components/layout'
 
 type Status = 'verifying' | 'ready' | 'invalid' | 'submitting'
 
@@ -32,7 +35,7 @@ const exchangeCodeOnce = (code: string): Promise<ExchangeResult> => {
   return cachedExchange.promise
 }
 
-const LoadingView: React.FC<{ message?: string }> = ({ message = '読み込み中...' }) => (
+const LoadingView: React.FC<{ message?: string }> = ({ message = 'リンクを確認中...' }) => (
   <Container className="py-24">
     <div className="flex flex-col items-center justify-center gap-4">
       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
@@ -115,7 +118,7 @@ const UpdatePasswordInner: React.FC = () => {
   }
 
   if (status === 'verifying') {
-    return <LoadingView message="リンクを確認中..." />
+    return <LoadingView />
   }
 
   if (status === 'invalid') {
@@ -139,22 +142,12 @@ const UpdatePasswordInner: React.FC = () => {
   }
 
   return (
-    <Container className="py-12">
-      <div className="max-w-md mx-auto">
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">新しいパスワードを設定</h1>
-          <p className="text-gray-600 text-sm">
-            新しいパスワードを入力してください。
-          </p>
-        </div>
-
-        <div className="bg-white rounded-lg border border-gray-200 p-8 shadow-sm">
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {error && (
-              <div className="p-4 bg-red-50 border border-red-200 rounded-md">
-                <p className="text-sm text-red-600">{error}</p>
-              </div>
-            )}
+    <AuthCard
+      title="新しいパスワードを設定"
+      subtitle="新しいパスワードを入力してください。"
+    >
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <AuthMessages error={error} />
 
             <Input
               label="新しいパスワード"
@@ -176,25 +169,23 @@ const UpdatePasswordInner: React.FC = () => {
               autoComplete="new-password"
             />
 
-            <Button
-              type="submit"
-              variant="primary"
-              size="lg"
-              isLoading={status === 'submitting'}
-              className="w-full"
-            >
-              パスワードを更新
-            </Button>
-          </form>
+        <Button
+          type="submit"
+          variant="primary"
+          size="lg"
+          isLoading={status === 'submitting'}
+          className="w-full"
+        >
+          パスワードを更新
+        </Button>
+      </form>
 
-          <div className="mt-6 pt-6 border-t border-gray-200 text-center">
-            <Link href="/login" className="text-sm text-blue-600 hover:text-blue-700 transition-colors">
-              ログインページに戻る
-            </Link>
-          </div>
-        </div>
+      <div className="mt-6 pt-6 border-t border-gray-200 text-center">
+        <Link href="/login" className="text-sm text-blue-600 hover:text-blue-700 transition-colors">
+          ログインページに戻る
+        </Link>
       </div>
-    </Container>
+    </AuthCard>
   )
 }
 

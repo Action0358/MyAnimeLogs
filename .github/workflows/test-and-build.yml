@@ -2,7 +2,7 @@ name: Test and Build
 
 on:
   pull_request:
-    branches: [ main, staging ]
+    branches: [ main, staging, develop ]
 
 jobs:
   backend-test:
@@ -14,7 +14,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: '1.25'
 
       - name: Run tests
         working-directory: ./backend
@@ -42,3 +42,34 @@ jobs:
       - name: Run tests
         working-directory: ./frontend
         run: npm test
+
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # backend: 呼び出し済み脆弱性を検出したらCIを落とす(ブロッキング)
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - name: Run govulncheck (backend)
+        working-directory: ./backend
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
+      # frontend: 大半がビルドツール系の推移的依存のためレポートのみ(非ブロッキング)
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Run npm audit (frontend, report-only)
+        working-directory: ./frontend
+        continue-on-error: true
+        run: npm audit

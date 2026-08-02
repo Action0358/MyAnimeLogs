@@ -1,18 +1,15 @@
 'use client'
 
-import React, { useState, useRef } from 'react'
-import { useRouter } from 'next/navigation'
-import { useAuth } from '@/contexts/AuthContext'
+import React, { useRef } from 'react'
 import { Container } from '@/components/layout'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
-import { put, uploadFile, ApiClientError } from '@/lib/api/client'
-import { buildIconUrl } from '@/lib/utils'
-
-// Validation constants
-const MAX_NAME_LENGTH = 50
-const MAX_DESCRIPTION_LENGTH = 500
-const MAX_FAVORITE_ANIME_LENGTH = 200
+import {
+  MAX_NAME_LENGTH,
+  MAX_DESCRIPTION_LENGTH,
+  MAX_FAVORITE_ANIME_LENGTH,
+} from '@/lib/profile'
+import { useProfileForm } from '@/hooks/useProfileForm'
 
 // Shared styles
 const TEXTAREA_CLASS_NAME =
@@ -20,207 +17,29 @@ const TEXTAREA_CLASS_NAME =
 const HELPER_TEXT_CLASS_NAME = 'text-sm text-gray-500 mt-2 px-2'
 
 export const ProfileEditContent: React.FC = () => {
-  const { user, updateUser } = useAuth()
-  const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // 初期値を保持（変更検知用）
-  const [initialValues] = useState(() => ({
-    name: user?.name || '',
-    description: user?.description || '',
-    favoriteAnime: user?.favorite_anime || '',
-    snsLink: user?.sns_link || '',
-  }))
-
-  const [name, setName] = useState(initialValues.name)
-  const [description, setDescription] = useState(initialValues.description)
-  const [favoriteAnime, setFavoriteAnime] = useState(
-    initialValues.favoriteAnime
-  )
-  const [snsLink, setSnsLink] = useState(initialValues.snsLink)
-
-  const [iconFile, setIconFile] = useState<File | null>(null)
-  const [iconPreview, setIconPreview] = useState<string | null>(
-    buildIconUrl(user?.icon)
-  )
-  const [error, setError] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const [isUploadingIcon, setIsUploadingIcon] = useState(false)
-  const [hasChanges, setHasChanges] = useState(false)
-
-  // 画像アップロードAPI
-  const uploadIcon = async (file: File): Promise<void> => {
-    setIsUploadingIcon(true)
-    try {
-      const formData = new FormData()
-      formData.append('icon', file)
-
-      const data = await uploadFile<{ user: any }>(
-        '/api/users/me/icon',
-        formData
-      )
-      updateUser(data.user)
-    } catch (err) {
-      // エラーの型情報を保持したまま再スロー
-      throw err
-    } finally {
-      setIsUploadingIcon(false)
-    }
-  }
-
-  // 変更検知（初期値と現在値を比較）
-  const checkForChanges = (
-    newName: string,
-    newDescription: string,
-    newFavoriteAnime: string,
-    newSnsLink: string,
-    newIconFile: File | null = iconFile
-  ) => {
-    const nameChanged = newName !== initialValues.name
-    const descriptionChanged = newDescription !== initialValues.description
-    const favoriteAnimeChanged =
-      newFavoriteAnime !== initialValues.favoriteAnime
-    const snsLinkChanged = newSnsLink !== initialValues.snsLink
-    const iconChanged = newIconFile !== null
-
-    setHasChanges(
-      nameChanged ||
-        descriptionChanged ||
-        favoriteAnimeChanged ||
-        snsLinkChanged ||
-        iconChanged
-    )
-  }
-
-  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newName = e.target.value
-    setName(newName)
-    checkForChanges(newName, description, favoriteAnime, snsLink)
-  }
-
-  const handleDescriptionChange = (
-    e: React.ChangeEvent<HTMLTextAreaElement>
-  ) => {
-    const newDescription = e.target.value
-    setDescription(newDescription)
-    checkForChanges(name, newDescription, favoriteAnime, snsLink)
-  }
-
-  const handleFavoriteAnimeChange = (
-    e: React.ChangeEvent<HTMLTextAreaElement>
-  ) => {
-    const newFavoriteAnime = e.target.value
-    setFavoriteAnime(newFavoriteAnime)
-    checkForChanges(name, description, newFavoriteAnime, snsLink)
-  }
-
-  const handleSnsLinkChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newSnsLink = e.target.value
-    setSnsLink(newSnsLink)
-    checkForChanges(name, description, favoriteAnime, newSnsLink)
-  }
-
-  const handleIconChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    // ファイルサイズチェック（5MB以下）
-    if (file.size > 5 * 1024 * 1024) {
-      setError('画像サイズは5MB以下にしてください')
-      return
-    }
-
-    // ファイル形式チェック
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
-    if (!allowedTypes.includes(file.type)) {
-      setError('JPEG、PNG、GIF、WebP形式の画像を選択してください')
-      return
-    }
-
-    setIconFile(file)
-    setError('')
-
-    // プレビュー生成
-    const reader = new FileReader()
-    reader.onloadend = () => {
-      setIconPreview(reader.result as string)
-    }
-    reader.readAsDataURL(file)
-
-    checkForChanges(name, description, favoriteAnime, snsLink, file)
-  }
+  const {
+    name,
+    description,
+    favoriteAnime,
+    snsLink,
+    iconPreview,
+    error,
+    isLoading,
+    isUploadingIcon,
+    hasChanges,
+    handleNameChange,
+    handleDescriptionChange,
+    handleFavoriteAnimeChange,
+    handleSnsLinkChange,
+    handleIconChange,
+    handleSubmit,
+    handleCancel,
+  } = useProfileForm()
 
   const handleIconClick = () => {
     fileInputRef.current?.click()
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-
-    // バリデーション
-    if (!name.trim()) {
-      setError('ユーザー名を入力してください')
-      return
-    }
-
-    if (name.length > MAX_NAME_LENGTH) {
-      setError(`ユーザー名は${MAX_NAME_LENGTH}文字以内で入力してください`)
-      return
-    }
-
-    if (description.length > MAX_DESCRIPTION_LENGTH) {
-      setError(`自己紹介は${MAX_DESCRIPTION_LENGTH}文字以内で入力してください`)
-      return
-    }
-
-    setIsLoading(true)
-
-    try {
-      // 1. 画像がある場合は先にアップロード
-      if (iconFile) {
-        await uploadIcon(iconFile)
-      }
-
-      // 2. プロフィール情報を更新
-      const requestBody = {
-        name: name.trim(),
-        description: description.trim(),
-        favorite_anime: favoriteAnime.trim() || null,
-        sns_link: snsLink.trim() || null,
-      }
-
-      const data = await put<{ user: any }>('/api/users/me', requestBody)
-      const updatedUser = data.user || data
-
-      // コンテキストのユーザー情報を更新
-      updateUser(updatedUser)
-
-      // マイページに戻る
-      router.push('/mypage')
-    } catch (err) {
-      if (err instanceof ApiClientError) {
-        setError(err.message)
-      } else {
-        setError(
-          err instanceof Error
-            ? err.message
-            : 'プロフィールの更新に失敗しました'
-        )
-      }
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const handleCancel = () => {
-    if (hasChanges) {
-      if (confirm('変更内容が保存されていません。破棄してもよろしいですか？')) {
-        router.push('/mypage')
-      }
-    } else {
-      router.push('/mypage')
-    }
   }
 
   return (
