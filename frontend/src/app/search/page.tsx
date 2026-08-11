@@ -128,7 +128,7 @@ function SearchContent() {
             recentSearches={searchHistory}
             onClearHistory={clearHistory}
             initialValue={filters.keyword || ''}
-            className="max-w-2xl"
+            className="max-w-2xl lg:max-w-[650px]"
           />
         </div>
 
