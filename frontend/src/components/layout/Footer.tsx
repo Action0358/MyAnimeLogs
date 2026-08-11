@@ -48,8 +48,13 @@ const Footer: React.FC = () => {
                   サイトマップ
                 </h3>
               </FooterColumnHeader>
-              {/* 項目数が多いため2列に流し、フッターが縦に伸びるのを防ぐ */}
-              <ul className="grid grid-cols-2 gap-x-6 gap-y-2">
+              {/*
+                項目数が多いため2列に流し、フッターが縦に伸びるのを防ぐ。
+                grid-flow-col + grid-rows-4 で「横→縦」ではなく「縦→横」に
+                並べることで、FOOTER_LINKS の並び順どおりに上から読め、
+                今期アニメ・人気アニメ・お気に入りが同じ列で隣接する。
+              */}
+              <ul className="grid grid-rows-4 grid-flow-col gap-x-6 gap-y-2">
                 {FOOTER_LINKS.map((item) => (
                   <li key={item.href}>
                     <Link
