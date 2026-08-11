@@ -274,28 +274,37 @@ const AnimeDetailClient: React.FC = () => {
             )}
           </div>
 
-          {/* お気に入り・視聴ステータス操作。ポスターと横幅を揃える */}
-          <div className="mt-4 lg:mt-5 flex flex-col gap-2">
+          {/* お気に入り・視聴ステータス操作。
+              2つを横並びにし、flex-1 で等分してポスターの横幅にちょうど収める。
+              高さは h-11 で揃える（StatusSelector は内部の button が h-full で追従） */}
+          <div className="mt-4 lg:mt-5 flex items-stretch gap-2">
             {isAuthenticated ? (
               <>
-                <FavoriteButton
-                  isFavorite={isFavorite(animeId)}
-                  onToggle={() =>
-                    isFavorite(animeId)
-                      ? removeFavorite(animeId)
-                      : addFavorite(animeId)
-                  }
-                  size="sm"
-                />
+                {/* flex-1 は padding/border を基準サイズに加算するため、
+                    button を直接 flex アイテムにすると StatusSelector 側と幅がずれる。
+                    余白を持たない div で包んで両者を対称にする */}
+                <div className="flex-1 min-w-0 h-11">
+                  <FavoriteButton
+                    isFavorite={isFavorite(animeId)}
+                    onToggle={() =>
+                      isFavorite(animeId)
+                        ? removeFavorite(animeId)
+                        : addFavorite(animeId)
+                    }
+                    size="sm"
+                    className="w-full h-full justify-center"
+                  />
+                </div>
                 <StatusSelector
                   currentStatus={getStatus(animeId)}
                   onStatusChange={(status) => updateStatus(animeId, status)}
                   onRemove={() => removeStatus(animeId)}
                   size="sm"
+                  className="flex-1 min-w-0 h-11"
                 />
               </>
             ) : (
-              <Link href="/login" className="block">
+              <Link href="/login" className="block flex-1">
                 <Button className="w-full h-12">ログインしてお気に入り・視聴管理</Button>
               </Link>
             )}
