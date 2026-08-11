@@ -2,6 +2,9 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import type { Route } from 'next'
+import { Settings } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { Container } from '@/components/layout'
 import { Button } from '@/components/ui/Button'
@@ -9,6 +12,7 @@ import {
   WatchStatusTabs,
   WatchStatusCard,
   WatchStatusTabKey,
+  WATCH_STATUS_TABS,
   WATCH_STATUS_TAB_LABELS,
 } from '@/components/favorites'
 import { useWatchStatus, WatchStatusAnime } from '@/hooks/useWatchStatus'
@@ -94,33 +98,31 @@ export const MyPageContent: React.FC = () => {
     }
   }, [user])
 
-  // 件数上限を維持したうえで有効な作品を抽出
-  const validItems = useMemo(
-    () => filterValidItems(watchStatuses).slice(0, MAX_WATCH_STATUSES),
-    [watchStatuses]
-  )
+  const allItems = useMemo(() => filterValidItems(watchStatuses), [watchStatuses])
 
-  // ステータスタブごとの件数
+  // ステータスごとの件数。記録量の指標として見せるため、
+  // 表示件数の上限ではなく全件から数える。
   const counts = useMemo(() => {
     const result: Record<WatchStatusTabKey, number> = {
       watching: 0,
       planned: 0,
       completed: 0,
     }
-    validItems.forEach((anime) => {
+    allItems.forEach((anime) => {
       const status = anime.user_watch_status?.status
       if (status && status in result) {
         result[status as WatchStatusStatus]++
       }
     })
     return result
-  }, [validItems])
+  }, [allItems])
 
+  // グリッドの表示は上限を維持する
   const filteredItems = useMemo(() => {
-    return validItems.filter(
-      (anime) => anime.user_watch_status?.status === activeTab
-    )
-  }, [validItems, activeTab])
+    return allItems
+      .filter((anime) => anime.user_watch_status?.status === activeTab)
+      .slice(0, MAX_WATCH_STATUSES)
+  }, [allItems, activeTab])
 
   if (isLoading || watchStatusesLoading) {
     return (
@@ -174,140 +176,176 @@ export const MyPageContent: React.FC = () => {
     return formatDate(date)
   })()
 
+  // 未設定の項目は空欄を並べず、何を追加できるかを示して編集へ誘導する
+  const profileFields = [
+    {
+      label: 'プロフィール',
+      value: user?.description || '',
+      emptyPrompt: '自己紹介を追加',
+      isLink: false,
+    },
+    {
+      label: '好きなアニメ',
+      value: favoriteAnime,
+      emptyPrompt: '作品を追加',
+      isLink: false,
+    },
+    {
+      label: 'SNSリンク',
+      value: snsLink,
+      emptyPrompt: 'リンクを追加',
+      isLink: true,
+    },
+  ]
+
+  const avatar = (
+    <div className="w-16 h-16 md:w-[88px] md:h-[88px] bg-muted rounded-full overflow-hidden flex-shrink-0">
+      {user?.icon && !imageError ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={buildIconUrl(user.icon) || ''}
+          alt={user?.name || 'ユーザーアイコン'}
+          className="w-full h-full object-cover"
+          onError={() => setImageError(true)}
+        />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center">
+          <span className="text-muted-foreground text-3xl md:text-4xl">👤</span>
+        </div>
+      )}
+    </div>
+  )
+
+  const settingsButton = (
+    <button
+      type="button"
+      onClick={() => router.push('/mypage/edit')}
+      className="flex items-center justify-center gap-1.5 h-9 w-9 md:h-[38px] md:w-auto md:px-3.5 flex-shrink-0 border border-border rounded-md bg-card text-sm font-semibold text-foreground hover:bg-muted transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      aria-label="プロフィール設定"
+    >
+      <Settings className="w-[15px] h-[15px] flex-shrink-0" aria-hidden="true" />
+      <span className="hidden md:inline">プロフィール設定</span>
+    </button>
+  )
+
+  const stats = WATCH_STATUS_TABS.map((tab) => ({
+    key: tab.key,
+    label: tab.label,
+    value: counts[tab.key],
+  }))
+
   return (
-    <div className="bg-gray-50 min-h-screen">
-      <Container className="py-8">
-        <div className="max-w-6xl mx-auto">
-          <div className="bg-white rounded-lg shadow-sm">
-            {/* ヘッダー部分 */}
-            <div className="p-4 sm:p-6 border-b border-gray-200">
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-xs sm:text-sm text-gray-500">{registrationDate} 登録</p>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => router.push('/mypage/edit')}
-                  className="text-xs sm:text-sm"
-                >
-                  ⚙️ 設定
-                </Button>
+    <Container size="xl" className="max-w-[1180px] py-8">
+      {/* プロフィールヘッダー。アバター・名前・記録数・設定を1つの行にまとめる */}
+      <div className="flex items-center md:items-start gap-4 md:gap-6 pb-5 md:pb-[26px] border-b border-border">
+        {avatar}
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-col md:flex-row md:items-center md:gap-3">
+            <h1 className="text-lg md:text-2xl font-bold text-foreground truncate">
+              {user?.name}
+            </h1>
+            <p className="text-[11.5px] md:text-[12.5px] text-muted-foreground mt-1 md:mt-0 flex-shrink-0">
+              {registrationDate} 登録
+            </p>
+          </div>
+
+          {/* 記録数。狭い画面では下のカードに出すため隠す */}
+          <div className="hidden md:flex gap-7 mt-4">
+            {stats.map((stat) => (
+              <div key={stat.key}>
+                <div className="text-xl font-bold leading-tight tabular-nums text-foreground">
+                  {stat.value}
+                </div>
+                <div className="text-xs text-muted-foreground mt-[3px]">{stat.label}</div>
               </div>
-
-              {/* プロフィール情報 */}
-              <div className="flex flex-col sm:flex-row items-start sm:space-x-6 space-y-4 sm:space-y-0">
-                {/* 左側: アイコン */}
-                <div className="flex-shrink-0 mx-auto sm:mx-0">
-                  <div className="w-24 h-24 sm:w-32 sm:h-32 bg-gray-100 rounded-full overflow-hidden">
-                    {user?.icon && !imageError ? (
-                      <img
-                        src={buildIconUrl(user.icon) || ''}
-                        alt={user.name}
-                        className="w-full h-full object-cover"
-                        onError={() => setImageError(true)}
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <span className="text-gray-400 text-4xl sm:text-5xl">👤</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* 右側: ユーザー情報とプロフィール詳細 */}
-                <div className="flex-1 w-full">
-                  {/* ユーザー名 */}
-                  <div className="mb-4 sm:mb-6">
-                    <h1 className="text-2xl sm:text-3xl font-bold text-blue-900 mb-3 text-center sm:text-left">
-                      {user?.name}
-                    </h1>
-                  </div>
-
-                  {/* プロフィール詳細 */}
-                  <div className="space-y-3 sm:space-y-4 max-w-3xl">
-                    <div className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                      <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-2">
-                        プロフィール
-                      </h3>
-                      <p className="text-gray-900 whitespace-pre-wrap text-sm leading-relaxed">
-                        {user?.description || '未設定'}
-                      </p>
-                    </div>
-
-                    <div className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                      <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-2">
-                        好きなアニメ
-                      </h3>
-                      <p className="text-gray-900 text-sm leading-relaxed">
-                        {favoriteAnime || '未設定'}
-                      </p>
-                    </div>
-
-                    <div className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                      <h3 className="text-base sm:text-lg font-bold text-gray-900 mb-2">
-                        SNSリンク
-                      </h3>
-                      <div>
-                        {snsLink ? (
-                          <a
-                            href={snsLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-blue-600 hover:underline text-sm break-all"
-                          >
-                            {snsLink}
-                          </a>
-                        ) : (
-                          <p className="text-gray-500 text-sm">未設定</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* 視聴ステータス別タブナビゲーション */}
-            <div className="px-4 sm:px-6">
-              <WatchStatusTabs
-                activeTab={activeTab}
-                onTabChange={setActiveTab}
-                counts={counts}
-              />
-            </div>
-
-            {/* タブコンテンツ */}
-            <div className="p-4 sm:p-6">
-              {filteredItems.length > 0 ? (
-                <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-4">
-                  {filteredItems.map((anime) => (
-                    <WatchStatusCard
-                      key={anime.id}
-                      anime={anime}
-                      status={anime.user_watch_status?.status || 'planned'}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-12">
-                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <span className="text-gray-400 text-3xl">📺</span>
-                  </div>
-                  <p className="text-gray-600 mb-4">
-                    {`「${WATCH_STATUS_TAB_LABELS[activeTab]}」のアニメがありません`}
-                  </p>
-                  <Button
-                    variant="primary"
-                    size="md"
-                    onClick={() => router.push('/')}
-                  >
-                    アニメを探す
-                  </Button>
-                </div>
-              )}
-            </div>
+            ))}
           </div>
         </div>
-      </Container>
-    </div>
+        {settingsButton}
+      </div>
+
+      {/* 記録数（狭い画面）。1行に収めてスクロール量を抑える */}
+      <div className="grid grid-cols-3 gap-2 mt-4 md:hidden">
+        {stats.map((stat) => (
+          <div
+            key={stat.key}
+            className="border border-border rounded-lg py-3 px-2.5 text-center"
+          >
+            <div className="text-lg font-bold leading-tight tabular-nums text-foreground">
+              {stat.value}
+            </div>
+            <div className="text-[11px] text-muted-foreground mt-[3px]">{stat.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* プロフィール項目。未設定は編集への導線にする */}
+      <dl className="grid grid-cols-[88px_1fr] md:grid-cols-[104px_1fr] gap-x-4 md:gap-x-5 gap-y-3 md:gap-y-3.5 py-5 md:py-[22px] mt-4 md:mt-0 border-b border-border text-[12.5px] md:text-[13.5px]">
+        {profileFields.map((field) => (
+          <React.Fragment key={field.label}>
+            <dt className="text-muted-foreground">{field.label}</dt>
+            <dd className="min-w-0">
+              {field.value ? (
+                field.isLink ? (
+                  <a
+                    href={field.value}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline break-all"
+                  >
+                    {field.value}
+                  </a>
+                ) : (
+                  <span className="text-foreground whitespace-pre-wrap break-words">
+                    {field.value}
+                  </span>
+                )
+              ) : (
+                <Link
+                  href={'/mypage/edit' as Route}
+                  className="text-primary font-semibold hover:underline"
+                >
+                  {field.emptyPrompt}
+                </Link>
+              )}
+            </dd>
+          </React.Fragment>
+        ))}
+      </dl>
+
+      {/* 視聴ステータス別タブナビゲーション */}
+      <div className="mt-5 md:mt-[26px] mb-4 md:mb-6">
+        <WatchStatusTabs
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          counts={counts}
+        />
+      </div>
+
+      {/* タブコンテンツ */}
+      {filteredItems.length > 0 ? (
+        <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-x-2.5 gap-y-3.5 md:gap-x-[18px] md:gap-y-5">
+          {filteredItems.map((anime) => (
+            <WatchStatusCard
+              key={anime.id}
+              anime={anime}
+              status={anime.user_watch_status?.status || 'planned'}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-12">
+          <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+            <span className="text-muted-foreground text-3xl">📺</span>
+          </div>
+          <p className="text-muted-foreground mb-4">
+            {`「${WATCH_STATUS_TAB_LABELS[activeTab]}」のアニメがありません`}
+          </p>
+          <Button variant="primary" size="md" onClick={() => router.push('/')}>
+            アニメを探す
+          </Button>
+        </div>
+      )}
+    </Container>
   )
 }
