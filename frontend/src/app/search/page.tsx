@@ -132,16 +132,17 @@ function SearchContent() {
           />
         </div>
 
-        {/* ツールバー: フィルター + 並び替え + 件数（検索ボックスと幅を揃える） */}
-        <div className="flex items-center gap-2.5 flex-wrap pb-4 border-b border-border mb-6 max-w-2xl">
-          {/* デスクトップ: インラインフィルターチップ + 並び替え（操作系を左に集約） */}
-          <FilterPanel {...filterPanelProps} variant="inline" className="hidden lg:flex" />
-          <SortDropdown
-            options={sortOptions}
-            value={filters.sort ?? DEFAULT_SORT}
-            onChange={handleSortChange}
-            className="hidden lg:inline-flex"
-          />
+        {/* ツールバー: フィルター + 並び替え + 件数 */}
+        <div className="flex items-center gap-2.5 flex-wrap pb-4 border-b border-border mb-6">
+          {/* デスクトップ: インラインフィルターチップ + 並び替え（操作系を左に集約、検索ボックスと幅を揃える） */}
+          <div className="hidden lg:flex items-center gap-2.5 flex-wrap max-w-2xl">
+            <FilterPanel {...filterPanelProps} variant="inline" />
+            <SortDropdown
+              options={sortOptions}
+              value={filters.sort ?? DEFAULT_SORT}
+              onChange={handleSortChange}
+            />
+          </div>
 
           {/* モバイル: フィルターボタン */}
           <button
