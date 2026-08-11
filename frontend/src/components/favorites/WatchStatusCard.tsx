@@ -12,7 +12,6 @@ import { withBackParam } from '@/lib/animeListOrigin'
 
 interface WatchStatusCardProps {
   anime: Anime & { id: number } // id is required
-  status: WatchStatusStatus
   isUpdating?: boolean
 }
 
@@ -24,7 +23,6 @@ interface WatchStatusCardProps {
  */
 export const WatchStatusCard: React.FC<WatchStatusCardProps> = ({
   anime,
-  status,
   isUpdating = false,
 }) => {
   const imageUrl =
