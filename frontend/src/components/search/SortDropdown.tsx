@@ -50,7 +50,7 @@ export const SortDropdown: React.FC<SortDropdownProps> = ({
         aria-haspopup="listbox"
         aria-expanded={isOpen}
       >
-        <span>{selectedOption ? `並び替え：${selectedOption.label}` : '並び替え'}</span>
+        <span>{selectedOption?.label || '並び替え'}</span>
         <svg
           className={cn('w-4 h-4 transition-transform', isOpen && 'rotate-180')}
           fill="none"

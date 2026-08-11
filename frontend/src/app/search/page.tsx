@@ -11,6 +11,8 @@ import { useAnimes } from '@/hooks/useAnimes'
 import { useSearch } from '@/hooks/useSearch'
 import { useOnClickOutside } from '@/hooks/useOnClickOutside'
 
+const DEFAULT_SORT = 'year'
+
 /** モバイル用フィルターシート（下からスライドイン） */
 function FilterSheet({
   isOpen,
@@ -136,7 +138,7 @@ function SearchContent() {
           <FilterPanel {...filterPanelProps} variant="inline" className="hidden lg:flex" />
           <SortDropdown
             options={sortOptions}
-            value={filters.sort}
+            value={filters.sort ?? DEFAULT_SORT}
             onChange={handleSortChange}
             className="hidden lg:inline-flex"
           />
@@ -154,7 +156,7 @@ function SearchContent() {
           {/* モバイル: 並び替え（件数と同じ行の左側にまとめる） */}
           <SortDropdown
             options={sortOptions}
-            value={filters.sort}
+            value={filters.sort ?? DEFAULT_SORT}
             onChange={handleSortChange}
             className="lg:hidden"
           />
@@ -166,7 +168,7 @@ function SearchContent() {
             {total > 0 ? (
               <>
                 <span className="text-base font-bold text-foreground">{total.toLocaleString()}</span>
-                件のアニメ
+                件
               </>
             ) : (
               !isLoading && '検索結果がありません'
