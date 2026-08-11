@@ -1,0 +1,111 @@
+package services
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	"time"
+
+	"myanimelogs/internal/constants"
+)
+
+// enrichAnimeWithWatchProviders - TMDBから配信サービス情報を取得してアニメ情報を拡張
+// series_tmdb_idがある場合はそれを優先的に使用（シリーズ作品の統合管理）
+// determineMediaType determines the TMDB media type ("tv" or "movie") based on
+// DB media field, model data, and AniList format as a fallback.
+func (s *AnimeService) determineMediaType(ctx context.Context, dbMediaType sql.NullString, modelMedia *string, malID string) string {
+	if dbMediaType.Valid && dbMediaType.String == "movie" {
+		return "movie"
+	}
+	if modelMedia != nil && *modelMedia == "movie" {
+		return "movie"
+	}
+	if malID != "" {
+		format, err := s.anilistClient.GetMediaFormatByMALId(ctx, malID)
+		if err == nil && format == "MOVIE" {
+			return "movie"
+		}
+	}
+	return "tv"
+}
+
+// determineStatusBySeason はシーズンと放送開始日を考慮してアニメの放送状態を判定します。
+// TMDBの情報が利用できない場合のフォールバックとして使用されます。
+func determineStatusBySeason(season *string, releasedOn *string) string {
+	var seasonName string
+	if season != nil {
+		seasonName = *season
+	}
+	return determineStatusBySeasonAt(seasonName, releasedOn, time.Now().UTC())
+}
+
+// determineStatusBySeasonAt はシーズンと放送開始日を考慮してアニメの放送状態を判定します。
+// 基準時刻を引数で受け取ることでテスタビリティを確保しています。
+func determineStatusBySeasonAt(seasonName string, releasedOn *string, now time.Time) string {
+	// released_onが未来の日付なら放送予定
+	if releasedOn != nil && *releasedOn != "" {
+		// UTCで比較してサーバータイムゾーンの影響を排除
+		releaseDate, err := time.ParseInLocation("2006-01-02", *releasedOn, time.UTC)
+		if err == nil {
+			today := now.Truncate(24 * time.Hour)
+			if releaseDate.After(today) {
+				return constants.AnimeStatusUpcoming.String()
+			}
+		}
+	}
+
+	if seasonName == "" {
+		return constants.AnimeStatusFinished.String()
+	}
+
+	// シーズン名（例: "YYYY-season"）をパース
+	var seasonYear int
+	var seasonStr string
+	_, err := fmt.Sscanf(seasonName, "%d-%s", &seasonYear, &seasonStr)
+	if err != nil {
+		return constants.AnimeStatusFinished.String() // パース失敗時は完結とみなす
+	}
+
+	currentYear := now.Year()
+	currentMonth := int(now.Month())
+
+	// シーズンの開始月と終了月を判定
+	var seasonStartMonth, seasonEndMonth int
+	switch seasonStr {
+	case "winter": // 1月, 2月, 3月
+		seasonStartMonth = 1
+		seasonEndMonth = 3
+	case "spring": // 4月, 5月, 6月
+		seasonStartMonth = 4
+		seasonEndMonth = 6
+	case "summer": // 7月, 8月, 9月
+		seasonStartMonth = 7
+		seasonEndMonth = 9
+	case "autumn", "fall": // 10月, 11月, 12月
+		seasonStartMonth = 10
+		seasonEndMonth = 12
+	default:
+		return constants.AnimeStatusFinished.String() // 未知のシーズン名は完結とみなす
+	}
+
+	// 判定ロジック
+	if seasonYear > currentYear {
+		// 未来のシーズン → 放送予定
+		return constants.AnimeStatusUpcoming.String()
+	} else if seasonYear == currentYear {
+		// 同じ年のシーズン
+		if currentMonth < seasonStartMonth {
+			// シーズン開始月より前 → 放送予定
+			return constants.AnimeStatusUpcoming.String()
+		} else if currentMonth <= seasonEndMonth {
+			// シーズン期間中 → 放送中
+			return constants.AnimeStatusAiring.String()
+		} else {
+			// シーズン終了月以後 → 完結
+			return constants.AnimeStatusFinished.String()
+		}
+	} else {
+		// 過去のシーズン → 完結
+		return constants.AnimeStatusFinished.String()
+	}
+}

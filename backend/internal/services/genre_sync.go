@@ -7,9 +7,9 @@ import (
 	"myanimelogs/internal/database"
 )
 
-// saveGenresToDatabase saves genre information to the database
-// This is a shared function used by both AnnictClient and AnimeService
-func saveGenresToDatabase(db *database.DB, logger *common.Logger, animeID int, genres []string) error {
+// SaveGenresToDatabase saves genre information to the database
+// This is a shared function used by AnnictClient, AnimeService, and the scheduler
+func SaveGenresToDatabase(db *database.DB, logger *common.Logger, animeID int, genres []string) error {
 	if db == nil {
 		return fmt.Errorf("database connection not available")
 	}
