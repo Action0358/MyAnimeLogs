@@ -46,7 +46,6 @@ export const MyPageContent: React.FC = () => {
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<WatchStatusTabKey>('planned')
   const [favoriteAnime, setFavoriteAnime] = useState('')
-  const [snsLink, setSnsLink] = useState('')
   const [imageError, setImageError] = useState(false)
 
   // 視聴ステータス一覧（お気に入りとは独立）
@@ -90,11 +89,10 @@ export const MyPageContent: React.FC = () => {
     }
   }, [authUser, token, authLoading, isAuthenticated, fetchData])
 
-  // ユーザー情報から好きなアニメとSNSリンクを設定
+  // ユーザー情報から好きなアニメを設定
   useEffect(() => {
     if (user) {
       setFavoriteAnime(user.favorite_anime || '')
-      setSnsLink(user.sns_link || '')
     }
   }, [user])
 
@@ -182,19 +180,11 @@ export const MyPageContent: React.FC = () => {
       label: 'プロフィール',
       value: user?.description || '',
       emptyPrompt: '自己紹介を追加',
-      isLink: false,
     },
     {
       label: '好きなアニメ',
       value: favoriteAnime,
       emptyPrompt: '作品を追加',
-      isLink: false,
-    },
-    {
-      label: 'SNSリンク',
-      value: snsLink,
-      emptyPrompt: 'リンクを追加',
-      isLink: true,
     },
   ]
 
@@ -286,20 +276,9 @@ export const MyPageContent: React.FC = () => {
             <dt className="text-muted-foreground">{field.label}</dt>
             <dd className="min-w-0">
               {field.value ? (
-                field.isLink ? (
-                  <a
-                    href={field.value}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary hover:underline break-all"
-                  >
-                    {field.value}
-                  </a>
-                ) : (
-                  <span className="text-foreground whitespace-pre-wrap break-words">
-                    {field.value}
-                  </span>
-                )
+                <span className="text-foreground whitespace-pre-wrap break-words">
+                  {field.value}
+                </span>
               ) : (
                 <Link
                   href={'/mypage/edit' as Route}
