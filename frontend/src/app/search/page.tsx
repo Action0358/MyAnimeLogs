@@ -60,8 +60,7 @@ function SearchContent() {
   const router = useRouter()
   const [showFilters, setShowFilters] = useState(false)
 
-  const { filters, updateFilters, clearFilters, searchHistory, addToHistory, clearHistory } =
-    useSearch()
+  const { filters, updateFilters, searchHistory, addToHistory, clearHistory } = useSearch()
 
   const currentPage = Number(searchParams.get('page')) || 1
 
@@ -113,7 +112,6 @@ function SearchContent() {
     onGenreChange: (genre: string | undefined) => updateFilters({ genre }),
     onStatusChange: (status: 'airing' | 'finished' | 'not_yet_aired' | undefined) =>
       updateFilters({ status }),
-    onClear: clearFilters,
   }
 
   return (

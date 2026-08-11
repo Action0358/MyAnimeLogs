@@ -12,7 +12,6 @@ export interface FilterPanelProps {
   onSeasonChange: (season: string | undefined) => void
   onGenreChange: (genre: string | undefined) => void
   onStatusChange: (status: 'airing' | 'finished' | 'not_yet_aired' | undefined) => void
-  onClear: () => void
   /** 'inline': デスクトップツールバー用の横並びチップ / 'sheet': モバイルシート用の縦並び+ラベル付き */
   variant?: 'inline' | 'sheet'
   className?: string
@@ -62,27 +61,13 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
   onSeasonChange,
   onGenreChange,
   onStatusChange,
-  onClear,
   variant = 'inline',
   className,
 }) => {
-  const hasFilters = selectedSeason || selectedGenre || selectedStatus
-
   if (variant === 'sheet') {
     return (
       <div className={cn('space-y-4', className)}>
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-foreground">フィルター</h3>
-          {hasFilters && (
-            <button
-              type="button"
-              onClick={onClear}
-              className="text-sm text-primary hover:text-primary/80"
-            >
-              クリア
-            </button>
-          )}
-        </div>
+        <h3 className="text-sm font-semibold text-foreground">フィルター</h3>
 
         <div>
           <label className="block text-sm font-medium text-foreground mb-2">放送時期</label>
@@ -170,15 +155,6 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
           onStatusChange((v || undefined) as 'airing' | 'finished' | 'not_yet_aired' | undefined)
         }
       />
-      {hasFilters && (
-        <button
-          type="button"
-          onClick={onClear}
-          className="text-sm text-primary hover:text-primary/80 whitespace-nowrap"
-        >
-          クリア
-        </button>
-      )}
     </div>
   )
 }
