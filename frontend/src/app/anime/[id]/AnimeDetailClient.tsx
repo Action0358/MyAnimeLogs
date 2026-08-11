@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import type { Route } from 'next'
 import { useQuery } from '@tanstack/react-query'
 import { decode as heDecodeEntities } from 'he'
 import { Container } from '@/components/layout'
@@ -18,6 +19,7 @@ import { cn } from '@/lib/utils'
 import { getAnimeStatusLabel, type BroadcastStatusLabel } from '@/utils/animeStatus'
 import { translateBroadcastDay } from '@/utils/broadcast'
 import { formatDuration } from '@/utils/duration'
+import { resolveBackTarget, type BackTarget } from '@/lib/animeListOrigin'
 
 /** あらすじの既定表示行数。作品ごとの文字数差でカード高さが大きくぶれるため折りたたむ。
  *  Tailwind のJITは動的なクラス名を検出できないためリテラルで指定する */
@@ -85,6 +87,10 @@ const DETAIL_CARD_PADDING = 'p-5 md:px-6 md:py-5'
 
 const AnimeDetailClient: React.FC = () => {
   const params = useParams()
+  // useSearchParams は静的エクスポート時に Suspense 境界を要求し、
+  // SPAフォールバックで描画されるこのページとは噛み合わないため、
+  // animeId と同様にマウント後に window から解決する。
+  const [backTarget, setBackTarget] = useState<BackTarget>(() => resolveBackTarget(null))
   const { isAuthenticated } = useAuth()
   const { isFavorite, addFavorite, removeFavorite } = useFavorites({ enabled: isAuthenticated })
   const { getStatus, updateStatus, removeStatus } = useWatchStatus({ enabled: isAuthenticated })
@@ -105,7 +111,13 @@ const AnimeDetailClient: React.FC = () => {
       setAnimeId(parseInt(params.id, 10))
     }
   }, [params.id])
-  
+
+  // 戻り先も同様にURLから解決する
+  useEffect(() => {
+    const from = new URLSearchParams(window.location.search).get('from')
+    setBackTarget(resolveBackTarget(from))
+  }, [])
+
   const isValidAnimeId = !isNaN(animeId) && animeId > 0
 
   const {
@@ -235,22 +247,24 @@ const AnimeDetailClient: React.FC = () => {
 
   return (
     <Container size="xl" className="max-w-[1180px] py-8">
-      {/* パンくずリスト */}
-      <nav aria-label="パンくずリスト" className="mb-6 text-sm">
-        <ol className="flex items-center gap-2 text-muted-foreground whitespace-nowrap">
-          <li className="flex-shrink-0">
-            <Link href="/" className="hover:text-primary transition-colors">ホーム</Link>
-          </li>
-          <li aria-hidden="true" className="flex-shrink-0">/</li>
-          <li className="flex-shrink-0">
-            <Link href="/search" className="hover:text-primary transition-colors">検索</Link>
-          </li>
-          <li aria-hidden="true" className="flex-shrink-0">/</li>
-          <li className="text-foreground font-medium truncate min-w-0" aria-current="page">
-            {anime.title}
-          </li>
-        </ol>
-      </nav>
+      {/* 戻る導線。遷移元は from クエリで受け取り、既知の一覧でなければホームへ */}
+      <div className="mb-6">
+        <Link
+          href={backTarget.href as Route}
+          className="inline-flex items-center gap-1.5 -ml-1 px-1 py-1 text-sm text-muted-foreground hover:text-primary transition-colors rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <svg
+            className="w-4 h-4 flex-shrink-0"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          <span>{backTarget.label}に戻る</span>
+        </Link>
+      </div>
 
       {/* 2カラム: 左=ポスターと操作 / 右=情報カード
           コンテンツ列に上限を設けないと情報が横に間延びするため minmax で 720px に制限する */}

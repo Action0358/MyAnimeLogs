@@ -2,8 +2,10 @@
 
 import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import type { Route } from 'next'
 import { cn } from '@/lib/utils'
+import { withBackParam } from '@/lib/animeListOrigin'
 import { formatSeason } from '@/utils/formatSeason'
 import { getAnimeStatusLabel, type BroadcastStatusLabel } from '@/utils/animeStatus'
 import type { Anime } from '@/lib/api/generated/myanimelogs'
@@ -18,6 +20,11 @@ export interface AnimeCardProps {
   size?: 'small' | 'medium' | 'large'
   onClick?: (anime: AnimeCardData) => void
   className?: string
+  /**
+   * 詳細ページの「戻る」導線に載せる遷移元パス。
+   * 省略時は現在のパスを使う。検索ページのようにクエリごと保持したい場合に明示する。
+   */
+  from?: string
 }
 
 /**
@@ -50,7 +57,9 @@ export const AnimeCard: React.FC<AnimeCardProps> = ({
   size = 'medium',
   onClick,
   className,
+  from,
 }) => {
+  const pathname = usePathname()
   const [imageError, setImageError] = useState(false)
   // ハイドレーションミスマッチを回避するため、クライアントサイドでのみ放送状態を計算
   const [statusInfo, setStatusInfo] = useState<BroadcastStatusLabel>({ label: null, className: '' })
@@ -143,7 +152,7 @@ export const AnimeCard: React.FC<AnimeCardProps> = ({
 
   return (
     <Link
-      href={`/anime/${anime.id}` as Route}
+      href={withBackParam(`/anime/${anime.id}`, from ?? pathname ?? undefined) as Route}
       prefetch={false}
       className="block rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
     >

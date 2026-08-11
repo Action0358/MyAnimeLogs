@@ -228,6 +228,12 @@ function SearchContent() {
         <AnimeGrid
           animes={animes}
           isLoading={isLoading}
+          // 詳細から戻ったときに検索条件を失わないよう、クエリごと遷移元として渡す
+          from={
+            searchParams.toString()
+              ? `/search?${searchParams.toString()}`
+              : '/search'
+          }
           emptyMessage={
             hasActiveFilters
               ? '条件に一致するアニメが見つかりませんでした'
