@@ -3,6 +3,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import type { Route } from 'next'
 import Container from './Container'
+import { FOOTER_LINKS } from './navigationConfig'
 import { SUB_LOGO_PATH } from '@/lib/constants'
 
 // フッターカラムヘッダーコンポーネント
@@ -47,31 +48,18 @@ const Footer: React.FC = () => {
                   サイトマップ
                 </h3>
               </FooterColumnHeader>
-              <ul className="space-y-2">
-                <li>
-                  <Link
-                    href="/"
-                    className="text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    ホーム
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="/search"
-                    className="text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    検索
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="/mypage"
-                    className="text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    マイページ
-                  </Link>
-                </li>
+              {/* 項目数が多いため2列に流し、フッターが縦に伸びるのを防ぐ */}
+              <ul className="grid grid-cols-2 gap-x-6 gap-y-2">
+                {FOOTER_LINKS.map((item) => (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href as Route}
+                      className="text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {item.label}
+                    </Link>
+                  </li>
+                ))}
               </ul>
             </div>
 

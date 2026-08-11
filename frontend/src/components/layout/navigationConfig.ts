@@ -22,5 +22,15 @@ export const NAV_ITEMS: NavItem[] = [
   },
 ]
 
+// フッターのサイトマップに並べるリンク。
+// ヘッダーナビ（NAV_ITEMS）に加えて、ホームと認証後の導線を含む。
+// お気に入りはヘッダーに項目がなく、ここが唯一の導線になる。
+export const FOOTER_LINKS: NavItem[] = [
+  { label: 'ホーム', href: '/' },
+  ...NAV_ITEMS,
+  { label: 'お気に入り', href: '/favorites' },
+  { label: 'マイページ', href: '/mypage' },
+]
+
 // ナビゲーション共通のテキストスタイル
 export const NAV_TEXT_STYLES = 'text-sm font-medium'
