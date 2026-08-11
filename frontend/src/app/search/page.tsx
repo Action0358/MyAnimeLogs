@@ -159,7 +159,7 @@ function SearchContent() {
             className="lg:hidden"
           />
 
-          <div className="flex-1" />
+          <div className="hidden lg:block lg:flex-1" />
 
           {/* 件数: 結果を説明するラベルとして右端に独立、数字のみ強調 */}
           <span className="text-sm text-muted-foreground whitespace-nowrap flex items-center gap-2">
