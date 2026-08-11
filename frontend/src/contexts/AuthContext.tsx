@@ -27,19 +27,14 @@ interface User {
 const RATE_LIMIT_MESSAGE = 'アクセスが集中しています。しばらく時間をおいてから再度お試しください'
 
 export const DEFAULT_LOGIN_ERROR = 'ログイン処理中にエラーが発生しました。しばらく時間をおいて再度お試しください'
-export const DEFAULT_REGISTER_ERROR = '登録処理中にエラーが発生しました。しばらく時間をおいて再度お試しください'
 
 const AUTH_ERROR_MESSAGES: Record<string, string> = {
-  invalid_credentials: 'メールアドレスまたはパスワードが正しくありません',
-  email_not_confirmed: 'メールアドレスが確認されていません。確認メールのリンクをクリックしてください',
   user_not_found: 'アカウントが見つかりません',
   user_banned: 'このアカウントは利用停止中です',
   over_request_rate_limit: RATE_LIMIT_MESSAGE,
-  over_email_send_rate_limit: RATE_LIMIT_MESSAGE,
-  over_sms_send_rate_limit: RATE_LIMIT_MESSAGE,
-  weak_password: 'パスワードが弱すぎます。より強力なパスワードを設定してください',
-  email_address_invalid: 'メールアドレスの形式が正しくありません',
-  email_exists: 'このメールアドレスは既に登録されています',
+  provider_disabled: 'Googleログインが現在利用できません。時間をおいて再度お試しください',
+  // OAuth プロバイダ側で同意をキャンセルした場合
+  access_denied: 'Googleログインがキャンセルされました',
 }
 
 export const translateAuthError = (
@@ -68,8 +63,11 @@ const isUser = (value: unknown): value is User => {
 interface AuthContextType {
   user: User | null
   token: string | null
-  login: (email: string, password: string) => Promise<void>
-  register: (name: string, email: string, password: string) => Promise<void>
+  /**
+   * Googleへリダイレクトして認証を開始する。
+   * 成功時はこの関数から戻らず /auth/callback へ遷移するため、戻り値はエラー時のみ意味を持つ。
+   */
+  loginWithGoogle: () => Promise<void>
   logout: (reason?: LogoutReason) => void
   updateUser: (userData: User) => void
   isLoading: boolean
@@ -79,13 +77,6 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
-
-/**
- * パスワード更新画面のパス判定。
- * next.config.js の trailingSlash:true により本番では `/auth/update-password/` になるため両方を許容する。
- */
-const isUpdatePasswordPath = (pathname: string): boolean =>
-  pathname === '/auth/update-password' || pathname === '/auth/update-password/'
 
 /** localStorageに認証トークンを保存する（APIクライアントが auth_token を読む） */
 const storeToken = (token: string) => {
@@ -129,14 +120,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   /** Supabaseセッションからトークン・ユーザーを同期する共通処理 */
   const syncSession = useCallback(async (accessToken: string | null) => {
-    // 防御層: パスワード更新画面上では recovery セッションを絶対にローカル認証状態へ
-    // 反映しない。どの経路から呼ばれてもユーザー状態をクリアして返す。
-    if (typeof window !== 'undefined' && isUpdatePasswordPath(window.location.pathname)) {
-      setToken(null)
-      setUser(null)
-      clearToken()
-      return
-    }
     if (!accessToken) {
       setToken(null)
       setUser(null)
@@ -197,11 +180,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // 最終的に処理を行うマウントだけがフラグをクリアする。
       initialUrlHadCode.value = false
       if (session) {
-        // 以下のいずれかなら syncSession をスキップ:
-        // - 初回ロード時に ?code= があった（PKCEフロー処理中）
-        // - パスワード更新画面（リフレッシュなどで recovery セッションが残っているケース）
-        const shouldSkip = hadCode || isUpdatePasswordPath(window.location.pathname)
-        if (!shouldSkip) {
+        // 初回ロード時に ?code= があった場合はPKCEフロー処理中のため
+        // /auth/callback の exchangeCodeForSession に委ねる
+        if (!hadCode) {
           await syncSession(session.access_token)
         }
       }
@@ -212,20 +193,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!mounted) return
-        if (event === 'PASSWORD_RECOVERY') {
-          // ローカルの認証状態をクリアしてから更新画面へ遷移する。
-          // Supabase 内部セッションは保持されるため updateUser は引き続き動作する。
-          await syncSession(null)
-          router.replace('/auth/update-password')
-          return
-        }
-        // リフレッシュ等で /auth/update-password にいる場合も recovery セッションを漏洩させない
-        if (isUpdatePasswordPath(window.location.pathname)) {
-          await syncSession(null)
-          return
-        }
-        // INITIAL_SESSION は PASSWORD_RECOVERY より先に発火するため、PKCEフロー初期時は
-        // recovery セッションを誤って同期しないよう、後続イベントの到来を待つ
+        // PKCEフロー初期時は /auth/callback がセッション確立を担うため、
+        // 先行して発火する INITIAL_SESSION では何もしない
         if (event === 'INITIAL_SESSION' && hadCode) {
           return
         }
@@ -240,31 +209,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [syncSession, router])
 
-  const login = useCallback(async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) {
-      throw new ApiClientError(translateAuthError(error, DEFAULT_LOGIN_ERROR), error.status ?? 401)
-    }
-    router.push('/')
-  }, [router])
-
-  const register = useCallback(async (name: string, email: string, password: string) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { name } },
+  const loginWithGoogle = useCallback(async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
     })
+    // 成功時はGoogleへリダイレクトするため、以降のコードには到達しない
     if (error) {
-      throw new ApiClientError(translateAuthError(error, DEFAULT_REGISTER_ERROR), error.status ?? 400)
+      throw new ApiClientError(translateAuthError(error, DEFAULT_LOGIN_ERROR), error.status ?? 400)
     }
-    if (data.session) {
-      // メール確認なし: 即座にログイン状態
-      router.push('/')
-    } else {
-      // メール確認あり: 確認メール送信済みページへ
-      router.push('/login?reason=confirm-email')
-    }
-  }, [router])
+  }, [])
 
   const logout = useCallback(async (reason: LogoutReason = 'manual') => {
     await supabase.auth.signOut()
@@ -360,8 +316,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     <AuthContext.Provider value={{
       user,
       token,
-      login,
-      register,
+      loginWithGoogle,
       logout,
       updateUser,
       isLoading,

@@ -8,8 +8,8 @@ import { Container } from '@/components/layout'
 const LoadingView: React.FC = () => (
   <Container className="py-24">
     <div className="flex flex-col items-center justify-center gap-4">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600" />
-      <p className="text-gray-600">認証中...</p>
+      <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-primary" />
+      <p className="text-muted-foreground">認証中...</p>
     </div>
   </Container>
 )

@@ -135,6 +135,30 @@ Failed to ping database (attempt 1/5): dial tcp ...:54322: connect: connection r
 make local-recover
 ```
 
+### 3-2. Google OAuth の設定（初回のみ）
+
+本サービスの認証は **Google ソーシャルログインのみ**です。ローカルでログインを動かすには Google の OAuth クライアントが必要です。
+
+1. [Google Cloud Console](https://console.cloud.google.com/apis/credentials) で「OAuth 2.0 クライアント ID」を作成（種類: ウェブアプリケーション）
+2. 「承認済みのリダイレクト URI」に以下を登録
+
+   | 環境 | リダイレクト URI |
+   |---|---|
+   | ローカル | `http://localhost:54321/auth/v1/callback` |
+   | STG / 本番 | `https://<supabase-project-ref>.supabase.co/auth/v1/callback` |
+
+3. 発行された client ID / client secret を**シェルの環境変数**として渡す（`supabase/config.toml` が `env(...)` で参照します）
+
+```bash
+export SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID="xxxxx.apps.googleusercontent.com"
+export SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET="xxxxx"
+make local-supabase-down && make local-up   # 設定反映のため Supabase を再作成
+```
+
+> **シークレットは絶対にコミットしないでください。** `supabase/config.toml` には `env(...)` 参照のみを記述しています。`.env.local` ではなくシェル環境変数（`~/.zshrc` や direnv 等）で渡してください。
+>
+> STG / 本番では Supabase ダッシュボードの Authentication → Providers → Google に同じ値を設定します。
+
 ### 4. 主要なローカルサービス
 
 | サービス | URL | 用途 |
@@ -143,16 +167,20 @@ make local-recover
 | Backend API | http://localhost:8080 | Go / Gin API |
 | Supabase API | http://localhost:54321 | Auth / REST / Storage |
 | Supabase Studio | http://localhost:54323 | DB 管理 GUI |
-| **Mailpit（メールテスト）** | **http://localhost:54324** | サインアップ確認・パスワードリセット等のメール受信 |
+| Mailpit（メールテスト） | http://localhost:54324 | Supabase が送信するメールの受信確認 |
 
 ### 5. 認証フローのローカル検証
 
-ローカル Supabase は `enable_confirmations = true` のため、本番同様に「サインアップ後はメール確認しないとログイン不可」の挙動になります。実際のメールは送信されず、すべて **Mailpit**（http://localhost:54324）で受信できます。
+認証手段は **Google ソーシャルログインのみ**です（メール＋パスワード認証は廃止しました）。事前に「3-2. Google OAuth の設定」を完了させてください。
+
+1. http://localhost:3000/login を開く
+2. 「Googleでログイン」を押す → Google の同意画面へリダイレクト
+3. 同意後 `/auth/callback` に戻り、セッションが確立してトップページへ遷移する
+4. 初回ログイン時はバックエンドが `users` 行を自動生成し、表示名に Google のプロフィール名が入る
+
+メール確認やパスワードリセットのフローは存在しないため、Mailpit を使う場面は通常ありません。
 
 > `supabase/config.toml` のセクション名は歴史的経緯で `[inbucket]` のままですが、現行 Supabase CLI が起動するのは Mailpit です。
-
-- **サインアップ**: 確認メールが Mailpit に届く → リンクを踏むとログイン可能になる
-- **パスワードリセット**: リセット申請後にメールが届く → リンクから `/auth/update-password` に遷移し新パスワードを設定
 
 ### 6. 停止
 

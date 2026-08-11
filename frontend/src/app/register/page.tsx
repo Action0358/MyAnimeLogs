@@ -1,124 +1,109 @@
-'use client';
+'use client'
 
-import React, { useState } from 'react';
-import Link from 'next/link';
-import { useAuth, DEFAULT_REGISTER_ERROR } from '@/contexts/AuthContext';
-import { Input } from '@/components/ui/Input';
-import { Button } from '@/components/ui/Button';
-import { AuthCard } from '@/components/auth/AuthCard';
-import { AuthMessages } from '@/components/auth/AuthMessages';
+import React, { useState } from 'react'
+import Link from 'next/link'
+import { useAuth, DEFAULT_LOGIN_ERROR } from '@/contexts/AuthContext'
+import { AuthLayout } from '@/components/auth/AuthLayout'
+import { AuthPosterPanel } from '@/components/auth/AuthPosterPanel'
+import { AuthMessages } from '@/components/auth/AuthMessages'
+import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton'
+
+const BENEFITS = [
+  '今期アニメの放送状況をまとめてチェック',
+  '視聴予定・視聴中・完了で記録を整理',
+  'お気に入り作品をいつでも見返せる',
+]
+
+const CheckIcon: React.FC = () => (
+  <svg
+    width="15"
+    height="15"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M20 6 9 17l-5-5" />
+  </svg>
+)
+
+const RegisterPanel: React.FC = () => (
+  <AuthPosterPanel
+    headline={
+      <>
+        30秒で、
+        <br className="max-lg:hidden" />
+        視聴記録をはじめる。
+      </>
+    }
+  >
+    <ul className="mt-[18px] flex flex-col gap-2.5 max-lg:hidden">
+      {BENEFITS.map((benefit) => (
+        <li key={benefit} className="flex items-center gap-2.5 text-[13.5px] text-white/80">
+          <span className="flex text-primary-foreground/90">
+            <CheckIcon />
+          </span>
+          {benefit}
+        </li>
+      ))}
+    </ul>
+  </AuthPosterPanel>
+)
 
 const RegisterPage: React.FC = () => {
-  const { register } = useAuth();
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [passwordConfirm, setPasswordConfirm] = useState('');
-  const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const { loginWithGoogle } = useAuth()
+  const [error, setError] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-
-    // パスワード確認
-    if (password !== passwordConfirm) {
-      setError('パスワードが一致しません');
-      return;
-    }
-
-    // パスワード長チェック
-    if (password.length < 8) {
-      setError('パスワードは8文字以上で入力してください');
-      return;
-    }
-
-    setIsLoading(true);
+  const handleSignUp = async () => {
+    setError('')
+    setIsLoading(true)
 
     try {
-      await register(name, email, password);
+      await loginWithGoogle()
+      // 成功時はGoogleへリダイレクトするため、ローディング表示を維持したままにする
     } catch (err) {
-      setError(err instanceof Error ? err.message : DEFAULT_REGISTER_ERROR);
-    } finally {
-      setIsLoading(false);
+      setError(err instanceof Error ? err.message : DEFAULT_LOGIN_ERROR)
+      setIsLoading(false)
     }
-  };
+  }
 
   return (
-    <AuthCard
-      title="新規登録"
-      subtitle="アカウントを作成して、アニメ視聴管理を始めましょう"
-      icon="✨"
-    >
-      <form onSubmit={handleSubmit} className="space-y-5">
+    <AuthLayout panel={<RegisterPanel />}>
+      <h1 className="mb-1.5 text-2xl font-bold text-foreground lg:text-[26px]">新規登録</h1>
+      <p className="mb-6 text-[13.5px] text-muted-foreground">
+        アカウントを作成してアニメ視聴管理を始めましょう
+      </p>
+
+      <div className="mb-5 space-y-4 empty:mb-0">
         <AuthMessages error={error} />
-
-            <Input
-              label="ユーザー名"
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="マイアニメログ"
-              required
-              autoComplete="name"
-              helperText="1〜50文字で入力してください"
-            />
-
-            <Input
-              label="メールアドレス"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="example@email.com"
-              required
-              autoComplete="email"
-            />
-
-            <Input
-              label="パスワード"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="8文字以上"
-              required
-              autoComplete="new-password"
-              helperText="8文字以上で入力してください"
-            />
-
-            <Input
-              label="パスワード（確認）"
-              type="password"
-              value={passwordConfirm}
-              onChange={(e) => setPasswordConfirm(e.target.value)}
-              placeholder="パスワードを再入力"
-              required
-              autoComplete="new-password"
-            />
-
-        <Button
-          type="submit"
-          variant="primary"
-          size="lg"
-          isLoading={isLoading}
-          className="w-full mt-6"
-        >
-          登録する
-        </Button>
-      </form>
-
-      <div className="mt-6 pt-6 border-t border-gray-200 text-center">
-        <p className="text-sm text-gray-600">
-          既にアカウントをお持ちの方は{' '}
-          <Link
-            href="/login"
-            className="text-blue-600 hover:text-blue-700 font-medium transition-colors"
-          >
-            ログイン
-          </Link>
-        </p>
       </div>
-    </AuthCard>
-  );
-};
 
-export default RegisterPage;
+      <GoogleSignInButton label="Googleで登録" onClick={handleSignUp} isLoading={isLoading} />
+
+      <p className="mt-4 text-center text-[11.5px] leading-relaxed text-muted-foreground">
+        登録すると
+        <Link href="/terms" className="text-primary hover:underline">
+          利用規約
+        </Link>
+        および
+        <Link href="/privacy" className="text-primary hover:underline">
+          プライバシーポリシー
+        </Link>
+        に同意したものとみなされます
+      </p>
+
+      <div className="mt-5 border-t border-border pt-5 text-[13px] text-muted-foreground">
+        既にアカウントをお持ちの方は{' '}
+        <Link href="/login" className="font-semibold text-primary hover:underline">
+          ログイン
+        </Link>
+      </div>
+    </AuthLayout>
+  )
+}
+
+export default RegisterPage
