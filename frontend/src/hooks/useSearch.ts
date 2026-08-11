@@ -15,7 +15,6 @@ export interface SearchFilters {
 export interface UseSearchResult {
   filters: SearchFilters
   updateFilters: (newFilters: Partial<SearchFilters>) => void
-  clearFilters: () => void
   searchHistory: string[]
   addToHistory: (query: string) => void
   clearHistory: () => void
@@ -77,11 +76,6 @@ export const useSearch = (): UseSearchResult => {
     [router, pathname, searchParams]
   )
 
-  // フィルターをクリア
-  const clearFilters = useCallback(() => {
-    router.push(pathname)
-  }, [router, pathname])
-
   // 検索履歴に追加
   const addToHistory = useCallback((query: string) => {
     if (!query.trim()) return
@@ -117,7 +111,6 @@ export const useSearch = (): UseSearchResult => {
   return {
     filters,
     updateFilters,
-    clearFilters,
     searchHistory,
     addToHistory,
     clearHistory,
