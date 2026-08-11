@@ -13,6 +13,7 @@ const KNOWN_ORIGINS: { pathname: string; label: string }[] = [
   { pathname: '/anime/popular', label: '人気アニメ' },
   { pathname: '/search', label: '検索結果' },
   { pathname: '/favorites', label: 'お気に入り' },
+  { pathname: '/mypage', label: 'マイページ' },
 ]
 
 const HOME_ORIGIN = { href: '/', label: 'ホーム' }

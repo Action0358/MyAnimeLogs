@@ -28,8 +28,14 @@ describe('resolveBackTarget', () => {
     expect(resolveBackTarget('')).toEqual({ href: '/', label: 'ホーム' })
   })
 
+  it('カードを置いている画面をすべて解決できる', () => {
+    // 一覧以外にカードを持つ画面。ここが漏れるとホームに戻ってしまう
+    expect(resolveBackTarget('/favorites').label).toBe('お気に入り')
+    expect(resolveBackTarget('/mypage').label).toBe('マイページ')
+  })
+
   it('未知のパスはホームにフォールバックする', () => {
-    expect(resolveBackTarget('/mypage')).toEqual({ href: '/', label: 'ホーム' })
+    expect(resolveBackTarget('/register')).toEqual({ href: '/', label: 'ホーム' })
   })
 
   it('外部URLへ誘導されない', () => {
