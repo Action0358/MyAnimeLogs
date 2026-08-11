@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -18,9 +19,12 @@ import (
 )
 
 const (
-	tmdbBaseURL   = "https://api.themoviedb.org/3"
-	tmdbTimeout   = 10 * time.Second
-	tmdbImageBase = "https://image.tmdb.org/t/p"
+	tmdbBaseURL = "https://api.themoviedb.org/3"
+	tmdbTimeout = 10 * time.Second
+	// tmdbFallbackTimeout bounds the opposite-media-type retry in
+	// GetJapaneseWatchProvidersWithFallback. See that function for why.
+	tmdbFallbackTimeout = 2 * time.Second
+	tmdbImageBase       = "https://image.tmdb.org/t/p"
 )
 
 // TMDBClient handles communication with TMDB API
@@ -191,7 +195,7 @@ func (c *TMDBClient) SearchTV(ctx context.Context, query string, language string
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute request: %w", err)
+		return nil, fmt.Errorf("failed to execute request: %w", c.redactAPIKey(err))
 	}
 	defer resp.Body.Close()
 
@@ -234,7 +238,7 @@ func (c *TMDBClient) SearchMovie(ctx context.Context, query string, language str
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute request: %w", err)
+		return nil, fmt.Errorf("failed to execute request: %w", c.redactAPIKey(err))
 	}
 	defer resp.Body.Close()
 
@@ -274,7 +278,7 @@ func (c *TMDBClient) GetMovieDetails(ctx context.Context, tmdbID int, language s
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute request: %w", err)
+		return nil, fmt.Errorf("failed to execute request: %w", c.redactAPIKey(err))
 	}
 	defer resp.Body.Close()
 
@@ -315,7 +319,7 @@ func (c *TMDBClient) GetTVDetails(ctx context.Context, tmdbID int, language stri
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute request: %w", err)
+		return nil, fmt.Errorf("failed to execute request: %w", c.redactAPIKey(err))
 	}
 	defer resp.Body.Close()
 
@@ -357,7 +361,7 @@ func (c *TMDBClient) GetWatchProviders(ctx context.Context, tmdbID int, mediaTyp
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute request: %w", err)
+		return nil, fmt.Errorf("failed to execute request: %w", c.redactAPIKey(err))
 	}
 	defer resp.Body.Close()
 
@@ -641,6 +645,21 @@ func GetProviderLogoURL(logoPath string, size string) string {
 	return fmt.Sprintf("%s/%s%s", tmdbImageBase, size, logoPath)
 }
 
+// redactAPIKey strips the API key from an error message. Transport errors wrap a
+// *url.Error that carries the full request URL, including the api_key query
+// parameter, which would otherwise be written to the logs verbatim.
+func (c *TMDBClient) redactAPIKey(err error) error {
+	if err == nil || c.apiKey == "" {
+		return err
+	}
+	msg := err.Error()
+	redacted := strings.ReplaceAll(msg, c.apiKey, "REDACTED")
+	if redacted == msg {
+		return err
+	}
+	return errors.New(redacted)
+}
+
 // GetJapaneseWatchProviders gets streaming providers available in Japan
 // mediaType: "tv" or "movie"
 func (c *TMDBClient) GetJapaneseWatchProviders(ctx context.Context, tmdbID int, mediaType string) ([]TMDBProvider, error) {
@@ -666,6 +685,7 @@ func (c *TMDBClient) GetJapaneseWatchProvidersWithFallback(ctx context.Context, 
 	if err == nil && len(providers) > 0 {
 		return providers, nil
 	}
+	firstErr := err
 
 	// Fallback to the other mediaType
 	fallbackType := "movie"
@@ -673,13 +693,23 @@ func (c *TMDBClient) GetJapaneseWatchProvidersWithFallback(ctx context.Context, 
 		fallbackType = "tv"
 	}
 
-	// The fallback result takes precedence: if the fallback API call succeeds
-	// (even with no results), the overall operation is considered successful.
-	providers, err = c.GetJapaneseWatchProviders(ctx, tmdbID, fallbackType)
-	if err != nil {
-		return nil, err
+	// The fallback queries an ID against the opposite media type, which TMDB may never
+	// answer. Left unbounded it held anime detail responses open until the caller's
+	// deadline (~10s). Give it a short budget: the fallback is a best-effort retry, so
+	// timing out simply means falling back to whatever the first call produced.
+	fallbackCtx, cancel := context.WithTimeout(ctx, tmdbFallbackTimeout)
+	defer cancel()
+
+	fallbackProviders, fallbackErr := c.GetJapaneseWatchProviders(fallbackCtx, tmdbID, fallbackType)
+	if fallbackErr != nil {
+		if firstErr != nil {
+			// Neither media type produced a usable answer.
+			return nil, firstErr
+		}
+		// The first call succeeded but found nothing; keep that as the answer.
+		return providers, nil
 	}
-	return providers, nil
+	return fallbackProviders, nil
 }
 
 // FindTMDBID finds a TMDB ID and media type ("tv" or "movie") by title search.

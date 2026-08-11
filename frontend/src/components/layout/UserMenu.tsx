@@ -4,21 +4,12 @@ import React, { useRef, useEffect } from 'react'
 import Link from 'next/link'
 import type { Route } from 'next'
 import { useAuth } from '@/contexts/AuthContext'
+import { USER_MENU_ITEMS } from './navigationConfig'
 
 interface UserMenuProps {
   isOpen: boolean
   onClose: () => void
 }
-
-interface MenuItem {
-  label: string
-  href: Route
-}
-
-const MENU_ITEMS: MenuItem[] = [
-  { label: 'マイページ', href: '/mypage' as Route },
-  { label: 'お気に入り', href: '/favorites' as Route },
-]
 
 export const UserMenu: React.FC<UserMenuProps> = ({ isOpen, onClose }) => {
   const { user, logout } = useAuth()
@@ -51,21 +42,21 @@ export const UserMenu: React.FC<UserMenuProps> = ({ isOpen, onClose }) => {
   return (
     <div
       ref={menuRef}
-      className="absolute right-0 top-full mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50"
+      className="absolute right-0 top-full mt-2 w-64 bg-popover text-popover-foreground rounded-lg shadow-lg border border-border py-2 z-50"
     >
       {/* ユーザー情報セクション */}
-      <div className="px-4 py-3 border-b border-gray-200">
-        <p className="text-base font-bold text-blue-900">{user?.name}</p>
+      <div className="px-4 py-3 border-b border-border">
+        <p className="text-base font-bold text-foreground">{user?.name}</p>
       </div>
 
       {/* メインメニュー */}
       <nav className="py-1">
-        {MENU_ITEMS.map((item) => (
+        {USER_MENU_ITEMS.map((item) => (
           <Link
             key={item.href}
-            href={item.href}
+            href={item.href as Route}
             onClick={onClose}
-            className="block px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
+            className="block px-4 py-2 text-foreground hover:bg-muted transition-colors"
           >
             <span className="text-base font-semibold">{item.label}</span>
           </Link>
@@ -73,10 +64,10 @@ export const UserMenu: React.FC<UserMenuProps> = ({ isOpen, onClose }) => {
       </nav>
 
       {/* ログアウト */}
-      <div className="border-t border-gray-200 py-1">
+      <div className="border-t border-border py-1">
         <button
           onClick={handleLogout}
-          className="block w-full text-left px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
+          className="block w-full text-left px-4 py-2 text-foreground hover:bg-muted transition-colors"
         >
           <span className="text-base font-semibold">ログアウト</span>
         </button>

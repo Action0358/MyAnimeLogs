@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import { Card, CardContent, SectionHeading } from '@/components/ui'
 import type { WatchProvider } from '@/lib/api/generated/myanimelogs'
 
 interface WatchProvidersProps {
@@ -62,36 +63,39 @@ export const WatchProviders: React.FC<WatchProvidersProps> = ({ providers }) => 
   const visibleProviders = dedupeProviders(providers)
 
   return (
-    <div className="mb-6 bg-white rounded-lg border p-4 md:p-6">
-      <h2 className="text-lg font-semibold text-gray-900 mb-3">配信サービス</h2>
-      <div className="flex flex-wrap gap-3">
-        {visibleProviders.map((provider) => (
-          // ロゴ単体で表示（サービス名はチップ上には表示せず、title/alt で保持）
-          <div
-            key={provider.provider_id}
-            className="flex items-center justify-center p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-            title={provider.provider_name}
-          >
-            {provider.logo_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={provider.logo_url}
-                alt={provider.provider_name}
-                className="w-8 h-8 rounded object-contain"
-              />
-            ) : (
-              <div
-                className="w-8 h-8 bg-gray-200 rounded flex items-center justify-center"
-                role="img"
-                aria-label={provider.provider_name}
-              >
-                <span className="text-xs text-gray-500">📺</span>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
+    <Card>
+      <CardContent className="p-5 md:px-6 md:py-5">
+        <SectionHeading as="h2" size="sm">配信サービス</SectionHeading>
+        {/* ロゴは元画像の縦横比・余白がまちまちなため、均一なタイルに収めて揃える */}
+        <div className="flex flex-wrap gap-2.5 md:gap-3">
+          {visibleProviders.map((provider) => (
+            // ロゴ単体で表示（サービス名はタイル上には表示せず、title/alt で保持）
+            <div
+              key={provider.provider_id}
+              className="w-14 h-14 md:w-16 md:h-16 flex items-center justify-center p-2 bg-muted border border-border rounded-[10px] hover:bg-accent transition-colors"
+              title={provider.provider_name}
+            >
+              {provider.logo_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={provider.logo_url}
+                  alt={provider.provider_name}
+                  className="max-w-full max-h-full rounded object-contain"
+                />
+              ) : (
+                <div
+                  className="w-full h-full flex items-center justify-center bg-muted-foreground/10 rounded"
+                  role="img"
+                  aria-label={provider.provider_name}
+                >
+                  <span className="text-lg text-muted-foreground">📺</span>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 

@@ -4,7 +4,7 @@ import type React from 'react'
 import Link from 'next/link'
 import type { Route } from 'next'
 import { useQuery } from '@tanstack/react-query'
-import { Button } from '@/components/ui'
+import { Button, SectionHeading } from '@/components/ui'
 import { AnimeCard, type AnimeCardData } from './AnimeCard'
 import { AnimeCarousel, CarouselSkeleton } from './AnimeCarousel'
 import { SkeletonCard } from './SkeletonCard'
@@ -72,12 +72,15 @@ const AnimeSection: React.FC<AnimeSectionProps> = ({
   const cardAnimes = displayAnimes.map(convertToAnimeCardFormat)
 
   const SectionHeader = (
-    <div className="flex items-center justify-between mb-6">
-      <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
-      <Button variant="outline-gray" size="sm" asChild className="font-bold">
-        <Link href={linkHref as Route}>{linkText}</Link>
-      </Button>
-    </div>
+    <SectionHeading
+      action={
+        <Button variant="outline-gray" size="sm" asChild className="font-bold">
+          <Link href={linkHref as Route}>{linkText}</Link>
+        </Button>
+      }
+    >
+      {title}
+    </SectionHeading>
   )
 
   if (isLoading) {
@@ -102,7 +105,7 @@ const AnimeSection: React.FC<AnimeSectionProps> = ({
       <div className={className}>
         {SectionHeader}
         <div className="text-center py-12">
-          <p className="text-red-600 mb-4">
+          <p className="text-destructive mb-4">
             {error instanceof Error ? error.message : errorMessage}
           </p>
           <Button variant="outline" onClick={() => refetch()}>
@@ -129,7 +132,7 @@ const AnimeSection: React.FC<AnimeSectionProps> = ({
 
       {animes.length === 0 && (
         <div className="text-center py-12">
-          <p className="text-gray-500">{emptyMessage}</p>
+          <p className="text-muted-foreground">{emptyMessage}</p>
         </div>
       )}
     </div>

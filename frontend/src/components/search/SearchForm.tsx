@@ -87,9 +87,9 @@ export const SearchForm: React.FC<SearchFormProps> = ({
     <div ref={containerRef} className={cn('relative', className)}>
       <form onSubmit={handleSubmit}>
         <div className="relative">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
             <svg
-              className="h-5 w-5 text-gray-400"
+              className="h-5 w-5 text-muted-foreground"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -111,9 +111,9 @@ export const SearchForm: React.FC<SearchFormProps> = ({
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
             className={cn(
-              'block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg',
-              'text-gray-900 placeholder-gray-500',
-              'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+              'block w-full h-[52px] pl-11 pr-12 border border-input rounded-lg',
+              'text-foreground placeholder-muted-foreground',
+              'focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent',
               'transition-shadow'
             )}
             aria-label="検索"
@@ -127,7 +127,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
             <button
               type="button"
               onClick={handleClear}
-              className="absolute inset-y-0 right-12 flex items-center pr-2 text-gray-400 hover:text-gray-600"
+              className="absolute inset-y-0 right-12 flex items-center pr-2 text-muted-foreground hover:text-foreground"
               aria-label="検索をクリア"
             >
               <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -142,7 +142,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
           )}
           <button
             type="submit"
-            className="absolute inset-y-0 right-0 flex items-center pr-3 text-blue-600 hover:text-blue-700"
+            className="absolute inset-y-0 right-0 flex items-center pr-4 text-primary hover:text-primary/80"
             aria-label="検索を実行"
           >
             <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -160,16 +160,16 @@ export const SearchForm: React.FC<SearchFormProps> = ({
       {showDropdown && (
         <div
           id="search-suggestions"
-          className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg"
+          className="absolute z-10 w-full mt-1 bg-popover border border-border rounded-lg shadow-lg"
           role="listbox"
         >
-          <div className="flex items-center justify-between px-3 py-2 border-b border-gray-100">
-            <span className="text-xs text-gray-500 font-medium">最近の検索</span>
+          <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+            <span className="text-xs text-muted-foreground font-medium">最近の検索</span>
             {onClearHistory && (
               <button
                 type="button"
                 onClick={onClearHistory}
-                className="text-xs text-blue-600 hover:text-blue-700"
+                className="text-xs text-primary hover:text-primary/80"
               >
                 履歴をクリア
               </button>
@@ -184,12 +184,12 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                 aria-selected={index === selectedIndex}
                 className={cn(
                   'px-3 py-2 cursor-pointer flex items-center gap-2',
-                  index === selectedIndex ? 'bg-blue-50' : 'hover:bg-gray-50'
+                  index === selectedIndex ? 'bg-primary/10' : 'hover:bg-muted'
                 )}
                 onClick={() => handleSelectSuggestion(item)}
               >
                 <svg
-                  className="h-4 w-4 text-gray-400"
+                  className="h-4 w-4 text-muted-foreground"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -201,7 +201,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
                     d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                   />
                 </svg>
-                <span className="text-sm text-gray-700">{item}</span>
+                <span className="text-sm text-foreground">{item}</span>
               </li>
             ))}
           </ul>

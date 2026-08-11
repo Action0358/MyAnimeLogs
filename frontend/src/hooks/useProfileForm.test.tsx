@@ -23,7 +23,6 @@ const baseUser = {
   email: 'a@b.c',
   description: '初期説明',
   favorite_anime: '初期アニメ',
-  sns_link: 'https://x.com/a',
 }
 
 const inputEvent = (value: string) => ({ target: { value } }) as any
@@ -45,7 +44,6 @@ describe('useProfileForm', () => {
     expect(result.current.name).toBe('初期名')
     expect(result.current.description).toBe('初期説明')
     expect(result.current.favoriteAnime).toBe('初期アニメ')
-    expect(result.current.snsLink).toBe('https://x.com/a')
     expect(result.current.hasChanges).toBe(false)
   })
 
@@ -101,7 +99,6 @@ describe('useProfileForm', () => {
       name: '更新名',
       description: '初期説明',
       favorite_anime: null,
-      sns_link: 'https://x.com/a',
     })
     expect(mockUpdateUser).toHaveBeenCalledWith({ ...baseUser, name: '更新名' })
     expect(mockPush).toHaveBeenCalledWith('/mypage')

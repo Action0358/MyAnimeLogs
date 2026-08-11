@@ -1,9 +1,9 @@
 'use client'
 
 import React, { useRef } from 'react'
+import Link from 'next/link'
+import type { Route } from 'next'
 import { Container } from '@/components/layout'
-import { Input } from '@/components/ui/Input'
-import { Button } from '@/components/ui/Button'
 import {
   MAX_NAME_LENGTH,
   MAX_DESCRIPTION_LENGTH,
@@ -12,9 +12,44 @@ import {
 import { useProfileForm } from '@/hooks/useProfileForm'
 
 // Shared styles
-const TEXTAREA_CLASS_NAME =
-  'block w-full px-2 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none'
-const HELPER_TEXT_CLASS_NAME = 'text-sm text-gray-500 mt-2 px-2'
+const FIELD_BASE_CLASS_NAME =
+  'w-full border border-border rounded-md bg-card text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent'
+const INPUT_CLASS_NAME = `${FIELD_BASE_CLASS_NAME} h-[42px] px-3.5 text-sm`
+const TEXTAREA_CLASS_NAME = `${FIELD_BASE_CLASS_NAME} px-3.5 py-2.5 text-[13.5px] md:text-sm leading-[1.7] resize-y`
+const HELPER_TEXT_CLASS_NAME = 'text-[11px] md:text-[11.5px] text-muted-foreground mt-1.5'
+// 区切られた各グループの余白
+const SECTION_CLASS_NAME = 'px-[18px] py-[18px] md:px-7 md:py-[26px]'
+
+/**
+ * ラベル行。文字数カウンターを入力欄の下ではなくラベルの右端に置き、
+ * 「何の項目が何文字か」を1行で読めるようにする。
+ */
+const FieldLabel: React.FC<{
+  htmlFor: string
+  children: React.ReactNode
+  required?: boolean
+  current?: number
+  max?: number
+}> = ({ htmlFor, children, required = false, current, max }) => (
+  <div className="flex items-baseline justify-between mb-[7px] md:mb-2 gap-3">
+    <label
+      htmlFor={htmlFor}
+      className="text-[12.5px] md:text-[13.5px] font-semibold text-foreground"
+    >
+      {children}
+      {required && (
+        <span className="text-destructive font-medium ml-1" aria-hidden="true">
+          *
+        </span>
+      )}
+    </label>
+    {max !== undefined && (
+      <span className="text-[11px] md:text-[11.5px] text-muted-foreground tabular-nums flex-shrink-0">
+        {current} / {max}
+      </span>
+    )}
+  </div>
+)
 
 export const ProfileEditContent: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -23,7 +58,6 @@ export const ProfileEditContent: React.FC = () => {
     name,
     description,
     favoriteAnime,
-    snsLink,
     iconPreview,
     error,
     isLoading,
@@ -32,7 +66,6 @@ export const ProfileEditContent: React.FC = () => {
     handleNameChange,
     handleDescriptionChange,
     handleFavoriteAnimeChange,
-    handleSnsLinkChange,
     handleIconChange,
     handleSubmit,
     handleCancel,
@@ -42,151 +75,175 @@ export const ProfileEditContent: React.FC = () => {
     fileInputRef.current?.click()
   }
 
+  const isBusy = isLoading || isUploadingIcon
+
   return (
-    <Container className="py-12">
-      <div className="max-w-2xl mx-auto">
-        {/* ヘッダー */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+    <div className="bg-muted/30 min-h-screen">
+      <Container className="py-6 md:py-10">
+        <div className="max-w-[640px] mx-auto">
+          {/* ヘッダー */}
+          <nav
+            aria-label="パンくずリスト"
+            className="text-[11.5px] md:text-[12.5px] mb-3 md:mb-[18px]"
+          >
+            <Link
+              href={'/mypage' as Route}
+              className="text-muted-foreground hover:text-primary transition-colors"
+            >
+              マイページ
+            </Link>
+            <span className="text-muted-foreground mx-1.5" aria-hidden="true">
+              /
+            </span>
+            <span className="text-foreground">プロフィール編集</span>
+          </nav>
+          <h1 className="text-xl md:text-[26px] font-bold text-foreground mb-1.5">
             プロフィール編集
           </h1>
-          <p className="text-gray-600">
-            あなたのプロフィール情報を編集できます
+          <p className="text-[12.5px] md:text-[13.5px] text-muted-foreground mb-[18px] md:mb-6">
+            公開されるプロフィール情報を編集できます
           </p>
-        </div>
 
-        {/* 編集フォーム */}
-        <div className="bg-white rounded-lg border border-gray-200 p-8 shadow-sm">
-          <form onSubmit={handleSubmit} className="space-y-6">
+          {/* 編集フォーム。項目を意味のまとまりごとに区切り線でグループ化する */}
+          <form onSubmit={handleSubmit} className="bg-card border border-border rounded-lg">
             {error && (
-              <div className="p-4 bg-red-50 border border-red-200 rounded-md">
-                <p className="text-sm text-red-600">{error}</p>
+              <div className={`${SECTION_CLASS_NAME} border-b border-border`}>
+                <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-md">
+                  <p className="text-sm text-destructive">{error}</p>
+                </div>
               </div>
             )}
 
-            {/* アイコン画像 */}
-            <div>
-              <div className="flex items-center space-x-6">
-                {/* プレビュー */}
-                <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center overflow-hidden">
-                  {iconPreview ? (
-                    <img
-                      src={iconPreview}
-                      alt="プロフィール画像"
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-gray-400 text-4xl">👤</span>
-                  )}
-                </div>
-
-                {/* ボタンと説明 */}
-                <div className="flex-1">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/jpeg,image/png,image/gif,image/webp"
-                    onChange={handleIconChange}
-                    className="hidden"
+            {/* アイコン */}
+            <div
+              className={`${SECTION_CLASS_NAME} border-b border-border flex items-center gap-3.5 md:gap-5`}
+            >
+              <div className="w-[60px] h-[60px] md:w-[72px] md:h-[72px] bg-muted rounded-full flex items-center justify-center overflow-hidden flex-shrink-0">
+                {iconPreview ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={iconPreview}
+                    alt="プロフィール画像"
+                    className="w-full h-full object-cover"
                   />
-                  <Button
+                ) : (
+                  <span className="text-muted-foreground text-3xl md:text-4xl">👤</span>
+                )}
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <div className="text-[12.5px] md:text-[13.5px] font-semibold text-foreground mb-[7px] md:mb-2">
+                  アイコン
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  onChange={handleIconChange}
+                  className="hidden"
+                />
+                <div className="flex flex-col md:flex-row md:items-center gap-1.5 md:gap-3">
+                  <button
                     type="button"
-                    variant="outline"
-                    size="sm"
                     onClick={handleIconClick}
-                    disabled={isLoading || isUploadingIcon}
+                    disabled={isBusy}
+                    className="h-8 md:h-[34px] px-3 md:px-3.5 self-start border border-border rounded-md bg-card text-xs md:text-[12.5px] font-semibold text-foreground whitespace-nowrap hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                   >
-                    {isUploadingIcon ? 'アップロード中...' : 'アイコン変更'}
-                  </Button>
-                  <p className="text-xs text-gray-500 mt-2">
-                    JPEG、PNG、GIF、WebP形式（最大5MB）
-                  </p>
+                    {isUploadingIcon ? 'アップロード中...' : '画像を選択'}
+                  </button>
+                  <span className="text-[10.5px] md:text-[11.5px] text-muted-foreground">
+                    JPEG / PNG / GIF / WebP・最大5MB
+                  </span>
                 </div>
               </div>
             </div>
 
-            {/* ユーザー名 */}
-            <Input
-              label="ユーザー名"
-              type="text"
-              value={name}
-              onChange={handleNameChange}
-              placeholder="マイアニメログ"
-              required
-              helperText={`1〜${MAX_NAME_LENGTH}文字で入力してください`}
-            />
-
-            {/* プロフィール */}
-            <div>
-              <label className="block text-base font-bold text-gray-700 mb-2 px-2">
-                プロフィール
-              </label>
-              <textarea
-                value={description}
-                onChange={handleDescriptionChange}
-                placeholder="アニメが大好きです！"
-                rows={4}
-                maxLength={MAX_DESCRIPTION_LENGTH}
-                className={TEXTAREA_CLASS_NAME}
-              />
-              <p className={HELPER_TEXT_CLASS_NAME}>
-                {description.length}/{MAX_DESCRIPTION_LENGTH}文字
-              </p>
-            </div>
-
-            {/* 好きなアニメ */}
-            <div>
-              <label className="block text-base font-bold text-gray-700 mb-2 px-2">
-                好きなアニメ
-              </label>
-              <textarea
-                value={favoriteAnime}
-                onChange={handleFavoriteAnimeChange}
-                placeholder="アクション、ファンタジー系のアニメが好きです"
-                rows={3}
-                maxLength={MAX_FAVORITE_ANIME_LENGTH}
-                className={TEXTAREA_CLASS_NAME}
-              />
-              <p className={HELPER_TEXT_CLASS_NAME}>
-                {favoriteAnime.length}/{MAX_FAVORITE_ANIME_LENGTH}文字
-              </p>
-            </div>
-
-            {/* SNSリンク */}
-            <Input
-              label="SNSリンク"
-              type="url"
-              value={snsLink}
-              onChange={handleSnsLinkChange}
-              placeholder="https://twitter.com/username"
-            />
-
-            {/* ボタン */}
-            <div className="flex space-x-4 pt-4">
-              <Button
-                type="submit"
-                variant="primary"
-                size="md"
-                isLoading={isLoading || isUploadingIcon}
-                disabled={!hasChanges || isLoading || isUploadingIcon}
-                className="flex-1 text-sm"
+            {/* 基本情報 */}
+            <div className={`${SECTION_CLASS_NAME} border-b border-border`}>
+              <FieldLabel
+                htmlFor="profile-name"
+                required
+                current={name.length}
+                max={MAX_NAME_LENGTH}
               >
-                {isLoading || isUploadingIcon ? '保存中...' : '保存する'}
-              </Button>
-              <Button
+                ユーザー名
+              </FieldLabel>
+              <input
+                id="profile-name"
+                type="text"
+                value={name}
+                onChange={handleNameChange}
+                placeholder="マイアニメログ"
+                required
+                maxLength={MAX_NAME_LENGTH}
+                className={INPUT_CLASS_NAME}
+              />
+              <p className={HELPER_TEXT_CLASS_NAME}>
+                1〜{MAX_NAME_LENGTH}文字。マイページや一覧に表示されます
+              </p>
+            </div>
+
+            {/* 紹介 */}
+            <div className={`${SECTION_CLASS_NAME} flex flex-col gap-[18px] md:gap-[22px]`}>
+              <div>
+                <FieldLabel
+                  htmlFor="profile-description"
+                  current={description.length}
+                  max={MAX_DESCRIPTION_LENGTH}
+                >
+                  プロフィール
+                </FieldLabel>
+                <textarea
+                  id="profile-description"
+                  value={description}
+                  onChange={handleDescriptionChange}
+                  placeholder="アニメが大好きです！"
+                  rows={4}
+                  maxLength={MAX_DESCRIPTION_LENGTH}
+                  className={TEXTAREA_CLASS_NAME}
+                />
+              </div>
+              <div>
+                <FieldLabel
+                  htmlFor="profile-favorite-anime"
+                  current={favoriteAnime.length}
+                  max={MAX_FAVORITE_ANIME_LENGTH}
+                >
+                  好きなアニメ
+                </FieldLabel>
+                <textarea
+                  id="profile-favorite-anime"
+                  value={favoriteAnime}
+                  onChange={handleFavoriteAnimeChange}
+                  placeholder="アクション、ファンタジー系のアニメが好きです"
+                  rows={3}
+                  maxLength={MAX_FAVORITE_ANIME_LENGTH}
+                  className={TEXTAREA_CLASS_NAME}
+                />
+              </div>
+            </div>
+
+            {/* 操作列。主操作を「変更を保存」1つに絞る */}
+            <div className="px-[18px] py-4 md:px-7 md:py-[18px] border-t border-border bg-muted/30 rounded-b-lg flex flex-col-reverse md:flex-row md:items-center md:justify-end gap-2.5 md:gap-3.5">
+              <button
                 type="button"
-                variant="outline"
-                size="md"
                 onClick={handleCancel}
-                disabled={isLoading || isUploadingIcon}
-                className="flex-1 text-sm"
+                disabled={isBusy}
+                className="h-10 px-2 rounded-md text-[13px] md:text-[13.5px] font-semibold text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
                 キャンセル
-              </Button>
+              </button>
+              <button
+                type="submit"
+                disabled={!hasChanges || isBusy}
+                className="h-11 md:h-10 px-[22px] rounded-md text-sm md:text-[13.5px] font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 bg-primary text-primary-foreground hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed disabled:hover:bg-muted"
+              >
+                {isBusy ? '保存中...' : '変更を保存'}
+              </button>
             </div>
           </form>
         </div>
-      </div>
-    </Container>
+      </Container>
+    </div>
   )
 }

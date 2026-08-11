@@ -15,7 +15,6 @@ export interface UseProfileFormResult {
   name: string
   description: string
   favoriteAnime: string
-  snsLink: string
   iconPreview: string | null
   error: string
   isLoading: boolean
@@ -24,7 +23,6 @@ export interface UseProfileFormResult {
   handleNameChange: (e: React.ChangeEvent<HTMLInputElement>) => void
   handleDescriptionChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void
   handleFavoriteAnimeChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void
-  handleSnsLinkChange: (e: React.ChangeEvent<HTMLInputElement>) => void
   handleIconChange: (e: React.ChangeEvent<HTMLInputElement>) => void
   handleSubmit: (e: React.FormEvent) => Promise<void>
   handleCancel: () => void
@@ -42,7 +40,6 @@ export const useProfileForm = (): UseProfileFormResult => {
   const [name, setName] = useState(initialValues.name)
   const [description, setDescription] = useState(initialValues.description)
   const [favoriteAnime, setFavoriteAnime] = useState(initialValues.favoriteAnime)
-  const [snsLink, setSnsLink] = useState(initialValues.snsLink)
 
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -56,21 +53,18 @@ export const useProfileForm = (): UseProfileFormResult => {
     newName: string,
     newDescription: string,
     newFavoriteAnime: string,
-    newSnsLink: string,
     newIconFile: File | null = iconFile
   ) => {
     const nameChanged = newName !== initialValues.name
     const descriptionChanged = newDescription !== initialValues.description
     const favoriteAnimeChanged =
       newFavoriteAnime !== initialValues.favoriteAnime
-    const snsLinkChanged = newSnsLink !== initialValues.snsLink
     const iconChanged = newIconFile !== null
 
     setHasChanges(
       nameChanged ||
         descriptionChanged ||
         favoriteAnimeChanged ||
-        snsLinkChanged ||
         iconChanged
     )
   }
@@ -78,7 +72,7 @@ export const useProfileForm = (): UseProfileFormResult => {
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newName = e.target.value
     setName(newName)
-    checkForChanges(newName, description, favoriteAnime, snsLink)
+    checkForChanges(newName, description, favoriteAnime)
   }
 
   const handleDescriptionChange = (
@@ -86,7 +80,7 @@ export const useProfileForm = (): UseProfileFormResult => {
   ) => {
     const newDescription = e.target.value
     setDescription(newDescription)
-    checkForChanges(name, newDescription, favoriteAnime, snsLink)
+    checkForChanges(name, newDescription, favoriteAnime)
   }
 
   const handleFavoriteAnimeChange = (
@@ -94,13 +88,7 @@ export const useProfileForm = (): UseProfileFormResult => {
   ) => {
     const newFavoriteAnime = e.target.value
     setFavoriteAnime(newFavoriteAnime)
-    checkForChanges(name, description, newFavoriteAnime, snsLink)
-  }
-
-  const handleSnsLinkChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newSnsLink = e.target.value
-    setSnsLink(newSnsLink)
-    checkForChanges(name, description, favoriteAnime, newSnsLink)
+    checkForChanges(name, description, newFavoriteAnime)
   }
 
   const handleIconChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -114,7 +102,7 @@ export const useProfileForm = (): UseProfileFormResult => {
     }
 
     setError('')
-    checkForChanges(name, description, favoriteAnime, snsLink, file)
+    checkForChanges(name, description, favoriteAnime, file)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -150,7 +138,6 @@ export const useProfileForm = (): UseProfileFormResult => {
         name: name.trim(),
         description: description.trim(),
         favorite_anime: favoriteAnime.trim() || null,
-        sns_link: snsLink.trim() || null,
       }
 
       const data = await put<{ user: any }>('/api/users/me', requestBody)
@@ -188,7 +175,6 @@ export const useProfileForm = (): UseProfileFormResult => {
     name,
     description,
     favoriteAnime,
-    snsLink,
     iconPreview,
     error,
     isLoading,
@@ -197,7 +183,6 @@ export const useProfileForm = (): UseProfileFormResult => {
     handleNameChange,
     handleDescriptionChange,
     handleFavoriteAnimeChange,
-    handleSnsLinkChange,
     handleIconChange,
     handleSubmit,
     handleCancel,
