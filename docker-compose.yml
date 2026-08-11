@@ -4,6 +4,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: myanimelogs_frontend
+    restart: unless-stopped
     volumes:
       - ./frontend:/frontend
       - /frontend/node_modules
@@ -21,6 +22,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: myanimelogs_backend
+    restart: unless-stopped
     volumes:
       - ./backend:/backend
     ports:
@@ -40,6 +42,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: myanimelogs_redis
+    restart: unless-stopped
     ports:
       - "6379:6379"
     volumes:
