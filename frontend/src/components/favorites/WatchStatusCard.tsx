@@ -6,8 +6,7 @@ import Image from 'next/image'
 import type { Route } from 'next'
 import { cn } from '@/lib/utils'
 import { formatSeason } from '@/utils/formatSeason'
-import { WatchStatusStatus, Anime } from '@/lib/api/generated/myanimelogs'
-import { STATUS_CONFIG } from './StatusSelector'
+import { Anime } from '@/lib/api/generated/myanimelogs'
 import { withBackParam } from '@/lib/animeListOrigin'
 
 interface WatchStatusCardProps {
@@ -63,13 +62,6 @@ export const WatchStatusCard: React.FC<WatchStatusCardProps> = ({
             sizes="(max-width: 767px) 33vw, (max-width: 1023px) 25vw, 16vw"
           />
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-200" />
-
-          {/* ステータスはポスターの色を選ばない中立なバッジで示す */}
-          <div className="absolute top-1.5 left-1.5 sm:top-2 sm:left-2">
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9.5px] sm:text-[11px] font-bold bg-foreground/80 text-background">
-              {STATUS_CONFIG[status].label}
-            </span>
-          </div>
         </div>
 
         <h3

@@ -326,11 +326,7 @@ export const MyPageContent: React.FC = () => {
       {filteredItems.length > 0 ? (
         <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-x-2.5 gap-y-3.5 md:gap-x-[18px] md:gap-y-5">
           {filteredItems.map((anime) => (
-            <WatchStatusCard
-              key={anime.id}
-              anime={anime}
-              status={anime.user_watch_status?.status || 'planned'}
-            />
+            <WatchStatusCard key={anime.id} anime={anime} />
           ))}
         </div>
       ) : (
