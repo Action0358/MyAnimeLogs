@@ -77,7 +77,9 @@ myanimelogs/
 
 - Docker & Docker Compose
 - Git
-- [Supabase CLI](https://supabase.com/docs/guides/local-development/cli/getting-started)（`brew install supabase/tap/supabase` または同梱の `npx supabase`）
+- Node.js（`npm install` でルートの依存を取得）
+
+[Supabase CLI](https://supabase.com/docs/guides/local-development/cli/getting-started) は `package.json` の依存として同梱しているため、**グローバルインストールは不要**です。Makefile が `node_modules/.bin/supabase` を使うので、版が `package.json` にピン留めされ、環境間で挙動が揃います（brew 等でグローバル導入すると版ズレの原因になります）。
 
 ### 1. リポジトリのクローン
 
@@ -111,12 +113,26 @@ make local-up
 2. `supabase status -o env` から `ANON_KEY` を抽出して `frontend/.env.local` の `NEXT_PUBLIC_SUPABASE_ANON_KEY` を自動更新
 3. `docker compose up -d` でアプリを起動
 
-手動で行いたい場合:
+手動で行いたい場合（CLI は同梱版を使うため `npx supabase` で呼びます）:
 
 ```bash
-supabase start                  # 出力された "anon key" を控える
+npx supabase start              # 出力された "anon key" を控える
 # frontend/.env.local の NEXT_PUBLIC_SUPABASE_ANON_KEY を書き換え
 docker compose up -d
+```
+
+### 3-1. Docker Desktop 再起動後に backend が起動しない場合
+
+Docker Desktop を終了すると Supabase の全コンテナが SIGKILL で停止します。この状態で `docker compose up -d` すると、backend が起動時マイグレーションで DB（`localhost:54322`）に接続できず、リトライ後 `exit status 1` で落ちます。
+
+```
+Failed to ping database (attempt 1/5): dial tcp ...:54322: connect: connection refused
+```
+
+この場合 `supabase start` は「already running」と誤認して復旧できません。次のターゲットを使ってください（既存コンテナをそのまま起動するため、DB のデータは保持されます）。
+
+```bash
+make local-recover
 ```
 
 ### 4. 主要なローカルサービス
