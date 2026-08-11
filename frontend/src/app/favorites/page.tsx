@@ -4,6 +4,7 @@ import React, { useState, useMemo, useCallback } from 'react'
 import Link from 'next/link'
 import type { Route } from 'next'
 import { Container } from '@/components/layout'
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { Button } from '@/components/ui/Button'
 import { FavoriteCard } from '@/components/favorites'
 import { useFavorites, FavoriteAnime } from '@/hooks/useFavorites'
@@ -15,7 +16,7 @@ const filterValidFavorites = (favorites: FavoriteAnime[]): (FavoriteAnime & { id
   )
 }
 
-const FavoritesPage: React.FC = () => {
+const FavoritesContent: React.FC = () => {
   const { favorites, isLoading, error, removeFavorite } = useFavorites()
   const [updatingIds, setUpdatingIds] = useState<Set<number>>(new Set())
 
@@ -90,6 +91,16 @@ const FavoritesPage: React.FC = () => {
         </div>
       )}
     </Container>
+  )
+}
+
+// お気に入りは認証が必須。未ログインでの直接アクセスは
+// API がエラーになるため、マイページと同様にログイン画面へ送る。
+const FavoritesPage: React.FC = () => {
+  return (
+    <ProtectedRoute>
+      <FavoritesContent />
+    </ProtectedRoute>
   )
 }
 
