@@ -36,7 +36,6 @@ interface AnimeListPageProps {
   queryFn: () => Promise<DBAnimeResponse>
   emptyMessage: string
   errorMessage: string
-  totalLabel?: (total: number) => string
   showMediaTabs?: boolean
   columns?: {
     mobile?: number
@@ -52,7 +51,6 @@ export const AnimeListPage: React.FC<AnimeListPageProps> = ({
   queryFn,
   emptyMessage,
   errorMessage,
-  totalLabel = (total) => `${total}件`,
   showMediaTabs = false,
   columns,
 }) => {
@@ -121,8 +119,17 @@ export const AnimeListPage: React.FC<AnimeListPageProps> = ({
               <h1 className="text-xl md:text-[26px] font-bold text-foreground tracking-tight truncate">
                 {title}
               </h1>
-              <span className="text-xs md:text-sm text-muted-foreground flex-shrink-0">
-                {isLoading ? '読み込み中...' : totalLabel(total)}
+              <span className="text-sm text-muted-foreground flex-shrink-0 flex items-baseline gap-1">
+                {isLoading ? (
+                  '読み込み中...'
+                ) : (
+                  <>
+                    <span className="text-base font-bold text-foreground">
+                      {total.toLocaleString()}
+                    </span>
+                    件
+                  </>
+                )}
               </span>
               {isFetching && !isLoading && (
                 <div
