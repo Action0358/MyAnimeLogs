@@ -22,6 +22,13 @@ export const NAV_ITEMS: NavItem[] = [
   },
 ]
 
+// ログイン中のユーザー向けリンク。
+// デスクトップはヘッダーのユーザーメニュー、狭い画面はハンバーガーメニューで使う。
+export const USER_MENU_ITEMS: NavItem[] = [
+  { label: 'マイページ', href: '/mypage' },
+  { label: 'お気に入り', href: '/favorites' },
+]
+
 // フッターのサイトマップに並べるリンク。
 // お気に入りはヘッダーに項目がなく、ここが唯一の導線になる。
 //

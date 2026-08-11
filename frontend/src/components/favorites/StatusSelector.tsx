@@ -115,7 +115,7 @@ export const StatusSelector: React.FC<StatusSelectorProps> = ({
                     className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 transition-colors"
                   >
                     <span>✕</span>
-                    <span>視聴ステータスを解除</span>
+                    <span>視聴ステータス解除</span>
                   </button>
                 </li>
               </>

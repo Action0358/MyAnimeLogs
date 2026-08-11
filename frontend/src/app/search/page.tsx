@@ -119,7 +119,11 @@ function SearchContent() {
       <div className="max-w-7xl mx-auto">
         {/* ヘッダー */}
         <div className="mb-5">
-          <h1 className="text-3xl font-bold text-foreground mb-5">アニメ検索</h1>
+          {/* 狭い画面では検索フォーム自体が用途を示すため見出しを出さない。
+              ページの見出し構造は保つため、読み上げには残す */}
+          <h1 className="sr-only md:not-sr-only text-3xl font-bold text-foreground md:mb-5">
+            アニメ検索
+          </h1>
           <SearchForm
             onSearch={handleSearch}
             placeholder="タイトルで検索..."
