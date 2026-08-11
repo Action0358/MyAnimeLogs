@@ -64,7 +64,6 @@ export const ProfileEditContent: React.FC = () => {
     name: user?.name || '',
     description: user?.description || '',
     favoriteAnime: user?.favorite_anime || '',
-    snsLink: user?.sns_link || '',
   }))
 
   const [name, setName] = useState(initialValues.name)
@@ -72,7 +71,6 @@ export const ProfileEditContent: React.FC = () => {
   const [favoriteAnime, setFavoriteAnime] = useState(
     initialValues.favoriteAnime
   )
-  const [snsLink, setSnsLink] = useState(initialValues.snsLink)
 
   const [iconFile, setIconFile] = useState<File | null>(null)
   const [iconPreview, setIconPreview] = useState<string | null>(
@@ -108,29 +106,23 @@ export const ProfileEditContent: React.FC = () => {
     newName: string,
     newDescription: string,
     newFavoriteAnime: string,
-    newSnsLink: string,
     newIconFile: File | null = iconFile
   ) => {
     const nameChanged = newName !== initialValues.name
     const descriptionChanged = newDescription !== initialValues.description
     const favoriteAnimeChanged =
       newFavoriteAnime !== initialValues.favoriteAnime
-    const snsLinkChanged = newSnsLink !== initialValues.snsLink
     const iconChanged = newIconFile !== null
 
     setHasChanges(
-      nameChanged ||
-        descriptionChanged ||
-        favoriteAnimeChanged ||
-        snsLinkChanged ||
-        iconChanged
+      nameChanged || descriptionChanged || favoriteAnimeChanged || iconChanged
     )
   }
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newName = e.target.value
     setName(newName)
-    checkForChanges(newName, description, favoriteAnime, snsLink)
+    checkForChanges(newName, description, favoriteAnime)
   }
 
   const handleDescriptionChange = (
@@ -138,7 +130,7 @@ export const ProfileEditContent: React.FC = () => {
   ) => {
     const newDescription = e.target.value
     setDescription(newDescription)
-    checkForChanges(name, newDescription, favoriteAnime, snsLink)
+    checkForChanges(name, newDescription, favoriteAnime)
   }
 
   const handleFavoriteAnimeChange = (
@@ -146,13 +138,7 @@ export const ProfileEditContent: React.FC = () => {
   ) => {
     const newFavoriteAnime = e.target.value
     setFavoriteAnime(newFavoriteAnime)
-    checkForChanges(name, description, newFavoriteAnime, snsLink)
-  }
-
-  const handleSnsLinkChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newSnsLink = e.target.value
-    setSnsLink(newSnsLink)
-    checkForChanges(name, description, favoriteAnime, newSnsLink)
+    checkForChanges(name, description, newFavoriteAnime)
   }
 
   const handleIconChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -182,7 +168,7 @@ export const ProfileEditContent: React.FC = () => {
     }
     reader.readAsDataURL(file)
 
-    checkForChanges(name, description, favoriteAnime, snsLink, file)
+    checkForChanges(name, description, favoriteAnime, file)
   }
 
   const handleIconClick = () => {
@@ -222,7 +208,6 @@ export const ProfileEditContent: React.FC = () => {
         name: name.trim(),
         description: description.trim(),
         favorite_anime: favoriteAnime.trim() || null,
-        sns_link: snsLink.trim() || null,
       }
 
       const data = await put<{ user: any }>('/api/users/me', requestBody)
@@ -403,22 +388,6 @@ export const ProfileEditContent: React.FC = () => {
                   className={TEXTAREA_CLASS_NAME}
                 />
               </div>
-            </div>
-
-            {/* リンク */}
-            <div className={SECTION_CLASS_NAME}>
-              <FieldLabel htmlFor="profile-sns-link">SNSリンク</FieldLabel>
-              <input
-                id="profile-sns-link"
-                type="url"
-                value={snsLink}
-                onChange={handleSnsLinkChange}
-                placeholder="https://twitter.com/username"
-                className={INPUT_CLASS_NAME}
-              />
-              <p className={HELPER_TEXT_CLASS_NAME}>
-                X（Twitter）などのURLを1件登録できます
-              </p>
             </div>
 
             {/* 操作列。主操作を「変更を保存」1つに絞る */}
