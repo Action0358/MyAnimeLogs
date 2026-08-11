@@ -36,43 +36,39 @@ export const WatchStatusTabs: React.FC<WatchStatusTabsProps> = ({
   onTabChange,
   counts,
 }) => {
+  // 一覧・検索ページの MediaTabs と同じピル型に揃える。
+  // 件数はラベルに続けて示し、バッジを重ねない。
   return (
-    <div className="border-b border-gray-200">
-      <nav className="-mb-px flex space-x-4 overflow-x-auto" aria-label="視聴ステータスタブ">
-        {WATCH_STATUS_TABS.map((tab) => {
-          const isActive = activeTab === tab.key
-          const count = counts?.[tab.key]
+    <nav
+      className="flex gap-1 overflow-x-auto scrollbar-hide touch-pan-x"
+      aria-label="視聴ステータスタブ"
+    >
+      {WATCH_STATUS_TABS.map((tab) => {
+        const isActive = activeTab === tab.key
+        const count = counts?.[tab.key]
 
-          return (
-            <button
-              key={tab.key}
-              type="button"
-              onClick={() => onTabChange(tab.key)}
-              className={cn(
-                'flex items-center gap-2 whitespace-nowrap py-3 px-1 border-b-2 text-sm font-medium transition-colors',
-                isActive
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              )}
-              aria-current={isActive ? 'page' : undefined}
-            >
-              <span>{tab.label}</span>
-              {count !== undefined && (
-                <span
-                  className={cn(
-                    'inline-flex items-center justify-center px-2 py-0.5 text-xs rounded-full',
-                    isActive
-                      ? 'bg-blue-100 text-blue-600'
-                      : 'bg-gray-100 text-gray-600'
-                  )}
-                >
-                  {count}
-                </span>
-              )}
-            </button>
-          )
-        })}
-      </nav>
-    </div>
+        return (
+          <button
+            key={tab.key}
+            type="button"
+            onClick={() => onTabChange(tab.key)}
+            className={cn(
+              'relative rounded-md px-3 py-1.5 md:px-4 md:py-2 text-[12.5px] md:text-[13.5px]',
+              'whitespace-nowrap flex-shrink-0 transition-colors duration-200',
+              'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+              isActive
+                ? 'bg-primary/10 text-primary font-semibold'
+                : 'text-muted-foreground font-medium hover:text-foreground hover:bg-muted'
+            )}
+            aria-current={isActive ? 'page' : undefined}
+          >
+            <span>{tab.label}</span>
+            {count !== undefined && (
+              <span className="ml-1.5 tabular-nums">{count}</span>
+            )}
+          </button>
+        )
+      })}
+    </nav>
   )
 }

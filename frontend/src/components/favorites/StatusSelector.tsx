@@ -18,6 +18,8 @@ interface StatusSelectorProps {
   onRemove?: () => void
   disabled?: boolean
   size?: 'sm' | 'md' | 'lg'
+  /** 外側のラッパーに付与する。幅・高さを呼び出し側で揃えたいときに渡す */
+  className?: string
 }
 
 export const StatusSelector: React.FC<StatusSelectorProps> = ({
@@ -26,6 +28,7 @@ export const StatusSelector: React.FC<StatusSelectorProps> = ({
   onRemove,
   disabled = false,
   size = 'md',
+  className,
 }) => {
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -42,13 +45,14 @@ export const StatusSelector: React.FC<StatusSelectorProps> = ({
   const statuses = Object.entries(STATUS_CONFIG) as [WatchStatusStatus, typeof STATUS_CONFIG[WatchStatusStatus]][]
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className={cn('relative', className)} ref={dropdownRef}>
       <button
         type="button"
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
         className={cn(
-          'flex items-center gap-2 rounded-md border border-gray-300 bg-white transition-colors',
+          // ラッパーに幅・高さが指定された場合はそれに追従する
+          'flex w-full h-full items-center justify-center gap-2 rounded-md border border-gray-300 bg-white transition-colors',
           'hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500',
           'disabled:opacity-50 disabled:cursor-not-allowed',
           sizeStyles[size]
@@ -111,7 +115,7 @@ export const StatusSelector: React.FC<StatusSelectorProps> = ({
                     className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 transition-colors"
                   >
                     <span>✕</span>
-                    <span>視聴ステータスを解除</span>
+                    <span>視聴ステータス解除</span>
                   </button>
                 </li>
               </>
