@@ -159,13 +159,11 @@ site_url = "http://localhost:3000"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-# パスワードリセット (/auth/update-password) および OAuth/メール確認コールバック (/auth/callback)
-# を 127.0.0.1 / localhost 両方で許可（Next.js dev サーバは両方で待ち受ける）。
+# Google OAuth のコールバック (/auth/callback) を 127.0.0.1 / localhost 両方で許可
+# （Next.js dev サーバは両方で待ち受けるため）。
 additional_redirect_urls = [
   "http://127.0.0.1:3000",
-  "http://127.0.0.1:3000/auth/update-password",
   "http://127.0.0.1:3000/auth/callback",
-  "http://localhost:3000/auth/update-password",
   "http://localhost:3000/auth/callback",
 ]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
