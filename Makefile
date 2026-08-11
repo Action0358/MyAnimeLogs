@@ -6,14 +6,17 @@
 #   make local-stop         # Supabase + アプリ Docker を全停止
 #   make local-supabase-up  # Supabase CLI のみ起動 + anon key を frontend/.env.local に反映
 #   make local-supabase-down# Supabase CLI のみ停止
+#   make local-recover      # 停止済み Supabase コンテナを再作成せず起動（Docker Desktop 再起動後の復旧）
 #   make sync-anon-key      # Supabase 起動中の anon key を frontend/.env.local に反映
 
-.PHONY: local-up local-down local-stop local-supabase-up local-supabase-down sync-anon-key local-status help
+.PHONY: local-up local-down local-stop local-supabase-up local-supabase-down local-recover sync-anon-key local-status help
 
-# グローバルインストール済みの supabase CLI を優先、無ければ npx にフォールバック。
-# npx の起動オーバーヘッド（ネットワーク・キャッシュ確認）を回避する。
-SUPABASE := $(shell command -v supabase >/dev/null 2>&1 && echo supabase || echo "npx --yes supabase")
+# package.json でピン留めした版を使う。グローバル CLI を優先すると config.toml の
+# スキーマやマイグレーション挙動が版ズレし、「手元だけ動く/動かない」の原因になる。
+# node_modules 未インストール時のみ npx にフォールバック。
+SUPABASE := $(shell [ -x node_modules/.bin/supabase ] && echo node_modules/.bin/supabase || echo "npx --yes supabase")
 FRONTEND_ENV := frontend/.env.local
+SUPABASE_PROJECT := myanimelogs-supabase
 
 ## Supabase 起動 + anon key を frontend/.env.local に反映
 local-supabase-up:
@@ -29,6 +32,21 @@ local-supabase-down:
 	@echo "==> Stopping Supabase local stack..."
 	$(SUPABASE) stop
 
+## Docker Desktop 再起動などで Supabase コンテナが落ちた場合の復旧。
+## この状態では `supabase start` が「already running」と誤認して復旧できないため、
+## 既存コンテナを再作成せずそのまま起動する（DB のデータを保持するため stop/start は使わない）。
+local-recover:
+	@echo "==> Recovering stopped Supabase containers (data preserved)..."
+	@docker start supabase_vector_$(SUPABASE_PROJECT) supabase_db_$(SUPABASE_PROJECT) >/dev/null
+	@echo "==> Waiting for database to become healthy..."
+	@until [ "$$(docker inspect -f '{{.State.Health.Status}}' supabase_db_$(SUPABASE_PROJECT) 2>/dev/null)" = "healthy" ]; do sleep 2; done
+	@echo "==> Starting remaining Supabase services..."
+	@docker start $$(docker ps -aq --filter label=com.supabase.cli.project=$(SUPABASE_PROJECT)) >/dev/null
+	@echo "==> Starting application containers..."
+	docker compose up -d
+	@echo ""
+	@echo "OK: 復旧しました。ヘルスチェック: curl http://localhost:8080/health"
+
 ## supabase status から anon key を取り出し、frontend/.env.local の NEXT_PUBLIC_SUPABASE_ANON_KEY を更新
 sync-anon-key:
 	@echo "==> Syncing anon key into $(FRONTEND_ENV)..."
@@ -38,7 +56,8 @@ sync-anon-key:
 	fi
 	@ANON_KEY=$$($(SUPABASE) status -o env | grep '^ANON_KEY=' | sed 's/^ANON_KEY=//' | tr -d '"\r'); \
 	if [ -z "$$ANON_KEY" ]; then \
-		echo "ERROR: anon key を取得できませんでした。'supabase start' が完了しているか確認してください。"; \
+		echo "ERROR: anon key を取得できませんでした。'make local-supabase-up' が完了しているか確認してください。"; \
+		echo "       コンテナが停止している場合は 'make local-recover' を試してください。"; \
 		exit 1; \
 	fi; \
 	if grep -q '^NEXT_PUBLIC_SUPABASE_ANON_KEY=' $(FRONTEND_ENV); then \
@@ -84,5 +103,6 @@ help:
 	@echo "  make local-stop          - Stop application + Supabase"
 	@echo "  make local-supabase-up   - Start Supabase only (and sync anon key)"
 	@echo "  make local-supabase-down - Stop Supabase only"
+	@echo "  make local-recover       - Restart stopped Supabase containers (after Docker restart)"
 	@echo "  make sync-anon-key       - Re-sync anon key into $(FRONTEND_ENV)"
 	@echo "  make local-status        - Show service status"
