@@ -4,21 +4,12 @@ import React, { useRef, useEffect } from 'react'
 import Link from 'next/link'
 import type { Route } from 'next'
 import { useAuth } from '@/contexts/AuthContext'
+import { USER_MENU_ITEMS } from './navigationConfig'
 
 interface UserMenuProps {
   isOpen: boolean
   onClose: () => void
 }
-
-interface MenuItem {
-  label: string
-  href: Route
-}
-
-const MENU_ITEMS: MenuItem[] = [
-  { label: 'マイページ', href: '/mypage' as Route },
-  { label: 'お気に入り', href: '/favorites' as Route },
-]
 
 export const UserMenu: React.FC<UserMenuProps> = ({ isOpen, onClose }) => {
   const { user, logout } = useAuth()
@@ -60,10 +51,10 @@ export const UserMenu: React.FC<UserMenuProps> = ({ isOpen, onClose }) => {
 
       {/* メインメニュー */}
       <nav className="py-1">
-        {MENU_ITEMS.map((item) => (
+        {USER_MENU_ITEMS.map((item) => (
           <Link
             key={item.href}
-            href={item.href}
+            href={item.href as Route}
             onClick={onClose}
             className="block px-4 py-2 text-foreground hover:bg-muted transition-colors"
           >

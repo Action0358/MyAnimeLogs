@@ -36,7 +36,6 @@ interface AnimeListPageProps {
   queryFn: () => Promise<DBAnimeResponse>
   emptyMessage: string
   errorMessage: string
-  totalLabel?: (total: number) => string
   showMediaTabs?: boolean
   columns?: {
     mobile?: number
@@ -52,7 +51,6 @@ export const AnimeListPage: React.FC<AnimeListPageProps> = ({
   queryFn,
   emptyMessage,
   errorMessage,
-  totalLabel = (total) => `${total}件のアニメ`,
   showMediaTabs = false,
   columns,
 }) => {
@@ -101,7 +99,7 @@ export const AnimeListPage: React.FC<AnimeListPageProps> = ({
 
   if (error) {
     return (
-      <Container className="py-8">
+      <Container size="xl" className="max-w-[1180px] py-8">
         <div className="text-center py-12">
           <p className="text-destructive mb-4">{errorMessage}</p>
         </div>
@@ -110,31 +108,50 @@ export const AnimeListPage: React.FC<AnimeListPageProps> = ({
   }
 
   return (
-    <Container className="py-8">
-      <div className="max-w-7xl mx-auto">
-        {/* ヘッダー */}
-        <div className="mb-6">
-          <div className="flex items-center gap-2">
-            <h1 className="text-3xl font-bold text-foreground">{title}</h1>
-            {isFetching && !isLoading && (
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
+    <Container size="xl" className="max-w-[1180px] py-8">
+      <div>
+        {/* ページヘッダー: タイトル・件数・フィルタタブを1ブロックにまとめ、
+            下端の区切り線でグリッドと分離する。
+            件数はタイトルと同じ行にベースライン揃えで併記し、視線の流れを一本化する。 */}
+        <div className="pb-4 md:pb-[18px] border-b border-border mb-5 md:mb-6">
+          <div className="flex flex-col gap-3 md:flex-row md:items-baseline md:justify-between md:gap-6">
+            <div className="flex items-baseline gap-2 md:gap-3 min-w-0">
+              <h1 className="text-xl md:text-[26px] font-bold text-foreground tracking-tight truncate">
+                {title}
+              </h1>
+              <span className="text-sm text-muted-foreground flex-shrink-0 flex items-baseline gap-1">
+                {isLoading ? (
+                  '読み込み中...'
+                ) : (
+                  <>
+                    <span className="text-base font-bold text-foreground">
+                      {total.toLocaleString()}
+                    </span>
+                    件
+                  </>
+                )}
+              </span>
+              {isFetching && !isLoading && (
+                <div
+                  className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary flex-shrink-0"
+                  role="status"
+                  aria-label="更新中"
+                />
+              )}
+            </div>
+
+            {/* メディアタイプタブ。デスクトップではヘッダー右側に置き、
+                並び替えなどを将来足せる余白として左右に情報を分散させる */}
+            {showMediaTabs && (
+              <MediaTabs
+                tabs={MEDIA_TABS}
+                activeTab={activeMediaTab}
+                onTabChange={handleMediaTabChange}
+                className="md:flex-shrink-0"
+              />
             )}
           </div>
-          <p className="text-muted-foreground mt-1">
-            {isLoading ? 'アニメを読み込み中...' : totalLabel(total)}
-          </p>
         </div>
-
-        {/* メディアタイプタブ */}
-        {showMediaTabs && (
-          <div className="mb-6">
-            <MediaTabs
-              tabs={MEDIA_TABS}
-              activeTab={activeMediaTab}
-              onTabChange={handleMediaTabChange}
-            />
-          </div>
-        )}
 
         {/* アニメグリッド */}
         <AnimeGrid
@@ -159,7 +176,7 @@ export const AnimeListPage: React.FC<AnimeListPageProps> = ({
 
         {/* ページネーション */}
         {totalPages > 1 && (
-          <div className="mt-8">
+          <div className="mt-6 md:mt-9">
             <Pagination
               currentPage={currentPage}
               totalPages={totalPages}

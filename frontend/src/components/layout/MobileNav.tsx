@@ -3,7 +3,8 @@
 import React, { useEffect, useRef } from 'react'
 import { NavLink } from './NavLink'
 import { X } from 'lucide-react'
-import { NAV_ITEMS } from './navigationConfig'
+import { NAV_ITEMS, USER_MENU_ITEMS } from './navigationConfig'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface MobileNavProps {
   isOpen: boolean
@@ -12,6 +13,7 @@ interface MobileNavProps {
 
 export const MobileNav: React.FC<MobileNavProps> = ({ isOpen, onClose }) => {
   const menuRef = useRef<HTMLDivElement>(null)
+  const { user, logout } = useAuth()
 
   // メニュー外クリックで閉じる
   useEffect(() => {
@@ -51,6 +53,11 @@ export const MobileNav: React.FC<MobileNavProps> = ({ isOpen, onClose }) => {
   }, [isOpen, onClose])
 
   if (!isOpen) return null
+
+  const handleLogout = () => {
+    logout()
+    onClose()
+  }
 
   return (
     <>
@@ -96,6 +103,40 @@ export const MobileNav: React.FC<MobileNavProps> = ({ isOpen, onClose }) => {
               </li>
             ))}
           </ul>
+
+          {/* ログイン中のみ。ヘッダーのユーザーアイコンを廃したぶんをここに集約する */}
+          {user && (
+            <>
+              <div className="mt-4 pt-4 border-t border-border">
+                <p className="px-3 pb-2 text-sm font-bold text-foreground truncate">
+                  {user.name}
+                </p>
+                <ul className="space-y-1">
+                  {USER_MENU_ITEMS.map((item) => (
+                    <li key={item.href}>
+                      <NavLink
+                        href={item.href}
+                        onClick={onClose}
+                        variant="drawer"
+                        className="block"
+                      >
+                        {item.label}
+                      </NavLink>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="mt-4 pt-4 border-t border-border">
+                <button
+                  onClick={handleLogout}
+                  className="block w-full text-left px-3 py-2 rounded-md text-foreground hover:bg-muted transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  ログアウト
+                </button>
+              </div>
+            </>
+          )}
         </nav>
       </div>
     </>

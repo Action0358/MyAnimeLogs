@@ -3,6 +3,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import type { Route } from 'next'
 import Container from './Container'
+import { FOOTER_LINKS } from './navigationConfig'
 import { SUB_LOGO_PATH } from '@/lib/constants'
 
 // フッターカラムヘッダーコンポーネント
@@ -23,7 +24,7 @@ const Footer: React.FC = () => {
     <footer className="bg-background border-t border-border mt-16">
       <Container>
         <div className="py-12">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
             {/* サイト情報 */}
             <div>
               <FooterColumnHeader>
@@ -47,76 +48,26 @@ const Footer: React.FC = () => {
                   サイトマップ
                 </h3>
               </FooterColumnHeader>
-              <ul className="space-y-2">
-                <li>
-                  <Link
-                    href="/"
-                    className="text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    ホーム
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="/search"
-                    className="text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    検索
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href="/mypage"
-                    className="text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    マイページ
-                  </Link>
-                </li>
+              {/*
+                項目数が多いため2列に流し、フッターが縦に伸びるのを防ぐ。
+                grid-flow-col + grid-rows-4 で「横→縦」ではなく「縦→横」に
+                並べることで、FOOTER_LINKS の並び順どおりに上から読め、
+                今期アニメ・人気アニメ・お気に入りが同じ列で隣接する。
+              */}
+              <ul className="grid grid-rows-4 grid-flow-col gap-x-6 gap-y-2">
+                {FOOTER_LINKS.map((item) => (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href as Route}
+                      className="text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {item.label}
+                    </Link>
+                  </li>
+                ))}
               </ul>
             </div>
 
-            {/* サポート */}
-            <div>
-              <FooterColumnHeader>
-                <h3 className="text-lg font-semibold text-foreground">
-                  サポート
-                </h3>
-              </FooterColumnHeader>
-              <ul className="space-y-2">
-                <li>
-                  <Link
-                    href={'/help' as Route}
-                    className="text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    ヘルプ
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href={'/contact' as Route}
-                    className="text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    お問い合わせ
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href={'/privacy' as Route}
-                    className="text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    プライバシーポリシー
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href={'/terms' as Route}
-                    className="text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    利用規約
-                  </Link>
-                </li>
-              </ul>
-            </div>
           </div>
 
           {/* コピーライト */}

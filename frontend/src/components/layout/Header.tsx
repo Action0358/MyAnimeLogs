@@ -85,7 +85,8 @@ const Header: React.FC = () => {
               </span>
             </div>
           ) : user ? (
-            <div className="relative flex items-center gap-2">
+            // 狭い画面ではハンバーガーメニューに統合するため、アイコンを出さない
+            <div className="relative hidden md:flex items-center gap-2">
               {/* ユーザーアイコン（クリックでメニュー表示） */}
               <button
                 onClick={toggleUserMenu}
