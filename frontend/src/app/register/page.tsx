@@ -150,21 +150,21 @@ const RegisterPage: React.FC = () => {
             </div>
             
             <div className="text-center p-4 bg-white rounded-lg border border-gray-200">
-              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-2">
-                <span className="text-green-600 text-lg">📊</span>
-              </div>
-              <p className="text-sm text-gray-700 font-medium">視聴統計</p>
-              <p className="text-xs text-gray-500 mt-1">視聴データを可視化</p>
-            </div>
-            
-            <div className="text-center p-4 bg-white rounded-lg border border-gray-200">
               <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center mx-auto mb-2">
                 <span className="text-purple-600 text-lg">⭐</span>
               </div>
-              <p className="text-sm text-gray-700 font-medium">評価投稿</p>
-              <p className="text-xs text-gray-500 mt-1">作品にレビューを投稿</p>
+              <p className="text-sm text-gray-700 font-medium">お気に入り</p>
+              <p className="text-xs text-gray-500 mt-1">気になる作品を保存</p>
             </div>
-            
+
+            <div className="text-center p-4 bg-white rounded-lg border border-gray-200">
+              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-2">
+                <span className="text-green-600 text-lg">📡</span>
+              </div>
+              <p className="text-sm text-gray-700 font-medium">配信情報</p>
+              <p className="text-xs text-gray-500 mt-1">視聴できるサービスを確認</p>
+            </div>
+
             <div className="text-center p-4 bg-white rounded-lg border border-gray-200">
               <div className="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center mx-auto mb-2">
                 <span className="text-orange-600 text-lg">🔍</span>

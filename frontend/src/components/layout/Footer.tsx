@@ -23,7 +23,7 @@ const Footer: React.FC = () => {
     <footer className="bg-background border-t border-border mt-16">
       <Container>
         <div className="py-12">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
             {/* サイト情報 */}
             <div>
               <FooterColumnHeader>
@@ -75,48 +75,6 @@ const Footer: React.FC = () => {
               </ul>
             </div>
 
-            {/* サポート */}
-            <div>
-              <FooterColumnHeader>
-                <h3 className="text-lg font-semibold text-foreground">
-                  サポート
-                </h3>
-              </FooterColumnHeader>
-              <ul className="space-y-2">
-                <li>
-                  <Link
-                    href={'/help' as Route}
-                    className="text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    ヘルプ
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href={'/contact' as Route}
-                    className="text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    お問い合わせ
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href={'/privacy' as Route}
-                    className="text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    プライバシーポリシー
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href={'/terms' as Route}
-                    className="text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    利用規約
-                  </Link>
-                </li>
-              </ul>
-            </div>
           </div>
 
           {/* コピーライト */}
