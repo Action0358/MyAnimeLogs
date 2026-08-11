@@ -130,10 +130,16 @@ function SearchContent() {
           />
         </div>
 
-        {/* ツールバー: フィルター + 件数 + 並び替え */}
+        {/* ツールバー: フィルター + 並び替え + 件数 */}
         <div className="flex items-center gap-2.5 flex-wrap pb-4 border-b border-border mb-6">
-          {/* デスクトップ: インラインフィルターチップ */}
+          {/* デスクトップ: インラインフィルターチップ + 並び替え（操作系を左に集約） */}
           <FilterPanel {...filterPanelProps} variant="inline" className="hidden lg:flex" />
+          <SortDropdown
+            options={sortOptions}
+            value={filters.sort}
+            onChange={handleSortChange}
+            className="hidden lg:inline-flex"
+          />
 
           {/* モバイル: フィルターボタン */}
           <button
@@ -145,11 +151,23 @@ function SearchContent() {
             {hasActiveFilters && <span className="w-1.5 h-1.5 bg-primary rounded-full" />}
           </button>
 
+          {/* モバイル: 並び替え（件数と同じ行の左側にまとめる） */}
+          <SortDropdown
+            options={sortOptions}
+            value={filters.sort}
+            onChange={handleSortChange}
+            className="lg:hidden"
+          />
+
           <div className="flex-1" />
 
+          {/* 件数: 結果を説明するラベルとして右端に独立、数字のみ強調 */}
           <span className="text-sm text-muted-foreground whitespace-nowrap flex items-center gap-2">
             {total > 0 ? (
-              `${total}件のアニメ`
+              <>
+                <span className="text-base font-bold text-foreground">{total.toLocaleString()}</span>
+                件のアニメ
+              </>
             ) : (
               !isLoading && '検索結果がありません'
             )}
@@ -157,8 +175,6 @@ function SearchContent() {
               <span className="inline-block animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-primary" />
             )}
           </span>
-
-          <SortDropdown options={sortOptions} value={filters.sort} onChange={handleSortChange} />
         </div>
 
         {/* モバイルフィルターシート */}
