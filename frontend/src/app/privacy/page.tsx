@@ -1,6 +1,6 @@
 import React from 'react'
-import Link from 'next/link'
 import { LegalPage, LegalSection, LegalList } from '@/components/legal/LegalPage'
+import { OPERATOR_NAME, SUPPORT_EMAIL } from '@/lib/constants'
 
 export const metadata = {
   title: 'プライバシーポリシー | MyAnimeLogs',
@@ -11,7 +11,7 @@ const PrivacyPage: React.FC = () => (
   <LegalPage title="プライバシーポリシー" updatedAt="2026年8月12日">
     <LegalSection title="1. はじめに">
       <p>
-        本ポリシーは、MyAnimeLogs（以下「本サービス」）における利用者の情報の取り扱いについて定めるものです。
+        本ポリシーは、{OPERATOR_NAME}（以下「運営者」）が提供する MyAnimeLogs（以下「本サービス」）における利用者の情報の取り扱いについて定めるものです。
       </p>
     </LegalSection>
 
@@ -133,11 +133,15 @@ const PrivacyPage: React.FC = () => (
 
     <LegalSection title="11. お問い合わせ">
       <p>
-        本ポリシーに関するお問い合わせは、
-        <Link href="/about" className="text-primary hover:underline">
-          サービス概要ページ
-        </Link>
-        に記載の窓口までご連絡ください。
+        本ポリシーに関するお問い合わせ、および保有する情報の開示・訂正・削除のご請求は、以下までご連絡ください。
+      </p>
+      <p>
+        運営者: {OPERATOR_NAME}
+        <br />
+        連絡先:{' '}
+        <a href={`mailto:${SUPPORT_EMAIL}`} className="text-primary hover:underline">
+          {SUPPORT_EMAIL}
+        </a>
       </p>
     </LegalSection>
   </LegalPage>

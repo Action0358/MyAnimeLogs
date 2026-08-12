@@ -1,6 +1,6 @@
 import React from 'react'
-import Link from 'next/link'
 import { LegalPage, LegalSection, LegalList } from '@/components/legal/LegalPage'
+import { OPERATOR_NAME, SUPPORT_EMAIL } from '@/lib/constants'
 
 export const metadata = {
   title: '利用規約 | MyAnimeLogs',
@@ -11,8 +11,11 @@ const TermsPage: React.FC = () => (
   <LegalPage title="利用規約" updatedAt="2026年8月12日">
     <LegalSection title="第1条（適用）">
       <p>
-        本規約は、MyAnimeLogs（以下「本サービス」）の提供条件および利用者と運営者との権利義務関係を定めるものです。
+        本規約は、{OPERATOR_NAME}（以下「運営者」）が提供する MyAnimeLogs（以下「本サービス」）の提供条件、および利用者と運営者との権利義務関係を定めるものです。
         利用者は、本サービスを利用することにより本規約に同意したものとみなされます。
+      </p>
+      <p>
+        本サービスは個人により運営されている無償のサービスです。
       </p>
     </LegalSection>
 
@@ -119,12 +122,14 @@ const TermsPage: React.FC = () => (
     </LegalSection>
 
     <LegalSection title="お問い合わせ">
+      <p>本規約に関するお問い合わせは、以下までご連絡ください。</p>
       <p>
-        本規約に関するお問い合わせは、
-        <Link href="/about" className="text-primary hover:underline">
-          サービス概要ページ
-        </Link>
-        に記載の窓口までご連絡ください。
+        運営者: {OPERATOR_NAME}
+        <br />
+        連絡先:{' '}
+        <a href={`mailto:${SUPPORT_EMAIL}`} className="text-primary hover:underline">
+          {SUPPORT_EMAIL}
+        </a>
       </p>
     </LegalSection>
   </LegalPage>
