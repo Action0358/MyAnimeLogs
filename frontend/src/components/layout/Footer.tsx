@@ -77,9 +77,20 @@ const Footer: React.FC = () => {
                 &copy; {currentYear} MyAnimeLogs. All rights reserved.
               </p>
               <div className="flex items-center space-x-4 mt-4 md:mt-0">
-                <span className="text-muted-foreground text-sm">
-                  Made with ❤️ for anime lovers
-                </span>
+                {/* 規約・ポリシーは Google OAuth 同意画面からも参照されるため、
+                    全ページから到達できるフッターに常設する */}
+                <Link
+                  href={"/terms" as Route}
+                  className="text-muted-foreground hover:text-foreground text-sm transition-colors"
+                >
+                  利用規約
+                </Link>
+                <Link
+                  href={"/privacy" as Route}
+                  className="text-muted-foreground hover:text-foreground text-sm transition-colors"
+                >
+                  プライバシーポリシー
+                </Link>
               </div>
             </div>
           </div>

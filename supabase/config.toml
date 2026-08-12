@@ -159,13 +159,11 @@ site_url = "http://localhost:3000"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-# パスワードリセット (/auth/update-password) および OAuth/メール確認コールバック (/auth/callback)
-# を 127.0.0.1 / localhost 両方で許可（Next.js dev サーバは両方で待ち受ける）。
+# Google OAuth のコールバック (/auth/callback) を 127.0.0.1 / localhost 両方で許可
+# （Next.js dev サーバは両方で待ち受けるため）。
 additional_redirect_urls = [
   "http://127.0.0.1:3000",
-  "http://127.0.0.1:3000/auth/update-password",
   "http://127.0.0.1:3000/auth/callback",
-  "http://localhost:3000/auth/update-password",
   "http://localhost:3000/auth/callback",
 ]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
@@ -353,6 +351,23 @@ url = ""
 # If enabled, the nonce check will be skipped. Required for local sign in with Google auth.
 skip_nonce_check = false
 # If enabled, it will allow the user to successfully authenticate when the provider does not return an email address.
+email_optional = false
+
+# Google ソーシャルログイン（唯一の認証手段）。
+# client_id / secret は Google Cloud Console の OAuth 2.0 クライアントの値を
+# backend/.env.local ではなくシェル環境変数として渡す。値は絶対にコミットしない。
+[auth.external.google]
+enabled = true
+client_id = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)"
+secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
+# 既定では auth.external_url（= api_url の 127.0.0.1）からコールバックURLが
+# 組み立てられるが、Google の「承認済みリダイレクトURI」は完全一致判定のため
+# 127.0.0.1 と localhost は別物として扱われ redirect_uri_mismatch になる。
+# Google Cloud Console 側の登録と揃えるため localhost を明示する。
+redirect_uri = "http://localhost:54321/auth/v1/callback"
+url = ""
+# ローカルの Google サインインでは nonce 検証をスキップする必要がある
+skip_nonce_check = true
 email_optional = false
 
 # Allow Solana wallet holders to sign in to your project via the Sign in with Solana (SIWS, EIP-4361) standard.

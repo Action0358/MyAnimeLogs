@@ -126,3 +126,18 @@ export const isValidAnimeStatus = (status: unknown): status is AnimeStatus => {
 export const toAnimeStatus = (status: unknown): AnimeStatus | undefined => {
   return isValidAnimeStatus(status) ? status : undefined
 }
+
+// ========================
+// 運営者情報
+// ========================
+
+/**
+ * 対外表記に使う運営者名。
+ * 個人開発の無償サービスのため、個人名ではなくサービス名義を用いる。
+ */
+export const OPERATOR_NAME = 'MyAnimeLogs 運営'
+
+/**
+ * 問い合わせ先。Google OAuth 同意画面のサポートメールと共通のアドレス。
+ */
+export const SUPPORT_EMAIL = 'myanimelogs-support@googlegroups.com'

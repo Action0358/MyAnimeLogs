@@ -57,12 +57,49 @@ func (r *UserRepository) GetByID(id int) (*models.User, error) {
 	return &user, nil
 }
 
+// AuthLinkResult describes how a users row was resolved for an incoming Supabase auth UUID.
+// The caller logs this so that the Google 移行期のリンク発生状況を追跡できる。
+type AuthLinkResult int
+
+const (
+	// AuthLinkExisting: auth_user_id で直接見つかった（移行後の通常ケース）
+	AuthLinkExisting AuthLinkResult = iota
+	// AuthLinkClaimed: auth_user_id が未設定の行をメール一致で引き当てた（Supabase Auth 移行前の行）
+	AuthLinkClaimed
+	// AuthLinkRelinked: 別の auth_user_id が設定済みの行を、同一メールで新しい auth_user_id へ張り替えた
+	AuthLinkRelinked
+	// AuthLinkCreated: 新規作成
+	AuthLinkCreated
+)
+
+func (r AuthLinkResult) String() string {
+	switch r {
+	case AuthLinkExisting:
+		return "existing"
+	case AuthLinkClaimed:
+		return "claimed"
+	case AuthLinkRelinked:
+		return "relinked"
+	case AuthLinkCreated:
+		return "created"
+	default:
+		return "unknown"
+	}
+}
+
 // GetOrCreateByAuthUserID returns an existing user or creates a new one for the given Supabase auth UUID.
 // Handles three cases in order:
-// 1. Returning user: SELECT by auth_user_id (avoids write on every request)
-// 2. Migration: existing user with same email but no auth_user_id yet → UPDATE to link
-// 3. New user: INSERT with ON CONFLICT on auth_user_id
-func (r *UserRepository) GetOrCreateByAuthUserID(authUserID, email, name string) (*models.User, error) {
+//  1. Returning user: SELECT by auth_user_id (avoids write on every request)
+//  2. Link by email: メールが一致する既存行に auth_user_id を張り替える
+//  3. New user: INSERT
+//
+// 2 が必要な理由: users.email には UNIQUE 制約があるため、同一メールの行が既にあると
+// 3 の INSERT は unique violation で失敗し、ログイン自体が 500 になる。
+// メール／パスワード認証から Google 認証へ移行したユーザーは auth.users の UUID が
+// 変わりうるため、auth_user_id が NULL のケースだけでなく「別の UUID が入っている」
+// ケースも張り替える必要がある。メールアドレスは Google が検証済みのものが JWT に
+// 入るため、メール一致を本人性の根拠として扱ってよい。
+func (r *UserRepository) GetOrCreateByAuthUserID(authUserID, email, name string) (*models.User, AuthLinkResult, error) {
 	var user models.User
 	scanUser := func(row *sql.Row) error {
 		return row.Scan(
@@ -79,25 +116,43 @@ func (r *UserRepository) GetOrCreateByAuthUserID(authUserID, email, name string)
 		FROM users WHERE auth_user_id = $1
 	`, authUserID))
 	if err == nil {
-		return &user, nil
+		return &user, AuthLinkExisting, nil
 	}
 	if err != sql.ErrNoRows {
-		return nil, fmt.Errorf("failed to get user by auth_user_id: %w", err)
+		return nil, AuthLinkExisting, fmt.Errorf("failed to get user by auth_user_id: %w", err)
 	}
 
-	// 2. Pre-migration user: link auth_user_id to existing email record
-	err = scanUser(r.db.QueryRow(`
-		UPDATE users
-		SET auth_user_id = $1, name = $2, updated_at = CURRENT_TIMESTAMP
-		WHERE email = $3 AND auth_user_id IS NULL
-		RETURNING id, name, email, description, icon, favorite_anime, sns_link,
-		          auth_user_id, created_at, updated_at
-	`, authUserID, name, email))
+	// 2. Link the existing row for this email to the new auth_user_id.
+	//    行ロック付きの CTE で読み取りと更新を1文にまとめ、同時ログイン時の競合を防ぐ。
+	//    表示名はユーザーが変更している可能性があるため上書きしない（空のときだけ補完）。
+	var previousAuthUserID *string
+	err = r.db.QueryRow(`
+		WITH target AS (
+			SELECT id, auth_user_id AS previous_auth_user_id
+			FROM users WHERE email = $2
+			FOR UPDATE
+		)
+		UPDATE users u
+		SET auth_user_id = $1,
+		    name = CASE WHEN COALESCE(u.name, '') = '' THEN $3 ELSE u.name END,
+		    updated_at = CURRENT_TIMESTAMP
+		FROM target
+		WHERE u.id = target.id
+		RETURNING u.id, u.name, u.email, u.description, u.icon, u.favorite_anime, u.sns_link,
+		          u.auth_user_id, u.created_at, u.updated_at, target.previous_auth_user_id
+	`, authUserID, email, name).Scan(
+		&user.ID, &user.Name, &user.Email,
+		&user.Description, &user.Icon, &user.FavoriteAnime, &user.SnsLink,
+		&user.AuthUserID, &user.CreatedAt, &user.UpdatedAt, &previousAuthUserID,
+	)
 	if err == nil {
-		return &user, nil
+		if previousAuthUserID == nil {
+			return &user, AuthLinkClaimed, nil
+		}
+		return &user, AuthLinkRelinked, nil
 	}
 	if err != sql.ErrNoRows {
-		return nil, fmt.Errorf("failed to migrate user by email: %w", err)
+		return nil, AuthLinkExisting, fmt.Errorf("failed to link user by email: %w", err)
 	}
 
 	// 3. New user
@@ -110,9 +165,9 @@ func (r *UserRepository) GetOrCreateByAuthUserID(authUserID, email, name string)
 		          auth_user_id, created_at, updated_at
 	`, name, email, authUserID))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create user: %w", err)
+		return nil, AuthLinkExisting, fmt.Errorf("failed to create user: %w", err)
 	}
-	return &user, nil
+	return &user, AuthLinkCreated, nil
 }
 
 func (r *UserRepository) Create(user *models.User) error {
