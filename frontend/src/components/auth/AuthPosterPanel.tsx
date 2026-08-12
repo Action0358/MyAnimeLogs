@@ -37,7 +37,7 @@ export const AuthPosterPanel: React.FC<AuthPosterPanelProps> = ({ headline, chil
   const posters = (data?.animes ?? []).map(posterUrl).filter((url): url is string => !!url)
 
   return (
-    <div className="relative overflow-hidden bg-[hsl(222_25%_12%)] max-lg:h-[168px] lg:min-h-[660px]">
+    <div className="relative overflow-hidden bg-[hsl(222_25%_12%)] max-lg:h-[168px] lg:min-h-[620px]">
       {posters.length > 0 && (
         <div
           className="absolute inset-0 grid grid-cols-4 gap-2 p-3.5 lg:grid-cols-3 lg:gap-2.5 lg:p-7"

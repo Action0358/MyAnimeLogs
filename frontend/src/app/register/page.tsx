@@ -73,18 +73,24 @@ const RegisterPage: React.FC = () => {
 
   return (
     <AuthLayout panel={<RegisterPanel />}>
-      <h1 className="mb-1.5 text-2xl font-bold text-foreground lg:text-[26px]">新規登録</h1>
-      <p className="mb-6 text-[13.5px] text-muted-foreground">
-        アカウントを作成してアニメ視聴管理を始めましょう
+      {/* 余白の考え方は login と共通（3ブロック構成）。
+          同意文言はボタンへの従属関係を示すため、他より近い位置に置く。 */}
+      <h1 className="mb-1.5 text-2xl font-bold tracking-tight text-foreground lg:text-[27px]">
+        新規登録
+      </h1>
+      <p className="text-[13.5px] leading-relaxed text-muted-foreground">
+        Googleアカウントで登録して、アニメ視聴管理を始めましょう。
       </p>
 
-      <div className="mb-5 space-y-4 empty:mb-0">
+      <div className="mt-7 space-y-4 empty:mt-0">
         <AuthMessages error={error} />
       </div>
 
-      <GoogleSignInButton label="Googleで登録" onClick={handleSignUp} isLoading={isLoading} />
+      <div className="mt-7">
+        <GoogleSignInButton label="Googleで登録" onClick={handleSignUp} isLoading={isLoading} />
+      </div>
 
-      <p className="mt-4 text-center text-[11.5px] leading-relaxed text-muted-foreground">
+      <p className="mt-3.5 text-[11.5px] leading-relaxed text-muted-foreground">
         登録すると
         <Link href="/terms" className="text-primary hover:underline">
           利用規約
@@ -93,10 +99,10 @@ const RegisterPage: React.FC = () => {
         <Link href="/privacy" className="text-primary hover:underline">
           プライバシーポリシー
         </Link>
-        に同意したものとみなされます
+        に同意したものとみなされます。
       </p>
 
-      <div className="mt-5 border-t border-border pt-5 text-[13px] text-muted-foreground">
+      <div className="mt-6 border-t border-border pt-5 text-[13px] text-muted-foreground">
         既にアカウントをお持ちの方は{' '}
         <Link href="/login" className="font-semibold text-primary hover:underline">
           ログイン

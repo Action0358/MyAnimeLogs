@@ -83,16 +83,25 @@ const LoginInner: React.FC = () => {
 
   return (
     <>
-      <h1 className="mb-1.5 text-2xl font-bold text-foreground lg:text-[26px]">ログイン</h1>
-      <p className="mb-6 text-[13.5px] text-muted-foreground">
-        アカウントにアクセスして記録を続けましょう
+      {/*
+        操作が1つしかない画面のため、余白を均等にすると間延びする。
+        「見出し群 / 操作 / 補足」の3ブロックとして、見出しとリード文は
+        近づけて1つの塊に見せ、ブロック間だけを広くとる。
+      */}
+      <h1 className="mb-1.5 text-2xl font-bold tracking-tight text-foreground lg:text-[27px]">
+        ログイン
+      </h1>
+      <p className="text-[13.5px] leading-relaxed text-muted-foreground">
+        Googleアカウントでログインして記録を続けましょう。
       </p>
 
-      <div className="mb-5 empty:mb-0 space-y-4">
+      <div className="mt-7 space-y-4 empty:mt-0">
         <AuthMessages error={error} info={info} />
       </div>
 
-      <GoogleSignInButton label="Googleでログイン" onClick={handleSignIn} isLoading={isLoading} />
+      <div className="mt-7">
+        <GoogleSignInButton label="Googleでログイン" onClick={handleSignIn} isLoading={isLoading} />
+      </div>
 
       <div className="mt-6 border-t border-border pt-5 text-[13px] text-muted-foreground">
         アカウントをお持ちでない方は{' '}

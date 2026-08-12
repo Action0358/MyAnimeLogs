@@ -15,7 +15,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({ panel, children }) => (
     <div className="mx-auto grid max-w-[1180px] grid-cols-1 lg:min-h-screen lg:grid-cols-2">
       {panel}
       <div className="flex items-center justify-center px-5 py-8 lg:px-14 lg:py-12">
-        <div className="w-full max-w-[368px]">{children}</div>
+        <div className="w-full max-w-[360px]">{children}</div>
       </div>
     </div>
   </div>

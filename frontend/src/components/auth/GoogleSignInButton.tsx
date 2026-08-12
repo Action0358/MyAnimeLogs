@@ -2,7 +2,7 @@ import React from 'react'
 
 /** Google ブランドガイドラインに沿った公式カラーの G ロゴ */
 const GoogleLogo: React.FC = () => (
-  <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
+  <svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true" focusable="false">
     <path
       fill="#EA4335"
       d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
@@ -41,12 +41,19 @@ export const GoogleSignInButton: React.FC<GoogleSignInButtonProps> = ({
     type="button"
     onClick={onClick}
     disabled={isLoading}
-    className="flex h-14 w-full items-center justify-center gap-3 rounded-md border border-border bg-card text-[15px] font-semibold text-foreground shadow-sm transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+    /*
+     * 枠線に汎用の border トークンを使わないのは、Google ブランドガイドラインが
+     * light テーマのボタン枠線に #747775 相当の濃さを求めているため。
+     * トークンの border（hsl(214 32% 91%)）では薄すぎてガイドライン非準拠になる。
+     * 背景色も同様に、公式が認めるのは白／ライトグレー／黒の3配色のみで、
+     * primary（インディゴ）で塗るのは違反にあたる。
+     */
+    className="flex h-14 w-full items-center justify-center gap-3 rounded-md border border-[#747775] bg-white text-[15px] font-semibold text-[#1f1f1f] shadow-sm transition-colors hover:bg-[#f8f9fa] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
   >
     {isLoading ? (
       <>
         <span
-          className="h-[18px] w-[18px] animate-spin rounded-full border-2 border-muted-foreground border-t-transparent"
+          className="h-5 w-5 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent"
           aria-hidden="true"
         />
         <span>Googleに接続しています...</span>
