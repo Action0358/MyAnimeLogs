@@ -297,6 +297,41 @@ docker compose exec backend go mod tidy
 - **URL**: `https://stg.myanimelogs.com`
 - **アクセス制限**: Cloudflare Accessにより、許可されたユーザーのみ閲覧可能です。
 
+### Google OAuth の環境別設定（デプロイ時に必須）
+
+**`supabase/config.toml` はローカル環境専用で、Supabase Cloud には反映されません。** STG / 本番では、以下をダッシュボードから手動で設定する必要があります。設定しないと、該当環境でログインが一切できません。
+
+| 設定対象 | ローカル | STG / 本番 |
+|---|---|---|
+| Google プロバイダの有効化 | `supabase/config.toml` | Supabase ダッシュボード |
+| client ID / secret | シェル環境変数 | Supabase ダッシュボード |
+| コールバック URL の登録先 | Google Cloud Console | Google Cloud Console |
+
+#### 手順
+
+1. **Google Cloud Console** — 環境ごとに OAuth クライアントを分けて作成する（`MyAnimeLogs Production` など）。シークレット漏洩時の影響範囲をローカルと切り離すため、1つのクライアントに全環境の URI をまとめない。
+
+   承認済みのリダイレクト URI:
+
+   ```
+   https://<project-ref>.supabase.co/auth/v1/callback
+   ```
+
+2. **Supabase ダッシュボード** → Authentication → Providers → Google を有効化し、client ID / secret を入力
+
+3. **Supabase ダッシュボード** → Authentication → URL Configuration
+
+   - Site URL: アプリのドメイン（例 `https://myanimelogs.com`）
+   - Redirect URLs: `https://myanimelogs.com/auth/callback`
+
+4. **OAuth 同意画面の公開** — 「テスト」状態ではテストユーザー（最大100人）しかログインできず、リフレッシュトークンも7日で失効する。一般公開前に「本番」へ切り替える。非機微スコープ（`email` / `profile` / `openid`）のみのため Google の審査は不要。
+
+   公開時にはアプリのホームページ・プライバシーポリシー・利用規約の URL 入力が必須になる（`/terms` と `/privacy` を使用）。
+
+> ローカルで必要だった `redirect_uri` の `localhost` 明示は、Cloud では不要です。`external_url` が自身の公開 URL になるため `127.0.0.1` 問題は発生しません。
+
+> CLI の `supabase config push` でリモートへ設定を反映することも可能ですが、ローカル向けの `redirect_uri` がそのまま本番へ反映されると認証が壊れます。環境差分の管理方針を決めるまでは、ダッシュボードでの手動設定を推奨します。
+
 ## 貢献
 
 1. このリポジトリをフォーク
