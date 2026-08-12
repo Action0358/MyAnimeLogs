@@ -360,7 +360,11 @@ email_optional = false
 enabled = true
 client_id = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)"
 secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
-redirect_uri = ""
+# 既定では auth.external_url（= api_url の 127.0.0.1）からコールバックURLが
+# 組み立てられるが、Google の「承認済みリダイレクトURI」は完全一致判定のため
+# 127.0.0.1 と localhost は別物として扱われ redirect_uri_mismatch になる。
+# Google Cloud Console 側の登録と揃えるため localhost を明示する。
+redirect_uri = "http://localhost:54321/auth/v1/callback"
 url = ""
 # ローカルの Google サインインでは nonce 検証をスキップする必要がある
 skip_nonce_check = true

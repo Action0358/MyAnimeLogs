@@ -157,6 +157,14 @@ make local-supabase-down && make local-up   # 設定反映のため Supabase を
 
 > **シークレットは絶対にコミットしないでください。** `supabase/config.toml` には `env(...)` 参照のみを記述しています。`.env.local` ではなくシェル環境変数（`~/.zshrc` や direnv 等）で渡してください。
 >
+> **`127.0.0.1` と `localhost` は別物として扱われます。** Supabase は既定で `api_url`（`http://127.0.0.1`）からコールバック URL を組み立てますが、Google の承認済みリダイレクト URI は完全一致判定のため、そのままでは `redirect_uri_mismatch` になります。`[auth.external.google]` の `redirect_uri` で `localhost` を明示して回避しています。
+>
+> 設定が反映されたかは以下で確認できます。
+>
+> ```bash
+> curl -sI "http://localhost:54321/auth/v1/authorize?provider=google&redirect_to=http%3A%2F%2Flocalhost%3A3000%2Fauth%2Fcallback" | grep -i location
+> ```
+>
 > STG / 本番では Supabase ダッシュボードの Authentication → Providers → Google に同じ値を設定します。
 
 ### 4. 主要なローカルサービス
