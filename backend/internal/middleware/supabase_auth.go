@@ -265,14 +265,23 @@ func validateES256JWT(tokenStr string) (*SupabaseClaims, error) {
 
 // resolveUserID returns the internal user ID for the given Supabase auth UUID.
 // Results are cached in userIDCache to avoid a DB round-trip on every request.
-func resolveUserID(userRepo *repository.UserRepository, authUserID, email, name string) (int, string, string, error) {
+func resolveUserID(userRepo *repository.UserRepository, logger *common.Logger, authUserID, email, name string) (int, string, string, error) {
 	if cached, ok := userIDCache.Load(authUserID); ok {
 		id := cached.(int)
 		return id, email, name, nil
 	}
-	user, err := userRepo.GetOrCreateByAuthUserID(authUserID, email, name)
+	user, linkResult, err := userRepo.GetOrCreateByAuthUserID(authUserID, email, name)
 	if err != nil {
 		return 0, "", "", err
+	}
+	// Google 移行に伴う紐づけ替えは、既存データの引き継ぎが正しく行われたかを
+	// 後から追跡できるよう記録する。通常ログイン（existing）は件数が多いため出力しない。
+	if linkResult != repository.AuthLinkExisting {
+		logger.Info("linked users row to auth user",
+			"result", linkResult.String(),
+			"user_id", user.ID,
+			"auth_user_id", authUserID,
+		)
 	}
 	userIDCache.Store(authUserID, user.ID)
 	return user.ID, user.Email, user.Name, nil
@@ -318,7 +327,7 @@ func SupabaseAuthMiddleware(db *database.DB, jwtSecret string, logger *common.Lo
 			return
 		}
 
-		userID, email, name, err := resolveUserID(userRepo, claims.Subject, claims.Email, nameFromClaims(claims))
+		userID, email, name, err := resolveUserID(userRepo, logger, claims.Subject, claims.Email, nameFromClaims(claims))
 		if err != nil {
 			logger.Error("failed to get or create user", "auth_user_id", claims.Subject, "error", err)
 			c.JSON(http.StatusInternalServerError, common.ErrorResponse{
@@ -362,7 +371,7 @@ func OptionalSupabaseAuthMiddleware(db *database.DB, jwtSecret string, logger *c
 			return
 		}
 
-		userID, email, name, err := resolveUserID(userRepo, claims.Subject, claims.Email, nameFromClaims(claims))
+		userID, email, name, err := resolveUserID(userRepo, logger, claims.Subject, claims.Email, nameFromClaims(claims))
 		if err != nil {
 			logger.Error("failed to get or create user (optional auth)", "auth_user_id", claims.Subject, "error", err)
 			c.Next()

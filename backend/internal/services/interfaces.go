@@ -2,13 +2,14 @@ package services
 
 import (
 	"myanimelogs/internal/models"
+	"myanimelogs/internal/repository"
 )
 
 // UserRepositoryInterface defines the interface for user repository
 type UserRepositoryInterface interface {
 	GetByID(id int) (*models.User, error)
 	GetByEmail(email string) (*models.User, error)
-	GetOrCreateByAuthUserID(authUserID, email, name string) (*models.User, error)
+	GetOrCreateByAuthUserID(authUserID, email, name string) (*models.User, repository.AuthLinkResult, error)
 	Create(user *models.User) error
 	Update(user *models.User) error
 	UpdatePartial(userID int, req models.UserUpdateRequest) (*models.User, error)

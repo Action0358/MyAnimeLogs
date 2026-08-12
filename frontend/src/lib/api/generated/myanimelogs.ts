@@ -5,10 +5,11 @@
  * MyAnimeLogs API。認証はSupabase Authが担当します。
 
 ## 認証
-ユーザー登録・ログイン・ログアウト・パスワードリセット・OAuthはすべてSupabase Auth API経由で行います。
+認証手段はGoogleソーシャルログインのみです。ログイン・ログアウトはすべてSupabase Auth API経由で行います。
 バックエンドAPIへのリクエストには、Supabase発行のJWTアクセストークンを `Authorization: Bearer <token>` で指定してください。
 
 Supabaseのauth.usersと連携するpublic.usersレコードは、初回APIアクセス時に自動作成されます。
+このとき表示名（name）は、JWTのuser_metadataに含まれるGoogleプロフィール名から設定されます。
 
  * OpenAPI spec version: 2.0.0
  */
@@ -322,6 +323,11 @@ export interface SearchLog {
   /** 検索日時 */
   searched_at?: string;
 }
+
+/**
+ * 管理者権限がありません（管理者以外のユーザー）
+ */
+export type ForbiddenErrorResponse = Error;
 
 export type PutUsersMeBody = {
   /**
@@ -2698,7 +2704,7 @@ export function useGetAnnictTest<TData = Awaited<ReturnType<typeof getAnnictTest
 
 
 /**
- * @summary シーズンアニメをデータベースに同期
+ * @summary シーズンアニメをデータベースに同期（要管理者ロール・非管理者は403）
  */
 export const postAdminSyncSeason = (
     params?: PostAdminSyncSeasonParams, options?: AxiosRequestConfig
@@ -2714,7 +2720,7 @@ export const postAdminSyncSeason = (
 
 
 
-export const getPostAdminSyncSeasonMutationOptions = <TError = AxiosError<Error>,
+export const getPostAdminSyncSeasonMutationOptions = <TError = AxiosError<Error | ForbiddenErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAdminSyncSeason>>, TError,{params?: PostAdminSyncSeasonParams}, TContext>, axios?: AxiosRequestConfig}
 ): UseMutationOptions<Awaited<ReturnType<typeof postAdminSyncSeason>>, TError,{params?: PostAdminSyncSeasonParams}, TContext> => {
 
@@ -2741,12 +2747,12 @@ const {mutation: mutationOptions, axios: axiosOptions} = options ?
 
     export type PostAdminSyncSeasonMutationResult = NonNullable<Awaited<ReturnType<typeof postAdminSyncSeason>>>
     
-    export type PostAdminSyncSeasonMutationError = AxiosError<Error>
+    export type PostAdminSyncSeasonMutationError = AxiosError<Error | ForbiddenErrorResponse>
 
     /**
- * @summary シーズンアニメをデータベースに同期
+ * @summary シーズンアニメをデータベースに同期（要管理者ロール・非管理者は403）
  */
-export const usePostAdminSyncSeason = <TError = AxiosError<Error>,
+export const usePostAdminSyncSeason = <TError = AxiosError<Error | ForbiddenErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAdminSyncSeason>>, TError,{params?: PostAdminSyncSeasonParams}, TContext>, axios?: AxiosRequestConfig}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof postAdminSyncSeason>>,
@@ -2761,7 +2767,7 @@ export const usePostAdminSyncSeason = <TError = AxiosError<Error>,
     }
     
 /**
- * @summary 人気アニメをデータベースに同期
+ * @summary 人気アニメをデータベースに同期（要管理者ロール・非管理者は403）
  */
 export const postAdminSyncPopular = (
      options?: AxiosRequestConfig
@@ -2775,7 +2781,7 @@ export const postAdminSyncPopular = (
 
 
 
-export const getPostAdminSyncPopularMutationOptions = <TError = AxiosError<Error>,
+export const getPostAdminSyncPopularMutationOptions = <TError = AxiosError<Error | ForbiddenErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAdminSyncPopular>>, TError,void, TContext>, axios?: AxiosRequestConfig}
 ): UseMutationOptions<Awaited<ReturnType<typeof postAdminSyncPopular>>, TError,void, TContext> => {
 
@@ -2802,12 +2808,12 @@ const {mutation: mutationOptions, axios: axiosOptions} = options ?
 
     export type PostAdminSyncPopularMutationResult = NonNullable<Awaited<ReturnType<typeof postAdminSyncPopular>>>
     
-    export type PostAdminSyncPopularMutationError = AxiosError<Error>
+    export type PostAdminSyncPopularMutationError = AxiosError<Error | ForbiddenErrorResponse>
 
     /**
- * @summary 人気アニメをデータベースに同期
+ * @summary 人気アニメをデータベースに同期（要管理者ロール・非管理者は403）
  */
-export const usePostAdminSyncPopular = <TError = AxiosError<Error>,
+export const usePostAdminSyncPopular = <TError = AxiosError<Error | ForbiddenErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAdminSyncPopular>>, TError,void, TContext>, axios?: AxiosRequestConfig}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof postAdminSyncPopular>>,
@@ -2822,7 +2828,7 @@ export const usePostAdminSyncPopular = <TError = AxiosError<Error>,
     }
     
 /**
- * @summary エラーメトリクスを取得
+ * @summary エラーメトリクスを取得（要管理者ロール・非管理者は403）
  */
 export const getAdminErrorsMetrics = (
      options?: AxiosRequestConfig
@@ -2840,7 +2846,7 @@ export const getGetAdminErrorsMetricsQueryKey = () => {
     }
 
     
-export const getGetAdminErrorsMetricsQueryOptions = <TData = Awaited<ReturnType<typeof getAdminErrorsMetrics>>, TError = AxiosError<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminErrorsMetrics>>, TError, TData>>, axios?: AxiosRequestConfig}
+export const getGetAdminErrorsMetricsQueryOptions = <TData = Awaited<ReturnType<typeof getAdminErrorsMetrics>>, TError = AxiosError<ForbiddenErrorResponse>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminErrorsMetrics>>, TError, TData>>, axios?: AxiosRequestConfig}
 ) => {
 
 const {query: queryOptions, axios: axiosOptions} = options ?? {};
@@ -2859,10 +2865,10 @@ const {query: queryOptions, axios: axiosOptions} = options ?? {};
 }
 
 export type GetAdminErrorsMetricsQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminErrorsMetrics>>>
-export type GetAdminErrorsMetricsQueryError = AxiosError<unknown>
+export type GetAdminErrorsMetricsQueryError = AxiosError<ForbiddenErrorResponse>
 
 
-export function useGetAdminErrorsMetrics<TData = Awaited<ReturnType<typeof getAdminErrorsMetrics>>, TError = AxiosError<unknown>>(
+export function useGetAdminErrorsMetrics<TData = Awaited<ReturnType<typeof getAdminErrorsMetrics>>, TError = AxiosError<ForbiddenErrorResponse>>(
   options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminErrorsMetrics>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof getAdminErrorsMetrics>>,
@@ -2872,7 +2878,7 @@ export function useGetAdminErrorsMetrics<TData = Awaited<ReturnType<typeof getAd
       >, axios?: AxiosRequestConfig}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-export function useGetAdminErrorsMetrics<TData = Awaited<ReturnType<typeof getAdminErrorsMetrics>>, TError = AxiosError<unknown>>(
+export function useGetAdminErrorsMetrics<TData = Awaited<ReturnType<typeof getAdminErrorsMetrics>>, TError = AxiosError<ForbiddenErrorResponse>>(
   options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminErrorsMetrics>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof getAdminErrorsMetrics>>,
@@ -2882,15 +2888,15 @@ export function useGetAdminErrorsMetrics<TData = Awaited<ReturnType<typeof getAd
       >, axios?: AxiosRequestConfig}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-export function useGetAdminErrorsMetrics<TData = Awaited<ReturnType<typeof getAdminErrorsMetrics>>, TError = AxiosError<unknown>>(
+export function useGetAdminErrorsMetrics<TData = Awaited<ReturnType<typeof getAdminErrorsMetrics>>, TError = AxiosError<ForbiddenErrorResponse>>(
   options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminErrorsMetrics>>, TError, TData>>, axios?: AxiosRequestConfig}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 /**
- * @summary エラーメトリクスを取得
+ * @summary エラーメトリクスを取得（要管理者ロール・非管理者は403）
  */
 
-export function useGetAdminErrorsMetrics<TData = Awaited<ReturnType<typeof getAdminErrorsMetrics>>, TError = AxiosError<unknown>>(
+export function useGetAdminErrorsMetrics<TData = Awaited<ReturnType<typeof getAdminErrorsMetrics>>, TError = AxiosError<ForbiddenErrorResponse>>(
   options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminErrorsMetrics>>, TError, TData>>, axios?: AxiosRequestConfig}
  , queryClient?: QueryClient 
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
@@ -2908,7 +2914,7 @@ export function useGetAdminErrorsMetrics<TData = Awaited<ReturnType<typeof getAd
 
 
 /**
- * @summary トップエラーを取得
+ * @summary トップエラーを取得（要管理者ロール・非管理者は403）
  */
 export const getAdminErrorsTop = (
     params?: GetAdminErrorsTopParams, options?: AxiosRequestConfig
@@ -2928,7 +2934,7 @@ export const getGetAdminErrorsTopQueryKey = (params?: GetAdminErrorsTopParams,) 
     }
 
     
-export const getGetAdminErrorsTopQueryOptions = <TData = Awaited<ReturnType<typeof getAdminErrorsTop>>, TError = AxiosError<unknown>>(params?: GetAdminErrorsTopParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminErrorsTop>>, TError, TData>>, axios?: AxiosRequestConfig}
+export const getGetAdminErrorsTopQueryOptions = <TData = Awaited<ReturnType<typeof getAdminErrorsTop>>, TError = AxiosError<ForbiddenErrorResponse>>(params?: GetAdminErrorsTopParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminErrorsTop>>, TError, TData>>, axios?: AxiosRequestConfig}
 ) => {
 
 const {query: queryOptions, axios: axiosOptions} = options ?? {};
@@ -2947,10 +2953,10 @@ const {query: queryOptions, axios: axiosOptions} = options ?? {};
 }
 
 export type GetAdminErrorsTopQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminErrorsTop>>>
-export type GetAdminErrorsTopQueryError = AxiosError<unknown>
+export type GetAdminErrorsTopQueryError = AxiosError<ForbiddenErrorResponse>
 
 
-export function useGetAdminErrorsTop<TData = Awaited<ReturnType<typeof getAdminErrorsTop>>, TError = AxiosError<unknown>>(
+export function useGetAdminErrorsTop<TData = Awaited<ReturnType<typeof getAdminErrorsTop>>, TError = AxiosError<ForbiddenErrorResponse>>(
  params: undefined |  GetAdminErrorsTopParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminErrorsTop>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof getAdminErrorsTop>>,
@@ -2960,7 +2966,7 @@ export function useGetAdminErrorsTop<TData = Awaited<ReturnType<typeof getAdminE
       >, axios?: AxiosRequestConfig}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-export function useGetAdminErrorsTop<TData = Awaited<ReturnType<typeof getAdminErrorsTop>>, TError = AxiosError<unknown>>(
+export function useGetAdminErrorsTop<TData = Awaited<ReturnType<typeof getAdminErrorsTop>>, TError = AxiosError<ForbiddenErrorResponse>>(
  params?: GetAdminErrorsTopParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminErrorsTop>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof getAdminErrorsTop>>,
@@ -2970,15 +2976,15 @@ export function useGetAdminErrorsTop<TData = Awaited<ReturnType<typeof getAdminE
       >, axios?: AxiosRequestConfig}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-export function useGetAdminErrorsTop<TData = Awaited<ReturnType<typeof getAdminErrorsTop>>, TError = AxiosError<unknown>>(
+export function useGetAdminErrorsTop<TData = Awaited<ReturnType<typeof getAdminErrorsTop>>, TError = AxiosError<ForbiddenErrorResponse>>(
  params?: GetAdminErrorsTopParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminErrorsTop>>, TError, TData>>, axios?: AxiosRequestConfig}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 /**
- * @summary トップエラーを取得
+ * @summary トップエラーを取得（要管理者ロール・非管理者は403）
  */
 
-export function useGetAdminErrorsTop<TData = Awaited<ReturnType<typeof getAdminErrorsTop>>, TError = AxiosError<unknown>>(
+export function useGetAdminErrorsTop<TData = Awaited<ReturnType<typeof getAdminErrorsTop>>, TError = AxiosError<ForbiddenErrorResponse>>(
  params?: GetAdminErrorsTopParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminErrorsTop>>, TError, TData>>, axios?: AxiosRequestConfig}
  , queryClient?: QueryClient 
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
@@ -2996,7 +3002,7 @@ export function useGetAdminErrorsTop<TData = Awaited<ReturnType<typeof getAdminE
 
 
 /**
- * @summary エラーメトリクスをリセット
+ * @summary エラーメトリクスをリセット（要管理者ロール・非管理者は403）
  */
 export const postAdminErrorsReset = (
      options?: AxiosRequestConfig
@@ -3010,7 +3016,7 @@ export const postAdminErrorsReset = (
 
 
 
-export const getPostAdminErrorsResetMutationOptions = <TError = AxiosError<unknown>,
+export const getPostAdminErrorsResetMutationOptions = <TError = AxiosError<ForbiddenErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAdminErrorsReset>>, TError,void, TContext>, axios?: AxiosRequestConfig}
 ): UseMutationOptions<Awaited<ReturnType<typeof postAdminErrorsReset>>, TError,void, TContext> => {
 
@@ -3037,12 +3043,12 @@ const {mutation: mutationOptions, axios: axiosOptions} = options ?
 
     export type PostAdminErrorsResetMutationResult = NonNullable<Awaited<ReturnType<typeof postAdminErrorsReset>>>
     
-    export type PostAdminErrorsResetMutationError = AxiosError<unknown>
+    export type PostAdminErrorsResetMutationError = AxiosError<ForbiddenErrorResponse>
 
     /**
- * @summary エラーメトリクスをリセット
+ * @summary エラーメトリクスをリセット（要管理者ロール・非管理者は403）
  */
-export const usePostAdminErrorsReset = <TError = AxiosError<unknown>,
+export const usePostAdminErrorsReset = <TError = AxiosError<ForbiddenErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAdminErrorsReset>>, TError,void, TContext>, axios?: AxiosRequestConfig}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof postAdminErrorsReset>>,
@@ -3058,7 +3064,7 @@ export const usePostAdminErrorsReset = <TError = AxiosError<unknown>,
     
 /**
  * AniList APIからジャンル情報を取得してデータベースに保存します。MAL IDが設定されている全アニメを処理します。
- * @summary アニメジャンル情報をAniList APIから同期
+ * @summary アニメジャンル情報をAniList APIから同期（要管理者ロール・非管理者は403）
  */
 export const postAdminSyncGenres = (
      options?: AxiosRequestConfig
@@ -3072,7 +3078,7 @@ export const postAdminSyncGenres = (
 
 
 
-export const getPostAdminSyncGenresMutationOptions = <TError = AxiosError<Error | Error>,
+export const getPostAdminSyncGenresMutationOptions = <TError = AxiosError<Error | ForbiddenErrorResponse | Error>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAdminSyncGenres>>, TError,void, TContext>, axios?: AxiosRequestConfig}
 ): UseMutationOptions<Awaited<ReturnType<typeof postAdminSyncGenres>>, TError,void, TContext> => {
 
@@ -3099,12 +3105,12 @@ const {mutation: mutationOptions, axios: axiosOptions} = options ?
 
     export type PostAdminSyncGenresMutationResult = NonNullable<Awaited<ReturnType<typeof postAdminSyncGenres>>>
     
-    export type PostAdminSyncGenresMutationError = AxiosError<Error | Error>
+    export type PostAdminSyncGenresMutationError = AxiosError<Error | ForbiddenErrorResponse | Error>
 
     /**
- * @summary アニメジャンル情報をAniList APIから同期
+ * @summary アニメジャンル情報をAniList APIから同期（要管理者ロール・非管理者は403）
  */
-export const usePostAdminSyncGenres = <TError = AxiosError<Error | Error>,
+export const usePostAdminSyncGenres = <TError = AxiosError<Error | ForbiddenErrorResponse | Error>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAdminSyncGenres>>, TError,void, TContext>, axios?: AxiosRequestConfig}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof postAdminSyncGenres>>,
@@ -3120,7 +3126,7 @@ export const usePostAdminSyncGenres = <TError = AxiosError<Error | Error>,
     
 /**
  * アニメ同期スケジューラーの現在のステータスを取得します
- * @summary 同期ステータスを取得
+ * @summary 同期ステータスを取得（要管理者ロール・非管理者は403）
  */
 export const getAdminSyncStatus = (
      options?: AxiosRequestConfig
@@ -3138,7 +3144,7 @@ export const getGetAdminSyncStatusQueryKey = () => {
     }
 
     
-export const getGetAdminSyncStatusQueryOptions = <TData = Awaited<ReturnType<typeof getAdminSyncStatus>>, TError = AxiosError<Error | Error>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminSyncStatus>>, TError, TData>>, axios?: AxiosRequestConfig}
+export const getGetAdminSyncStatusQueryOptions = <TData = Awaited<ReturnType<typeof getAdminSyncStatus>>, TError = AxiosError<Error | ForbiddenErrorResponse | Error>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminSyncStatus>>, TError, TData>>, axios?: AxiosRequestConfig}
 ) => {
 
 const {query: queryOptions, axios: axiosOptions} = options ?? {};
@@ -3157,10 +3163,10 @@ const {query: queryOptions, axios: axiosOptions} = options ?? {};
 }
 
 export type GetAdminSyncStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getAdminSyncStatus>>>
-export type GetAdminSyncStatusQueryError = AxiosError<Error | Error>
+export type GetAdminSyncStatusQueryError = AxiosError<Error | ForbiddenErrorResponse | Error>
 
 
-export function useGetAdminSyncStatus<TData = Awaited<ReturnType<typeof getAdminSyncStatus>>, TError = AxiosError<Error | Error>>(
+export function useGetAdminSyncStatus<TData = Awaited<ReturnType<typeof getAdminSyncStatus>>, TError = AxiosError<Error | ForbiddenErrorResponse | Error>>(
   options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminSyncStatus>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
           Awaited<ReturnType<typeof getAdminSyncStatus>>,
@@ -3170,7 +3176,7 @@ export function useGetAdminSyncStatus<TData = Awaited<ReturnType<typeof getAdmin
       >, axios?: AxiosRequestConfig}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-export function useGetAdminSyncStatus<TData = Awaited<ReturnType<typeof getAdminSyncStatus>>, TError = AxiosError<Error | Error>>(
+export function useGetAdminSyncStatus<TData = Awaited<ReturnType<typeof getAdminSyncStatus>>, TError = AxiosError<Error | ForbiddenErrorResponse | Error>>(
   options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminSyncStatus>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
           Awaited<ReturnType<typeof getAdminSyncStatus>>,
@@ -3180,15 +3186,15 @@ export function useGetAdminSyncStatus<TData = Awaited<ReturnType<typeof getAdmin
       >, axios?: AxiosRequestConfig}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-export function useGetAdminSyncStatus<TData = Awaited<ReturnType<typeof getAdminSyncStatus>>, TError = AxiosError<Error | Error>>(
+export function useGetAdminSyncStatus<TData = Awaited<ReturnType<typeof getAdminSyncStatus>>, TError = AxiosError<Error | ForbiddenErrorResponse | Error>>(
   options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminSyncStatus>>, TError, TData>>, axios?: AxiosRequestConfig}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
 /**
- * @summary 同期ステータスを取得
+ * @summary 同期ステータスを取得（要管理者ロール・非管理者は403）
  */
 
-export function useGetAdminSyncStatus<TData = Awaited<ReturnType<typeof getAdminSyncStatus>>, TError = AxiosError<Error | Error>>(
+export function useGetAdminSyncStatus<TData = Awaited<ReturnType<typeof getAdminSyncStatus>>, TError = AxiosError<Error | ForbiddenErrorResponse | Error>>(
   options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAdminSyncStatus>>, TError, TData>>, axios?: AxiosRequestConfig}
  , queryClient?: QueryClient 
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
@@ -3385,7 +3391,7 @@ export function useGetAnimesPopular<TData = Awaited<ReturnType<typeof getAnimesP
 
 /**
  * season（放送シーズン）とreleased_on（放送開始日）に基づいて全アニメのステータスを更新します。外部API呼び出しなしでDB内のデータのみで判定するため高速に処理されます。
- * @summary 全アニメのステータスを同期
+ * @summary 全アニメのステータスを同期（要管理者ロール・非管理者は403）
  */
 export const postAdminSyncStatuses = (
      options?: AxiosRequestConfig
@@ -3399,7 +3405,7 @@ export const postAdminSyncStatuses = (
 
 
 
-export const getPostAdminSyncStatusesMutationOptions = <TError = AxiosError<Error | Error>,
+export const getPostAdminSyncStatusesMutationOptions = <TError = AxiosError<Error | ForbiddenErrorResponse | Error>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAdminSyncStatuses>>, TError,void, TContext>, axios?: AxiosRequestConfig}
 ): UseMutationOptions<Awaited<ReturnType<typeof postAdminSyncStatuses>>, TError,void, TContext> => {
 
@@ -3426,12 +3432,12 @@ const {mutation: mutationOptions, axios: axiosOptions} = options ?
 
     export type PostAdminSyncStatusesMutationResult = NonNullable<Awaited<ReturnType<typeof postAdminSyncStatuses>>>
     
-    export type PostAdminSyncStatusesMutationError = AxiosError<Error | Error>
+    export type PostAdminSyncStatusesMutationError = AxiosError<Error | ForbiddenErrorResponse | Error>
 
     /**
- * @summary 全アニメのステータスを同期
+ * @summary 全アニメのステータスを同期（要管理者ロール・非管理者は403）
  */
-export const usePostAdminSyncStatuses = <TError = AxiosError<Error | Error>,
+export const usePostAdminSyncStatuses = <TError = AxiosError<Error | ForbiddenErrorResponse | Error>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAdminSyncStatuses>>, TError,void, TContext>, axios?: AxiosRequestConfig}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof postAdminSyncStatuses>>,
@@ -3447,7 +3453,7 @@ export const usePostAdminSyncStatuses = <TError = AxiosError<Error | Error>,
     
 /**
  * Jikan APIから放送開始日を取得して全アニメのreleased_onフィールドを更新します
- * @summary 放送開始日をJikan APIから同期
+ * @summary 放送開始日をJikan APIから同期（要管理者ロール・非管理者は403）
  */
 export const postAdminSyncReleasedOn = (
      options?: AxiosRequestConfig
@@ -3461,7 +3467,7 @@ export const postAdminSyncReleasedOn = (
 
 
 
-export const getPostAdminSyncReleasedOnMutationOptions = <TError = AxiosError<Error | Error>,
+export const getPostAdminSyncReleasedOnMutationOptions = <TError = AxiosError<Error | ForbiddenErrorResponse | Error>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAdminSyncReleasedOn>>, TError,void, TContext>, axios?: AxiosRequestConfig}
 ): UseMutationOptions<Awaited<ReturnType<typeof postAdminSyncReleasedOn>>, TError,void, TContext> => {
 
@@ -3488,12 +3494,12 @@ const {mutation: mutationOptions, axios: axiosOptions} = options ?
 
     export type PostAdminSyncReleasedOnMutationResult = NonNullable<Awaited<ReturnType<typeof postAdminSyncReleasedOn>>>
     
-    export type PostAdminSyncReleasedOnMutationError = AxiosError<Error | Error>
+    export type PostAdminSyncReleasedOnMutationError = AxiosError<Error | ForbiddenErrorResponse | Error>
 
     /**
- * @summary 放送開始日をJikan APIから同期
+ * @summary 放送開始日をJikan APIから同期（要管理者ロール・非管理者は403）
  */
-export const usePostAdminSyncReleasedOn = <TError = AxiosError<Error | Error>,
+export const usePostAdminSyncReleasedOn = <TError = AxiosError<Error | ForbiddenErrorResponse | Error>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAdminSyncReleasedOn>>, TError,void, TContext>, axios?: AxiosRequestConfig}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof postAdminSyncReleasedOn>>,
@@ -3509,7 +3515,7 @@ export const usePostAdminSyncReleasedOn = <TError = AxiosError<Error | Error>,
     
 /**
  * アニメ関連のキャッシュ（フィルター情報、人気検索、今期アニメ等）をクリアします
- * @summary キャッシュクリア
+ * @summary キャッシュクリア（要管理者ロール・非管理者は403）
  */
 export const postAdminCacheClear = (
      options?: AxiosRequestConfig
@@ -3523,7 +3529,7 @@ export const postAdminCacheClear = (
 
 
 
-export const getPostAdminCacheClearMutationOptions = <TError = AxiosError<Error>,
+export const getPostAdminCacheClearMutationOptions = <TError = AxiosError<Error | ForbiddenErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAdminCacheClear>>, TError,void, TContext>, axios?: AxiosRequestConfig}
 ): UseMutationOptions<Awaited<ReturnType<typeof postAdminCacheClear>>, TError,void, TContext> => {
 
@@ -3550,12 +3556,12 @@ const {mutation: mutationOptions, axios: axiosOptions} = options ?
 
     export type PostAdminCacheClearMutationResult = NonNullable<Awaited<ReturnType<typeof postAdminCacheClear>>>
     
-    export type PostAdminCacheClearMutationError = AxiosError<Error>
+    export type PostAdminCacheClearMutationError = AxiosError<Error | ForbiddenErrorResponse>
 
     /**
- * @summary キャッシュクリア
+ * @summary キャッシュクリア（要管理者ロール・非管理者は403）
  */
-export const usePostAdminCacheClear = <TError = AxiosError<Error>,
+export const usePostAdminCacheClear = <TError = AxiosError<Error | ForbiddenErrorResponse>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postAdminCacheClear>>, TError,void, TContext>, axios?: AxiosRequestConfig}
  , queryClient?: QueryClient): UseMutationResult<
         Awaited<ReturnType<typeof postAdminCacheClear>>,
