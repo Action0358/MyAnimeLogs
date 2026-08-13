@@ -6,10 +6,11 @@ info:
     MyAnimeLogs API。認証はSupabase Authが担当します。
 
     ## 認証
-    ユーザー登録・ログイン・ログアウト・パスワードリセット・OAuthはすべてSupabase Auth API経由で行います。
+    認証手段はGoogleソーシャルログインのみです。ログイン・ログアウトはすべてSupabase Auth API経由で行います。
     バックエンドAPIへのリクエストには、Supabase発行のJWTアクセストークンを `Authorization: Bearer <token>` で指定してください。
 
     Supabaseのauth.usersと連携するpublic.usersレコードは、初回APIアクセス時に自動作成されます。
+    このとき表示名（name）は、JWTのuser_metadataに含まれるGoogleプロフィール名から設定されます。
 servers:
   - url: ${API_URL}
 paths:

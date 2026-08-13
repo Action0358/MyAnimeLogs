@@ -10,7 +10,7 @@ export const GlobalNav: React.FC = () => {
   const isHomePage = pathname === '/'
 
   return (
-    <nav className="hidden md:flex items-center space-x-4" aria-label="グローバルナビゲーション">
+    <nav className="hidden md:flex items-center gap-1.5" aria-label="グローバルナビゲーション">
       {NAV_ITEMS.map((item) => (
         <NavLink
           key={item.href}

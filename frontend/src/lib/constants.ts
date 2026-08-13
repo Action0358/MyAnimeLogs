@@ -102,6 +102,12 @@ export const POPULAR_ANIME_LIMIT = 100
 export const CURRENT_SEASON_ANIME_LIMIT = 100
 
 /**
+ * トップページで表示する今期アニメの取得上限
+ * 一覧ページ（CURRENT_SEASON_ANIME_LIMIT）とは別枠で、カルーセルとヒーロー背景が共有する
+ */
+export const HOME_CURRENT_SEASON_ANIME_LIMIT = 20
+
+/**
  * アニメのステータス型
  */
 export type AnimeStatus = 'airing' | 'finished' | 'upcoming'
@@ -120,3 +126,18 @@ export const isValidAnimeStatus = (status: unknown): status is AnimeStatus => {
 export const toAnimeStatus = (status: unknown): AnimeStatus | undefined => {
   return isValidAnimeStatus(status) ? status : undefined
 }
+
+// ========================
+// 運営者情報
+// ========================
+
+/**
+ * 対外表記に使う運営者名。
+ * 個人開発の無償サービスのため、個人名ではなくサービス名義を用いる。
+ */
+export const OPERATOR_NAME = 'MyAnimeLogs 運営'
+
+/**
+ * 問い合わせ先。Google OAuth 同意画面のサポートメールと共通のアドレス。
+ */
+export const SUPPORT_EMAIL = 'myanimelogs-support@googlegroups.com'

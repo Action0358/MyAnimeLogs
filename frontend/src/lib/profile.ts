@@ -11,7 +11,6 @@ export interface ProfileFieldValues {
   name: string
   description: string
   favoriteAnime: string
-  snsLink: string
 }
 
 // getProfileFieldValues が受け取るユーザー情報の最小形（API/AuthContext 双方に対応）
@@ -19,7 +18,6 @@ interface ProfileUserFields {
   name?: string
   description?: string
   favorite_anime?: string | null
-  sns_link?: string | null
 }
 
 // ユーザー情報から編集フォームの初期値を取り出す。
@@ -30,5 +28,4 @@ export const getProfileFieldValues = (
   name: user?.name || '',
   description: user?.description || '',
   favoriteAnime: user?.favorite_anime || '',
-  snsLink: user?.sns_link || '',
 })

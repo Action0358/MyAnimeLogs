@@ -1,21 +1,66 @@
 'use client'
 
-import React, { Suspense, useState, useCallback } from 'react'
+import React, { Suspense, useState, useCallback, useRef } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
+import { SlidersHorizontal, X } from 'lucide-react'
 import { Container } from '@/components/layout'
 import { AnimeGrid } from '@/components/anime'
 import { Pagination } from '@/components/ui'
 import { SearchForm, FilterPanel, SortDropdown, sortOptions } from '@/components/search'
 import { useAnimes } from '@/hooks/useAnimes'
 import { useSearch } from '@/hooks/useSearch'
+import { useOnClickOutside } from '@/hooks/useOnClickOutside'
+
+const DEFAULT_SORT = 'year'
+
+/** モバイル用フィルターシート（下からスライドイン） */
+function FilterSheet({
+  isOpen,
+  onClose,
+  ...filterProps
+}: {
+  isOpen: boolean
+  onClose: () => void
+} & Omit<React.ComponentProps<typeof FilterPanel>, 'variant'>) {
+  const sheetRef = useRef<HTMLDivElement>(null)
+  useOnClickOutside(sheetRef, onClose)
+
+  if (!isOpen) return null
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" aria-hidden="true" />
+      <div
+        ref={sheetRef}
+        className="fixed inset-x-0 bottom-0 z-50 bg-background rounded-t-2xl shadow-xl lg:hidden max-h-[80vh] overflow-y-auto"
+        role="dialog"
+        aria-modal="true"
+        aria-label="フィルター"
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <h2 className="text-base font-semibold text-foreground">フィルター</h2>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-md text-muted-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
+            aria-label="閉じる"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="p-5">
+          <FilterPanel {...filterProps} variant="sheet" />
+        </div>
+      </div>
+    </>
+  )
+}
 
 function SearchContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const [showFilters, setShowFilters] = useState(false)
 
-  const { filters, updateFilters, clearFilters, searchHistory, addToHistory, clearHistory } =
-    useSearch()
+  const { filters, updateFilters, searchHistory, addToHistory, clearHistory } = useSearch()
 
   const currentPage = Number(searchParams.get('page')) || 1
 
@@ -59,158 +104,157 @@ function SearchContent() {
 
   const hasActiveFilters = filters.keyword || filters.season || filters.genre || filters.status
 
+  const filterPanelProps = {
+    selectedSeason: filters.season,
+    selectedGenre: filters.genre,
+    selectedStatus: filters.status as 'airing' | 'finished' | 'not_yet_aired' | undefined,
+    onSeasonChange: (season: string | undefined) => updateFilters({ season }),
+    onGenreChange: (genre: string | undefined) => updateFilters({ genre }),
+    onStatusChange: (status: 'airing' | 'finished' | 'not_yet_aired' | undefined) =>
+      updateFilters({ status }),
+  }
+
   return (
     <Container className="py-8">
       <div className="max-w-7xl mx-auto">
         {/* ヘッダー */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">アニメ検索</h1>
+        <div className="mb-5">
+          {/* 狭い画面では検索フォーム自体が用途を示すため見出しを出さない。
+              ページの見出し構造は保つため、読み上げには残す */}
+          <h1 className="sr-only md:not-sr-only text-3xl font-bold text-foreground md:mb-5">
+            アニメ検索
+          </h1>
           <SearchForm
             onSearch={handleSearch}
             placeholder="タイトルで検索..."
             recentSearches={searchHistory}
             onClearHistory={clearHistory}
             initialValue={filters.keyword || ''}
-            className="max-w-2xl"
+            className="max-w-2xl lg:max-w-[650px]"
           />
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-6">
-          {/* サイドバー（デスクトップ） */}
-          <aside className="hidden lg:block w-64 flex-shrink-0">
-            <FilterPanel
-              selectedSeason={filters.season}
-              selectedGenre={filters.genre}
-              selectedStatus={filters.status}
-              onSeasonChange={(season) => updateFilters({ season })}
-              onGenreChange={(genre) => updateFilters({ genre })}
-              onStatusChange={(status: 'airing' | 'finished' | 'not_yet_aired' | undefined) => updateFilters({ status })}
-              onClear={clearFilters}
+        {/* ツールバー: フィルター + 並び替え + 件数 */}
+        <div className="flex items-center gap-2.5 flex-wrap pb-4 border-b border-border mb-6">
+          {/* デスクトップ: インラインフィルターチップ + 並び替え（操作系を左に集約、検索ボックスと幅を揃える） */}
+          <div className="hidden lg:flex items-center gap-2.5 flex-wrap max-w-2xl">
+            <FilterPanel {...filterPanelProps} variant="inline" />
+            <SortDropdown
+              options={sortOptions}
+              value={filters.sort ?? DEFAULT_SORT}
+              onChange={handleSortChange}
             />
-          </aside>
+          </div>
 
-          {/* メインコンテンツ */}
-          <main className="flex-1">
-            {/* モバイルフィルターボタン */}
-            <div className="lg:hidden mb-4">
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
-                  />
-                </svg>
-                フィルター
-                {hasActiveFilters && (
-                  <span className="w-2 h-2 bg-blue-600 rounded-full" />
-                )}
-              </button>
-            </div>
+          {/* モバイル: フィルターボタン */}
+          <button
+            onClick={() => setShowFilters(true)}
+            className="lg:hidden inline-flex items-center gap-2 h-[38px] px-3.5 border border-input bg-background rounded-lg text-sm font-medium text-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+            フィルター
+            {hasActiveFilters && <span className="w-1.5 h-1.5 bg-primary rounded-full" />}
+          </button>
 
-            {/* モバイルフィルターパネル */}
-            {showFilters && (
-              <div className="lg:hidden mb-6">
-                <FilterPanel
-                  selectedSeason={filters.season}
-                  selectedGenre={filters.genre}
-                  selectedStatus={filters.status}
-                  onSeasonChange={(season) => updateFilters({ season })}
-                  onGenreChange={(genre) => updateFilters({ genre })}
-                  onStatusChange={(status: 'airing' | 'finished' | 'not_yet_aired' | undefined) => updateFilters({ status })}
-                  onClear={clearFilters}
-                />
-              </div>
+          {/* モバイル: 並び替え（件数と同じ行の左側にまとめる） */}
+          <SortDropdown
+            options={sortOptions}
+            value={filters.sort ?? DEFAULT_SORT}
+            onChange={handleSortChange}
+            className="lg:hidden"
+          />
+
+          <div className="hidden lg:block lg:flex-1" />
+
+          {/* 件数: 結果を説明するラベルとして右端に独立、数字のみ強調 */}
+          <span className="text-sm text-muted-foreground whitespace-nowrap flex items-center gap-2">
+            {total > 0 ? (
+              <>
+                <span className="text-base font-bold text-foreground">{total.toLocaleString()}</span>
+                件
+              </>
+            ) : (
+              !isLoading && '検索結果がありません'
             )}
-
-            {/* ツールバー */}
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                {total > 0 ? (
-                  <span>
-                    {total}件のアニメが見つかりました
-                  </span>
-                ) : (
-                  !isLoading && <span>検索結果がありません</span>
-                )}
-                {isFetching && !isLoading && (
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                )}
-              </div>
-              <SortDropdown
-                options={sortOptions}
-                value={filters.sort}
-                onChange={handleSortChange}
-              />
-            </div>
-
-            {/* 検索条件表示 */}
-            {hasActiveFilters && (
-              <div className="flex flex-wrap gap-2 mb-6">
-                {filters.keyword && (
-                  <span className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
-                    キーワード: {filters.keyword}
-                    <button
-                      onClick={() => updateFilters({ keyword: undefined })}
-                      className="ml-1 hover:text-blue-600"
-                    >
-                      ×
-                    </button>
-                  </span>
-                )}
-                {filters.season && (
-                  <span className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm">
-                    {filters.season}
-                    <button
-                      onClick={() => updateFilters({ season: undefined })}
-                      className="ml-1 hover:text-green-600"
-                    >
-                      ×
-                    </button>
-                  </span>
-                )}
-                {filters.status && (
-                  <span className="inline-flex items-center gap-1 px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm">
-                    {filters.status === 'airing' ? '放送中' : filters.status === 'not_yet_aired' ? '放送予定' : '完結'}
-                    <button
-                      onClick={() => updateFilters({ status: undefined })}
-                      className="ml-1 hover:text-purple-600"
-                    >
-                      ×
-                    </button>
-                  </span>
-                )}
-              </div>
+            {isFetching && !isLoading && (
+              <span className="inline-block animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-primary" />
             )}
-
-            {/* アニメグリッド */}
-            <AnimeGrid
-              animes={animes}
-              isLoading={isLoading}
-              emptyMessage={
-                hasActiveFilters
-                  ? '条件に一致するアニメが見つかりませんでした'
-                  : 'アニメを検索してください'
-              }
-              columns={{ mobile: 3, tablet: 3, desktop: 4, wide: 4 }}
-            />
-
-            {/* ページネーション */}
-            {totalPages > 1 && (
-              <div className="mt-8">
-                <Pagination
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  onPageChange={handlePageChange}
-                />
-              </div>
-            )}
-          </main>
+          </span>
         </div>
+
+        {/* モバイルフィルターシート */}
+        <FilterSheet
+          isOpen={showFilters}
+          onClose={() => setShowFilters(false)}
+          {...filterPanelProps}
+        />
+
+        {/* 検索条件表示 */}
+        {hasActiveFilters && (
+          <div className="flex flex-wrap gap-2 mb-6">
+            {filters.keyword && (
+              <span className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary rounded-full text-sm">
+                キーワード: {filters.keyword}
+                <button
+                  onClick={() => updateFilters({ keyword: undefined })}
+                  className="ml-1 hover:text-primary/70"
+                >
+                  ×
+                </button>
+              </span>
+            )}
+            {filters.season && (
+              <span className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary rounded-full text-sm">
+                {filters.season}
+                <button
+                  onClick={() => updateFilters({ season: undefined })}
+                  className="ml-1 hover:text-primary/70"
+                >
+                  ×
+                </button>
+              </span>
+            )}
+            {filters.status && (
+              <span className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary rounded-full text-sm">
+                {filters.status === 'airing' ? '放送中' : filters.status === 'not_yet_aired' ? '放送予定' : '完結'}
+                <button
+                  onClick={() => updateFilters({ status: undefined })}
+                  className="ml-1 hover:text-primary/70"
+                >
+                  ×
+                </button>
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* アニメグリッド（一覧ページと統一の全幅グリッド） */}
+        <AnimeGrid
+          animes={animes}
+          isLoading={isLoading}
+          // 詳細から戻ったときに検索条件を失わないよう、クエリごと遷移元として渡す
+          from={
+            searchParams.toString()
+              ? `/search?${searchParams.toString()}`
+              : '/search'
+          }
+          emptyMessage={
+            hasActiveFilters
+              ? '条件に一致するアニメが見つかりませんでした'
+              : 'アニメを検索してください'
+          }
+        />
+
+        {/* ページネーション */}
+        {totalPages > 1 && (
+          <div className="mt-8">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={handlePageChange}
+            />
+          </div>
+        )}
       </div>
     </Container>
   )
@@ -222,8 +266,8 @@ const SearchPage: React.FC = () => {
       fallback={
         <Container className="py-12">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">読み込み中...</p>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+            <p className="mt-4 text-muted-foreground">読み込み中...</p>
           </div>
         </Container>
       }

@@ -4,6 +4,7 @@ import React from 'react'
 import { cn } from '@/lib/utils'
 import { AnimeCard } from './AnimeCard'
 import { SkeletonCard } from './SkeletonCard'
+import { EmptyState } from '@/components/ui/EmptyState'
 import type { Anime } from '@/lib/api/generated/myanimelogs'
 
 export interface AnimeGridProps {
@@ -20,6 +21,8 @@ export interface AnimeGridProps {
   }
   cardSize?: 'small' | 'medium' | 'large'
   className?: string
+  /** 詳細ページの「戻る」導線に載せる遷移元パス。省略時はカードが現在のパスを使う */
+  from?: string
 }
 
 export const AnimeGrid: React.FC<AnimeGridProps> = ({
@@ -31,6 +34,7 @@ export const AnimeGrid: React.FC<AnimeGridProps> = ({
   columns = { mobile: 3, tablet: 3, desktop: 4, wide: 6 },
   cardSize = 'medium',
   className,
+  from,
 }) => {
   const gridCols = cn(
     columns.mobile === 1 && 'grid-cols-1',
@@ -48,7 +52,7 @@ export const AnimeGrid: React.FC<AnimeGridProps> = ({
   if (isLoading && animes.length === 0) {
     return (
       <div className={className}>
-        <div className={cn('grid gap-2 sm:gap-4', gridCols)}>
+        <div className={cn('grid gap-x-2.5 gap-y-3.5 md:gap-x-[18px] md:gap-y-5', gridCols)}>
           {Array.from({ length: 12 }).map((_, i) => (
             <SkeletonCard key={i} />
           ))}
@@ -58,19 +62,14 @@ export const AnimeGrid: React.FC<AnimeGridProps> = ({
   }
 
   if (!isLoading && animes.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 text-center">
-        <span className="text-6xl mb-4">🔍</span>
-        <p className="text-gray-500 text-lg">{emptyMessage}</p>
-      </div>
-    )
+    return <EmptyState title={emptyMessage} icon={<span className="text-6xl">🔍</span>} />
   }
 
   return (
     <div className={className}>
-      <div className={cn('grid gap-2 sm:gap-4', gridCols)}>
+      <div className={cn('grid gap-x-2.5 gap-y-3.5 md:gap-x-[18px] md:gap-y-5', gridCols)}>
         {animes.map((anime) => (
-          <AnimeCard key={anime.id} anime={anime} size={cardSize} />
+          <AnimeCard key={anime.id} anime={anime} size={cardSize} from={from} />
         ))}
         {isLoading &&
           Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={`skeleton-${i}`} />)}
@@ -80,7 +79,7 @@ export const AnimeGrid: React.FC<AnimeGridProps> = ({
         <div className="flex justify-center mt-8">
           <button
             onClick={onLoadMore}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
           >
             もっと見る
           </button>

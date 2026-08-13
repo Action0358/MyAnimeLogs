@@ -38,7 +38,7 @@ const Header: React.FC = () => {
         'h-20 sm:h-24',
         isHomePage
           ? 'bg-transparent absolute top-0 left-0 right-0 z-10'
-          : 'bg-gray-50'
+          : 'bg-background border-b border-border'
       )}
     >
       <div className="flex items-center justify-between h-20 sm:h-24 px-4 sm:px-6 lg:px-8">
@@ -51,7 +51,7 @@ const Header: React.FC = () => {
               'md:hidden p-2 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2',
               isHomePage
                 ? 'text-white hover:bg-white/10 focus:ring-white'
-                : 'text-gray-700 hover:bg-gray-100 focus:ring-blue-500'
+                : 'text-foreground hover:bg-muted focus:ring-ring'
             )}
             aria-label="メニューを開く"
             aria-expanded={isMobileNavOpen}
@@ -79,17 +79,18 @@ const Header: React.FC = () => {
         <div className="flex items-center gap-2 sm:gap-3">
           {isLoading ? (
             <div className="flex items-center space-x-2">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-              <span className="text-sm text-gray-500 hidden sm:inline">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+              <span className="text-sm text-muted-foreground hidden sm:inline">
                 読み込み中...
               </span>
             </div>
           ) : user ? (
-            <div className="relative flex items-center gap-2">
+            // 狭い画面ではハンバーガーメニューに統合するため、アイコンを出さない
+            <div className="relative hidden md:flex items-center gap-2">
               {/* ユーザーアイコン（クリックでメニュー表示） */}
               <button
                 onClick={toggleUserMenu}
-                className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center hover:bg-blue-200 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                 aria-label="ユーザーメニュー"
                 aria-expanded={isUserMenuOpen}
               >
@@ -101,7 +102,7 @@ const Header: React.FC = () => {
                     onError={() => setImageError(true)}
                   />
                 ) : (
-                  <span className="text-blue-600 font-medium text-base">
+                  <span className="text-primary font-medium text-base">
                     {user.name.charAt(0).toUpperCase()}
                   </span>
                 )}

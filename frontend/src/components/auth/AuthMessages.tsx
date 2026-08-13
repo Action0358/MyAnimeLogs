@@ -9,13 +9,13 @@ export const AuthMessages: React.FC<AuthMessagesProps> = ({ error, info }) => {
   return (
     <>
       {info && (
-        <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
-          <p className="text-sm text-blue-700">{info}</p>
+        <div className="rounded-md border border-primary/20 bg-primary/5 p-4">
+          <p className="text-sm text-primary">{info}</p>
         </div>
       )}
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-md">
-          <p className="text-sm text-red-600">{error}</p>
+        <div className="rounded-md border border-destructive/20 bg-destructive/5 p-4">
+          <p className="text-sm text-destructive">{error}</p>
         </div>
       )}
     </>

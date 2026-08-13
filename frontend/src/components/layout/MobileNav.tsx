@@ -3,7 +3,8 @@
 import React, { useEffect, useRef } from 'react'
 import { NavLink } from './NavLink'
 import { X } from 'lucide-react'
-import { NAV_ITEMS } from './navigationConfig'
+import { NAV_ITEMS, USER_MENU_ITEMS } from './navigationConfig'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface MobileNavProps {
   isOpen: boolean
@@ -12,6 +13,7 @@ interface MobileNavProps {
 
 export const MobileNav: React.FC<MobileNavProps> = ({ isOpen, onClose }) => {
   const menuRef = useRef<HTMLDivElement>(null)
+  const { user, logout } = useAuth()
 
   // メニュー外クリックで閉じる
   useEffect(() => {
@@ -52,6 +54,11 @@ export const MobileNav: React.FC<MobileNavProps> = ({ isOpen, onClose }) => {
 
   if (!isOpen) return null
 
+  const handleLogout = () => {
+    logout()
+    onClose()
+  }
+
   return (
     <>
       {/* オーバーレイ */}
@@ -63,16 +70,16 @@ export const MobileNav: React.FC<MobileNavProps> = ({ isOpen, onClose }) => {
       {/* サイドメニュー（左側から表示） */}
       <div
         ref={menuRef}
-        className="fixed inset-y-0 left-0 w-64 bg-white shadow-xl transform transition-transform duration-300 ease-in-out z-50 md:hidden"
+        className="fixed inset-y-0 left-0 w-64 bg-background shadow-xl transform transition-transform duration-300 ease-in-out z-50 md:hidden"
         role="dialog"
         aria-modal="true"
         aria-label="モバイルナビゲーション"
       >
         {/* ヘッダー */}
-        <div className="flex items-center px-4 py-4 border-b border-gray-200">
+        <div className="flex items-center px-4 py-4 border-b border-border">
           <button
             onClick={onClose}
-            className="-ml-2 p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="-ml-2 p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
             aria-label="メニューを閉じる"
           >
             <X className="h-6 w-6" />
@@ -80,30 +87,56 @@ export const MobileNav: React.FC<MobileNavProps> = ({ isOpen, onClose }) => {
         </div>
 
         {/* ナビゲーションリンク */}
-        <nav className="py-4" aria-label="モバイルナビゲーション">
+        <nav className="px-3 py-4" aria-label="モバイルナビゲーション">
           <ul className="space-y-1">
             {/* ホームリンク（モバイルのみ） */}
             <li>
-              <NavLink
-                href="/"
-                onClick={onClose}
-                className="block pl-5 pr-4 py-3 hover:bg-gray-50 rounded-none"
-              >
+              <NavLink href="/" onClick={onClose} variant="drawer" className="block">
                 ホーム
               </NavLink>
             </li>
             {NAV_ITEMS.map((item) => (
               <li key={item.href}>
-                <NavLink
-                  href={item.href}
-                  onClick={onClose}
-                  className="block pl-5 pr-4 py-3 hover:bg-gray-50 rounded-none"
-                >
+                <NavLink href={item.href} onClick={onClose} variant="drawer" className="block">
                   {item.label}
                 </NavLink>
               </li>
             ))}
           </ul>
+
+          {/* ログイン中のみ。ヘッダーのユーザーアイコンを廃したぶんをここに集約する */}
+          {user && (
+            <>
+              <div className="mt-4 pt-4 border-t border-border">
+                <p className="px-3 pb-2 text-sm font-bold text-foreground truncate">
+                  {user.name}
+                </p>
+                <ul className="space-y-1">
+                  {USER_MENU_ITEMS.map((item) => (
+                    <li key={item.href}>
+                      <NavLink
+                        href={item.href}
+                        onClick={onClose}
+                        variant="drawer"
+                        className="block"
+                      >
+                        {item.label}
+                      </NavLink>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="mt-4 pt-4 border-t border-border">
+                <button
+                  onClick={handleLogout}
+                  className="block w-full text-left px-3 py-2 rounded-md text-foreground hover:bg-muted transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  ログアウト
+                </button>
+              </div>
+            </>
+          )}
         </nav>
       </div>
     </>

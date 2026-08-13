@@ -22,6 +22,8 @@ interface FavoriteButtonProps {
   size?: 'sm' | 'md' | 'lg'
   variant?: 'button' | 'icon'
   isLoading?: boolean
+  /** 幅・高さを呼び出し側で揃えたいときに渡す */
+  className?: string
 }
 
 // お気に入り（ハート）のON/OFFを切り替えるボタン。視聴ステータスとは独立。
@@ -31,6 +33,7 @@ export const FavoriteButton: React.FC<FavoriteButtonProps> = ({
   size = 'md',
   variant = 'button',
   isLoading = false,
+  className,
 }) => {
   const sizeStyles = {
     sm: { button: 'text-xs px-2 py-1', icon: 'w-8 h-8' },
@@ -73,7 +76,8 @@ export const FavoriteButton: React.FC<FavoriteButtonProps> = ({
         sizeStyles[size].button,
         isFavorite
           ? 'border-pink-500 bg-pink-50 text-pink-700 hover:bg-pink-100'
-          : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+          : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50',
+        className
       )}
       aria-pressed={isFavorite}
     >

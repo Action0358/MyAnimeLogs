@@ -390,3 +390,170 @@ func TestUserRepository_UpdateIcon_Error(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to update user icon")
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
+
+// --- GetOrCreateByAuthUserID ---
+//
+// Google 認証への移行で最も壊れやすい経路のため、4つの分岐すべてを検証する。
+// 特に relinked は、既存の視聴履歴・お気に入りを持つ行が新しい auth_user_id へ
+// 正しく引き継がれるかを保証するもので、失敗すると既存ユーザーのデータが失われる。
+
+const (
+	selectByAuthUserIDQuery = `SELECT id, name, email, description, icon, favorite_anime, sns_link, auth_user_id, created_at, updated_at FROM users WHERE auth_user_id = \$1`
+	linkByEmailQuery        = `WITH target AS`
+	insertUserQuery         = `INSERT INTO users \(name, email, auth_user_id, created_at, updated_at\)`
+)
+
+func userRows() *sqlmock.Rows {
+	return sqlmock.NewRows([]string{
+		"id", "name", "email", "description", "icon", "favorite_anime", "sns_link",
+		"auth_user_id", "created_at", "updated_at",
+	})
+}
+
+func userRowsWithPrevious() *sqlmock.Rows {
+	return sqlmock.NewRows([]string{
+		"id", "name", "email", "description", "icon", "favorite_anime", "sns_link",
+		"auth_user_id", "created_at", "updated_at", "previous_auth_user_id",
+	})
+}
+
+func TestUserRepository_GetOrCreateByAuthUserID_Existing(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	repo := NewUserRepository(&database.DB{DB: db})
+	authUserID := "auth-uuid-existing"
+	now := time.Now()
+
+	mock.ExpectQuery(selectByAuthUserIDQuery).
+		WithArgs(authUserID).
+		WillReturnRows(userRows().AddRow(
+			7, "既存ユーザー", "user@example.com", nil, nil, nil, nil, authUserID, now, now,
+		))
+
+	user, result, err := repo.GetOrCreateByAuthUserID(authUserID, "user@example.com", "Google Name")
+
+	assert.NoError(t, err)
+	assert.Equal(t, 7, user.ID)
+	assert.Equal(t, AuthLinkExisting, result)
+	// 既存ユーザーは書き込みを一切行わない（毎リクエストの UPDATE を避けるため）
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestUserRepository_GetOrCreateByAuthUserID_ClaimsUnlinkedRow(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	repo := NewUserRepository(&database.DB{DB: db})
+	authUserID := "auth-uuid-new"
+	email := "legacy@example.com"
+	now := time.Now()
+
+	mock.ExpectQuery(selectByAuthUserIDQuery).
+		WithArgs(authUserID).
+		WillReturnError(sql.ErrNoRows)
+
+	// auth_user_id が NULL の行（Supabase Auth 移行前のレコード）を引き当てる
+	mock.ExpectQuery(linkByEmailQuery).
+		WithArgs(authUserID, email, "Google Name").
+		WillReturnRows(userRowsWithPrevious().AddRow(
+			3, "移行前の表示名", email, nil, nil, nil, nil, authUserID, now, now, nil,
+		))
+
+	user, result, err := repo.GetOrCreateByAuthUserID(authUserID, email, "Google Name")
+
+	assert.NoError(t, err)
+	assert.Equal(t, 3, user.ID)
+	assert.Equal(t, AuthLinkClaimed, result)
+	// ユーザーが設定済みの表示名は Google プロフィール名で上書きしない
+	assert.Equal(t, "移行前の表示名", user.Name)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestUserRepository_GetOrCreateByAuthUserID_RelinksDifferentAuthUser(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	repo := NewUserRepository(&database.DB{DB: db})
+	newAuthUserID := "auth-uuid-google"
+	oldAuthUserID := "auth-uuid-password"
+	email := "existing@example.com"
+	now := time.Now()
+
+	mock.ExpectQuery(selectByAuthUserIDQuery).
+		WithArgs(newAuthUserID).
+		WillReturnError(sql.ErrNoRows)
+
+	// パスワード認証時代の auth_user_id が入った行を、Google の UUID へ張り替える
+	mock.ExpectQuery(linkByEmailQuery).
+		WithArgs(newAuthUserID, email, "Google Name").
+		WillReturnRows(userRowsWithPrevious().AddRow(
+			42, "ユーザーが変更した名前", email, nil, nil, nil, nil, newAuthUserID, now, now, oldAuthUserID,
+		))
+
+	user, result, err := repo.GetOrCreateByAuthUserID(newAuthUserID, email, "Google Name")
+
+	assert.NoError(t, err)
+	// 既存の user ID が維持されること = 視聴履歴・お気に入りが引き継がれること
+	assert.Equal(t, 42, user.ID)
+	assert.Equal(t, AuthLinkRelinked, result)
+	assert.Equal(t, "ユーザーが変更した名前", user.Name)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestUserRepository_GetOrCreateByAuthUserID_CreatesNewUser(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	repo := NewUserRepository(&database.DB{DB: db})
+	authUserID := "auth-uuid-fresh"
+	email := "new@example.com"
+	now := time.Now()
+
+	mock.ExpectQuery(selectByAuthUserIDQuery).
+		WithArgs(authUserID).
+		WillReturnError(sql.ErrNoRows)
+	mock.ExpectQuery(linkByEmailQuery).
+		WithArgs(authUserID, email, "Google Name").
+		WillReturnError(sql.ErrNoRows)
+	mock.ExpectQuery(insertUserQuery).
+		WithArgs("Google Name", email, authUserID).
+		WillReturnRows(userRows().AddRow(
+			99, "Google Name", email, nil, nil, nil, nil, authUserID, now, now,
+		))
+
+	user, result, err := repo.GetOrCreateByAuthUserID(authUserID, email, "Google Name")
+
+	assert.NoError(t, err)
+	assert.Equal(t, 99, user.ID)
+	assert.Equal(t, AuthLinkCreated, result)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestUserRepository_GetOrCreateByAuthUserID_LinkQueryError(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	repo := NewUserRepository(&database.DB{DB: db})
+	authUserID := "auth-uuid-err"
+
+	mock.ExpectQuery(selectByAuthUserIDQuery).
+		WithArgs(authUserID).
+		WillReturnError(sql.ErrNoRows)
+	mock.ExpectQuery(linkByEmailQuery).
+		WithArgs(authUserID, "err@example.com", "Google Name").
+		WillReturnError(errors.New("deadlock detected"))
+
+	user, _, err := repo.GetOrCreateByAuthUserID(authUserID, "err@example.com", "Google Name")
+
+	assert.Error(t, err)
+	assert.Nil(t, user)
+	// 曖昧な「作成に失敗」ではなく、リンク段階での失敗と分かること
+	assert.Contains(t, err.Error(), "failed to link user by email")
+	assert.NoError(t, mock.ExpectationsWereMet())
+}

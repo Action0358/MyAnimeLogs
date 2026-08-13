@@ -96,7 +96,7 @@ export const AnimeCarousel: React.FC<AnimeCarouselProps> = ({
             'hover:bg-white hover:scale-110 hover:shadow-xl',
             'transition-all duration-200',
             'opacity-0 group-hover/carousel:opacity-100',
-            'focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-500'
+            'focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-primary'
           )}
           aria-label="前へスクロール"
         >
@@ -120,7 +120,7 @@ export const AnimeCarousel: React.FC<AnimeCarouselProps> = ({
           role="list"
           aria-label="アニメ一覧"
           tabIndex={0}
-          className="flex gap-3 sm:gap-4 overflow-x-auto scrollbar-hide scroll-smooth pb-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded-lg"
+          className="flex gap-3 sm:gap-4 overflow-x-auto scrollbar-hide scroll-smooth pb-2 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-lg"
         >
           {animes.map((anime) => (
             <div
@@ -154,7 +154,7 @@ export const AnimeCarousel: React.FC<AnimeCarouselProps> = ({
             'hover:bg-white hover:scale-110 hover:shadow-xl',
             'transition-all duration-200',
             'opacity-0 group-hover/carousel:opacity-100',
-            'focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-blue-500'
+            'focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-primary'
           )}
           aria-label="次へスクロール"
         >
@@ -167,7 +167,7 @@ export const AnimeCarousel: React.FC<AnimeCarouselProps> = ({
         <div className="mt-4 flex justify-center">
           <div className="w-24 h-1 bg-gray-200 rounded-full overflow-hidden">
             <div
-              className="h-full bg-blue-500 rounded-full transition-all duration-150"
+              className="h-full bg-primary rounded-full transition-all duration-150"
               style={{ width: `${Math.max(scrollProgress, CAROUSEL_CONSTANTS.MIN_PROGRESS_WIDTH)}%` }}
             />
           </div>
