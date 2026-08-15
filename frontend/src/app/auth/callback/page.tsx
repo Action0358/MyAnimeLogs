@@ -27,12 +27,12 @@ const AuthCallbackInner: React.FC = () => {
     const errorDescription =
       searchParams.get('error_description') ?? searchParams.get('error')
     if (errorDescription) {
-      router.replace('/login?reason=auth-callback-failed')
+      router.replace('/signin?reason=auth-callback-failed')
       return
     }
 
     const code = searchParams.get('code')
-    const failureUrl = '/login?reason=auth-callback-failed'
+    const failureUrl = '/signin?reason=auth-callback-failed'
     const finalize = async () => {
       try {
         if (code) {

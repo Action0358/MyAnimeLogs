@@ -38,8 +38,8 @@ export type LogoutReason = 'timeout' | 'unauthorized' | 'manual' | 'account-dele
  * ログアウト理由に応じたリダイレクト先のマップ
  */
 export const LOGOUT_REDIRECT_PATHS = {
-  timeout: '/login?reason=timeout',
-  unauthorized: '/login?reason=unauthorized',
+  timeout: '/signin?reason=timeout',
+  unauthorized: '/signin?reason=unauthorized',
   manual: '/',
   // 削除完了をトップページで伝えるのは難しいため専用ページへ送る。
   // 再ログインすれば新しいアカウントが作られる（データは戻らない）ことを

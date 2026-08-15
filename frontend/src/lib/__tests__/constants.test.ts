@@ -45,7 +45,7 @@ describe('LOGOUT_REDIRECT_PATHS', () => {
   })
 
   it('セッション切れはログイン画面へ理由付きで送る', () => {
-    expect(LOGOUT_REDIRECT_PATHS.timeout).toContain('/login?reason=')
-    expect(LOGOUT_REDIRECT_PATHS.unauthorized).toContain('/login?reason=')
+    expect(LOGOUT_REDIRECT_PATHS.timeout).toContain('/signin?reason=')
+    expect(LOGOUT_REDIRECT_PATHS.unauthorized).toContain('/signin?reason=')
   })
 })

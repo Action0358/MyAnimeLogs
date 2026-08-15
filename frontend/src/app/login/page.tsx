@@ -1,132 +1,16 @@
 'use client'
 
-import React, { useState, useEffect, Suspense } from 'react'
-import Link from 'next/link'
-import { useRouter, usePathname, useSearchParams } from 'next/navigation'
-import { useAuth, DEFAULT_LOGIN_ERROR } from '@/contexts/AuthContext'
-import { AuthLayout } from '@/components/auth/AuthLayout'
-import { AuthPosterPanel } from '@/components/auth/AuthPosterPanel'
-import { AuthMessages } from '@/components/auth/AuthMessages'
-import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton'
-import { LOGOUT_REASON_MESSAGES } from '@/lib/constants'
+import React, { Suspense } from 'react'
+import { RedirectToSignIn } from '@/components/auth/RedirectToSignIn'
 
-const EXTRA_MESSAGES: Record<string, string> = {
-  'auth-callback-failed': 'Googleログインを完了できませんでした。お手数ですが再度お試しください。',
-}
-
-const isValidLogoutReason = (reason: string): reason is keyof typeof LOGOUT_REASON_MESSAGES => {
-  return reason in LOGOUT_REASON_MESSAGES
-}
-
-const LoginPanel: React.FC = () => (
-  <AuthPosterPanel
-    headline={
-      <>
-        観た作品を、
-        <br />
-        そのまま記録に。
-      </>
-    }
-  >
-    <p className="mt-3.5 max-w-[340px] text-[13.5px] leading-relaxed text-white/70 max-lg:hidden">
-      今期アニメから旧作まで、視聴状況とお気に入りを1か所で管理できます。
-    </p>
-  </AuthPosterPanel>
+/**
+ * 旧パス。ログインと新規登録を /signin に統合したため転送のみを行う。
+ * 外部リンクやブックマークを壊さないために残している。
+ */
+const LegacyAuthPage: React.FC = () => (
+  <Suspense fallback={null}>
+    <RedirectToSignIn />
+  </Suspense>
 )
 
-const LoginInner: React.FC = () => {
-  const router = useRouter()
-  const pathname = usePathname()
-  const searchParams = useSearchParams()
-  const { loginWithGoogle } = useAuth()
-
-  const [error, setError] = useState('')
-  const [info, setInfo] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-
-  // URLパラメータからメッセージを設定
-  useEffect(() => {
-    const reason = searchParams.get('reason')
-    if (!reason) return
-    if (isValidLogoutReason(reason)) {
-      setInfo(LOGOUT_REASON_MESSAGES[reason])
-    } else if (reason in EXTRA_MESSAGES) {
-      setInfo(EXTRA_MESSAGES[reason])
-    }
-  }, [searchParams])
-
-  // URLからreasonパラメータを削除
-  const clearReasonParam = () => {
-    const reason = searchParams.get('reason')
-    if (reason) {
-      const params = new URLSearchParams(searchParams.toString())
-      params.delete('reason')
-      const newUrl = params.toString() ? `${pathname}?${params.toString()}` : pathname
-      router.replace(newUrl)
-    }
-  }
-
-  const handleSignIn = async () => {
-    setError('')
-    setInfo('')
-    clearReasonParam()
-    setIsLoading(true)
-
-    try {
-      await loginWithGoogle()
-      // 成功時はGoogleへリダイレクトするため、ローディング表示を維持したままにする
-    } catch (err) {
-      setError(err instanceof Error ? err.message : DEFAULT_LOGIN_ERROR)
-      setIsLoading(false)
-    }
-  }
-
-  return (
-    <>
-      {/*
-        操作が1つしかない画面のため、余白を均等にすると間延びする。
-        「見出し群 / 操作 / 補足」の3ブロックとして、見出しとリード文は
-        近づけて1つの塊に見せ、ブロック間だけを広くとる。
-      */}
-      <h1 className="mb-1.5 text-2xl font-bold tracking-tight text-foreground lg:text-[27px]">
-        ログイン
-      </h1>
-      <p className="text-[13.5px] leading-relaxed text-muted-foreground">
-        Googleアカウントでログインして記録を続けましょう。
-      </p>
-
-      <div className="mt-7 space-y-4 empty:mt-0">
-        <AuthMessages error={error} info={info} />
-      </div>
-
-      <div className="mt-7">
-        <GoogleSignInButton label="Googleでログイン" onClick={handleSignIn} isLoading={isLoading} />
-      </div>
-
-      <div className="mt-6 border-t border-border pt-5 text-[13px] text-muted-foreground">
-        アカウントをお持ちでない方は{' '}
-        <Link href="/register" className="font-semibold text-primary hover:underline">
-          新規登録
-        </Link>
-      </div>
-    </>
-  )
-}
-
-const LoginFallback: React.FC = () => (
-  <div className="animate-pulse">
-    <div className="mb-3 h-7 w-32 rounded bg-muted" />
-    <div className="mb-6 h-4 w-56 rounded bg-muted" />
-    <div className="h-14 rounded-md bg-muted" />
-  </div>
-)
-
-const LoginPage: React.FC = () => (
-  <AuthLayout panel={<LoginPanel />}>
-    <Suspense fallback={<LoginFallback />}>
-      <LoginInner />
-    </Suspense>
-  </AuthLayout>
-)
-
-export default LoginPage
+export default LegacyAuthPage

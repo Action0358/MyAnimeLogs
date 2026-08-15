@@ -155,7 +155,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     storage.remove(STORAGE_KEYS.LAST_ACTIVITY_TIMESTAMP)
 
     if (redirectToLogin) {
-      router.push('/login?reason=unauthorized')
+      router.push('/signin?reason=unauthorized')
     }
   }, [router])
 
