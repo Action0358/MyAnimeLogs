@@ -65,6 +65,19 @@ describe('LoginPage', () => {
     expect(mockLoginWithGoogle).toHaveBeenCalledTimes(1)
   })
 
+  // ログインは既存アカウントでの再開が目的のため、サインイン済みならそのまま通す。
+  // アカウント選択の強制は新規登録画面の責務。
+  it('アカウント選択の強制オプションは付けない', async () => {
+    mockLoginWithGoogle.mockResolvedValue(undefined)
+
+    render(<LoginPage />)
+    await act(async () => {
+      await userEvent.click(await screen.findByRole('button', { name: 'Googleでログイン' }))
+    })
+
+    expect(mockLoginWithGoogle).toHaveBeenCalledWith()
+  })
+
   it('成功時はGoogleへ遷移するため、ローディング表示を維持する', async () => {
     mockLoginWithGoogle.mockResolvedValue(undefined)
 
