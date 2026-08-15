@@ -66,8 +66,11 @@ interface AuthContextType {
   /**
    * Googleへリダイレクトして認証を開始する。
    * 成功時はこの関数から戻らず /auth/callback へ遷移するため、戻り値はエラー時のみ意味を持つ。
+   *
+   * forceAccountSelection を true にすると、Googleに既にサインイン済みでも
+   * アカウント選択画面を必ず表示する。新規登録画面で使う。
    */
-  loginWithGoogle: () => Promise<void>
+  loginWithGoogle: (options?: { forceAccountSelection?: boolean }) => Promise<void>
   logout: (reason?: LogoutReason) => void
   updateUser: (userData: User) => void
   isLoading: boolean
@@ -209,11 +212,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [syncSession, router])
 
-  const loginWithGoogle = useCallback(async () => {
+  const loginWithGoogle = useCallback(async (
+    { forceAccountSelection = false }: { forceAccountSelection?: boolean } = {}
+  ) => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo: `${window.location.origin}/auth/callback`,
+        // Googleは単一アカウントでサインイン済みだと選択画面を省略して即座に
+        // 認証を完了させる。新規登録の意図で押したのに既存アカウントで入って
+        // しまうため、prompt=select_account で必ず選択させる。
+        ...(forceAccountSelection ? { queryParams: { prompt: 'select_account' } } : {}),
       },
     })
     // 成功時はGoogleへリダイレクトするため、以降のコードには到達しない

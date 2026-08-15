@@ -63,7 +63,10 @@ const RegisterPage: React.FC = () => {
     setIsLoading(true)
 
     try {
-      await loginWithGoogle()
+      // 新規登録の導線では、Googleにサインイン済みでも必ずアカウント選択画面を出す。
+      // 別アカウントで登録したいユーザーが、既存アカウントで無言でログインして
+      // しまうのを防ぐため。
+      await loginWithGoogle({ forceAccountSelection: true })
       // 成功時はGoogleへリダイレクトするため、ローディング表示を維持したままにする
     } catch (err) {
       setError(err instanceof Error ? err.message : DEFAULT_LOGIN_ERROR)

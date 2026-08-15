@@ -77,6 +77,19 @@ describe('RegisterPage', () => {
     expect(mockLoginWithGoogle).toHaveBeenCalledTimes(1)
   })
 
+  // 別アカウントで登録したいユーザーが、Googleにサインイン済みの既存アカウントで
+  // 無言でログインしてしまうのを防ぐ
+  it('アカウント選択画面を強制するオプション付きで呼ぶ', async () => {
+    mockLoginWithGoogle.mockResolvedValue(undefined)
+
+    render(<RegisterPage />)
+    await act(async () => {
+      await userEvent.click(screen.getByRole('button', { name: 'Googleで登録' }))
+    })
+
+    expect(mockLoginWithGoogle).toHaveBeenCalledWith({ forceAccountSelection: true })
+  })
+
   it('失敗時はエラーを表示し、再操作できる状態に戻す', async () => {
     mockLoginWithGoogle.mockRejectedValue(new Error('Googleログインがキャンセルされました'))
 
