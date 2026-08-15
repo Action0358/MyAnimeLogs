@@ -118,7 +118,7 @@ const SignInInner: React.FC = () => {
         ログインまたは新規作成
       </h1>
       <p className="text-[13.5px] leading-relaxed text-muted-foreground">
-        Googleアカウントでログインします。初めての方はそのまま登録が完了します。
+        初めての方はそのまま登録が完了します。
       </p>
 
       <div className="mt-7 space-y-4 empty:mt-0">
@@ -127,7 +127,7 @@ const SignInInner: React.FC = () => {
 
       <div className="mt-7">
         <GoogleSignInButton
-          label="Googleで続ける"
+          label="Googleで続行"
           onClick={() => handleSignIn(false)}
           isLoading={isLoading}
         />

@@ -43,13 +43,13 @@ describe('SignInPage', () => {
     expect(
       await screen.findByRole('heading', { name: 'ログインまたは新規作成' })
     ).toBeInTheDocument()
-    expect(screen.getByText(/初めての方はそのまま登録が完了します/)).toBeInTheDocument()
+    expect(screen.getByText('初めての方はそのまま登録が完了します。')).toBeInTheDocument()
   })
 
   it('主操作はGoogleボタン1つに絞る', async () => {
     render(<SignInPage />)
 
-    expect(await screen.findByRole('button', { name: 'Googleで続ける' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Googleで続行' })).toBeInTheDocument()
     // 統合したため、別画面へ誘導するリンクは持たない
     expect(screen.queryByRole('link', { name: '新規登録' })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'ログイン' })).not.toBeInTheDocument()
@@ -57,7 +57,7 @@ describe('SignInPage', () => {
 
   it('パスワード入力欄を表示しない', async () => {
     render(<SignInPage />)
-    await screen.findByRole('button', { name: 'Googleで続ける' })
+    await screen.findByRole('button', { name: 'Googleで続行' })
 
     expect(screen.queryByLabelText(/メールアドレス/)).not.toBeInTheDocument()
     expect(screen.queryByLabelText(/パスワード/)).not.toBeInTheDocument()
@@ -66,7 +66,7 @@ describe('SignInPage', () => {
   // 登録もこの画面で発生するため、同意文言が必要
   it('利用規約とプライバシーポリシーへのリンクを表示する', async () => {
     render(<SignInPage />)
-    await screen.findByRole('button', { name: 'Googleで続ける' })
+    await screen.findByRole('button', { name: 'Googleで続行' })
 
     expect(screen.getByRole('link', { name: '利用規約' })).toHaveAttribute('href', '/terms')
     expect(screen.getByRole('link', { name: 'プライバシーポリシー' })).toHaveAttribute(
@@ -80,7 +80,7 @@ describe('SignInPage', () => {
 
     render(<SignInPage />)
     await act(async () => {
-      await userEvent.click(await screen.findByRole('button', { name: 'Googleで続ける' }))
+      await userEvent.click(await screen.findByRole('button', { name: 'Googleで続行' }))
     })
 
     expect(mockLoginWithGoogle).toHaveBeenCalledWith({ forceAccountSelection: false })
@@ -105,11 +105,11 @@ describe('SignInPage', () => {
 
     render(<SignInPage />)
     await act(async () => {
-      await userEvent.click(await screen.findByRole('button', { name: 'Googleで続ける' }))
+      await userEvent.click(await screen.findByRole('button', { name: 'Googleで続行' }))
     })
 
     expect(await screen.findByText('Googleログインがキャンセルされました')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Googleで続ける' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Googleで続行' })).toBeEnabled()
   })
 
   it('reason=timeout のときセッションタイムアウトを案内する', async () => {
@@ -128,7 +128,7 @@ describe('SignInPage', () => {
 
     render(<SignInPage />)
     await act(async () => {
-      await userEvent.click(await screen.findByRole('button', { name: 'Googleで続ける' }))
+      await userEvent.click(await screen.findByRole('button', { name: 'Googleで続行' }))
     })
 
     await waitFor(() => {
