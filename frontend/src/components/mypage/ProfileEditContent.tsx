@@ -85,8 +85,9 @@ export const ProfileEditContent: React.FC = () => {
     try {
       await deleteAccount()
       // 削除後もJWTは有効期限内のため、必ずサインアウトしてトークンを破棄する。
-      // logout はトップページへ遷移する。
-      await logout('manual')
+      // 遷移先を専用の完了画面にするのは、トップページに戻すだけでは削除できたか
+      // 分からず、再ログインで新しいアカウントが作られることも伝わらないため。
+      await logout('account-deleted')
     } catch (err) {
       setDeleteError(err instanceof Error ? err.message : 'アカウントの削除に失敗しました')
       setIsDeleting(false)

@@ -76,6 +76,10 @@ export const DeleteAccountDialog: React.FC<DeleteAccountDialogProps> = ({
         </p>
 
         <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+          削除後に同じGoogleアカウントでログインした場合は、新しいアカウントとして登録されます。以前の記録は引き継がれません。
+        </p>
+
+        <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
           記録を手元に残したい場合は、削除前に
           <a
             href={`${API_BASE_URL}/api/users/me/export?format=json`}
