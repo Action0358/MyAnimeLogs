@@ -286,14 +286,17 @@ docker compose exec backend go mod tidy
 
 - **Frontend**: Cloudflare Pages (`main` ブランチ)
 - **Backend**: Fly.io (`myanimelogs-production` アプリ)
-- **Database**: Supabase (本番用プロジェクト)
-- **URL**: `https://myanimelogs.com` (または設定した本番ドメイン)
+- **Database**: Supabase (本番用プロジェクト, ref: `uvzlwyxclzrpnzioaspr`)
+- **URL**: `https://myanimelogs.com`
+- **アクセス制限**: **ベータ公開前のため、本番も Cloudflare Access で保護されています。** 未認証のアクセスは Cloudflare Access のログイン画面へリダイレクトされます（`curl` で確認すると全パスが `302` を返します）。
+
+> **この制限は Google OAuth 同意画面の公開をブロックします。** Google は公開時にプライバシーポリシー・利用規約の URL へ外部からアクセスして検証するため、Access を解除するまで「アプリを公開」は実行できません。詳細は issue #745 を参照。
 
 ### ステージング環境 (Staging)
 
 - **Frontend**: Cloudflare Pages (`staging` ブランチ, 別プロジェクト)
 - **Backend**: Fly.io (`myanimelogs-staging` アプリ)
-- **Database**: Supabase (ステージング用プロジェクト)
+- **Database**: Supabase (ステージング用プロジェクト, ref: `lvvyolsqhtzfgxsheikr`)
 - **URL**: `https://stg.myanimelogs.com`
 - **アクセス制限**: Cloudflare Accessにより、許可されたユーザーのみ閲覧可能です。
 
@@ -331,6 +334,35 @@ docker compose exec backend go mod tidy
 > ローカルで必要だった `redirect_uri` の `localhost` 明示は、Cloud では不要です。`external_url` が自身の公開 URL になるため `127.0.0.1` 問題は発生しません。
 
 > CLI の `supabase config push` でリモートへ設定を反映することも可能ですが、ローカル向けの `redirect_uri` がそのまま本番へ反映されると認証が壊れます。環境差分の管理方針を決めるまでは、ダッシュボードでの手動設定を推奨します。
+
+#### 設定が反映されたかの確認
+
+ダッシュボードの表示に頼らず、認可エンドポイントの応答で確認できます。有効なら `302` で Google へリダイレクトし、無効なら `400` を返します。
+
+```bash
+curl -sI "https://<project-ref>.supabase.co/auth/v1/authorize?provider=google&redirect_to=https%3A%2F%2Fmyanimelogs.com%2Fauth%2Fcallback" | grep -i location
+```
+
+`client_id` と `redirect_uri` が Google Cloud Console の登録値と一致しているかも、このレスポンスで確認できます。
+
+#### 既存ユーザーの移行時に起きること
+
+パスワード認証から Google 認証へ移行する際、ユーザーは以下のいずれかの経路を通ります。**いずれの経路でも `user_id` は維持され、視聴記録・お気に入りは引き継がれます。**
+
+| 経路 | 条件 | ログ出力 |
+|---|---|---|
+| `existing` | Supabase が検証済みメール一致で identity を自動リンク | なし |
+| `claimed` | `public.users.auth_user_id` が NULL の行をメール一致で紐づけ | あり |
+| `relinked` | 別の `auth_user_id` が設定済みの行を張り替え | あり |
+| `created` | 新規ユーザー | あり |
+
+実際にどの経路を通ったかはバックエンドのログで確認できます。
+
+```bash
+flyctl logs -a myanimelogs-production --no-tail | grep "linked users row"
+```
+
+移行状況の棚卸しには `backend/scripts/check_google_auth_migration.sql` を使用します。**移行の進捗は `raw_app_meta_data->>'provider'`（単数）ではなく `raw_app_meta_data->'providers'`（配列）で判定してください。** primary provider は Google へ移行しても `email` のまま変わらないため、単数形を見ると「誰も移行していない」と誤読します。
 
 ## 貢献
 
