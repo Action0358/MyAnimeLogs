@@ -348,6 +348,10 @@ export type PutUsersMe200 = {
   user?: User;
 };
 
+export type DeleteUsersMe200 = {
+  message?: string;
+};
+
 export type PostUsersMeIconBody = {
   /** アップロードする画像ファイル（JPEG, PNG, GIF, WebP） */
   icon: Blob;
@@ -979,6 +983,77 @@ export const usePutUsersMe = <TError = AxiosError<Error | Error>,
       > => {
 
       const mutationOptions = getPutUsersMeMutationOptions(options);
+
+      return useMutation(mutationOptions , queryClient);
+    }
+    
+/**
+ * アカウントを完全に削除します。**復旧はできません。**
+
+auth.users の削除に伴い、public.users・お気に入り・視聴状況が連鎖削除されます。
+検索ログは user_id が NULL になり、匿名化された状態で残ります。
+アップロード済みのプロフィール画像も削除されます。
+
+削除後もJWTは有効期限（最大1時間）まで残るため、
+クライアントは成功後ただちにサインアウトしてトークンを破棄してください。
+削除済みアカウントからのリクエストには 401 を返します。
+
+ * @summary アカウントを削除
+ */
+export const deleteUsersMe = (
+     options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<DeleteUsersMe200>> => {
+    
+    
+    return axios.delete(
+      `/users/me`,options
+    );
+  }
+
+
+
+export const getDeleteUsersMeMutationOptions = <TError = AxiosError<Error | Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteUsersMe>>, TError,void, TContext>, axios?: AxiosRequestConfig}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteUsersMe>>, TError,void, TContext> => {
+
+const mutationKey = ['deleteUsersMe'];
+const {mutation: mutationOptions, axios: axiosOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, axios: undefined};
+
+      
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteUsersMe>>, void> = () => {
+          
+
+          return  deleteUsersMe(axiosOptions)
+        }
+
+        
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteUsersMeMutationResult = NonNullable<Awaited<ReturnType<typeof deleteUsersMe>>>
+    
+    export type DeleteUsersMeMutationError = AxiosError<Error | Error>
+
+    /**
+ * @summary アカウントを削除
+ */
+export const useDeleteUsersMe = <TError = AxiosError<Error | Error>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteUsersMe>>, TError,void, TContext>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof deleteUsersMe>>,
+        TError,
+        void,
+        TContext
+      > => {
+
+      const mutationOptions = getDeleteUsersMeMutationOptions(options);
 
       return useMutation(mutationOptions , queryClient);
     }

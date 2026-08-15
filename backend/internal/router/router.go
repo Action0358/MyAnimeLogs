@@ -34,9 +34,15 @@ func Setup(db *database.DB, cfg *config.Config, syncScheduler handlers.SyncSched
 	rateLimiter := middleware.NewRateLimiter(cfg.RateLimit, time.Second)
 	r.Use(middleware.RateLimitMiddleware(rateLimiter))
 
-	authService := services.NewAuthService(db)
 	animeService := services.NewAnimeService(db, logger)
 	uploadService := services.NewUploadService(cfg.UploadDir, cfg.UploadPublicPath, cfg.MaxUploadSize, logger)
+	// service_role キー未設定の環境でも起動は妨げない。
+	// アカウント削除エンドポイントのみが 503 を返す。
+	supabaseAdmin := services.NewSupabaseAdminClient(cfg.SupabaseURL, cfg.SupabaseServiceRoleKey)
+	if !supabaseAdmin.IsConfigured() {
+		logger.Warn("SUPABASE_SERVICE_ROLE_KEY is not set; account deletion is disabled")
+	}
+	authService := services.NewAuthServiceWithAdmin(db, supabaseAdmin, uploadService)
 
 	authHandler := handlers.NewAuthHandlerWithUpload(authService, uploadService, logger, errorMonitor)
 	animeHandler := handlers.NewAnimeHandler(animeService, logger, errorMonitor)
@@ -107,6 +113,8 @@ func Setup(db *database.DB, cfg *config.Config, syncScheduler handlers.SyncSched
 			// ユーザールート
 			protected.GET("/users/me", authHandler.GetMe)
 			protected.PUT("/users/me", authHandler.UpdateMe)
+			// アカウントの完全削除（復旧不可）
+			protected.DELETE("/users/me", authHandler.DeleteMe)
 			protected.POST("/users/me/icon", authHandler.UploadIcon)
 			protected.DELETE("/users/me/icon", authHandler.DeleteIcon)
 			protected.GET("/users/me/export", authHandler.ExportData)
