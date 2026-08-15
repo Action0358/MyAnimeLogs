@@ -4,32 +4,42 @@ import React, { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { useAuth, DEFAULT_LOGIN_ERROR } from '@/contexts/AuthContext'
-import { Input } from '@/components/ui/Input'
-import { Button } from '@/components/ui/Button'
-import { AuthCard } from '@/components/auth/AuthCard'
+import { AuthLayout } from '@/components/auth/AuthLayout'
+import { AuthPosterPanel } from '@/components/auth/AuthPosterPanel'
 import { AuthMessages } from '@/components/auth/AuthMessages'
-import { AuthFormSkeleton } from '@/components/auth/AuthFormSkeleton'
+import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton'
 import { LOGOUT_REASON_MESSAGES } from '@/lib/constants'
 
 const EXTRA_MESSAGES: Record<string, string> = {
-  'confirm-email': '確認メールを送信しました。受信トレイをご確認のうえ、リンクをクリックしてログインしてください。',
-  'auth-callback-failed': '認証リンクの有効期限が切れているか、無効です。お手数ですが再度お試しください。',
-  'password-reset-success': 'パスワードを変更しました。新しいパスワードでログインしてください。',
+  'auth-callback-failed': 'Googleログインを完了できませんでした。お手数ですが再度お試しください。',
 }
 
 const isValidLogoutReason = (reason: string): reason is keyof typeof LOGOUT_REASON_MESSAGES => {
   return reason in LOGOUT_REASON_MESSAGES
 }
 
-// ログインフォームの内部コンポーネント（useSearchParamsを使用するためSuspense内で使用）
-const LoginFormInner: React.FC = () => {
+const LoginPanel: React.FC = () => (
+  <AuthPosterPanel
+    headline={
+      <>
+        観た作品を、
+        <br />
+        そのまま記録に。
+      </>
+    }
+  >
+    <p className="mt-3.5 max-w-[340px] text-[13.5px] leading-relaxed text-white/70 max-lg:hidden">
+      今期アニメから旧作まで、視聴状況とお気に入りを1か所で管理できます。
+    </p>
+  </AuthPosterPanel>
+)
+
+const LoginInner: React.FC = () => {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const { login } = useAuth()
-  
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const { loginWithGoogle } = useAuth()
+
   const [error, setError] = useState('')
   const [info, setInfo] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -56,90 +66,67 @@ const LoginFormInner: React.FC = () => {
     }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSignIn = async () => {
     setError('')
     setInfo('')
     clearReasonParam()
     setIsLoading(true)
 
     try {
-      await login(email, password)
+      await loginWithGoogle()
+      // 成功時はGoogleへリダイレクトするため、ローディング表示を維持したままにする
     } catch (err) {
       setError(err instanceof Error ? err.message : DEFAULT_LOGIN_ERROR)
-    } finally {
       setIsLoading(false)
     }
   }
 
   return (
-    <AuthCard title="ログイン" subtitle="MyAnimeLogsへようこそ" icon="📺">
-      <form onSubmit={handleSubmit} className="space-y-6">
+    <>
+      {/*
+        操作が1つしかない画面のため、余白を均等にすると間延びする。
+        「見出し群 / 操作 / 補足」の3ブロックとして、見出しとリード文は
+        近づけて1つの塊に見せ、ブロック間だけを広くとる。
+      */}
+      <h1 className="mb-1.5 text-2xl font-bold tracking-tight text-foreground lg:text-[27px]">
+        ログイン
+      </h1>
+      <p className="text-[13.5px] leading-relaxed text-muted-foreground">
+        Googleアカウントでログインして記録を続けましょう。
+      </p>
+
+      <div className="mt-7 space-y-4 empty:mt-0">
         <AuthMessages error={error} info={info} />
+      </div>
 
-            <Input
-              label="メールアドレス"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="example@email.com"
-              required
-              autoComplete="email"
-            />
+      <div className="mt-7">
+        <GoogleSignInButton label="Googleでログイン" onClick={handleSignIn} isLoading={isLoading} />
+      </div>
 
-            <Input
-              label="パスワード"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="8文字以上"
-              required
-              autoComplete="current-password"
-            />
-
-        <Button
-          type="submit"
-          variant="primary"
-          size="lg"
-          isLoading={isLoading}
-          className="w-full"
-        >
-          ログイン
-        </Button>
-      </form>
-
-      <div className="mt-4 text-center">
-        <Link
-          href="/auth/reset-password"
-          className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
-        >
-          パスワードをお忘れの方
+      <div className="mt-6 border-t border-border pt-5 text-[13px] text-muted-foreground">
+        アカウントをお持ちでない方は{' '}
+        <Link href="/register" className="font-semibold text-primary hover:underline">
+          新規登録
         </Link>
       </div>
-
-      <div className="mt-6 pt-6 border-t border-gray-200 text-center">
-        <p className="text-sm text-gray-600">
-          アカウントをお持ちでない方は{' '}
-          <Link
-            href="/register"
-            className="text-blue-600 hover:text-blue-700 font-medium transition-colors"
-          >
-            新規登録
-          </Link>
-        </p>
-      </div>
-    </AuthCard>
+    </>
   )
 }
 
-const LoginFormFallback: React.FC = () => (
-  <AuthFormSkeleton title="ログイン" subtitle="MyAnimeLogsへようこそ" icon="📺" />
+const LoginFallback: React.FC = () => (
+  <div className="animate-pulse">
+    <div className="mb-3 h-7 w-32 rounded bg-muted" />
+    <div className="mb-6 h-4 w-56 rounded bg-muted" />
+    <div className="h-14 rounded-md bg-muted" />
+  </div>
 )
 
 const LoginPage: React.FC = () => (
-  <Suspense fallback={<LoginFormFallback />}>
-    <LoginFormInner />
-  </Suspense>
+  <AuthLayout panel={<LoginPanel />}>
+    <Suspense fallback={<LoginFallback />}>
+      <LoginInner />
+    </Suspense>
+  </AuthLayout>
 )
 
 export default LoginPage
