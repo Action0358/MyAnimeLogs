@@ -1,9 +1,12 @@
 'use client'
 
-import React, { useRef } from 'react'
+import React, { useRef, useState } from 'react'
 import Link from 'next/link'
 import type { Route } from 'next'
 import { Container } from '@/components/layout'
+import { useAuth } from '@/contexts/AuthContext'
+import { deleteAccount } from '@/lib/api/account'
+import { DeleteAccountDialog } from './DeleteAccountDialog'
 import {
   MAX_NAME_LENGTH,
   MAX_DESCRIPTION_LENGTH,
@@ -70,6 +73,26 @@ export const ProfileEditContent: React.FC = () => {
     handleSubmit,
     handleCancel,
   } = useProfileForm()
+
+  const { logout } = useAuth()
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
+
+  const handleDeleteAccount = async () => {
+    setDeleteError('')
+    setIsDeleting(true)
+    try {
+      await deleteAccount()
+      // 削除後もJWTは有効期限内のため、必ずサインアウトしてトークンを破棄する。
+      // 遷移先を専用の完了画面にするのは、トップページに戻すだけでは削除できたか
+      // 分からず、再ログインで新しいアカウントが作られることも伝わらないため。
+      await logout('account-deleted')
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'アカウントの削除に失敗しました')
+      setIsDeleting(false)
+    }
+  }
 
   const handleIconClick = () => {
     fileInputRef.current?.click()
@@ -243,7 +266,36 @@ export const ProfileEditContent: React.FC = () => {
             </div>
           </form>
         </div>
+
+        {/*
+          アカウント削除は破壊的操作のため、保存フォームの外に独立させ、
+          視覚的にも切り離した位置に置く。誤操作を避けるため画面最下部に配置。
+        */}
+        <div className="mt-8 rounded-lg border border-destructive/30 bg-card p-[18px] md:p-7">
+          <h2 className="text-[15px] font-bold text-foreground">アカウントの削除</h2>
+          <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
+            アカウントと、これまでの視聴記録・お気に入りをすべて削除します。削除したデータは復元できません。
+          </p>
+          <button
+            type="button"
+            onClick={() => setIsDeleteDialogOpen(true)}
+            className="mt-4 h-10 rounded-md border border-destructive px-4 text-[13.5px] font-semibold text-destructive transition-colors hover:bg-destructive/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            アカウントを削除
+          </button>
+        </div>
       </Container>
+
+      <DeleteAccountDialog
+        isOpen={isDeleteDialogOpen}
+        isDeleting={isDeleting}
+        error={deleteError}
+        onConfirm={handleDeleteAccount}
+        onCancel={() => {
+          setIsDeleteDialogOpen(false)
+          setDeleteError('')
+        }}
+      />
     </div>
   )
 }

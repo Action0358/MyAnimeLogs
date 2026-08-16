@@ -32,15 +32,19 @@ export const LOGOUT_REASON_MESSAGES = {
 /**
  * ログアウト理由の型
  */
-export type LogoutReason = 'timeout' | 'unauthorized' | 'manual'
+export type LogoutReason = 'timeout' | 'unauthorized' | 'manual' | 'account-deleted'
 
 /**
  * ログアウト理由に応じたリダイレクト先のマップ
  */
 export const LOGOUT_REDIRECT_PATHS = {
-  timeout: '/login?reason=timeout',
-  unauthorized: '/login?reason=unauthorized',
+  timeout: '/signin?reason=timeout',
+  unauthorized: '/signin?reason=unauthorized',
   manual: '/',
+  // 削除完了をトップページで伝えるのは難しいため専用ページへ送る。
+  // 再ログインすれば新しいアカウントが作られる（データは戻らない）ことを
+  // ここで明示しないと、削除できていないように見える。
+  'account-deleted': '/account-deleted',
 } as const satisfies Record<LogoutReason, string>
 
 // ========================

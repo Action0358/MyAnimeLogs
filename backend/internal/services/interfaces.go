@@ -18,6 +18,8 @@ type UserRepositoryInterface interface {
 
 // AuthServiceInterface defines the interface for user management service
 type AuthServiceInterface interface {
+	// DeleteAccount はアカウントを完全に削除する（復旧不可）
+	DeleteAccount(userID int, authUserID string) error
 	GetUserByID(userID int) (*models.UserResponse, error)
 	UpdateUser(userID int, req models.UserUpdateRequest) (*models.UserResponse, error)
 	UpdateUserIcon(userID int, iconURL string) (*models.UserResponse, error)
