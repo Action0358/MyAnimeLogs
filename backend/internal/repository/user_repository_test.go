@@ -617,3 +617,54 @@ func TestUserRepository_GetOrCreateByAuthUserID_InsertErrorIsNotTreatedAsDeleted
 	assert.Contains(t, err.Error(), "failed to create user")
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
+
+// UserUpdateRequest に Icon を足しただけでは保存されない。
+// UpdatePartial の SET句に含め忘れると、APIは200を返すのに反映されず、
+// 「保存したのに変わらない」という分かりにくい不具合になる（実際に発生した）。
+func TestUserRepository_UpdatePartial_SavesIcon(t *testing.T) {
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
+	require.NoError(t, err)
+	defer db.Close()
+
+	repo := NewUserRepository(&database.DB{DB: db})
+	icon := "preset-03"
+	now := time.Now()
+
+	mock.ExpectQuery(`UPDATE users SET .*icon = \$1`).
+		WithArgs(icon, 1).
+		WillReturnRows(userRows().AddRow(
+			1, "テスト", "t@example.com", nil, icon, nil, nil, "auth-uuid", now, now,
+		))
+
+	user, err := repo.UpdatePartial(1, models.UserUpdateRequest{Icon: &icon})
+
+	require.NoError(t, err)
+	require.NotNil(t, user.Icon)
+	assert.Equal(t, icon, *user.Icon)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+// 未設定の表現をNULLに統一する。空文字のまま保存すると、
+// マイグレーション044がNULLにしたのと食い違い、同じ状態が2通りになる
+func TestUserRepository_UpdatePartial_ClearsIconAsNull(t *testing.T) {
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
+	require.NoError(t, err)
+	defer db.Close()
+
+	repo := NewUserRepository(&database.DB{DB: db})
+	empty := ""
+	now := time.Now()
+
+	// 空文字はプレースホルダを使わず icon = NULL として組み立てられる
+	mock.ExpectQuery(`UPDATE users SET icon = NULL`).
+		WithArgs(1).
+		WillReturnRows(userRows().AddRow(
+			1, "テスト", "t@example.com", nil, nil, nil, nil, "auth-uuid", now, now,
+		))
+
+	user, err := repo.UpdatePartial(1, models.UserUpdateRequest{Icon: &empty})
+
+	require.NoError(t, err)
+	assert.Nil(t, user.Icon)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}

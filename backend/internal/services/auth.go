@@ -23,8 +23,7 @@ type AuthService struct {
 	db       *database.DB
 	logger   *common.Logger
 	// アカウント削除でのみ使用する依存。未設定でも他の機能は動作する。
-	admin  *SupabaseAdminClient
-	upload *UploadService
+	admin *SupabaseAdminClient
 }
 
 func NewAuthService(db *database.DB) *AuthService {
@@ -37,10 +36,9 @@ func NewAuthService(db *database.DB) *AuthService {
 
 // NewAuthServiceWithAdmin builds an AuthService that can delete accounts.
 // admin が nil または未設定の場合、DeleteAccount は ErrAdminAPIUnavailable を返す。
-func NewAuthServiceWithAdmin(db *database.DB, admin *SupabaseAdminClient, upload *UploadService) *AuthService {
+func NewAuthServiceWithAdmin(db *database.DB, admin *SupabaseAdminClient) *AuthService {
 	s := NewAuthService(db)
 	s.admin = admin
-	s.upload = upload
 	return s
 }
 
@@ -58,25 +56,11 @@ func (s *AuthService) getRepository() UserRepositoryInterface {
 // search_logs は ON DELETE SET NULL のため匿名化されて残る。
 // したがってアプリ側で個別に DELETE を発行する必要はない。
 //
-// アイコンファイルは DB の管理外なので、連鎖削除の前に自前で消す。
-// 先に消すのは、DB削除が成功した後にファイルパスを引けなくなるため。
+// アイコンはプリセットIDを users.icon に持つだけでファイル実体がないため、
+// 連鎖削除以外の後始末は不要（#763 でアップロードを廃止した）。
 func (s *AuthService) DeleteAccount(userID int, authUserID string) error {
 	if s.admin == nil || !s.admin.IsConfigured() {
 		return ErrAdminAPIUnavailable
-	}
-
-	user, err := s.getRepository().GetByID(userID)
-	if err != nil {
-		return fmt.Errorf("failed to load user before deletion: %w", err)
-	}
-
-	// アイコン削除の失敗は退会自体を妨げない。孤児ファイルが残るだけで、
-	// ここで中断するとユーザーが退会できなくなる方が損害が大きい。
-	if s.upload != nil && user.Icon != nil && *user.Icon != "" {
-		if err := s.upload.DeleteUserIcon(*user.Icon); err != nil {
-			s.logger.Warn("Failed to delete icon file during account deletion",
-				"user_id", userID, "error", err)
-		}
 	}
 
 	if err := s.admin.DeleteUser(authUserID); err != nil {

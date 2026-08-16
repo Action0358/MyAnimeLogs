@@ -24,6 +24,18 @@ export interface BackTarget {
 }
 
 /**
+ * 末尾スラッシュを取り除いて比較用のパスに揃える。
+ *
+ * 本番ビルドは next.config.js で trailingSlash を有効にしているため、
+ * usePathname() は `/anime/current/` を返す。開発サーバーでは無効なので
+ * `/anime/current` になる。この差を吸収しないと、本番でだけ既知の一覧に
+ * 一致せずホームへフォールバックする（ローカルでは再現しない）。
+ * ルート `/` は空文字にしないでそのまま残す。
+ */
+const normalizePathname = (pathname: string): string =>
+  pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname
+
+/**
  * `from` クエリの値を戻り先に解決する。
  *
  * 外部URLへ飛ばされないよう、ホスト付きURLやプロトコル相対URL（`//`）は
@@ -43,7 +55,7 @@ export function resolveBackTarget(from: string | null | undefined): BackTarget {
 
   if (!decoded.startsWith('/') || decoded.startsWith('//')) return HOME_ORIGIN
 
-  const pathname = decoded.split('?')[0]
+  const pathname = normalizePathname(decoded.split('?')[0])
   const origin = KNOWN_ORIGINS.find((o) => o.pathname === pathname)
   if (!origin) return HOME_ORIGIN
 
@@ -56,7 +68,7 @@ export function resolveBackTarget(from: string | null | undefined): BackTarget {
  */
 export function withBackParam(href: string, from: string | undefined): string {
   if (!from) return href
-  const pathname = from.split('?')[0]
+  const pathname = normalizePathname(from.split('?')[0])
   if (!KNOWN_ORIGINS.some((o) => o.pathname === pathname)) return href
   return `${href}?from=${encodeURIComponent(from)}`
 }

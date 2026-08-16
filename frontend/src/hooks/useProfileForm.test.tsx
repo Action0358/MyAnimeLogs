@@ -96,6 +96,8 @@ describe('useProfileForm', () => {
     })
 
     expect(mockPut).toHaveBeenCalledWith('/api/users/me', {
+      // アイコン未選択でも空文字を送る（null だと omitempty で解除できないため）
+      icon: '',
       name: '更新名',
       description: '初期説明',
       favorite_anime: null,
@@ -117,43 +119,44 @@ describe('useProfileForm', () => {
     expect(mockPush).not.toHaveBeenCalled()
   })
 
-  it('アイコン選択時は put の前に uploadFile を呼ぶ', async () => {
-    mockUploadFile.mockResolvedValue({ user: baseUser })
+  // #763 でアップロードからプリセット選択へ変更。画像の実体を持たず、
+  // 選択したIDを他のプロフィール項目と同じ更新APIで送る
+  it('プリセットを選ぶと変更ありになり、iconとして送信される', async () => {
     mockPut.mockResolvedValue({ user: baseUser })
     const { result } = renderHook(() => useProfileForm())
 
-    const file = new File(['x'], 'a.png', { type: 'image/png' })
-    act(() =>
-      result.current.handleIconChange({ target: { files: [file] } } as any)
-    )
+    act(() => result.current.handleIconSelect('preset-03'))
+    expect(result.current.selectedIcon).toBe('preset-03')
     expect(result.current.hasChanges).toBe(true)
 
     await act(async () => {
       await result.current.handleSubmit(submitEvent())
     })
 
-    expect(mockUploadFile).toHaveBeenCalledWith(
-      '/api/users/me/icon',
-      expect.any(FormData)
-    )
-    expect(mockPut).toHaveBeenCalled()
-    expect(mockUploadFile.mock.invocationCallOrder[0]).toBeLessThan(
-      mockPut.mock.invocationCallOrder[0]
+    expect(mockPut).toHaveBeenCalledWith(
+      '/api/users/me',
+      expect.objectContaining({ icon: 'preset-03' })
     )
   })
 
-  it('不正な形式のアイコンを選んだ場合はエラーを表示し、hasChanges は変わらない', () => {
+  // 解除専用のボタンを置かない代わりに、選択済みを再度押すと未設定へ戻せる
+  it('選択済みのプリセットを再度押すと未設定に戻る', async () => {
+    mockPut.mockResolvedValue({ user: baseUser })
     const { result } = renderHook(() => useProfileForm())
 
-    const bad = new File(['x'], 'a.txt', { type: 'text/plain' })
-    act(() =>
-      result.current.handleIconChange({ target: { files: [bad] } } as any)
-    )
+    act(() => result.current.handleIconSelect('preset-03'))
+    act(() => result.current.handleIconSelect('preset-03'))
+    expect(result.current.selectedIcon).toBeNull()
 
-    expect(result.current.error).toBe(
-      'JPEG、PNG、GIF、WebP形式の画像を選択してください'
+    await act(async () => {
+      await result.current.handleSubmit(submitEvent())
+    })
+
+    // null ではなく空文字で送る。null だと omitempty で無視され解除できない
+    expect(mockPut).toHaveBeenCalledWith(
+      '/api/users/me',
+      expect.objectContaining({ icon: '' })
     )
-    expect(result.current.hasChanges).toBe(false)
   })
 
   it('変更なしのキャンセルは確認なしで /mypage へ遷移する', () => {

@@ -47,6 +47,27 @@ export interface Error {
   details?: ErrorDetails;
 }
 
+/**
+ * プリセットアバターのID。画像アップロードは廃止したため、
+許可された値以外は保存できない。未設定の場合は null。
+
+ * @nullable
+ */
+export type UserIcon = typeof UserIcon[keyof typeof UserIcon] | null;
+
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const UserIcon = {
+  'preset-01': 'preset-01',
+  'preset-02': 'preset-02',
+  'preset-03': 'preset-03',
+  'preset-04': 'preset-04',
+  'preset-05': 'preset-05',
+  'preset-06': 'preset-06',
+  'preset-07': 'preset-07',
+  'preset-08': 'preset-08',
+} as const;
+
 export interface User {
   id?: number;
   name?: string;
@@ -56,8 +77,13 @@ export interface User {
    * @nullable
    */
   description?: string | null;
-  /** @nullable */
-  icon?: string | null;
+  /**
+   * プリセットアバターのID。画像アップロードは廃止したため、
+許可された値以外は保存できない。未設定の場合は null。
+
+   * @nullable
+   */
+  icon?: UserIcon;
   /**
    * @maxLength 300
    * @nullable
@@ -350,21 +376,6 @@ export type PutUsersMe200 = {
 
 export type DeleteUsersMe200 = {
   message?: string;
-};
-
-export type PostUsersMeIconBody = {
-  /** アップロードする画像ファイル（JPEG, PNG, GIF, WebP） */
-  icon: Blob;
-};
-
-export type PostUsersMeIcon200 = {
-  message?: string;
-  user?: User;
-};
-
-export type DeleteUsersMeIcon200 = {
-  message?: string;
-  user?: User;
 };
 
 export type GetUsersMeExportParams = {
@@ -1054,131 +1065,6 @@ export const useDeleteUsersMe = <TError = AxiosError<Error | Error>,
       > => {
 
       const mutationOptions = getDeleteUsersMeMutationOptions(options);
-
-      return useMutation(mutationOptions , queryClient);
-    }
-    
-/**
- * @summary プロフィール画像をアップロード
- */
-export const postUsersMeIcon = (
-    postUsersMeIconBody: PostUsersMeIconBody, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<PostUsersMeIcon200>> => {
-    
-    const formData = new FormData();
-formData.append(`icon`, postUsersMeIconBody.icon)
-
-    return axios.post(
-      `/users/me/icon`,
-      formData,options
-    );
-  }
-
-
-
-export const getPostUsersMeIconMutationOptions = <TError = AxiosError<Error | Error | Error>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postUsersMeIcon>>, TError,{data: PostUsersMeIconBody}, TContext>, axios?: AxiosRequestConfig}
-): UseMutationOptions<Awaited<ReturnType<typeof postUsersMeIcon>>, TError,{data: PostUsersMeIconBody}, TContext> => {
-
-const mutationKey = ['postUsersMeIcon'];
-const {mutation: mutationOptions, axios: axiosOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, axios: undefined};
-
-      
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof postUsersMeIcon>>, {data: PostUsersMeIconBody}> = (props) => {
-          const {data} = props ?? {};
-
-          return  postUsersMeIcon(data,axiosOptions)
-        }
-
-        
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type PostUsersMeIconMutationResult = NonNullable<Awaited<ReturnType<typeof postUsersMeIcon>>>
-    export type PostUsersMeIconMutationBody = PostUsersMeIconBody
-    export type PostUsersMeIconMutationError = AxiosError<Error | Error | Error>
-
-    /**
- * @summary プロフィール画像をアップロード
- */
-export const usePostUsersMeIcon = <TError = AxiosError<Error | Error | Error>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof postUsersMeIcon>>, TError,{data: PostUsersMeIconBody}, TContext>, axios?: AxiosRequestConfig}
- , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof postUsersMeIcon>>,
-        TError,
-        {data: PostUsersMeIconBody},
-        TContext
-      > => {
-
-      const mutationOptions = getPostUsersMeIconMutationOptions(options);
-
-      return useMutation(mutationOptions , queryClient);
-    }
-    
-/**
- * @summary プロフィール画像を削除
- */
-export const deleteUsersMeIcon = (
-     options?: AxiosRequestConfig
- ): Promise<AxiosResponse<DeleteUsersMeIcon200>> => {
-    
-    
-    return axios.delete(
-      `/users/me/icon`,options
-    );
-  }
-
-
-
-export const getDeleteUsersMeIconMutationOptions = <TError = AxiosError<Error | Error | Error>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteUsersMeIcon>>, TError,void, TContext>, axios?: AxiosRequestConfig}
-): UseMutationOptions<Awaited<ReturnType<typeof deleteUsersMeIcon>>, TError,void, TContext> => {
-
-const mutationKey = ['deleteUsersMeIcon'];
-const {mutation: mutationOptions, axios: axiosOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, axios: undefined};
-
-      
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteUsersMeIcon>>, void> = () => {
-          
-
-          return  deleteUsersMeIcon(axiosOptions)
-        }
-
-        
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type DeleteUsersMeIconMutationResult = NonNullable<Awaited<ReturnType<typeof deleteUsersMeIcon>>>
-    
-    export type DeleteUsersMeIconMutationError = AxiosError<Error | Error | Error>
-
-    /**
- * @summary プロフィール画像を削除
- */
-export const useDeleteUsersMeIcon = <TError = AxiosError<Error | Error | Error>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteUsersMeIcon>>, TError,void, TContext>, axios?: AxiosRequestConfig}
- , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof deleteUsersMeIcon>>,
-        TError,
-        void,
-        TContext
-      > => {
-
-      const mutationOptions = getDeleteUsersMeIconMutationOptions(options);
 
       return useMutation(mutationOptions , queryClient);
     }

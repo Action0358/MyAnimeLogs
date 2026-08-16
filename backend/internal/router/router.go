@@ -1,7 +1,6 @@
 package router
 
 import (
-	"path/filepath"
 	"time"
 
 	"myanimelogs/internal/common"
@@ -35,16 +34,15 @@ func Setup(db *database.DB, cfg *config.Config, syncScheduler handlers.SyncSched
 	r.Use(middleware.RateLimitMiddleware(rateLimiter))
 
 	animeService := services.NewAnimeService(db, logger)
-	uploadService := services.NewUploadService(cfg.UploadDir, cfg.UploadPublicPath, cfg.MaxUploadSize, logger)
 	// service_role キー未設定の環境でも起動は妨げない。
 	// アカウント削除エンドポイントのみが 503 を返す。
 	supabaseAdmin := services.NewSupabaseAdminClient(cfg.SupabaseURL, cfg.SupabaseServiceRoleKey)
 	if !supabaseAdmin.IsConfigured() {
 		logger.Warn("SUPABASE_SERVICE_ROLE_KEY is not set; account deletion is disabled")
 	}
-	authService := services.NewAuthServiceWithAdmin(db, supabaseAdmin, uploadService)
+	authService := services.NewAuthServiceWithAdmin(db, supabaseAdmin)
 
-	authHandler := handlers.NewAuthHandlerWithUpload(authService, uploadService, logger, errorMonitor)
+	authHandler := handlers.NewAuthHandler(authService, logger, errorMonitor)
 	animeHandler := handlers.NewAnimeHandler(animeService, logger, errorMonitor)
 	annictHandler := handlers.NewAnnictHandler(annictClient, logger, errorMonitor)
 	adminHandler := handlers.NewAdminHandler(animeService, logger, errorMonitor, syncScheduler)
@@ -115,8 +113,6 @@ func Setup(db *database.DB, cfg *config.Config, syncScheduler handlers.SyncSched
 			protected.PUT("/users/me", authHandler.UpdateMe)
 			// アカウントの完全削除（復旧不可）
 			protected.DELETE("/users/me", authHandler.DeleteMe)
-			protected.POST("/users/me/icon", authHandler.UploadIcon)
-			protected.DELETE("/users/me/icon", authHandler.DeleteIcon)
 			protected.GET("/users/me/export", authHandler.ExportData)
 
 			// ユーザーのお気に入り
@@ -136,8 +132,7 @@ func Setup(db *database.DB, cfg *config.Config, syncScheduler handlers.SyncSched
 		}
 	}
 
-	uploadRootDir := filepath.Dir(cfg.UploadDir)
-	r.Static(cfg.UploadPublicPath, uploadRootDir)
-
+	// アイコンはプリセット方式へ移行し、フロントエンドの静的アセットとして
+	// 配信するため、バックエンドでのファイル配信は廃止した（#763）
 	return r
 }
