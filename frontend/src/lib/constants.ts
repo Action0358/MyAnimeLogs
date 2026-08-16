@@ -24,9 +24,10 @@ export const TOKEN_REFRESH_MARGIN = 60 * 1000 // 1分
  * ログアウト理由のメッセージマップ
  * TypeScriptの型推論を活用するため、明示的な型注釈は省略
  */
+// 狭い画面で折り返して読みにくくならないよう、1行に収まる長さにする
 export const LOGOUT_REASON_MESSAGES = {
-  timeout: 'セッションがタイムアウトしました。再度ログインしてください。',
-  unauthorized: 'ログインセッションが終了しました。再度ログインしてください。',
+  timeout: 'タイムアウトしました。再度ログインしてください',
+  unauthorized: 'ログインが終了しました。再度ログインしてください',
 } as const
 
 /**
