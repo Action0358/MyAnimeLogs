@@ -9,27 +9,26 @@ import {
   MAX_NAME_LENGTH,
   MAX_DESCRIPTION_LENGTH,
 } from '@/lib/profile'
-import { useIconUpload } from '@/hooks/useIconUpload'
 
 export interface UseProfileFormResult {
   name: string
   description: string
   favoriteAnime: string
-  iconPreview: string | null
+  selectedIcon: string | null
   error: string
   isLoading: boolean
-  isUploadingIcon: boolean
   hasChanges: boolean
   handleNameChange: (e: React.ChangeEvent<HTMLInputElement>) => void
   handleDescriptionChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void
   handleFavoriteAnimeChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void
-  handleIconChange: (e: React.ChangeEvent<HTMLInputElement>) => void
+  handleIconSelect: (iconID: string) => void
   handleSubmit: (e: React.FormEvent) => Promise<void>
   handleCancel: () => void
 }
 
 // プロフィール編集フォームの状態・バリデーション・変更検知・保存処理を集約したフック。
-// アイコンアップロードは useIconUpload に委譲する。ProfileEditContent からの抽出であり挙動は不変。
+// アイコンは #763 でアップロードからプリセット選択へ変更した。
+// 画像の実体を持たず、選択したIDを他のプロフィール項目と同じ更新APIで送る。
 export const useProfileForm = (): UseProfileFormResult => {
   const { user, updateUser } = useAuth()
   const router = useRouter()
@@ -45,21 +44,20 @@ export const useProfileForm = (): UseProfileFormResult => {
   const [isLoading, setIsLoading] = useState(false)
   const [hasChanges, setHasChanges] = useState(false)
 
-  const { iconFile, iconPreview, isUploadingIcon, selectIcon, uploadIcon } =
-    useIconUpload({ initialIcon: user?.icon, updateUser })
+  const [selectedIcon, setSelectedIcon] = useState<string | null>(user?.icon ?? null)
 
   // 変更検知（初期値と現在値を比較）
   const checkForChanges = (
     newName: string,
     newDescription: string,
     newFavoriteAnime: string,
-    newIconFile: File | null = iconFile
+    newIcon: string | null = selectedIcon
   ) => {
     const nameChanged = newName !== initialValues.name
     const descriptionChanged = newDescription !== initialValues.description
     const favoriteAnimeChanged =
       newFavoriteAnime !== initialValues.favoriteAnime
-    const iconChanged = newIconFile !== null
+    const iconChanged = newIcon !== (user?.icon ?? null)
 
     setHasChanges(
       nameChanged ||
@@ -91,18 +89,12 @@ export const useProfileForm = (): UseProfileFormResult => {
     checkForChanges(name, description, newFavoriteAnime)
   }
 
-  const handleIconChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    const { error: iconError } = selectIcon(file)
-    if (iconError) {
-      setError(iconError)
-      return
-    }
-
+  const handleIconSelect = (iconID: string) => {
+    // 選択済みのものを再度押したら解除する（未設定に戻せる導線がないため）
+    const next = selectedIcon === iconID ? null : iconID
+    setSelectedIcon(next)
     setError('')
-    checkForChanges(name, description, favoriteAnime, file)
+    checkForChanges(name, description, favoriteAnime, next)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -128,16 +120,12 @@ export const useProfileForm = (): UseProfileFormResult => {
     setIsLoading(true)
 
     try {
-      // 1. 画像がある場合は先にアップロード
-      if (iconFile) {
-        await uploadIcon()
-      }
-
-      // 2. プロフィール情報を更新
       const requestBody = {
         name: name.trim(),
         description: description.trim(),
         favorite_anime: favoriteAnime.trim() || null,
+        // 未選択は空文字で送る。null だと omitempty で無視され、解除できない
+        icon: selectedIcon ?? '',
       }
 
       const data = await put<{ user: any }>('/api/users/me', requestBody)
@@ -175,15 +163,14 @@ export const useProfileForm = (): UseProfileFormResult => {
     name,
     description,
     favoriteAnime,
-    iconPreview,
+    selectedIcon,
     error,
     isLoading,
-    isUploadingIcon,
     hasChanges,
     handleNameChange,
     handleDescriptionChange,
     handleFavoriteAnimeChange,
-    handleIconChange,
+    handleIconSelect,
     handleSubmit,
     handleCancel,
   }

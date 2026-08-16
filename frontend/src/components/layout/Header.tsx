@@ -6,7 +6,8 @@ import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import type { Route } from 'next'
 import { Menu } from 'lucide-react'
-import { cn, buildIconUrl } from '@/lib/utils'
+import { cn } from '@/lib/utils'
+import { resolveAvatarUrl } from '@/lib/avatars'
 import { SUB_LOGO_PATH } from '@/lib/constants'
 import { Button } from '../ui/Button'
 import { useAuth } from '@/contexts/AuthContext'
@@ -102,7 +103,7 @@ const Header: React.FC = () => {
               >
                 {user.icon && !imageError ? (
                   <img
-                    src={buildIconUrl(user.icon) || ''}
+                    src={resolveAvatarUrl(user.icon) || ''}
                     alt={user.name}
                     className="w-10 h-10 rounded-full object-cover"
                     onError={() => setImageError(true)}

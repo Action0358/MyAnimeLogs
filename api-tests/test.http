@@ -47,21 +47,39 @@ Authorization: Bearer {{supabaseToken}}
   "sns_link": "https://twitter.com/apitest"
 }
 
-### 4-1. プロフィール画像アップロード
-# 注意: ファイルアップロードはcURLまたはPostmanで実行してください
-#
-# cURLでのテスト例:
-# curl -X POST http://localhost:8080/api/users/me/icon \
-#   -H "Authorization: Bearer YOUR_SUPABASE_TOKEN" \
-#   -F "icon=@/path/to/image.jpg"
-#
-# 制限:
-# - 最大ファイルサイズ: 5MB
-# - 許可形式: JPEG, PNG, GIF, WebP
-
-### 4-2. プロフィール画像削除
-DELETE {{baseUrl}}/api/users/me/icon
+### 4-1. アイコンの選択
+# 画像アップロードは廃止し、プリセットからの選択に変更した（#763）。
+# icon には許可されたプリセットIDのみを指定できる。
+PUT {{baseUrl}}/api/users/me
+Content-Type: {{contentType}}
 Authorization: Bearer {{supabaseToken}}
+
+{
+  "name": "APIテストユーザー",
+  "icon": "preset-03"
+}
+
+### 4-2. アイコンの解除（未設定に戻す）
+# null ではなく空文字を送る。null は omitempty で無視され解除できない
+PUT {{baseUrl}}/api/users/me
+Content-Type: {{contentType}}
+Authorization: Bearer {{supabaseToken}}
+
+{
+  "name": "APIテストユーザー",
+  "icon": ""
+}
+
+### 4-3. 許可されていないアイコン（400エラー）
+# 任意のURLを保存できないことの確認
+PUT {{baseUrl}}/api/users/me
+Content-Type: {{contentType}}
+Authorization: Bearer {{supabaseToken}}
+
+{
+  "name": "APIテストユーザー",
+  "icon": "https://example.com/evil.png"
+}
 
 ### 5. データエクスポート（JSON）
 GET {{baseUrl}}/api/users/me/export?format=json
