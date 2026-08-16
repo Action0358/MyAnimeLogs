@@ -49,10 +49,23 @@ export const UserMenu: React.FC<UserMenuProps> = ({ isOpen, onClose, triggerRef 
   }
 
   return (
-    <div
-      ref={menuRef}
-      className="absolute right-0 top-full mt-2 w-64 bg-popover text-popover-foreground rounded-lg shadow-lg border border-border py-2 z-50"
-    >
+    <>
+      {/*
+        画面全体を覆う透明なレイヤー。メニューの外側であればどこを押しても閉じる。
+        document のリスナーだけに頼ると、クリック先の要素や重なり順によっては
+        閉じないことがあるため、受け止める実体を置いて確実にする。
+        見た目を変えないよう背景色は持たせない。
+      */}
+      <div
+        className="fixed inset-0 z-40"
+        aria-hidden="true"
+        onMouseDown={onClose}
+        onTouchStart={onClose}
+      />
+      <div
+        ref={menuRef}
+        className="absolute right-0 top-full mt-2 w-64 bg-popover text-popover-foreground rounded-lg shadow-lg border border-border py-2 z-50"
+      >
       {/* ユーザー情報セクション */}
       <div className="px-4 py-3 border-b border-border">
         <p className="text-base font-bold text-foreground">{user?.name}</p>
@@ -80,7 +93,8 @@ export const UserMenu: React.FC<UserMenuProps> = ({ isOpen, onClose, triggerRef 
         >
           <span className="text-base font-semibold">ログアウト</span>
         </button>
+        </div>
       </div>
-    </div>
+    </>
   )
 }

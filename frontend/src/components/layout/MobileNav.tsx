@@ -71,9 +71,13 @@ export const MobileNav: React.FC<MobileNavProps> = ({ isOpen, onClose, triggerRe
   return (
     <>
       {/* オーバーレイ */}
+      {/* ドロワーの外側であればどこを押しても閉じる。
+          document のリスナー任せにせず、受け止める実体側でも閉じる */}
       <div
         className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
         aria-hidden="true"
+        onMouseDown={onClose}
+        onTouchStart={onClose}
       />
 
       {/* サイドメニュー（左側から表示） */}
