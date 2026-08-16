@@ -88,7 +88,8 @@ export const MobileNav: React.FC<MobileNavProps> = ({ isOpen, onClose, triggerRe
         <div className="flex items-center px-4 py-4 border-b border-border">
           <button
             onClick={onClose}
-            className="-ml-2 p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
+            // 開くボタンと同じ48pxのタップ領域に揃える
+            className="-ml-3 p-3 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
             aria-label="メニューを閉じる"
           >
             <X className="h-6 w-6" />

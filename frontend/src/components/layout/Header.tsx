@@ -52,7 +52,8 @@ const Header: React.FC = () => {
             ref={mobileNavTriggerRef}
             onClick={toggleMobileNav}
             className={cn(
-              'md:hidden p-2 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2',
+              // タップ領域を48pxまで広げる。負のマージンでアイコンの見た目の位置は変えない
+              'md:hidden p-3 -m-1 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2',
               isHomePage
                 ? 'text-white hover:bg-white/10 focus:ring-white'
                 : 'text-foreground hover:bg-muted focus:ring-ring'
@@ -95,7 +96,7 @@ const Header: React.FC = () => {
               <button
                 ref={userMenuTriggerRef}
                 onClick={toggleUserMenu}
-                className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                 aria-label="ユーザーメニュー"
                 aria-expanded={isUserMenuOpen}
               >
