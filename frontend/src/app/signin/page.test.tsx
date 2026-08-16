@@ -118,7 +118,7 @@ describe('SignInPage', () => {
     render(<SignInPage />)
 
     expect(
-      await screen.findByText('セッションがタイムアウトしました。再度ログインしてください。')
+      await screen.findByText('タイムアウトしました。再度ログインしてください')
     ).toBeInTheDocument()
   })
 

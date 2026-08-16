@@ -164,10 +164,10 @@ function SearchContent() {
             className="lg:hidden"
           />
 
-          <div className="hidden lg:block lg:flex-1" />
-
-          {/* 件数: 結果を説明するラベルとして右端に独立、数字のみ強調 */}
-          <span className="text-sm text-muted-foreground whitespace-nowrap flex items-center gap-2">
+          {/* 件数: 結果を説明するラベルとして右端に独立、数字のみ強調。
+              ml-auto で右端に寄せる。狭い画面で spacer を使うと件数だけが
+              次の行に落ちるため、spacer は置かない */}
+          <span className="ml-auto text-sm text-muted-foreground whitespace-nowrap flex items-center gap-2">
             {total > 0 ? (
               <>
                 <span className="text-base font-bold text-foreground">{total.toLocaleString()}</span>
