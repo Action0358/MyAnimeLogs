@@ -33,6 +33,10 @@ primary_region = 'nrt'
 [env]
   ENVIRONMENT = "staging"
   ANIME_SYNC_ENABLED = "true"
+  # アカウント削除で Supabase Admin API を呼ぶためのベースURL。
+  # 機微情報ではないためシークレットにせずここで管理する。
+  # 対になる SUPABASE_SERVICE_ROLE_KEY は flyctl secrets set で設定すること。
+  SUPABASE_URL = "https://lvvyolsqhtzfgxsheikr.supabase.co"
   # サーバーはUTC運用を明示的に固定。18:00 UTC = 03:00 JST に日次同期を実行
   TZ = "UTC"
   SCHEDULER_RUN_HOUR = "18"
