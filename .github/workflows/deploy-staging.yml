@@ -38,11 +38,22 @@ jobs:
 
       - name: Deploy to Fly.io Staging
         run: |
+          # 全試行が失敗したら必ず非ゼロで終了すること。
+          # break 方式ではループ末尾の sleep が成功扱いになり、デプロイが
+          # 3回とも失敗してもジョブが success になる（2026-08-16 に発生）。
           for i in 1 2 3; do
-            flyctl deploy -c fly.staging.toml -a myanimelogs-staging --ha=false --wait-timeout=600 --depot=false && break
-            echo "Attempt $i failed, retrying in 30s..."
-            sleep 30
+            if flyctl deploy -c fly.staging.toml -a myanimelogs-staging --ha=false --wait-timeout=600 --depot=false; then
+              echo "Deploy succeeded on attempt $i"
+              exit 0
+            fi
+            echo "Attempt $i failed"
+            if [ "$i" -lt 3 ]; then
+              echo "Retrying in 30s..."
+              sleep 30
+            fi
           done
+          echo "All 3 deploy attempts failed"
+          exit 1
         working-directory: ./backend
         env:
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN_STAGING }}
