@@ -34,6 +34,20 @@ describe('resolveBackTarget', () => {
     expect(resolveBackTarget('/mypage').label).toBe('マイページ')
   })
 
+  // 本番ビルドのみ trailingSlash が有効なため、開発サーバーでは再現しない差分。
+  // ここで両形式を固定しておかないと本番でだけホームに戻る。
+  it('末尾スラッシュ付きでも解決できる', () => {
+    expect(resolveBackTarget('/anime/current/')).toEqual({
+      href: '/anime/current/',
+      label: '今期アニメ',
+    })
+    expect(resolveBackTarget('%2Fanime%2Fpopular%2F').label).toBe('人気アニメ')
+    expect(resolveBackTarget('/search/?keyword=abc')).toEqual({
+      href: '/search/?keyword=abc',
+      label: '検索結果',
+    })
+  })
+
   it('未知のパスはホームにフォールバックする', () => {
     expect(resolveBackTarget('/register')).toEqual({ href: '/', label: 'ホーム' })
   })
@@ -60,6 +74,12 @@ describe('withBackParam', () => {
   it('クエリ付きの遷移元をエンコードして載せる', () => {
     expect(withBackParam('/anime/1', '/search?keyword=abc')).toBe(
       '/anime/1?from=%2Fsearch%3Fkeyword%3Dabc'
+    )
+  })
+
+  it('末尾スラッシュ付きの遷移元にも付ける', () => {
+    expect(withBackParam('/anime/1', '/anime/current/')).toBe(
+      '/anime/1?from=%2Fanime%2Fcurrent%2F'
     )
   })
 
