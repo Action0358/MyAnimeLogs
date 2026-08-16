@@ -41,18 +41,20 @@ export const SortDropdown: React.FC<SortDropdownProps> = ({
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          'inline-flex items-center justify-between gap-2 h-[38px] px-3.5',
+          'inline-flex w-full items-center justify-between gap-2 h-[38px] px-3.5',
           'bg-background border border-input rounded-lg',
           'text-sm font-medium text-foreground hover:bg-muted',
           'focus:outline-none focus:ring-2 focus:ring-ring',
-          'min-w-[140px]'
+          // 狭い画面では下限を持たせない。140px を固定下限にすると iPhone SE 幅で
+          // 同じ行の件数が押し出され、レイアウトが崩れる
+          'min-w-0 lg:min-w-[140px]'
         )}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
       >
-        <span>{selectedOption?.label || '並び替え'}</span>
+        <span className="truncate">{selectedOption?.label || '並び替え'}</span>
         <svg
-          className={cn('w-4 h-4 transition-transform', isOpen && 'rotate-180')}
+          className={cn('w-4 h-4 flex-shrink-0 transition-transform', isOpen && 'rotate-180')}
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"

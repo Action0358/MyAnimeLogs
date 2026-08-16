@@ -134,8 +134,10 @@ function SearchContent() {
           />
         </div>
 
-        {/* ツールバー: フィルター + 並び替え + 件数 */}
-        <div className="flex items-center gap-2.5 flex-wrap pb-4 border-b border-border mb-6">
+        {/* ツールバー: フィルター + 並び替え + 件数。
+            狭い画面では折り返さず、並び替えを縮めて1行に収める。
+            折り返すと件数だけが次行へ落ち、余白が間延びして見えるため */}
+        <div className="flex items-center gap-2.5 max-lg:flex-nowrap lg:flex-wrap pb-4 border-b border-border mb-6">
           {/* デスクトップ: インラインフィルターチップ + 並び替え（操作系を左に集約、検索ボックスと幅を揃える） */}
           <div className="hidden lg:flex items-center gap-2.5 flex-wrap max-w-2xl">
             <FilterPanel {...filterPanelProps} variant="inline" />
@@ -149,7 +151,7 @@ function SearchContent() {
           {/* モバイル: フィルターボタン */}
           <button
             onClick={() => setShowFilters(true)}
-            className="lg:hidden inline-flex items-center gap-2 h-[38px] px-3.5 border border-input bg-background rounded-lg text-sm font-medium text-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
+            className="lg:hidden inline-flex flex-shrink-0 items-center gap-2 h-[38px] px-3.5 border border-input bg-background rounded-lg text-sm font-medium text-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
           >
             <SlidersHorizontal className="w-4 h-4" />
             フィルター
@@ -161,23 +163,26 @@ function SearchContent() {
             options={sortOptions}
             value={filters.sort ?? DEFAULT_SORT}
             onChange={handleSortChange}
-            className="lg:hidden"
+            // 行が収まらないときに縮む余地を持つのはこの要素だけにする
+            className="lg:hidden min-w-0 flex-shrink"
           />
 
           {/* 件数: 結果を説明するラベルとして右端に独立、数字のみ強調。
               ml-auto で右端に寄せる。狭い画面で spacer を使うと件数だけが
-              次の行に落ちるため、spacer は置かない */}
-          <span className="ml-auto text-sm text-muted-foreground whitespace-nowrap flex items-center gap-2">
+              次の行に落ちるため、spacer は置かない。
+              件数は桁数が増えても省略させない（flex-shrink-0）。一方
+              「検索結果がありません」は長いため、縮む側に回して溢れを防ぐ */}
+          <span className="ml-auto flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground">
             {total > 0 ? (
-              <>
+              <span className="flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap">
                 <span className="text-base font-bold text-foreground">{total.toLocaleString()}</span>
                 件
-              </>
+              </span>
             ) : (
-              !isLoading && '検索結果がありません'
+              !isLoading && <span className="truncate">検索結果がありません</span>
             )}
             {isFetching && !isLoading && (
-              <span className="inline-block animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-primary" />
+              <span className="inline-block flex-shrink-0 animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-primary" />
             )}
           </span>
         </div>
