@@ -17,7 +17,7 @@ import {
 } from '@/components/favorites'
 import { useWatchStatus, WatchStatusAnime } from '@/hooks/useWatchStatus'
 import { WatchStatusStatus } from '@/lib/api/generated/myanimelogs'
-import { buildIconUrl } from '@/lib/utils'
+import { resolveAvatarUrl } from '@/lib/avatars'
 import { get, ApiClientError } from '@/lib/api/client'
 
 // マイページに表示する視聴ステータスの最大件数
@@ -193,7 +193,7 @@ export const MyPageContent: React.FC = () => {
       {user?.icon && !imageError ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={buildIconUrl(user.icon) || ''}
+          src={resolveAvatarUrl(user.icon) || ''}
           alt={user?.name || 'ユーザーアイコン'}
           className="w-full h-full object-cover"
           onError={() => setImageError(true)}

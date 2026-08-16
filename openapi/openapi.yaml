@@ -124,90 +124,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
-  /users/me/icon:
-    post:
-      summary: プロフィール画像をアップロード
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              properties:
-                icon:
-                  type: string
-                  format: binary
-                  description: アップロードする画像ファイル（JPEG, PNG, GIF, WebP）
-              required:
-                - icon
-      responses:
-        "200":
-          description: プロフィール画像を更新しました
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: "プロフィール画像を更新しました。"
-                  user:
-                    $ref: "#/components/schemas/User"
-        "400":
-          description: バリデーションエラー
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "401":
-          description: 認証が必要です
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "500":
-          description: 画像の保存に失敗しました
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-    delete:
-      summary: プロフィール画像を削除
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: プロフィール画像を削除しました
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: "プロフィール画像を削除しました"
-                  user:
-                    $ref: "#/components/schemas/User"
-        "400":
-          description: プロフィール画像が設定されていません
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "401":
-          description: 認証が必要です
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "500":
-          description: プロフィール画像の削除に失敗しました
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
   /users/me/export:
     get:
       summary: ユーザーデータのエクスポート
@@ -1329,9 +1245,12 @@ components:
           example: "アニメが大好きです"
         icon:
           type: string
-          format: uri
           nullable: true
-          example: "https://example.com/uploads/icons/user_1_icon.jpg"
+          description: |
+            プリセットアバターのID。画像アップロードは廃止したため、
+            許可された値以外は保存できない。未設定の場合は null。
+          enum: ["preset-01", "preset-02", "preset-03", "preset-04", "preset-05", "preset-06", "preset-07", "preset-08"]
+          example: "preset-03"
         favorite_anime:
           type: string
           nullable: true

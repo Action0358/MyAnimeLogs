@@ -1,4 +1,4 @@
-import { validateEmail, validatePassword, getErrorMessage, cn, storage, buildIconUrl } from '../utils'
+import { validateEmail, validatePassword, getErrorMessage, cn, storage } from '../utils'
 
 describe('validateEmail', () => {
   it('should return true for valid emails', () => {
@@ -139,51 +139,3 @@ describe('storage', () => {
   })
 })
 
-describe('buildIconUrl', () => {
-  const originalEnv = process.env.NEXT_PUBLIC_API_URL
-
-  afterEach(() => {
-    process.env.NEXT_PUBLIC_API_URL = originalEnv
-  })
-
-  it('should return null for null/undefined/empty input', () => {
-    expect(buildIconUrl(null)).toBeNull()
-    expect(buildIconUrl(undefined)).toBeNull()
-    expect(buildIconUrl('')).toBeNull()
-  })
-
-  it('should return null for whitespace-only input', () => {
-    expect(buildIconUrl(' ')).toBeNull()
-    expect(buildIconUrl('  ')).toBeNull()
-    expect(buildIconUrl('\t')).toBeNull()
-    expect(buildIconUrl('\n')).toBeNull()
-  })
-
-  it('should build URL with default API URL', () => {
-    delete process.env.NEXT_PUBLIC_API_URL
-    expect(buildIconUrl('/uploads/icons/user123.png')).toBe(
-      'http://localhost:8080/uploads/icons/user123.png'
-    )
-  })
-
-  it('should build URL with custom API URL', () => {
-    process.env.NEXT_PUBLIC_API_URL = 'https://api.example.com'
-    expect(buildIconUrl('/uploads/icons/user123.png')).toBe(
-      'https://api.example.com/uploads/icons/user123.png'
-    )
-  })
-
-  it('should handle paths without leading slash', () => {
-    delete process.env.NEXT_PUBLIC_API_URL
-    expect(buildIconUrl('uploads/icons/user123.png')).toBe(
-      'http://localhost:8080uploads/icons/user123.png'
-    )
-  })
-
-  it('should preserve path with spaces (after trim check)', () => {
-    delete process.env.NEXT_PUBLIC_API_URL
-    expect(buildIconUrl('/uploads/icons/user 123.png')).toBe(
-      'http://localhost:8080/uploads/icons/user 123.png'
-    )
-  })
-})

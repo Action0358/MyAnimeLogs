@@ -34,9 +34,6 @@ type Config struct {
 	ErrorAlertThreshold int
 	ErrorTimeWindow     int // in minutes
 	// Upload configuration
-	UploadDir        string
-	UploadPublicPath string // Public URL path for uploaded files (e.g., "/uploads")
-	MaxUploadSize    int64  // in bytes
 	// Scheduler configuration
 	AnimeSyncEnabled   bool
 	SchedulerRunHour   int
@@ -92,9 +89,6 @@ func New() (*Config, error) {
 	errorTimeWindow := getEnvAsInt("ERROR_TIME_WINDOW", 5) // 5 minutes
 
 	// Upload configuration
-	uploadDir := getEnv("UPLOAD_DIR", "./uploads/icons")
-	uploadPublicPath := getEnv("UPLOAD_PUBLIC_PATH", "/uploads")
-	maxUploadSize := int64(getEnvAsInt("MAX_UPLOAD_SIZE", 5*1024*1024)) // 5MB default
 
 	// Scheduler configuration
 	animeSyncEnabled := getEnv("ANIME_SYNC_ENABLED", "false") == "true"
@@ -120,9 +114,6 @@ func New() (*Config, error) {
 		LogOutput:           logOutput,
 		ErrorAlertThreshold: errorAlertThreshold,
 		ErrorTimeWindow:     errorTimeWindow,
-		UploadDir:           uploadDir,
-		UploadPublicPath:    uploadPublicPath,
-		MaxUploadSize:       maxUploadSize,
 		AnimeSyncEnabled:    animeSyncEnabled,
 		SchedulerRunHour:    schedulerRunHour,
 		SchedulerRunMinute:  schedulerRunMinute,

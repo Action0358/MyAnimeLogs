@@ -238,6 +238,19 @@ func (r *UserRepository) UpdatePartial(userID int, req models.UserUpdateRequest)
 	addFieldToUpdate(&setParts, &args, &argIndex, "favorite_anime", req.FavoriteAnime)
 	addFieldToUpdate(&setParts, &args, &argIndex, "sns_link", req.SnsLink)
 
+	// アイコンは空文字を「未設定」として NULL で保存する。
+	// 空文字のまま入れると、マイグレーション044 が未設定を NULL としたのと
+	// 表現が食い違い、同じ状態が2通りの値で表現されてしまう。
+	if req.Icon != nil {
+		if *req.Icon == "" {
+			setParts = append(setParts, "icon = NULL")
+		} else {
+			setParts = append(setParts, fmt.Sprintf("icon = $%d", argIndex))
+			args = append(args, *req.Icon)
+			argIndex++
+		}
+	}
+
 	if len(setParts) == 0 {
 		return r.GetByID(userID)
 	}

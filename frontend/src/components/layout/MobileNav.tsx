@@ -9,16 +9,25 @@ import { useAuth } from '@/contexts/AuthContext'
 interface MobileNavProps {
   isOpen: boolean
   onClose: () => void
+  /**
+   * 開閉トグルのボタン。外側クリック判定から除外するために受け取る。
+   * 渡さないと、開いている状態でトグルを押したときに mousedown で閉じた直後
+   * click でまた開き、ボタンを押しても閉じないように見える。
+   */
+  triggerRef?: React.RefObject<HTMLElement>
 }
 
-export const MobileNav: React.FC<MobileNavProps> = ({ isOpen, onClose }) => {
+export const MobileNav: React.FC<MobileNavProps> = ({ isOpen, onClose, triggerRef }) => {
   const menuRef = useRef<HTMLDivElement>(null)
   const { user, logout } = useAuth()
 
   // メニュー外クリックで閉じる
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+      const target = event.target as Node
+      // トグル自身のクリックはここで閉じない。閉じる処理はボタンの onClick に任せる
+      if (triggerRef?.current?.contains(target)) return
+      if (menuRef.current && !menuRef.current.contains(target)) {
         onClose()
       }
     }
@@ -33,7 +42,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({ isOpen, onClose }) => {
       document.removeEventListener('mousedown', handleClickOutside)
       document.body.style.overflow = 'unset'
     }
-  }, [isOpen, onClose])
+  }, [isOpen, onClose, triggerRef])
 
   // ESCキーで閉じる
   useEffect(() => {
@@ -62,9 +71,13 @@ export const MobileNav: React.FC<MobileNavProps> = ({ isOpen, onClose }) => {
   return (
     <>
       {/* オーバーレイ */}
+      {/* ドロワーの外側であればどこを押しても閉じる。
+          document のリスナー任せにせず、受け止める実体側でも閉じる */}
       <div
         className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
         aria-hidden="true"
+        onMouseDown={onClose}
+        onTouchStart={onClose}
       />
 
       {/* サイドメニュー（左側から表示） */}
@@ -79,7 +92,8 @@ export const MobileNav: React.FC<MobileNavProps> = ({ isOpen, onClose }) => {
         <div className="flex items-center px-4 py-4 border-b border-border">
           <button
             onClick={onClose}
-            className="-ml-2 p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
+            // 開くボタンと同じ48pxのタップ領域に揃える
+            className="-ml-3 p-3 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
             aria-label="メニューを閉じる"
           >
             <X className="h-6 w-6" />

@@ -1,12 +1,13 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import type { Route } from 'next'
 import { Menu } from 'lucide-react'
-import { cn, buildIconUrl } from '@/lib/utils'
+import { cn } from '@/lib/utils'
+import { resolveAvatarUrl } from '@/lib/avatars'
 import { SUB_LOGO_PATH } from '@/lib/constants'
 import { Button } from '../ui/Button'
 import { useAuth } from '@/contexts/AuthContext'
@@ -20,6 +21,9 @@ const Header: React.FC = () => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false)
   const [imageError, setImageError] = useState(false)
+  // 外側クリック判定からトグル自身を除外するために渡す
+  const mobileNavTriggerRef = useRef<HTMLButtonElement>(null)
+  const userMenuTriggerRef = useRef<HTMLButtonElement>(null)
   const pathname = usePathname()
 
   const isHomePage = pathname === '/'
@@ -46,9 +50,11 @@ const Header: React.FC = () => {
         <div className="flex items-center gap-6 flex-1">
           {/* モバイルメニューボタン（左側に配置） */}
           <button
+            ref={mobileNavTriggerRef}
             onClick={toggleMobileNav}
             className={cn(
-              'md:hidden p-2 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2',
+              // タップ領域を48pxまで広げる。負のマージンでアイコンの見た目の位置は変えない
+              'md:hidden p-3 -m-1 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2',
               isHomePage
                 ? 'text-white hover:bg-white/10 focus:ring-white'
                 : 'text-foreground hover:bg-muted focus:ring-ring'
@@ -89,14 +95,15 @@ const Header: React.FC = () => {
             <div className="relative hidden md:flex items-center gap-2">
               {/* ユーザーアイコン（クリックでメニュー表示） */}
               <button
+                ref={userMenuTriggerRef}
                 onClick={toggleUserMenu}
-                className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                 aria-label="ユーザーメニュー"
                 aria-expanded={isUserMenuOpen}
               >
                 {user.icon && !imageError ? (
                   <img
-                    src={buildIconUrl(user.icon) || ''}
+                    src={resolveAvatarUrl(user.icon) || ''}
                     alt={user.name}
                     className="w-10 h-10 rounded-full object-cover"
                     onError={() => setImageError(true)}
@@ -112,6 +119,7 @@ const Header: React.FC = () => {
               <UserMenu
                 isOpen={isUserMenuOpen}
                 onClose={() => setIsUserMenuOpen(false)}
+                triggerRef={userMenuTriggerRef}
               />
             </div>
           ) : (
@@ -137,7 +145,11 @@ const Header: React.FC = () => {
       </div>
 
       {/* モバイルナビゲーション */}
-      <MobileNav isOpen={isMobileNavOpen} onClose={() => setIsMobileNavOpen(false)} />
+      <MobileNav
+        isOpen={isMobileNavOpen}
+        onClose={() => setIsMobileNavOpen(false)}
+        triggerRef={mobileNavTriggerRef}
+      />
     </header>
   )
 }
