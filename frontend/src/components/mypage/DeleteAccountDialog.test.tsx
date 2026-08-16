@@ -27,7 +27,7 @@ describe('DeleteAccountDialog', () => {
     render(<DeleteAccountDialog {...baseProps} />)
 
     expect(screen.getByRole('dialog')).toBeInTheDocument()
-    expect(screen.getByText('削除したデータは復元できません。')).toBeInTheDocument()
+    expect(screen.getByText('復元はできません')).toBeInTheDocument()
     expect(screen.getByText(/お気に入りに登録した作品/)).toBeInTheDocument()
     expect(screen.getByText(/視聴予定・視聴中・視聴完了の記録/)).toBeInTheDocument()
   })
@@ -46,10 +46,25 @@ describe('DeleteAccountDialog', () => {
     expect(screen.getByText(/Googleのアカウント設定から別途解除/)).toBeInTheDocument()
   })
 
+  // 不可逆な操作をワンクリックで実行させないための確認ステップ
+  it('確認チェックボックスを入れるまで削除ボタンを押せない', async () => {
+    render(<DeleteAccountDialog {...baseProps} />)
+
+    const deleteButton = screen.getByRole('button', { name: 'アカウントを削除' })
+    expect(deleteButton).toBeDisabled()
+
+    await act(async () => {
+      await userEvent.click(screen.getByRole('checkbox'))
+    })
+
+    expect(deleteButton).toBeEnabled()
+  })
+
   it('削除ボタンで onConfirm、キャンセルで onCancel を呼ぶ', async () => {
     render(<DeleteAccountDialog {...baseProps} />)
 
     await act(async () => {
+      await userEvent.click(screen.getByRole('checkbox'))
       await userEvent.click(screen.getByRole('button', { name: 'アカウントを削除' }))
     })
     expect(baseProps.onConfirm).toHaveBeenCalledTimes(1)
