@@ -41,10 +41,11 @@ primary_region = 'nrt'
   SCHEDULER_RUN_HOUR = "18"
 
 # Persistent storage for uploaded files
-[mounts]
-  source = "myanimelogs_uploads"
-  destination = "/app/uploads"
-  initial_size = "1GB"
+# 永続ボリュームは廃止した（#763 / #760）。
+# アイコンをプリセット選択方式へ変更しファイル保存が不要になったため。
+# ボリュームがあるとマシンが特定のホストに固定され、そのホストのCPUに
+# 空きがないとデプロイが失敗していた（insufficient CPUs）。
+# ボリュームを外すことで、Fly.io が空いている任意のホストへ配置できる。
 
 # Production specific settings
 [experimental]

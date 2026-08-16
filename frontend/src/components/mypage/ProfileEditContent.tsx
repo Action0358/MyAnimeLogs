@@ -1,12 +1,14 @@
 'use client'
 
-import React, { useRef, useState } from 'react'
+import React, { useState } from 'react'
 import Link from 'next/link'
 import type { Route } from 'next'
 import { Container } from '@/components/layout'
 import { useAuth } from '@/contexts/AuthContext'
 import { deleteAccount } from '@/lib/api/account'
 import { DeleteAccountDialog } from './DeleteAccountDialog'
+import { AvatarPicker } from './AvatarPicker'
+import { resolveAvatarUrl } from '@/lib/avatars'
 import {
   MAX_NAME_LENGTH,
   MAX_DESCRIPTION_LENGTH,
@@ -55,21 +57,18 @@ const FieldLabel: React.FC<{
 )
 
 export const ProfileEditContent: React.FC = () => {
-  const fileInputRef = useRef<HTMLInputElement>(null)
-
   const {
     name,
     description,
     favoriteAnime,
-    iconPreview,
+    selectedIcon,
     error,
     isLoading,
-    isUploadingIcon,
     hasChanges,
     handleNameChange,
     handleDescriptionChange,
     handleFavoriteAnimeChange,
-    handleIconChange,
+    handleIconSelect,
     handleSubmit,
     handleCancel,
   } = useProfileForm()
@@ -94,11 +93,8 @@ export const ProfileEditContent: React.FC = () => {
     }
   }
 
-  const handleIconClick = () => {
-    fileInputRef.current?.click()
-  }
-
-  const isBusy = isLoading || isUploadingIcon
+  const isBusy = isLoading
+  const selectedIconUrl = resolveAvatarUrl(selectedIcon)
 
   return (
     <div className="bg-muted/30 min-h-screen">
@@ -137,48 +133,36 @@ export const ProfileEditContent: React.FC = () => {
               </div>
             )}
 
-            {/* アイコン */}
-            <div
-              className={`${SECTION_CLASS_NAME} border-b border-border flex items-center gap-3.5 md:gap-5`}
-            >
-              <div className="w-[60px] h-[60px] md:w-[72px] md:h-[72px] bg-muted rounded-full flex items-center justify-center overflow-hidden flex-shrink-0">
-                {iconPreview ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={iconPreview}
-                    alt="プロフィール画像"
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <span className="text-muted-foreground text-3xl md:text-4xl">👤</span>
-                )}
+            {/* アイコン。#763 でアップロードからプリセット選択へ変更 */}
+            <div className={`${SECTION_CLASS_NAME} border-b border-border`}>
+              <div className="flex items-center gap-3.5 md:gap-5 mb-3.5 md:mb-4">
+                <div className="w-[60px] h-[60px] md:w-[72px] md:h-[72px] bg-muted rounded-full flex items-center justify-center overflow-hidden flex-shrink-0">
+                  {selectedIconUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={selectedIconUrl}
+                      alt="選択中のアイコン"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-muted-foreground text-3xl md:text-4xl">👤</span>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[12.5px] md:text-[13.5px] font-semibold text-foreground mb-[3px]">
+                    アイコン
+                  </div>
+                  <p className="text-[10.5px] md:text-[11.5px] text-muted-foreground">
+                    用意されたアイコンから選べます。選択中のものを押すと未設定に戻せます
+                  </p>
+                </div>
               </div>
 
-              <div className="flex-1 min-w-0">
-                <div className="text-[12.5px] md:text-[13.5px] font-semibold text-foreground mb-[7px] md:mb-2">
-                  アイコン
-                </div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/gif,image/webp"
-                  onChange={handleIconChange}
-                  className="hidden"
-                />
-                <div className="flex flex-col md:flex-row md:items-center gap-1.5 md:gap-3">
-                  <button
-                    type="button"
-                    onClick={handleIconClick}
-                    disabled={isBusy}
-                    className="h-8 md:h-[34px] px-3 md:px-3.5 self-start border border-border rounded-md bg-card text-xs md:text-[12.5px] font-semibold text-foreground whitespace-nowrap hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  >
-                    {isUploadingIcon ? 'アップロード中...' : '画像を選択'}
-                  </button>
-                  <span className="text-[10.5px] md:text-[11.5px] text-muted-foreground">
-                    JPEG / PNG / GIF / WebP・最大5MB
-                  </span>
-                </div>
-              </div>
+              <AvatarPicker
+                selectedIcon={selectedIcon}
+                onSelect={handleIconSelect}
+                disabled={isBusy}
+              />
             </div>
 
             {/* 基本情報 */}
