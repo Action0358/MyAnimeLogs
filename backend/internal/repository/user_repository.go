@@ -2,12 +2,19 @@ package repository
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 
 	"myanimelogs/internal/database"
 	"myanimelogs/internal/models"
+
+	"github.com/lib/pq"
 )
+
+// ErrAuthUserNotFound は、JWT は有効だが対応する auth.users が存在しない場合に返る。
+// アカウント削除直後、まだ失効していない JWT でアクセスされたときに発生する。
+var ErrAuthUserNotFound = errors.New("auth user no longer exists")
 
 type UserRepository struct {
 	db *database.DB
@@ -165,9 +172,24 @@ func (r *UserRepository) GetOrCreateByAuthUserID(authUserID, email, name string)
 		          auth_user_id, created_at, updated_at
 	`, name, email, authUserID))
 	if err != nil {
+		// auth.users への外部キー違反 = そのアカウントは削除済み。
+		// 退会直後の JWT はまだ有効期限内のため、このパスに入りうる。
+		// 500 ではなく 401 を返せるよう、呼び出し側が判別できる形にする。
+		if isForeignKeyViolation(err) {
+			return nil, AuthLinkExisting, ErrAuthUserNotFound
+		}
 		return nil, AuthLinkExisting, fmt.Errorf("failed to create user: %w", err)
 	}
 	return &user, AuthLinkCreated, nil
+}
+
+// isForeignKeyViolation reports whether err is a PostgreSQL foreign key violation (SQLSTATE 23503).
+func isForeignKeyViolation(err error) bool {
+	var pqErr *pq.Error
+	if errors.As(err, &pqErr) {
+		return pqErr.Code == "23503"
+	}
+	return false
 }
 
 func (r *UserRepository) Create(user *models.User) error {

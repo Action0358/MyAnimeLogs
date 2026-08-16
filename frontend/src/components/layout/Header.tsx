@@ -115,19 +115,12 @@ const Header: React.FC = () => {
               />
             </div>
           ) : (
+            /*
+              Google認証ではログインと新規登録が同じ操作になるため、
+              ボタンは1つに統合し /signin へ送る。
+            */
             <div className="flex items-center gap-2 sm:gap-3">
-              <Link href={"/login" as Route}>
-                <Button
-                  variant={isHomePage ? 'ghost-on-dark' : 'ghost'}
-                  className={cn(
-                    'h-9 text-xs px-2 py-1.5 font-bold',
-                    'md:h-11 md:text-base md:px-3 md:py-2'
-                  )}
-                >
-                  ログイン
-                </Button>
-              </Link>
-              <Link href={"/register" as Route}>
+              <Link href={"/signin" as Route}>
                 <Button
                   variant={isHomePage ? 'primary-on-dark' : 'primary'}
                   className={cn(
@@ -135,7 +128,7 @@ const Header: React.FC = () => {
                     'md:h-11 md:text-base md:px-3 md:py-2'
                   )}
                 >
-                  新規登録
+                  ログイン
                 </Button>
               </Link>
             </div>
