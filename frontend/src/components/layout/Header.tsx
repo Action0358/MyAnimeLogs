@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
@@ -20,6 +20,9 @@ const Header: React.FC = () => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false)
   const [imageError, setImageError] = useState(false)
+  // 外側クリック判定からトグル自身を除外するために渡す
+  const mobileNavTriggerRef = useRef<HTMLButtonElement>(null)
+  const userMenuTriggerRef = useRef<HTMLButtonElement>(null)
   const pathname = usePathname()
 
   const isHomePage = pathname === '/'
@@ -46,6 +49,7 @@ const Header: React.FC = () => {
         <div className="flex items-center gap-6 flex-1">
           {/* モバイルメニューボタン（左側に配置） */}
           <button
+            ref={mobileNavTriggerRef}
             onClick={toggleMobileNav}
             className={cn(
               'md:hidden p-2 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2',
@@ -89,6 +93,7 @@ const Header: React.FC = () => {
             <div className="relative hidden md:flex items-center gap-2">
               {/* ユーザーアイコン（クリックでメニュー表示） */}
               <button
+                ref={userMenuTriggerRef}
                 onClick={toggleUserMenu}
                 className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                 aria-label="ユーザーメニュー"
@@ -112,6 +117,7 @@ const Header: React.FC = () => {
               <UserMenu
                 isOpen={isUserMenuOpen}
                 onClose={() => setIsUserMenuOpen(false)}
+                triggerRef={userMenuTriggerRef}
               />
             </div>
           ) : (
@@ -137,7 +143,11 @@ const Header: React.FC = () => {
       </div>
 
       {/* モバイルナビゲーション */}
-      <MobileNav isOpen={isMobileNavOpen} onClose={() => setIsMobileNavOpen(false)} />
+      <MobileNav
+        isOpen={isMobileNavOpen}
+        onClose={() => setIsMobileNavOpen(false)}
+        triggerRef={mobileNavTriggerRef}
+      />
     </header>
   )
 }

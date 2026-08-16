@@ -9,16 +9,25 @@ import { useAuth } from '@/contexts/AuthContext'
 interface MobileNavProps {
   isOpen: boolean
   onClose: () => void
+  /**
+   * 開閉トグルのボタン。外側クリック判定から除外するために受け取る。
+   * 渡さないと、開いている状態でトグルを押したときに mousedown で閉じた直後
+   * click でまた開き、ボタンを押しても閉じないように見える。
+   */
+  triggerRef?: React.RefObject<HTMLElement>
 }
 
-export const MobileNav: React.FC<MobileNavProps> = ({ isOpen, onClose }) => {
+export const MobileNav: React.FC<MobileNavProps> = ({ isOpen, onClose, triggerRef }) => {
   const menuRef = useRef<HTMLDivElement>(null)
   const { user, logout } = useAuth()
 
   // メニュー外クリックで閉じる
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+      const target = event.target as Node
+      // トグル自身のクリックはここで閉じない。閉じる処理はボタンの onClick に任せる
+      if (triggerRef?.current?.contains(target)) return
+      if (menuRef.current && !menuRef.current.contains(target)) {
         onClose()
       }
     }
@@ -33,7 +42,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({ isOpen, onClose }) => {
       document.removeEventListener('mousedown', handleClickOutside)
       document.body.style.overflow = 'unset'
     }
-  }, [isOpen, onClose])
+  }, [isOpen, onClose, triggerRef])
 
   // ESCキーで閉じる
   useEffect(() => {

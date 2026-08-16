@@ -9,16 +9,25 @@ import { USER_MENU_ITEMS } from './navigationConfig'
 interface UserMenuProps {
   isOpen: boolean
   onClose: () => void
+  /**
+   * 開閉トグルのボタン。外側クリック判定から除外するために受け取る。
+   * 渡さないと、開いている状態でアイコンを押したときに mousedown で閉じた直後
+   * click でまた開き、アイコンを押しても閉じないように見える。
+   */
+  triggerRef?: React.RefObject<HTMLElement>
 }
 
-export const UserMenu: React.FC<UserMenuProps> = ({ isOpen, onClose }) => {
+export const UserMenu: React.FC<UserMenuProps> = ({ isOpen, onClose, triggerRef }) => {
   const { user, logout } = useAuth()
   const menuRef = useRef<HTMLDivElement>(null)
 
   // メニュー外をクリックしたら閉じる
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+      const target = event.target as Node
+      // トグル自身のクリックはここで閉じない。閉じる処理はボタンの onClick に任せる
+      if (triggerRef?.current?.contains(target)) return
+      if (menuRef.current && !menuRef.current.contains(target)) {
         onClose()
       }
     }
@@ -30,7 +39,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({ isOpen, onClose }) => {
     return () => {
       document.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [isOpen, onClose])
+  }, [isOpen, onClose, triggerRef])
 
   if (!isOpen) return null
 
