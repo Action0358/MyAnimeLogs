@@ -38,11 +38,14 @@ jobs:
 
       - name: Deploy to Fly.io Staging
         run: |
+          # --yes は非対話環境で必須。マシン構成の変更（ボリュームの着脱など）を
+          # 検出すると flyctl が確認を求め、CI では応答できず中断するため
+          # （#763 でボリュームを外した際に発生）。
           # 全試行が失敗したら必ず非ゼロで終了すること。
           # break 方式ではループ末尾の sleep が成功扱いになり、デプロイが
           # 3回とも失敗してもジョブが success になる（2026-08-16 に発生）。
           for i in 1 2 3; do
-            if flyctl deploy -c fly.staging.toml -a myanimelogs-staging --ha=false --wait-timeout=600 --depot=false; then
+            if flyctl deploy -c fly.staging.toml -a myanimelogs-staging --ha=false --wait-timeout=600 --depot=false --yes; then
               echo "Deploy succeeded on attempt $i"
               exit 0
             fi
