@@ -97,7 +97,15 @@ const Header: React.FC = () => {
               <button
                 ref={userMenuTriggerRef}
                 onClick={toggleUserMenu}
-                className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                className={cn(
+                  'w-12 h-12 rounded-full flex items-center justify-center transition-colors cursor-pointer',
+                  'focus:outline-none focus:ring-2 focus:ring-offset-2',
+                  // ホームはヘッダーが透過してヒーロー画像に重なる。
+                  // primary系の淡い色だと背景に埋もれるため、白の縁と塗りで分離する
+                  isHomePage
+                    ? 'bg-white/20 ring-1 ring-white/70 hover:bg-white/30 focus:ring-white'
+                    : 'bg-primary/10 ring-1 ring-border hover:bg-primary/20 focus:ring-ring'
+                )}
                 aria-label="ユーザーメニュー"
                 aria-expanded={isUserMenuOpen}
               >
@@ -109,7 +117,12 @@ const Header: React.FC = () => {
                     onError={() => setImageError(true)}
                   />
                 ) : (
-                  <span className="text-primary font-medium text-base">
+                  <span
+                    className={cn(
+                      'font-bold text-base',
+                      isHomePage ? 'text-white' : 'text-primary'
+                    )}
+                  >
                     {user.name.charAt(0).toUpperCase()}
                   </span>
                 )}

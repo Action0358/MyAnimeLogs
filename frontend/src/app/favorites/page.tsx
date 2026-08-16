@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useMemo, useCallback } from 'react'
+import React, { useMemo } from 'react'
 import Link from 'next/link'
 import type { Route } from 'next'
 import { Container } from '@/components/layout'
@@ -18,23 +18,10 @@ const filterValidFavorites = (favorites: FavoriteAnime[]): (FavoriteAnime & { id
 }
 
 const FavoritesContent: React.FC = () => {
-  const { favorites, isLoading, error, removeFavorite } = useFavorites()
-  const [updatingIds, setUpdatingIds] = useState<Set<number>>(new Set())
+  // 解除は視聴ステータスと同様に詳細ページで行うため、一覧では取得のみ
+  const { favorites, isLoading, error } = useFavorites()
 
   const validFavorites = useMemo(() => filterValidFavorites(favorites), [favorites])
-
-  const handleRemove = useCallback(async (animeId: number) => {
-    setUpdatingIds(prev => new Set(prev).add(animeId))
-    try {
-      await removeFavorite(animeId)
-    } finally {
-      setUpdatingIds(prev => {
-        const next = new Set(prev)
-        next.delete(animeId)
-        return next
-      })
-    }
-  }, [removeFavorite])
 
   if (error) {
     return (
@@ -101,12 +88,7 @@ const FavoritesContent: React.FC = () => {
       ) : (
         <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-x-2.5 gap-y-3.5 md:gap-x-[18px] md:gap-y-5">
           {validFavorites.map((anime) => (
-            <FavoriteCard
-              key={anime.id}
-              anime={anime}
-              onRemove={() => handleRemove(anime.id)}
-              isUpdating={updatingIds.has(anime.id)}
-            />
+            <FavoriteCard key={anime.id} anime={anime} />
           ))}
         </div>
       )}
