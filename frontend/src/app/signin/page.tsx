@@ -112,10 +112,11 @@ const SignInInner: React.FC = () => {
     <>
       {/*
         Google認証では「初回なら登録・以降はログイン」が同じ操作になるため、
-        ログインと新規登録を1画面に統合している。見出しで両方を担うことを明示する。
+        ログインと新規登録を1画面に統合している。見出しは操作そのものを表す
+        「はじめる」にし、両方を担うことはリード文で説明する。
       */}
       <h1 className="mb-1.5 text-2xl font-bold tracking-tight text-foreground lg:text-[27px]">
-        ログインまたは新規作成
+        はじめる
       </h1>
       <p className="text-[13.5px] leading-relaxed text-muted-foreground">
         初めての方はそのまま登録が完了します。
@@ -131,21 +132,33 @@ const SignInInner: React.FC = () => {
         かつて別導線として置いていた「別のGoogleアカウントを使う」は不要になった。
       */}
       <div className="mt-7">
-        <GoogleSignInButton label="Googleで続行" onClick={handleSignIn} isLoading={isLoading} />
+        <GoogleSignInButton label="Googleで続ける" onClick={handleSignIn} isLoading={isLoading} />
       </div>
 
-      {/* 規約名は途中で折り返さない。「プライバシー / ポリシー」と割れて読みにくくなるため */}
-      <p className="mt-3.5 text-balance text-[11.5px] leading-relaxed text-muted-foreground">
+      {/*
+        規約名を含む1文なので改行させない。iPhone SE幅（375px、実測で本文コラム
+        335px）でも1行に収まるフォントサイズに合わせている。11.5pxだと
+        iPhone SE幅はもちろん、このコラム幅（360px）でも収まらない。
+      */}
+      <p className="mt-3.5 whitespace-nowrap text-[10px] tracking-tight leading-relaxed text-muted-foreground">
         続行すると
-        <Link href="/terms" className="whitespace-nowrap text-primary hover:underline">
+        <Link href="/terms" className="text-primary hover:underline">
           利用規約
         </Link>
         ・
-        <Link href="/privacy" className="whitespace-nowrap text-primary hover:underline">
+        <Link href="/privacy" className="text-primary hover:underline">
           プライバシーポリシー
         </Link>
         に同意したことになります。
       </p>
+
+      {/* ログインが必須ではない導線。押すことに迷いのあるユーザーの離脱先を用意する */}
+      <div className="mt-6 border-t border-border pt-5 text-[12.5px] text-muted-foreground">
+        ログインせずに{' '}
+        <Link href="/anime/current" className="font-semibold text-primary hover:underline">
+          今期アニメを見る
+        </Link>
+      </div>
     </>
   )
 }
