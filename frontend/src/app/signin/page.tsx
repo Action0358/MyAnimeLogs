@@ -93,14 +93,14 @@ const SignInInner: React.FC = () => {
     }
   }
 
-  const handleSignIn = async (forceAccountSelection: boolean) => {
+  const handleSignIn = async () => {
     setError('')
     setInfo('')
     clearReasonParam()
     setIsLoading(true)
 
     try {
-      await loginWithGoogle({ forceAccountSelection })
+      await loginWithGoogle()
       // 成功時はGoogleへリダイレクトするため、ローディング表示を維持したままにする
     } catch (err) {
       setError(err instanceof Error ? err.message : DEFAULT_LOGIN_ERROR)
@@ -125,40 +125,27 @@ const SignInInner: React.FC = () => {
         <AuthMessages error={error} info={info} />
       </div>
 
+      {/*
+        loginWithGoogle は常に prompt=select_account を付けるため、この1ボタンで
+        既存アカウントでの再開と別アカウントでの新規作成の両方を賄える。
+        かつて別導線として置いていた「別のGoogleアカウントを使う」は不要になった。
+      */}
       <div className="mt-7">
-        <GoogleSignInButton
-          label="Googleで続行"
-          onClick={() => handleSignIn(false)}
-          isLoading={isLoading}
-        />
+        <GoogleSignInButton label="Googleで続行" onClick={handleSignIn} isLoading={isLoading} />
       </div>
 
-      <p className="mt-3.5 text-[11.5px] leading-relaxed text-muted-foreground">
+      {/* 規約名は途中で折り返さない。「プライバシー / ポリシー」と割れて読みにくくなるため */}
+      <p className="mt-3.5 text-balance text-[11.5px] leading-relaxed text-muted-foreground">
         続行すると
-        <Link href="/terms" className="text-primary hover:underline">
+        <Link href="/terms" className="whitespace-nowrap text-primary hover:underline">
           利用規約
         </Link>
-        および
-        <Link href="/privacy" className="text-primary hover:underline">
+        ・
+        <Link href="/privacy" className="whitespace-nowrap text-primary hover:underline">
           プライバシーポリシー
         </Link>
-        に同意したものとみなされます。
+        に同意したことになります。
       </p>
-
-      {/*
-        Googleにサインイン済みだと選択画面が省略され、意図しないアカウントで
-        入ってしまう。別アカウントで使い分けたい人のための逃げ道を用意する。
-      */}
-      <div className="mt-6 border-t border-border pt-5 text-[13px] text-muted-foreground">
-        <button
-          type="button"
-          onClick={() => handleSignIn(true)}
-          disabled={isLoading}
-          className="font-semibold text-primary hover:underline disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          別のGoogleアカウントを使う
-        </button>
-      </div>
     </>
   )
 }

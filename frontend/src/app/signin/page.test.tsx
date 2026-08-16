@@ -75,7 +75,8 @@ describe('SignInPage', () => {
     )
   })
 
-  it('主操作ではアカウント選択を強制しない', async () => {
+  // アカウント選択の強制は loginWithGoogle 側で常に行うため、画面からは引数を渡さない
+  it('主操作から引数なしでログインを開始する', async () => {
     mockLoginWithGoogle.mockResolvedValue(undefined)
 
     render(<SignInPage />)
@@ -83,21 +84,17 @@ describe('SignInPage', () => {
       await userEvent.click(await screen.findByRole('button', { name: 'Googleで続行' }))
     })
 
-    expect(mockLoginWithGoogle).toHaveBeenCalledWith({ forceAccountSelection: false })
+    expect(mockLoginWithGoogle).toHaveBeenCalledWith()
   })
 
-  // サインイン済みだと選択画面が省略されるため、別アカウント用の逃げ道が要る
-  it('「別のGoogleアカウントを使う」ではアカウント選択を強制する', async () => {
-    mockLoginWithGoogle.mockResolvedValue(undefined)
-
+  // 主ボタンが常にアカウント選択を出すため、別導線は不要になった
+  it('「別のGoogleアカウントを使う」を表示しない', async () => {
     render(<SignInPage />)
-    await act(async () => {
-      await userEvent.click(
-        await screen.findByRole('button', { name: '別のGoogleアカウントを使う' })
-      )
-    })
+    await screen.findByRole('button', { name: 'Googleで続行' })
 
-    expect(mockLoginWithGoogle).toHaveBeenCalledWith({ forceAccountSelection: true })
+    expect(
+      screen.queryByRole('button', { name: '別のGoogleアカウントを使う' })
+    ).not.toBeInTheDocument()
   })
 
   it('失敗時はエラーを表示し、再操作できる状態に戻す', async () => {
