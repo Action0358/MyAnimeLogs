@@ -265,24 +265,31 @@ export const ProfileEditContent: React.FC = () => {
               </button>
             </div>
           </form>
-        </div>
 
-        {/*
-          アカウント削除は破壊的操作のため、保存フォームの外に独立させ、
-          視覚的にも切り離した位置に置く。誤操作を避けるため画面最下部に配置。
-        */}
-        <div className="mt-8 rounded-lg border border-destructive/30 bg-card p-[18px] md:p-7">
-          <h2 className="text-[15px] font-bold text-foreground">アカウントの削除</h2>
-          <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
-            アカウントと、これまでの視聴記録・お気に入りをすべて削除します。削除したデータは復元できません。
-          </p>
-          <button
-            type="button"
-            onClick={() => setIsDeleteDialogOpen(true)}
-            className="mt-4 h-10 rounded-md border border-destructive px-4 text-[13.5px] font-semibold text-destructive transition-colors hover:bg-destructive/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-          >
-            アカウントを削除
-          </button>
+          {/*
+            アカウント削除は破壊的操作のため、保存フォームの外に独立させる。
+            ただし幅はフォームカードに揃え、同じ設定ページの続きとして読ませる。
+            警告は削除ボタンの配色1点に集約し、枠や本文を赤で塗り重ねない。
+          */}
+          <div className="mt-4 rounded-lg border border-border bg-card p-[18px] md:mt-6 md:px-7 md:py-6">
+            <div className="flex flex-col md:flex-row md:items-start md:justify-between md:gap-8">
+              <div className="min-w-0">
+                <h2 className="text-[13.5px] font-bold text-foreground md:text-sm">
+                  アカウントの削除
+                </h2>
+                <p className="mt-[7px] text-[12.5px] leading-[1.8] text-muted-foreground md:text-[13px]">
+                  アカウントと記録をすべて削除します。
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsDeleteDialogOpen(true)}
+                className="mt-3.5 h-[42px] w-full flex-shrink-0 whitespace-nowrap rounded-md border border-destructive/40 bg-card px-4 text-[13.5px] font-semibold text-destructive transition-colors hover:bg-destructive/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 md:mt-0 md:h-[38px] md:w-auto md:text-[13px]"
+              >
+                アカウントを削除
+              </button>
+            </div>
+          </div>
         </div>
       </Container>
 
