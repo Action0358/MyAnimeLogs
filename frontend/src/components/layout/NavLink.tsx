@@ -4,6 +4,7 @@ import React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import type { Route } from 'next'
+import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { NAV_TEXT_STYLES } from './navigationConfig'
 
@@ -14,6 +15,8 @@ interface NavLinkProps {
   isHomePage?: boolean
   /** 'pill': デスクトップ横並びナビ（ピルタブ）/ 'drawer': モバイルドロワーの縦並び行 */
   variant?: 'pill' | 'drawer'
+  /** drawer でのみ描画する行頭アイコン。pill では余白が足りないため無視する */
+  icon?: LucideIcon
   className?: string
 }
 
@@ -23,6 +26,7 @@ export const NavLink: React.FC<NavLinkProps> = ({
   onClick,
   isHomePage = false,
   variant = 'pill',
+  icon: Icon,
   className = '',
 }) => {
   const pathname = usePathname()
@@ -39,8 +43,8 @@ export const NavLink: React.FC<NavLinkProps> = ({
       : 'rounded-full px-3 py-1.5 text-muted-foreground hover:text-foreground'
 
   const drawerStyle = isActive
-    ? 'rounded-lg px-3 py-2.5 bg-primary/10 text-primary font-semibold'
-    : 'rounded-lg px-3 py-2.5 text-foreground hover:bg-muted'
+    ? 'flex items-center gap-3 rounded-lg px-2 py-2.5 bg-primary/10 text-primary font-semibold'
+    : 'flex items-center gap-3 rounded-lg px-2 py-2.5 text-muted-foreground hover:bg-muted hover:text-foreground'
 
   return (
     <Link
@@ -54,6 +58,9 @@ export const NavLink: React.FC<NavLinkProps> = ({
       )}
       aria-current={isActive ? 'page' : undefined}
     >
+      {variant === 'drawer' && Icon && (
+        <Icon className="h-[18px] w-[18px] flex-shrink-0" aria-hidden="true" />
+      )}
       {children}
     </Link>
   )

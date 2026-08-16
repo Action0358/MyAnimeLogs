@@ -93,14 +93,14 @@ const SignInInner: React.FC = () => {
     }
   }
 
-  const handleSignIn = async (forceAccountSelection: boolean) => {
+  const handleSignIn = async () => {
     setError('')
     setInfo('')
     clearReasonParam()
     setIsLoading(true)
 
     try {
-      await loginWithGoogle({ forceAccountSelection })
+      await loginWithGoogle()
       // 成功時はGoogleへリダイレクトするため、ローディング表示を維持したままにする
     } catch (err) {
       setError(err instanceof Error ? err.message : DEFAULT_LOGIN_ERROR)
@@ -112,10 +112,11 @@ const SignInInner: React.FC = () => {
     <>
       {/*
         Google認証では「初回なら登録・以降はログイン」が同じ操作になるため、
-        ログインと新規登録を1画面に統合している。見出しで両方を担うことを明示する。
+        ログインと新規登録を1画面に統合している。見出しは操作そのものを表す
+        「はじめる」にし、両方を担うことはリード文で説明する。
       */}
       <h1 className="mb-1.5 text-2xl font-bold tracking-tight text-foreground lg:text-[27px]">
-        ログインまたは新規作成
+        はじめる
       </h1>
       <p className="text-[13.5px] leading-relaxed text-muted-foreground">
         初めての方はそのまま登録が完了します。
@@ -125,39 +126,38 @@ const SignInInner: React.FC = () => {
         <AuthMessages error={error} info={info} />
       </div>
 
+      {/*
+        loginWithGoogle は常に prompt=select_account を付けるため、この1ボタンで
+        既存アカウントでの再開と別アカウントでの新規作成の両方を賄える。
+        かつて別導線として置いていた「別のGoogleアカウントを使う」は不要になった。
+      */}
       <div className="mt-7">
-        <GoogleSignInButton
-          label="Googleで続行"
-          onClick={() => handleSignIn(false)}
-          isLoading={isLoading}
-        />
+        <GoogleSignInButton label="Googleで続ける" onClick={handleSignIn} isLoading={isLoading} />
       </div>
 
-      <p className="mt-3.5 text-[11.5px] leading-relaxed text-muted-foreground">
+      {/*
+        規約名を含む1文なので改行させない。iPhone SE幅（375px、実測で本文コラム
+        335px）でも1行に収まるフォントサイズに合わせている。11.5pxだと
+        iPhone SE幅はもちろん、このコラム幅（360px）でも収まらない。
+      */}
+      <p className="mt-3.5 whitespace-nowrap text-[10px] tracking-tight leading-relaxed text-muted-foreground">
         続行すると
         <Link href="/terms" className="text-primary hover:underline">
           利用規約
         </Link>
-        および
+        ・
         <Link href="/privacy" className="text-primary hover:underline">
           プライバシーポリシー
         </Link>
-        に同意したものとみなされます。
+        に同意したことになります。
       </p>
 
-      {/*
-        Googleにサインイン済みだと選択画面が省略され、意図しないアカウントで
-        入ってしまう。別アカウントで使い分けたい人のための逃げ道を用意する。
-      */}
-      <div className="mt-6 border-t border-border pt-5 text-[13px] text-muted-foreground">
-        <button
-          type="button"
-          onClick={() => handleSignIn(true)}
-          disabled={isLoading}
-          className="font-semibold text-primary hover:underline disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          別のGoogleアカウントを使う
-        </button>
+      {/* ログインが必須ではない導線。押すことに迷いのあるユーザーの離脱先を用意する */}
+      <div className="mt-6 border-t border-border pt-5 text-[12.5px] text-muted-foreground">
+        ログインせずに{' '}
+        <Link href="/anime/current" className="font-semibold text-primary hover:underline">
+          今期アニメを見る
+        </Link>
       </div>
     </>
   )

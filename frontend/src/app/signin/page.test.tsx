@@ -41,15 +41,15 @@ describe('SignInPage', () => {
     render(<SignInPage />)
 
     expect(
-      await screen.findByRole('heading', { name: 'ログインまたは新規作成' })
+      await screen.findByRole('heading', { name: 'はじめる' })
     ).toBeInTheDocument()
-    expect(screen.getByText('初めての方はそのまま登録が完了します。')).toBeInTheDocument()
+    expect(screen.getByText(/初めての方はそのまま登録が完了します。/)).toBeInTheDocument()
   })
 
   it('主操作はGoogleボタン1つに絞る', async () => {
     render(<SignInPage />)
 
-    expect(await screen.findByRole('button', { name: 'Googleで続行' })).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Googleで続ける' })).toBeInTheDocument()
     // 統合したため、別画面へ誘導するリンクは持たない
     expect(screen.queryByRole('link', { name: '新規登録' })).not.toBeInTheDocument()
     expect(screen.queryByRole('link', { name: 'ログイン' })).not.toBeInTheDocument()
@@ -57,7 +57,7 @@ describe('SignInPage', () => {
 
   it('パスワード入力欄を表示しない', async () => {
     render(<SignInPage />)
-    await screen.findByRole('button', { name: 'Googleで続行' })
+    await screen.findByRole('button', { name: 'Googleで続ける' })
 
     expect(screen.queryByLabelText(/メールアドレス/)).not.toBeInTheDocument()
     expect(screen.queryByLabelText(/パスワード/)).not.toBeInTheDocument()
@@ -66,7 +66,7 @@ describe('SignInPage', () => {
   // 登録もこの画面で発生するため、同意文言が必要
   it('利用規約とプライバシーポリシーへのリンクを表示する', async () => {
     render(<SignInPage />)
-    await screen.findByRole('button', { name: 'Googleで続行' })
+    await screen.findByRole('button', { name: 'Googleで続ける' })
 
     expect(screen.getByRole('link', { name: '利用規約' })).toHaveAttribute('href', '/terms')
     expect(screen.getByRole('link', { name: 'プライバシーポリシー' })).toHaveAttribute(
@@ -75,29 +75,37 @@ describe('SignInPage', () => {
     )
   })
 
-  it('主操作ではアカウント選択を強制しない', async () => {
+  // アカウント選択の強制は loginWithGoogle 側で常に行うため、画面からは引数を渡さない
+  it('主操作から引数なしでログインを開始する', async () => {
     mockLoginWithGoogle.mockResolvedValue(undefined)
 
     render(<SignInPage />)
     await act(async () => {
-      await userEvent.click(await screen.findByRole('button', { name: 'Googleで続行' }))
+      await userEvent.click(await screen.findByRole('button', { name: 'Googleで続ける' }))
     })
 
-    expect(mockLoginWithGoogle).toHaveBeenCalledWith({ forceAccountSelection: false })
+    expect(mockLoginWithGoogle).toHaveBeenCalledWith()
   })
 
-  // サインイン済みだと選択画面が省略されるため、別アカウント用の逃げ道が要る
-  it('「別のGoogleアカウントを使う」ではアカウント選択を強制する', async () => {
-    mockLoginWithGoogle.mockResolvedValue(undefined)
-
+  // ログインに迷いのあるユーザーが素通りできる離脱先を用意する
+  it('ログインせずに今期アニメを見るリンクを表示する', async () => {
     render(<SignInPage />)
-    await act(async () => {
-      await userEvent.click(
-        await screen.findByRole('button', { name: '別のGoogleアカウントを使う' })
-      )
-    })
+    await screen.findByRole('button', { name: 'Googleで続ける' })
 
-    expect(mockLoginWithGoogle).toHaveBeenCalledWith({ forceAccountSelection: true })
+    expect(screen.getByRole('link', { name: '今期アニメを見る' })).toHaveAttribute(
+      'href',
+      '/anime/current'
+    )
+  })
+
+  // 主ボタンが常にアカウント選択を出すため、別導線は不要になった
+  it('「別のGoogleアカウントを使う」を表示しない', async () => {
+    render(<SignInPage />)
+    await screen.findByRole('button', { name: 'Googleで続ける' })
+
+    expect(
+      screen.queryByRole('button', { name: '別のGoogleアカウントを使う' })
+    ).not.toBeInTheDocument()
   })
 
   it('失敗時はエラーを表示し、再操作できる状態に戻す', async () => {
@@ -105,11 +113,11 @@ describe('SignInPage', () => {
 
     render(<SignInPage />)
     await act(async () => {
-      await userEvent.click(await screen.findByRole('button', { name: 'Googleで続行' }))
+      await userEvent.click(await screen.findByRole('button', { name: 'Googleで続ける' }))
     })
 
     expect(await screen.findByText('Googleログインがキャンセルされました')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Googleで続行' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Googleで続ける' })).toBeEnabled()
   })
 
   it('reason=timeout のときセッションタイムアウトを案内する', async () => {
@@ -128,7 +136,7 @@ describe('SignInPage', () => {
 
     render(<SignInPage />)
     await act(async () => {
-      await userEvent.click(await screen.findByRole('button', { name: 'Googleで続行' }))
+      await userEvent.click(await screen.findByRole('button', { name: 'Googleで続ける' }))
     })
 
     await waitFor(() => {

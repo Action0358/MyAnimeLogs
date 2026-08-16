@@ -139,8 +139,10 @@ const Header: React.FC = () => {
             /*
               Google認証ではログインと新規登録が同じ操作になるため、
               ボタンは1つに統合し /signin へ送る。
+              狭い画面ではハンバーガーメニューのフッターに移設した。
+              ホームのヒーロー画像の上にボタンが単独で浮いて見えるため。
             */
-            <div className="flex items-center gap-2 sm:gap-3">
+            <div className="hidden md:flex items-center gap-2 sm:gap-3">
               <Link href={"/signin" as Route}>
                 <Button
                   variant={isHomePage ? 'primary-on-dark' : 'primary'}
