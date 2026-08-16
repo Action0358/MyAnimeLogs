@@ -5,6 +5,7 @@ import (
 	"crypto/elliptic"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -34,6 +35,14 @@ type SupabaseClaims struct {
 
 // userIDCache stores the authUserID → internal userID mapping to avoid DB lookups on every request.
 var userIDCache sync.Map
+
+// InvalidateUserIDCache drops the cached mapping for the given Supabase auth UUID.
+//
+// アカウント削除時に必ず呼ぶこと。呼ばないと、削除済みユーザーの内部IDを
+// キャッシュから返し続けてしまう。
+func InvalidateUserIDCache(authUserID string) {
+	userIDCache.Delete(authUserID)
+}
 
 // jwksCache caches EC public keys fetched from the Supabase JWKS endpoint.
 type jwksCache struct {
@@ -329,6 +338,18 @@ func SupabaseAuthMiddleware(db *database.DB, jwtSecret string, logger *common.Lo
 
 		userID, email, name, err := resolveUserID(userRepo, logger, claims.Subject, claims.Email, nameFromClaims(claims))
 		if err != nil {
+			// 退会直後は JWT がまだ有効期限内のため、削除済みアカウントで
+			// アクセスされうる。サーバー障害ではないので 401 を返す。
+			if errors.Is(err, repository.ErrAuthUserNotFound) {
+				logger.Info("request from deleted account", "auth_user_id", claims.Subject)
+				c.JSON(http.StatusUnauthorized, common.ErrorResponse{
+					Error:   common.ErrMsgUnauthorized,
+					Message: "このアカウントは削除されています",
+					Code:    common.ErrCodeUnauthorized,
+				})
+				c.Abort()
+				return
+			}
 			logger.Error("failed to get or create user", "auth_user_id", claims.Subject, "error", err)
 			c.JSON(http.StatusInternalServerError, common.ErrorResponse{
 				Error:   common.ErrMsgInternalServer,
@@ -339,6 +360,7 @@ func SupabaseAuthMiddleware(db *database.DB, jwtSecret string, logger *common.Lo
 			return
 		}
 
+		c.Set("auth_user_id", claims.Subject)
 		c.Set("user_id", userID)
 		c.Set("user_email", email)
 		c.Set("user_name", name)
@@ -373,10 +395,17 @@ func OptionalSupabaseAuthMiddleware(db *database.DB, jwtSecret string, logger *c
 
 		userID, email, name, err := resolveUserID(userRepo, logger, claims.Subject, claims.Email, nameFromClaims(claims))
 		if err != nil {
-			logger.Error("failed to get or create user (optional auth)", "auth_user_id", claims.Subject, "error", err)
+			// 削除済みアカウントは障害ではないため ERROR で鳴らさない。
+			// オプショナル認証なので、未ログイン扱いで処理を続行する。
+			if errors.Is(err, repository.ErrAuthUserNotFound) {
+				logger.Info("request from deleted account (optional auth)", "auth_user_id", claims.Subject)
+			} else {
+				logger.Error("failed to get or create user (optional auth)", "auth_user_id", claims.Subject, "error", err)
+			}
 			c.Next()
 			return
 		}
+		c.Set("auth_user_id", claims.Subject)
 		c.Set("user_id", userID)
 		c.Set("user_email", email)
 		c.Set("user_name", name)

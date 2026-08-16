@@ -71,6 +71,24 @@ Authorization: Bearer {{supabaseToken}}
 GET {{baseUrl}}/api/users/me/export?format=csv
 Authorization: Bearer {{supabaseToken}}
 
+### 6-1. アカウント削除
+# 警告: このリクエストはアカウントを完全に削除します。復旧はできません。
+# 実行するとトークンのユーザーが消えるため、以降のテストは実行できなくなります。
+# 検証用の使い捨てアカウントで実行してください。
+#
+# 削除されるもの: users / user_favorites / user_watch_status / アイコン画像
+# 残るもの: search_logs（user_id が NULL になり匿名化される）
+#
+# SUPABASE_SERVICE_ROLE_KEY が未設定の環境では 503 が返ります。
+DELETE {{baseUrl}}/api/users/me
+Authorization: Bearer {{supabaseToken}}
+
+### 6-2. 削除済みアカウントのトークンでアクセス（401エラー）
+# 6-1 の実行後、同じトークンで実行すると
+# 「このアカウントは削除されています」が返ることを確認する
+GET {{baseUrl}}/api/users/me
+Authorization: Bearer {{supabaseToken}}
+
 ### ===== 認証エラーケーステスト =====
 
 ### 7. 認証なしアクセス（401エラー）

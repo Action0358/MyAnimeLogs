@@ -85,6 +85,45 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+    delete:
+      summary: アカウントを削除
+      description: |
+        アカウントを完全に削除します。**復旧はできません。**
+
+        auth.users の削除に伴い、public.users・お気に入り・視聴状況が連鎖削除されます。
+        検索ログは user_id が NULL になり、匿名化された状態で残ります。
+        アップロード済みのプロフィール画像も削除されます。
+
+        削除後もJWTは有効期限（最大1時間）まで残るため、
+        クライアントは成功後ただちにサインアウトしてトークンを破棄してください。
+        削除済みアカウントからのリクエストには 401 を返します。
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: アカウントを削除しました
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "アカウントを削除しました"
+        "401":
+          description: 認証が必要です（削除済みアカウントからのリクエストを含む）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "503":
+          description: |
+            アカウント削除機能が利用できません。
+            SUPABASE_SERVICE_ROLE_KEY が未設定の環境で返ります。
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /users/me/icon:
     post:
       summary: プロフィール画像をアップロード

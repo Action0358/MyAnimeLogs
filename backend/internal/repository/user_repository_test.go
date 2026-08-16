@@ -11,6 +11,7 @@ import (
 	"myanimelogs/internal/testutil"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -555,5 +556,64 @@ func TestUserRepository_GetOrCreateByAuthUserID_LinkQueryError(t *testing.T) {
 	assert.Nil(t, user)
 	// 曖昧な「作成に失敗」ではなく、リンク段階での失敗と分かること
 	assert.Contains(t, err.Error(), "failed to link user by email")
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+// 退会直後は JWT がまだ有効なため、削除済み auth_user_id で
+// GetOrCreateByAuthUserID が呼ばれうる。このとき users 行を作り直して
+// データを復活させてはならず、呼び出し側が 401 を返せるよう
+// ErrAuthUserNotFound を返す必要がある。
+func TestUserRepository_GetOrCreateByAuthUserID_DeletedAuthUser(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	repo := NewUserRepository(&database.DB{DB: db})
+	authUserID := "auth-uuid-deleted"
+	email := "deleted@example.com"
+
+	mock.ExpectQuery(selectByAuthUserIDQuery).
+		WithArgs(authUserID).
+		WillReturnError(sql.ErrNoRows)
+	mock.ExpectQuery(linkByEmailQuery).
+		WithArgs(authUserID, email, "Google Name").
+		WillReturnError(sql.ErrNoRows)
+	// auth.users が存在しないため外部キー違反になる
+	mock.ExpectQuery(insertUserQuery).
+		WithArgs("Google Name", email, authUserID).
+		WillReturnError(&pq.Error{Code: "23503", Constraint: "fk_users_auth_user_id"})
+
+	user, _, err := repo.GetOrCreateByAuthUserID(authUserID, email, "Google Name")
+
+	assert.Nil(t, user)
+	assert.ErrorIs(t, err, ErrAuthUserNotFound)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+// 外部キー違反以外のINSERT失敗は、削除済み扱いにせず通常のエラーとして返す
+func TestUserRepository_GetOrCreateByAuthUserID_InsertErrorIsNotTreatedAsDeleted(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	repo := NewUserRepository(&database.DB{DB: db})
+	authUserID := "auth-uuid-x"
+	email := "x@example.com"
+
+	mock.ExpectQuery(selectByAuthUserIDQuery).
+		WithArgs(authUserID).
+		WillReturnError(sql.ErrNoRows)
+	mock.ExpectQuery(linkByEmailQuery).
+		WithArgs(authUserID, email, "Name").
+		WillReturnError(sql.ErrNoRows)
+	mock.ExpectQuery(insertUserQuery).
+		WithArgs("Name", email, authUserID).
+		WillReturnError(errors.New("connection reset"))
+
+	user, _, err := repo.GetOrCreateByAuthUserID(authUserID, email, "Name")
+
+	assert.Nil(t, user)
+	assert.NotErrorIs(t, err, ErrAuthUserNotFound)
+	assert.Contains(t, err.Error(), "failed to create user")
 	assert.NoError(t, mock.ExpectationsWereMet())
 }

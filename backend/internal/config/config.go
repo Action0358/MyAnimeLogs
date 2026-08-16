@@ -14,7 +14,12 @@ type Config struct {
 	RateLimit    int
 	// Supabase Auth設定
 	SupabaseJWTSecret string
-	AnnictAPIKey      string
+	// SupabaseURL / SupabaseServiceRoleKey はアカウント削除で Admin API を
+	// 呼ぶために使う。service_role キーは RLS を無視する強い権限を持つため、
+	// ログや API レスポンスに絶対に含めないこと。
+	SupabaseURL            string
+	SupabaseServiceRoleKey string
+	AnnictAPIKey           string
 	RedisURL     string
 	// Database connection pool settings
 	DBMaxOpenConns    int
@@ -61,6 +66,13 @@ func New() (*Config, error) {
 		return nil, fmt.Errorf("SUPABASE_JWT_SECRET is required but not set")
 	}
 
+	// Supabase Admin API（アカウント削除で使用）
+	// 未設定でも起動は妨げない。削除エンドポイントのみが 503 を返す。
+	// これは既存環境が service_role キー未設定のまま動いているため、
+	// 必須化すると設定が行き渡るまでサービス全体が起動しなくなるのを避ける判断。
+	supabaseURL := getEnv("SUPABASE_URL", "")
+	supabaseServiceRoleKey := getEnv("SUPABASE_SERVICE_ROLE_KEY", "")
+
 	// External APIs
 	annictAPIKey := getEnv("ANNICT_API_KEY", "")
 
@@ -94,8 +106,10 @@ func New() (*Config, error) {
 		Port:                port,
 		Environment:         string(env),
 		RateLimit:           rateLimit,
-		SupabaseJWTSecret:   supabaseJWTSecret,
-		AnnictAPIKey:        annictAPIKey,
+		SupabaseJWTSecret:      supabaseJWTSecret,
+		SupabaseURL:            supabaseURL,
+		SupabaseServiceRoleKey: supabaseServiceRoleKey,
+		AnnictAPIKey:           annictAPIKey,
 		RedisURL:            redisURL,
 		DBMaxOpenConns:      dbConfig.MaxOpenConns,
 		DBMaxIdleConns:      dbConfig.MaxIdleConns,
