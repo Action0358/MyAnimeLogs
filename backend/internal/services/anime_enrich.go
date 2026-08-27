@@ -628,6 +628,13 @@ func (s *AnimeService) enrichAnimeWithWatchProviders(animeWithData *models.Anime
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	// キャッシュヒット時はTMDBを一切叩かずに返す。詳細取得はこのenrichが
+	// 唯一の同期外部API呼び出しで、ここがレスポンス時間の大半を占めるため。
+	if cached, ok := s.getCachedWatchProviders(ctx, animeWithData.ID); ok {
+		animeWithData.WatchProviders = cached
+		return
+	}
+
 	// First, try to get TMDB ID and series_tmdb_id from database
 	var tmdbID int
 	var seriesTMDBID sql.NullInt64
@@ -636,6 +643,8 @@ func (s *AnimeService) enrichAnimeWithWatchProviders(animeWithData *models.Anime
 
 	// Determine media type (movie or tv)
 	mediaType := "tv" // Default to TV
+	// mediaTypeKnown が false のときだけ、反対の mediaType での再試行に意味がある
+	mediaTypeKnown := false
 	malID := ""
 	if animeWithData.MalAnimeID != nil {
 		malID = *animeWithData.MalAnimeID
@@ -644,9 +653,9 @@ func (s *AnimeService) enrichAnimeWithWatchProviders(animeWithData *models.Anime
 	// Use series_tmdb_id if available (for series works)
 	if err == nil && seriesTMDBID.Valid && seriesTMDBID.Int64 > 0 {
 		tmdbID = int(seriesTMDBID.Int64)
-		mediaType = s.determineMediaType(ctx, dbMediaType, animeWithData.Media, malID)
+		mediaType, mediaTypeKnown = s.determineMediaType(ctx, dbMediaType, animeWithData.Media, malID)
 	} else if err == nil && tmdbID > 0 {
-		mediaType = s.determineMediaType(ctx, dbMediaType, animeWithData.Media, malID)
+		mediaType, mediaTypeKnown = s.determineMediaType(ctx, dbMediaType, animeWithData.Media, malID)
 
 		// series_tmdb_idが未設定の場合、tmdb_idから設定（非同期）
 		if !seriesTMDBID.Valid || seriesTMDBID.Int64 == 0 {
@@ -683,7 +692,9 @@ func (s *AnimeService) enrichAnimeWithWatchProviders(animeWithData *models.Anime
 		}
 		tmdbID = foundID
 		// Use the media type returned by FindTMDBID (this is the actual type from TMDB)
+		// TMDB自身が返した型なので、反対側を試す必要はない
 		mediaType = foundMediaType
+		mediaTypeKnown = true
 
 		// Save TMDB ID and series_tmdb_id to database for future use (async)
 		animeID := animeWithData.ID
@@ -694,18 +705,20 @@ func (s *AnimeService) enrichAnimeWithWatchProviders(animeWithData *models.Anime
 		})
 	}
 
-	// Get watch providers from TMDB with fallback (try other mediaType if not found)
-	providers, err := s.tmdbClient.GetJapaneseWatchProvidersWithFallback(ctx, tmdbID, mediaType)
+	// mediaTypeが確定している場合は反対の型を試さない。TVのIDを /movie/ に投げても
+	// TMDBは正しい答えを返さず、待ち時間を増やしてレート制限を消費するだけになる。
+	var providers []TMDBProvider
+	if mediaTypeKnown {
+		providers, err = s.tmdbClient.GetJapaneseWatchProviders(ctx, tmdbID, mediaType)
+	} else {
+		providers, err = s.tmdbClient.GetJapaneseWatchProvidersWithFallback(ctx, tmdbID, mediaType)
+	}
 	if err != nil {
 		s.logger.Debug("Failed to get watch providers from TMDB",
 			"anime_id", animeWithData.ID,
 			"tmdb_id", tmdbID,
 			"media_type", mediaType,
 			"error", err)
-		return
-	}
-
-	if len(providers) == 0 {
 		return
 	}
 
@@ -719,5 +732,41 @@ func (s *AnimeService) enrichAnimeWithWatchProviders(animeWithData *models.Anime
 		})
 	}
 
+	// 0件も含めてキャッシュする。配信サービスが無い作品ほどフォールバックまで
+	// 走って遅くなるため、そこを繰り返さないことが効果的。
+	s.cacheWatchProviders(ctx, animeWithData.ID, watchProviders)
+
+	if len(watchProviders) == 0 {
+		return
+	}
 	animeWithData.WatchProviders = watchProviders
+}
+
+// getCachedWatchProviders は作品の配信サービスをRedisから取得する。
+// 「0件」も有効なキャッシュ値として扱うため、戻り値のsliceの長さではなく
+// 2つ目の戻り値でヒット有無を判定する。
+func (s *AnimeService) getCachedWatchProviders(ctx context.Context, animeID int) ([]models.WatchProvider, bool) {
+	if s.redisCache == nil {
+		return nil, false
+	}
+	var cached []models.WatchProvider
+	found, err := s.redisCache.Get(ctx, watchProvidersCacheKey(animeID), &cached)
+	if err != nil {
+		s.logger.Debug("Failed to read watch providers from cache", "anime_id", animeID, "error", err)
+		return nil, false
+	}
+	return cached, found
+}
+
+func (s *AnimeService) cacheWatchProviders(ctx context.Context, animeID int, providers []models.WatchProvider) {
+	if s.redisCache == nil {
+		return
+	}
+	if err := s.redisCache.Set(ctx, watchProvidersCacheKey(animeID), providers, constants.WatchProvidersCacheTTL); err != nil {
+		s.logger.Debug("Failed to cache watch providers", "anime_id", animeID, "error", err)
+	}
+}
+
+func watchProvidersCacheKey(animeID int) string {
+	return fmt.Sprintf("%s%d", constants.CacheKeyWatchProviders, animeID)
 }

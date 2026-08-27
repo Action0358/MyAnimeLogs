@@ -13,20 +13,36 @@ import (
 // series_tmdb_idがある場合はそれを優先的に使用（シリーズ作品の統合管理）
 // determineMediaType determines the TMDB media type ("tv" or "movie") based on
 // DB media field, model data, and AniList format as a fallback.
-func (s *AnimeService) determineMediaType(ctx context.Context, dbMediaType sql.NullString, modelMedia *string, malID string) string {
-	if dbMediaType.Valid && dbMediaType.String == "movie" {
-		return "movie"
+//
+// The second return value reports whether the type is backed by an actual source
+// value rather than the default. Annict's media field is one of tv/movie/ova/web/other:
+// only tv and movie map cleanly onto TMDB's two types, so ova/web/other (and a missing
+// value) fall through to "tv" as a guess. Callers use the flag to decide whether
+// retrying the opposite media type is worth an extra TMDB round trip.
+func (s *AnimeService) determineMediaType(ctx context.Context, dbMediaType sql.NullString, modelMedia *string, malID string) (string, bool) {
+	if dbMediaType.Valid {
+		switch dbMediaType.String {
+		case "movie":
+			return "movie", true
+		case "tv":
+			return "tv", true
+		}
 	}
-	if modelMedia != nil && *modelMedia == "movie" {
-		return "movie"
+	if modelMedia != nil {
+		switch *modelMedia {
+		case "movie":
+			return "movie", true
+		case "tv":
+			return "tv", true
+		}
 	}
 	if malID != "" {
 		format, err := s.anilistClient.GetMediaFormatByMALId(ctx, malID)
 		if err == nil && format == "MOVIE" {
-			return "movie"
+			return "movie", true
 		}
 	}
-	return "tv"
+	return "tv", false
 }
 
 // determineStatusBySeason はシーズンと放送開始日を考慮してアニメの放送状態を判定します。
