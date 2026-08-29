@@ -430,6 +430,15 @@ func (s *AnimeService) enrichAnimeWithMovieDuration(anime *models.Anime) {
 		return
 	}
 
+	// 取得できなかったことを覚えていないと、Jikanにデータが無い作品では
+	// 詳細取得のたびに同じ問い合わせを同期的に繰り返し、待ち時間が永久に解消しない。
+	// 成功時はDBの duration_minutes に残るため、ここでは失敗だけを記憶する。
+	ctx, cancel := context.WithTimeout(context.Background(), constants.BackgroundTaskDBTimeout)
+	defer cancel()
+	if s.isMovieDurationKnownMissing(ctx, anime.ID) {
+		return
+	}
+
 	// Jikan APIから上映時間を取得
 	duration, err := s.jikanClient.GetAnimeDuration(*anime.MalAnimeID)
 	if err != nil {
@@ -437,10 +446,14 @@ func (s *AnimeService) enrichAnimeWithMovieDuration(anime *models.Anime) {
 			"error", err,
 			"mal_anime_id", *anime.MalAnimeID,
 			"anime_title", anime.Title)
+		// レート制限や一時的な障害の可能性があるため、短めに抑える
+		s.markMovieDurationMissing(ctx, anime.ID, constants.MovieDurationErrorCacheTTL)
 		return
 	}
 
 	if duration <= 0 {
+		// Jikan側に上映時間が無い作品。次に増える見込みは薄いので長めに保持する
+		s.markMovieDurationMissing(ctx, anime.ID, constants.MovieDurationMissingCacheTTL)
 		return
 	}
 
@@ -769,4 +782,32 @@ func (s *AnimeService) cacheWatchProviders(ctx context.Context, animeID int, pro
 
 func watchProvidersCacheKey(animeID int) string {
 	return fmt.Sprintf("%s%d", constants.CacheKeyWatchProviders, animeID)
+}
+
+// isMovieDurationKnownMissing は、直近のJikan問い合わせで上映時間を取得できなかった
+// 作品かどうかを返す。キーの有無だけが意味を持つため、値は使わない。
+func (s *AnimeService) isMovieDurationKnownMissing(ctx context.Context, animeID int) bool {
+	if s.redisCache == nil {
+		return false
+	}
+	var placeholder bool
+	found, err := s.redisCache.Get(ctx, movieDurationMissingCacheKey(animeID), &placeholder)
+	if err != nil {
+		s.logger.Debug("Failed to read movie duration cache", "anime_id", animeID, "error", err)
+		return false
+	}
+	return found
+}
+
+func (s *AnimeService) markMovieDurationMissing(ctx context.Context, animeID int, ttl time.Duration) {
+	if s.redisCache == nil {
+		return
+	}
+	if err := s.redisCache.Set(ctx, movieDurationMissingCacheKey(animeID), true, ttl); err != nil {
+		s.logger.Debug("Failed to cache movie duration miss", "anime_id", animeID, "error", err)
+	}
+}
+
+func movieDurationMissingCacheKey(animeID int) string {
+	return fmt.Sprintf("%s%d", constants.CacheKeyMovieDurationMissing, animeID)
 }
