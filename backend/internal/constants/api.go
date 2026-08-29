@@ -76,14 +76,14 @@ const (
 	// 検索結果は10分キャッシュ
 	SearchResultCacheTTL = 10 * time.Minute
 
-	// MovieDurationMissingCacheTTL - 上映時間が取得できなかった映画を覚えておく期間
-	// Jikan側にデータが無い作品は毎回問い合わせても結果が変わらないため、
-	// 詳細取得のたびに同期的なリトライを繰り返さないよう記憶する
-	MovieDurationMissingCacheTTL = 24 * time.Hour
+	// JikanEnrichMissingCacheTTL - Jikan側にデータが無かった項目を覚えておく期間
+	// 毎回問い合わせても結果が変わらないため、詳細取得のたびに同期的な
+	// リトライを繰り返さないよう記憶する
+	JikanEnrichMissingCacheTTL = 24 * time.Hour
 
-	// MovieDurationErrorCacheTTL - Jikanの呼び出しが失敗した映画を覚えておく期間
+	// JikanEnrichErrorCacheTTL - Jikanの呼び出しが失敗した項目を覚えておく期間
 	// レート制限や一時的な障害の可能性があるため、データ不在より短くする
-	MovieDurationErrorCacheTTL = 1 * time.Hour
+	JikanEnrichErrorCacheTTL = 1 * time.Hour
 
 	// WatchProvidersCacheTTL - 配信サービスキャッシュの有効期限
 	// 詳細取得のたびにTMDBを同期的に叩くとレスポンスが1〜3秒伸びるため、
@@ -106,9 +106,11 @@ const (
 	CacheKeyAdvSearch       = "adv_search:"
 	CacheKeyPopularSearches = "popular_searches:"
 	CacheKeyWatchProviders  = "watch_providers:"
-	// CacheKeyMovieDurationMissing - 上映時間を取得できなかった映画のマーカー。
+	// 以下はJikanから取得できなかった項目のマーカー。
 	// キーの有無だけが意味を持ち、値は参照しない
 	CacheKeyMovieDurationMissing = "movie_duration_missing:"
+	CacheKeyBroadcastInfoMissing = "broadcast_info_missing:"
+	CacheKeyReleasedOnMissing    = "released_on_missing:"
 )
 
 // 人気検索キャッシュ関連の定数
