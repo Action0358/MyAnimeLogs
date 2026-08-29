@@ -1,6 +1,8 @@
 package services
 
 import (
+	"context"
+	"database/sql"
 	"testing"
 	"time"
 
@@ -120,4 +122,65 @@ func TestDetermineStatusBySeasonAt_ReleasedOnOverride(t *testing.T) {
 
 func strPtr(s string) *string {
 	return &s
+}
+
+// TestDetermineMediaType は、TMDBのmediaType判定と「確定しているか」のフラグを検証する。
+// フラグが false のときだけ反対のmediaTypeで再試行する（#723）ため、
+// ova/web/other を確定扱いしてしまわないことが重要。
+func TestDetermineMediaType(t *testing.T) {
+	tests := []struct {
+		name        string
+		dbMediaType sql.NullString
+		modelMedia  *string
+		wantType    string
+		wantKnown   bool
+	}{
+		{
+			name:        "DBのmediaがtvなら確定",
+			dbMediaType: sql.NullString{String: "tv", Valid: true},
+			wantType:    "tv",
+			wantKnown:   true,
+		},
+		{
+			name:        "DBのmediaがmovieなら確定",
+			dbMediaType: sql.NullString{String: "movie", Valid: true},
+			wantType:    "movie",
+			wantKnown:   true,
+		},
+		{
+			name:        "ovaはTMDBの2種類に対応しないため未確定",
+			dbMediaType: sql.NullString{String: "ova", Valid: true},
+			wantType:    "tv",
+			wantKnown:   false,
+		},
+		{
+			name:        "webも未確定",
+			dbMediaType: sql.NullString{String: "web", Valid: true},
+			wantType:    "tv",
+			wantKnown:   false,
+		},
+		{
+			name:        "DBが空でもモデル側のmediaで確定できる",
+			dbMediaType: sql.NullString{},
+			modelMedia:  strPtr("movie"),
+			wantType:    "movie",
+			wantKnown:   true,
+		},
+		{
+			name:        "手がかりが無い場合はtvを推測値として返す",
+			dbMediaType: sql.NullString{},
+			wantType:    "tv",
+			wantKnown:   false,
+		},
+	}
+
+	// malIDを空にしているためAniListへは問い合わせない
+	s := &AnimeService{}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotType, gotKnown := s.determineMediaType(context.Background(), tt.dbMediaType, tt.modelMedia, "")
+			assert.Equal(t, tt.wantType, gotType)
+			assert.Equal(t, tt.wantKnown, gotKnown)
+		})
+	}
 }

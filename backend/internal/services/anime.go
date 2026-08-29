@@ -167,6 +167,9 @@ func (s *AnimeService) ClearAnimeCache() {
 		constants.CacheKeyPopular,
 		constants.CacheKeySearch,
 		constants.CacheKeyAdvSearch,
+		// 同期でtmdb_id / series_tmdb_id が更新されると配信サービスの取得結果も
+		// 変わりうるため、あわせて捨てる
+		constants.CacheKeyWatchProviders,
 	}
 
 	var wg sync.WaitGroup

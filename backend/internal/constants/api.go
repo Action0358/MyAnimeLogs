@@ -76,6 +76,11 @@ const (
 	// 検索結果は10分キャッシュ
 	SearchResultCacheTTL = 10 * time.Minute
 
+	// WatchProvidersCacheTTL - 配信サービスキャッシュの有効期限
+	// 詳細取得のたびにTMDBを同期的に叩くとレスポンスが1〜3秒伸びるため、
+	// 作品単位でキャッシュする。配信状況の変化は日単位のため24時間で十分。
+	WatchProvidersCacheTTL = 24 * time.Hour
+
 	// CacheCleanupInterval - キャッシュクリーンアップ間隔
 	CacheCleanupInterval = 5 * time.Minute
 
@@ -91,6 +96,7 @@ const (
 	CacheKeySearch          = "search:"
 	CacheKeyAdvSearch       = "adv_search:"
 	CacheKeyPopularSearches = "popular_searches:"
+	CacheKeyWatchProviders  = "watch_providers:"
 )
 
 // 人気検索キャッシュ関連の定数
