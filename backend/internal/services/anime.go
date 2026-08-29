@@ -173,6 +173,8 @@ func (s *AnimeService) ClearAnimeCache() {
 		// 同期でMAL IDや作品情報が更新されると再取得で成功しうるため、
 		// 「取得できなかった」記録も捨てて再挑戦させる
 		constants.CacheKeyMovieDurationMissing,
+		constants.CacheKeyBroadcastInfoMissing,
+		constants.CacheKeyReleasedOnMissing,
 	}
 
 	var wg sync.WaitGroup
