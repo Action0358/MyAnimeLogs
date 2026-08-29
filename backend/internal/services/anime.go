@@ -170,6 +170,9 @@ func (s *AnimeService) ClearAnimeCache() {
 		// 同期でtmdb_id / series_tmdb_id が更新されると配信サービスの取得結果も
 		// 変わりうるため、あわせて捨てる
 		constants.CacheKeyWatchProviders,
+		// 同期でMAL IDや作品情報が更新されると再取得で成功しうるため、
+		// 「取得できなかった」記録も捨てて再挑戦させる
+		constants.CacheKeyMovieDurationMissing,
 	}
 
 	var wg sync.WaitGroup
