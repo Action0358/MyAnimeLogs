@@ -7,7 +7,6 @@ import { usePathname } from 'next/navigation'
 import type { Route } from 'next'
 import { Menu } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { resolveAvatarUrl } from '@/lib/avatars'
 import { SUB_LOGO_PATH } from '@/lib/constants'
 import { Button } from '../ui/Button'
 import { useAuth } from '@/contexts/AuthContext'
@@ -109,9 +108,9 @@ const Header: React.FC = () => {
                 aria-label="ユーザーメニュー"
                 aria-expanded={isUserMenuOpen}
               >
-                {user.icon && !imageError ? (
+                {user.avatar_url && !imageError ? (
                   <img
-                    src={resolveAvatarUrl(user.icon) || ''}
+                    src={user.avatar_url}
                     alt={user.name}
                     className="w-10 h-10 rounded-full object-cover"
                     onError={() => setImageError(true)}

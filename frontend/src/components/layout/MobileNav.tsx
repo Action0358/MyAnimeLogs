@@ -7,7 +7,6 @@ import { ChevronRight, LogOut, X } from 'lucide-react'
 import { NavLink } from './NavLink'
 import { HOME_NAV_ITEM, NAV_ITEMS, USER_MENU_ITEMS, NAV_TEXT_STYLES } from './navigationConfig'
 import { useAuth } from '@/contexts/AuthContext'
-import { resolveAvatarUrl } from '@/lib/avatars'
 import { cn } from '@/lib/utils'
 
 interface MobileNavProps {
@@ -79,7 +78,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({ isOpen, onClose, triggerRe
     onClose()
   }
 
-  const avatarUrl = user ? resolveAvatarUrl(user.icon) : null
+  const avatarUrl = user?.avatar_url ?? null
 
   return (
     <>
