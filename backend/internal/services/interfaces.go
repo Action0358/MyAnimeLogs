@@ -13,16 +13,15 @@ type UserRepositoryInterface interface {
 	Create(user *models.User) error
 	Update(user *models.User) error
 	UpdatePartial(userID int, req models.UserUpdateRequest) (*models.User, error)
-	UpdateIcon(userID int, iconURL string) (*models.User, error)
 }
 
 // AuthServiceInterface defines the interface for user management service
 type AuthServiceInterface interface {
 	// DeleteAccount はアカウントを完全に削除する（復旧不可）
 	DeleteAccount(userID int, authUserID string) error
-	GetUserByID(userID int) (*models.UserResponse, error)
-	UpdateUser(userID int, req models.UserUpdateRequest) (*models.UserResponse, error)
-	UpdateUserIcon(userID int, iconURL string) (*models.UserResponse, error)
+	// avatarURL はSupabase JWTから取得したGoogleアカウントのプロフィール画像URL（#779）
+	GetUserByID(userID int, avatarURL string) (*models.UserResponse, error)
+	UpdateUser(userID int, req models.UserUpdateRequest, avatarURL string) (*models.UserResponse, error)
 	ExportUserData(userID int, format string) (interface{}, error)
 }
 

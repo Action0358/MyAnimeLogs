@@ -17,7 +17,6 @@ import {
 } from '@/components/favorites'
 import { useWatchStatus, WatchStatusAnime } from '@/hooks/useWatchStatus'
 import { WatchStatusStatus } from '@/lib/api/generated/myanimelogs'
-import { resolveAvatarUrl } from '@/lib/avatars'
 import { get, ApiClientError } from '@/lib/api/client'
 
 // マイページに表示する視聴ステータスの最大件数
@@ -190,10 +189,10 @@ export const MyPageContent: React.FC = () => {
 
   const avatar = (
     <div className="w-16 h-16 md:w-[88px] md:h-[88px] bg-muted rounded-full overflow-hidden flex-shrink-0">
-      {user?.icon && !imageError ? (
+      {user?.avatar_url && !imageError ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={resolveAvatarUrl(user.icon) || ''}
+          src={user.avatar_url}
           alt={user?.name || 'ユーザーアイコン'}
           className="w-full h-full object-cover"
           onError={() => setImageError(true)}

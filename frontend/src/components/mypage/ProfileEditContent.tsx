@@ -7,8 +7,6 @@ import { Container } from '@/components/layout'
 import { useAuth } from '@/contexts/AuthContext'
 import { deleteAccount } from '@/lib/api/account'
 import { DeleteAccountDialog } from './DeleteAccountDialog'
-import { AvatarPicker } from './AvatarPicker'
-import { resolveAvatarUrl } from '@/lib/avatars'
 import {
   MAX_NAME_LENGTH,
   MAX_DESCRIPTION_LENGTH,
@@ -61,19 +59,17 @@ export const ProfileEditContent: React.FC = () => {
     name,
     description,
     favoriteAnime,
-    selectedIcon,
     error,
     isLoading,
     hasChanges,
     handleNameChange,
     handleDescriptionChange,
     handleFavoriteAnimeChange,
-    handleIconSelect,
     handleSubmit,
     handleCancel,
   } = useProfileForm()
 
-  const { logout } = useAuth()
+  const { user, logout } = useAuth()
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState('')
@@ -94,7 +90,6 @@ export const ProfileEditContent: React.FC = () => {
   }
 
   const isBusy = isLoading
-  const selectedIconUrl = resolveAvatarUrl(selectedIcon)
 
   return (
     <div className="bg-muted/30 min-h-screen">
@@ -133,15 +128,15 @@ export const ProfileEditContent: React.FC = () => {
               </div>
             )}
 
-            {/* アイコン。#763 でアップロードからプリセット選択へ変更 */}
+            {/* アイコン。#779 でGoogleアカウントのプロフィール画像に一本化し、編集不可にした */}
             <div className={`${SECTION_CLASS_NAME} border-b border-border`}>
-              <div className="flex items-center gap-3.5 md:gap-5 mb-3.5 md:mb-4">
+              <div className="flex items-center gap-3.5 md:gap-5">
                 <div className="w-[60px] h-[60px] md:w-[72px] md:h-[72px] bg-muted rounded-full flex items-center justify-center overflow-hidden flex-shrink-0">
-                  {selectedIconUrl ? (
+                  {user?.avatar_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={selectedIconUrl}
-                      alt="選択中のアイコン"
+                      src={user.avatar_url}
+                      alt="アイコン"
                       className="w-full h-full object-cover"
                     />
                   ) : (
@@ -153,16 +148,10 @@ export const ProfileEditContent: React.FC = () => {
                     アイコン
                   </div>
                   <p className="text-[10.5px] md:text-[11.5px] text-muted-foreground">
-                    用意されたアイコンから選べます。選択中のものを押すと未設定に戻せます
+                    Googleアカウントのプロフィール画像が使用されます
                   </p>
                 </div>
               </div>
-
-              <AvatarPicker
-                selectedIcon={selectedIcon}
-                onSelect={handleIconSelect}
-                disabled={isBusy}
-              />
             </div>
 
             {/* 基本情報 */}

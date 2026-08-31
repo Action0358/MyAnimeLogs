@@ -27,12 +27,12 @@ func NewUserRepository(db *database.DB) *UserRepository {
 func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
 	var user models.User
 	err := r.db.QueryRow(`
-		SELECT id, name, email, description, icon, favorite_anime, sns_link,
+		SELECT id, name, email, description, favorite_anime, sns_link,
 		       auth_user_id, created_at, updated_at
 		FROM users WHERE email = $1
 	`, email).Scan(
 		&user.ID, &user.Name, &user.Email,
-		&user.Description, &user.Icon, &user.FavoriteAnime, &user.SnsLink,
+		&user.Description, &user.FavoriteAnime, &user.SnsLink,
 		&user.AuthUserID, &user.CreatedAt, &user.UpdatedAt,
 	)
 	if err != nil {
@@ -47,12 +47,12 @@ func (r *UserRepository) GetByEmail(email string) (*models.User, error) {
 func (r *UserRepository) GetByID(id int) (*models.User, error) {
 	var user models.User
 	err := r.db.QueryRow(`
-		SELECT id, name, email, description, icon, favorite_anime, sns_link,
+		SELECT id, name, email, description, favorite_anime, sns_link,
 		       auth_user_id, created_at, updated_at
 		FROM users WHERE id = $1
 	`, id).Scan(
 		&user.ID, &user.Name, &user.Email,
-		&user.Description, &user.Icon, &user.FavoriteAnime, &user.SnsLink,
+		&user.Description, &user.FavoriteAnime, &user.SnsLink,
 		&user.AuthUserID, &user.CreatedAt, &user.UpdatedAt,
 	)
 	if err != nil {
@@ -111,14 +111,14 @@ func (r *UserRepository) GetOrCreateByAuthUserID(authUserID, email, name string)
 	scanUser := func(row *sql.Row) error {
 		return row.Scan(
 			&user.ID, &user.Name, &user.Email,
-			&user.Description, &user.Icon, &user.FavoriteAnime, &user.SnsLink,
+			&user.Description, &user.FavoriteAnime, &user.SnsLink,
 			&user.AuthUserID, &user.CreatedAt, &user.UpdatedAt,
 		)
 	}
 
 	// 1. Existing Supabase user (most requests after migration)
 	err := scanUser(r.db.QueryRow(`
-		SELECT id, name, email, description, icon, favorite_anime, sns_link,
+		SELECT id, name, email, description, favorite_anime, sns_link,
 		       auth_user_id, created_at, updated_at
 		FROM users WHERE auth_user_id = $1
 	`, authUserID))
@@ -145,11 +145,11 @@ func (r *UserRepository) GetOrCreateByAuthUserID(authUserID, email, name string)
 		    updated_at = CURRENT_TIMESTAMP
 		FROM target
 		WHERE u.id = target.id
-		RETURNING u.id, u.name, u.email, u.description, u.icon, u.favorite_anime, u.sns_link,
+		RETURNING u.id, u.name, u.email, u.description, u.favorite_anime, u.sns_link,
 		          u.auth_user_id, u.created_at, u.updated_at, target.previous_auth_user_id
 	`, authUserID, email, name).Scan(
 		&user.ID, &user.Name, &user.Email,
-		&user.Description, &user.Icon, &user.FavoriteAnime, &user.SnsLink,
+		&user.Description, &user.FavoriteAnime, &user.SnsLink,
 		&user.AuthUserID, &user.CreatedAt, &user.UpdatedAt, &previousAuthUserID,
 	)
 	if err == nil {
@@ -168,7 +168,7 @@ func (r *UserRepository) GetOrCreateByAuthUserID(authUserID, email, name string)
 		VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 		ON CONFLICT (auth_user_id) WHERE auth_user_id IS NOT NULL
 		DO UPDATE SET name = EXCLUDED.name, email = EXCLUDED.email, updated_at = CURRENT_TIMESTAMP
-		RETURNING id, name, email, description, icon, favorite_anime, sns_link,
+		RETURNING id, name, email, description, favorite_anime, sns_link,
 		          auth_user_id, created_at, updated_at
 	`, name, email, authUserID))
 	if err != nil {
@@ -208,11 +208,11 @@ func (r *UserRepository) Create(user *models.User) error {
 
 func (r *UserRepository) Update(user *models.User) error {
 	err := r.db.QueryRow(`
-		UPDATE users SET name = $1, description = $2, icon = $3, updated_at = CURRENT_TIMESTAMP
-		WHERE id = $4
-		RETURNING id, name, email, description, icon, created_at, updated_at
-	`, user.Name, user.Description, user.Icon, user.ID).Scan(
-		&user.ID, &user.Name, &user.Email, &user.Description, &user.Icon, &user.CreatedAt, &user.UpdatedAt,
+		UPDATE users SET name = $1, description = $2, updated_at = CURRENT_TIMESTAMP
+		WHERE id = $3
+		RETURNING id, name, email, description, created_at, updated_at
+	`, user.Name, user.Description, user.ID).Scan(
+		&user.ID, &user.Name, &user.Email, &user.Description, &user.CreatedAt, &user.UpdatedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to update user: %w", err)
@@ -238,19 +238,6 @@ func (r *UserRepository) UpdatePartial(userID int, req models.UserUpdateRequest)
 	addFieldToUpdate(&setParts, &args, &argIndex, "favorite_anime", req.FavoriteAnime)
 	addFieldToUpdate(&setParts, &args, &argIndex, "sns_link", req.SnsLink)
 
-	// アイコンは空文字を「未設定」として NULL で保存する。
-	// 空文字のまま入れると、マイグレーション044 が未設定を NULL としたのと
-	// 表現が食い違い、同じ状態が2通りの値で表現されてしまう。
-	if req.Icon != nil {
-		if *req.Icon == "" {
-			setParts = append(setParts, "icon = NULL")
-		} else {
-			setParts = append(setParts, fmt.Sprintf("icon = $%d", argIndex))
-			args = append(args, *req.Icon)
-			argIndex++
-		}
-	}
-
 	if len(setParts) == 0 {
 		return r.GetByID(userID)
 	}
@@ -261,45 +248,17 @@ func (r *UserRepository) UpdatePartial(userID int, req models.UserUpdateRequest)
 	query := fmt.Sprintf(`
 		UPDATE users SET %s
 		WHERE id = $%d
-		RETURNING id, name, email, description, icon, favorite_anime, sns_link,
+		RETURNING id, name, email, description, favorite_anime, sns_link,
 		          auth_user_id, created_at, updated_at
 	`, strings.Join(setParts, ", "), argIndex)
 
 	var user models.User
 	err := r.db.QueryRow(query, args...).Scan(
-		&user.ID, &user.Name, &user.Email, &user.Description, &user.Icon,
+		&user.ID, &user.Name, &user.Email, &user.Description,
 		&user.FavoriteAnime, &user.SnsLink, &user.AuthUserID, &user.CreatedAt, &user.UpdatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update user: %w", err)
-	}
-
-	return &user, nil
-}
-
-// UpdateIcon updates only the user's icon field.
-func (r *UserRepository) UpdateIcon(userID int, iconURL string) (*models.User, error) {
-	var user models.User
-	var iconValue interface{}
-
-	if iconURL == "" {
-		iconValue = nil
-	} else {
-		iconValue = iconURL
-	}
-
-	err := r.db.QueryRow(`
-		UPDATE users SET icon = $1, updated_at = CURRENT_TIMESTAMP
-		WHERE id = $2
-		RETURNING id, name, email, description, icon, favorite_anime, sns_link,
-		          auth_user_id, created_at, updated_at
-	`, iconValue, userID).Scan(
-		&user.ID, &user.Name, &user.Email, &user.Description, &user.Icon,
-		&user.FavoriteAnime, &user.SnsLink, &user.AuthUserID, &user.CreatedAt, &user.UpdatedAt,
-	)
-
-	if err != nil {
-		return nil, fmt.Errorf("failed to update user icon: %w", err)
 	}
 
 	return &user, nil
