@@ -14,21 +14,18 @@ export interface UseProfileFormResult {
   name: string
   description: string
   favoriteAnime: string
-  selectedIcon: string | null
   error: string
   isLoading: boolean
   hasChanges: boolean
   handleNameChange: (e: React.ChangeEvent<HTMLInputElement>) => void
   handleDescriptionChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void
   handleFavoriteAnimeChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => void
-  handleIconSelect: (iconID: string) => void
   handleSubmit: (e: React.FormEvent) => Promise<void>
   handleCancel: () => void
 }
 
 // プロフィール編集フォームの状態・バリデーション・変更検知・保存処理を集約したフック。
-// アイコンは #763 でアップロードからプリセット選択へ変更した。
-// 画像の実体を持たず、選択したIDを他のプロフィール項目と同じ更新APIで送る。
+// アイコンは #779 でGoogleアカウントのプロフィール画像に一本化し、編集対象から外した。
 export const useProfileForm = (): UseProfileFormResult => {
   const { user, updateUser } = useAuth()
   const router = useRouter()
@@ -44,27 +41,18 @@ export const useProfileForm = (): UseProfileFormResult => {
   const [isLoading, setIsLoading] = useState(false)
   const [hasChanges, setHasChanges] = useState(false)
 
-  const [selectedIcon, setSelectedIcon] = useState<string | null>(user?.icon ?? null)
-
   // 変更検知（初期値と現在値を比較）
   const checkForChanges = (
     newName: string,
     newDescription: string,
-    newFavoriteAnime: string,
-    newIcon: string | null = selectedIcon
+    newFavoriteAnime: string
   ) => {
     const nameChanged = newName !== initialValues.name
     const descriptionChanged = newDescription !== initialValues.description
     const favoriteAnimeChanged =
       newFavoriteAnime !== initialValues.favoriteAnime
-    const iconChanged = newIcon !== (user?.icon ?? null)
 
-    setHasChanges(
-      nameChanged ||
-        descriptionChanged ||
-        favoriteAnimeChanged ||
-        iconChanged
-    )
+    setHasChanges(nameChanged || descriptionChanged || favoriteAnimeChanged)
   }
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -87,14 +75,6 @@ export const useProfileForm = (): UseProfileFormResult => {
     const newFavoriteAnime = e.target.value
     setFavoriteAnime(newFavoriteAnime)
     checkForChanges(name, description, newFavoriteAnime)
-  }
-
-  const handleIconSelect = (iconID: string) => {
-    // 選択済みのものを再度押したら解除する（未設定に戻せる導線がないため）
-    const next = selectedIcon === iconID ? null : iconID
-    setSelectedIcon(next)
-    setError('')
-    checkForChanges(name, description, favoriteAnime, next)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -124,8 +104,6 @@ export const useProfileForm = (): UseProfileFormResult => {
         name: name.trim(),
         description: description.trim(),
         favorite_anime: favoriteAnime.trim() || null,
-        // 未選択は空文字で送る。null だと omitempty で無視され、解除できない
-        icon: selectedIcon ?? '',
       }
 
       const data = await put<{ user: any }>('/api/users/me', requestBody)
@@ -163,14 +141,12 @@ export const useProfileForm = (): UseProfileFormResult => {
     name,
     description,
     favoriteAnime,
-    selectedIcon,
     error,
     isLoading,
     hasChanges,
     handleNameChange,
     handleDescriptionChange,
     handleFavoriteAnimeChange,
-    handleIconSelect,
     handleSubmit,
     handleCancel,
   }

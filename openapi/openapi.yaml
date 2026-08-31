@@ -92,7 +92,6 @@ paths:
 
         auth.users の削除に伴い、public.users・お気に入り・視聴状況が連鎖削除されます。
         検索ログは user_id が NULL になり、匿名化された状態で残ります。
-        アップロード済みのプロフィール画像も削除されます。
 
         削除後もJWTは有効期限（最大1時間）まで残るため、
         クライアントは成功後ただちにサインアウトしてトークンを破棄してください。
@@ -1243,14 +1242,15 @@ components:
           nullable: true
           maxLength: 10000
           example: "アニメが大好きです"
-        icon:
+        avatar_url:
           type: string
+          format: uri
           nullable: true
           description: |
-            プリセットアバターのID。画像アップロードは廃止したため、
-            許可された値以外は保存できない。未設定の場合は null。
-          enum: ["preset-01", "preset-02", "preset-03", "preset-04", "preset-05", "preset-06", "preset-07", "preset-08"]
-          example: "preset-03"
+            Googleアカウントのプロフィール画像URL。DBには保持せず、
+            認証時にSupabase JWT（user_metadata.avatar_url/picture）から
+            都度取得する。未設定の場合は null。
+          example: "https://lh3.googleusercontent.com/a/example"
         favorite_anime:
           type: string
           nullable: true

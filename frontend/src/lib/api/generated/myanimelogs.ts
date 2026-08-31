@@ -47,27 +47,6 @@ export interface Error {
   details?: ErrorDetails;
 }
 
-/**
- * プリセットアバターのID。画像アップロードは廃止したため、
-許可された値以外は保存できない。未設定の場合は null。
-
- * @nullable
- */
-export type UserIcon = typeof UserIcon[keyof typeof UserIcon] | null;
-
-
-// eslint-disable-next-line @typescript-eslint/no-redeclare
-export const UserIcon = {
-  'preset-01': 'preset-01',
-  'preset-02': 'preset-02',
-  'preset-03': 'preset-03',
-  'preset-04': 'preset-04',
-  'preset-05': 'preset-05',
-  'preset-06': 'preset-06',
-  'preset-07': 'preset-07',
-  'preset-08': 'preset-08',
-} as const;
-
 export interface User {
   id?: number;
   name?: string;
@@ -78,12 +57,13 @@ export interface User {
    */
   description?: string | null;
   /**
-   * プリセットアバターのID。画像アップロードは廃止したため、
-許可された値以外は保存できない。未設定の場合は null。
+   * Googleアカウントのプロフィール画像URL。DBには保持せず、
+認証時にSupabase JWT（user_metadata.avatar_url/picture）から
+都度取得する。未設定の場合は null。
 
    * @nullable
    */
-  icon?: UserIcon;
+  avatar_url?: string | null;
   /**
    * @maxLength 300
    * @nullable
@@ -1003,7 +983,6 @@ export const usePutUsersMe = <TError = AxiosError<Error | Error>,
 
 auth.users の削除に伴い、public.users・お気に入り・視聴状況が連鎖削除されます。
 検索ログは user_id が NULL になり、匿名化された状態で残ります。
-アップロード済みのプロフィール画像も削除されます。
 
 削除後もJWTは有効期限（最大1時間）まで残るため、
 クライアントは成功後ただちにサインアウトしてトークンを破棄してください。

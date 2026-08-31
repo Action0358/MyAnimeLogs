@@ -183,6 +183,21 @@ func isAdminFromClaims(claims *SupabaseClaims) bool {
 	return false
 }
 
+// avatarURLFromClaims extracts the user's avatar image URL from Supabase JWT metadata.
+// Google 認証では avatar_url または picture にプロフィール画像URLが入る（プロバイダ依存のため両対応）。
+func avatarURLFromClaims(claims *SupabaseClaims) string {
+	if claims.UserMetadata == nil {
+		return ""
+	}
+	if u, ok := claims.UserMetadata["avatar_url"].(string); ok && u != "" {
+		return u
+	}
+	if u, ok := claims.UserMetadata["picture"].(string); ok && u != "" {
+		return u
+	}
+	return ""
+}
+
 // nameFromClaims extracts a display name from Supabase JWT metadata.
 func nameFromClaims(claims *SupabaseClaims) string {
 	if claims.UserMetadata != nil {
@@ -364,6 +379,7 @@ func SupabaseAuthMiddleware(db *database.DB, jwtSecret string, logger *common.Lo
 		c.Set("user_id", userID)
 		c.Set("user_email", email)
 		c.Set("user_name", name)
+		c.Set("user_avatar_url", avatarURLFromClaims(claims))
 		c.Set("is_admin", isAdminFromClaims(claims))
 		c.Next()
 	}
@@ -409,6 +425,7 @@ func OptionalSupabaseAuthMiddleware(db *database.DB, jwtSecret string, logger *c
 		c.Set("user_id", userID)
 		c.Set("user_email", email)
 		c.Set("user_name", name)
+		c.Set("user_avatar_url", avatarURLFromClaims(claims))
 		c.Set("is_admin", isAdminFromClaims(claims))
 		c.Next()
 	}

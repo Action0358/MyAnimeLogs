@@ -70,7 +70,7 @@ func (s *AuthService) DeleteAccount(userID int, authUserID string) error {
 	return nil
 }
 
-func (s *AuthService) GetUserByID(userID int) (*models.UserResponse, error) {
+func (s *AuthService) GetUserByID(userID int, avatarURL string) (*models.UserResponse, error) {
 	user, err := s.getRepository().GetByID(userID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user: %w", err)
@@ -78,27 +78,19 @@ func (s *AuthService) GetUserByID(userID int) (*models.UserResponse, error) {
 	if user == nil {
 		return nil, ErrUserNotFound
 	}
-	return toUserResponse(user), nil
+	return toUserResponse(user, avatarURL), nil
 }
 
-func (s *AuthService) UpdateUser(userID int, req models.UserUpdateRequest) (*models.UserResponse, error) {
+func (s *AuthService) UpdateUser(userID int, req models.UserUpdateRequest, avatarURL string) (*models.UserResponse, error) {
 	user, err := s.getRepository().UpdatePartial(userID, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update user: %w", err)
 	}
-	return toUserResponse(user), nil
-}
-
-func (s *AuthService) UpdateUserIcon(userID int, iconURL string) (*models.UserResponse, error) {
-	user, err := s.getRepository().UpdateIcon(userID, iconURL)
-	if err != nil {
-		return nil, fmt.Errorf("failed to update user icon: %w", err)
-	}
-	return toUserResponse(user), nil
+	return toUserResponse(user, avatarURL), nil
 }
 
 func (s *AuthService) ExportUserData(userID int, format string) (interface{}, error) {
-	user, err := s.GetUserByID(userID)
+	user, err := s.GetUserByID(userID, "")
 	if err != nil {
 		return nil, err
 	}
@@ -159,13 +151,17 @@ func (s *AuthService) ExportUserData(userID int, format string) (interface{}, er
 	return data, nil
 }
 
-func toUserResponse(user *models.User) *models.UserResponse {
+func toUserResponse(user *models.User, avatarURL string) *models.UserResponse {
+	var avatarURLPtr *string
+	if avatarURL != "" {
+		avatarURLPtr = &avatarURL
+	}
 	return &models.UserResponse{
 		ID:            user.ID,
 		Name:          user.Name,
 		Email:         user.Email,
 		Description:   user.Description,
-		Icon:          user.Icon,
+		AvatarURL:     avatarURLPtr,
 		FavoriteAnime: user.FavoriteAnime,
 		SnsLink:       user.SnsLink,
 		CreatedAt:     user.CreatedAt,
