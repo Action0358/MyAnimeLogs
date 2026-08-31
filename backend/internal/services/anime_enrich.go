@@ -370,6 +370,14 @@ func (s *AnimeService) enrichAnimeWithReleasedOn(anime *models.Anime) {
 		return
 	}
 
+	// 取得できなかったことを記録しないと、放送開始日が欠けている作品で
+	// 詳細取得のたびに同じ問い合わせを同期的に繰り返す
+	ctx, cancel := context.WithTimeout(context.Background(), constants.BackgroundTaskDBTimeout)
+	defer cancel()
+	if s.isEnrichKnownMissing(ctx, constants.CacheKeyReleasedOnMissing, anime.ID) {
+		return
+	}
+
 	// Jikan APIから放送開始日を取得
 	releasedOn, err := s.jikanClient.GetAnimeAiredDate(*anime.MalAnimeID)
 	if err != nil {
@@ -377,10 +385,12 @@ func (s *AnimeService) enrichAnimeWithReleasedOn(anime *models.Anime) {
 			"error", err,
 			"mal_anime_id", *anime.MalAnimeID,
 			"anime_title", anime.Title)
+		s.markEnrichMissing(ctx, constants.CacheKeyReleasedOnMissing, anime.ID, constants.JikanEnrichErrorCacheTTL)
 		return
 	}
 
 	if releasedOn == "" {
+		s.markEnrichMissing(ctx, constants.CacheKeyReleasedOnMissing, anime.ID, constants.JikanEnrichMissingCacheTTL)
 		return
 	}
 
@@ -430,6 +440,15 @@ func (s *AnimeService) enrichAnimeWithMovieDuration(anime *models.Anime) {
 		return
 	}
 
+	// 取得できなかったことを覚えていないと、Jikanにデータが無い作品では
+	// 詳細取得のたびに同じ問い合わせを同期的に繰り返し、待ち時間が永久に解消しない。
+	// 成功時はDBの duration_minutes に残るため、ここでは失敗だけを記憶する。
+	ctx, cancel := context.WithTimeout(context.Background(), constants.BackgroundTaskDBTimeout)
+	defer cancel()
+	if s.isEnrichKnownMissing(ctx, constants.CacheKeyMovieDurationMissing, anime.ID) {
+		return
+	}
+
 	// Jikan APIから上映時間を取得
 	duration, err := s.jikanClient.GetAnimeDuration(*anime.MalAnimeID)
 	if err != nil {
@@ -437,10 +456,14 @@ func (s *AnimeService) enrichAnimeWithMovieDuration(anime *models.Anime) {
 			"error", err,
 			"mal_anime_id", *anime.MalAnimeID,
 			"anime_title", anime.Title)
+		// レート制限や一時的な障害の可能性があるため、短めに抑える
+		s.markEnrichMissing(ctx, constants.CacheKeyMovieDurationMissing, anime.ID, constants.JikanEnrichErrorCacheTTL)
 		return
 	}
 
 	if duration <= 0 {
+		// Jikan側に上映時間が無い作品。次に増える見込みは薄いので長めに保持する
+		s.markEnrichMissing(ctx, constants.CacheKeyMovieDurationMissing, anime.ID, constants.JikanEnrichMissingCacheTTL)
 		return
 	}
 
@@ -485,6 +508,15 @@ func (s *AnimeService) enrichAnimeWithBroadcastInfo(anime *models.Anime) {
 		return
 	}
 
+	// 取得できなかったことを覚えていないと、放送情報が無い作品では詳細取得のたびに
+	// 同じ問い合わせを同期的に繰り返す。broadcast_day が NULL の作品はほぼ全件のため、
+	// これが実質すべてのアニメ詳細ページの応答時間に乗っている。
+	ctx, cancel := context.WithTimeout(context.Background(), constants.BackgroundTaskDBTimeout)
+	defer cancel()
+	if s.isEnrichKnownMissing(ctx, constants.CacheKeyBroadcastInfoMissing, anime.ID) {
+		return
+	}
+
 	// Jikan APIから放送情報を取得
 	broadcast, err := s.jikanClient.GetBroadcastInfo(*anime.MalAnimeID)
 	if err != nil {
@@ -492,10 +524,12 @@ func (s *AnimeService) enrichAnimeWithBroadcastInfo(anime *models.Anime) {
 			"error", err,
 			"mal_anime_id", *anime.MalAnimeID,
 			"anime_title", anime.Title)
+		s.markEnrichMissing(ctx, constants.CacheKeyBroadcastInfoMissing, anime.ID, constants.JikanEnrichErrorCacheTTL)
 		return
 	}
 
 	if broadcast == nil {
+		s.markEnrichMissing(ctx, constants.CacheKeyBroadcastInfoMissing, anime.ID, constants.JikanEnrichMissingCacheTTL)
 		return
 	}
 
@@ -510,8 +544,11 @@ func (s *AnimeService) enrichAnimeWithBroadcastInfo(anime *models.Anime) {
 		anime.BroadcastTimezone = broadcast.Timezone
 	}
 
-	// 放送曜日がない場合はDB保存もスキップ
+	// 放送曜日がない場合はDB保存もスキップ。
+	// Jikanは応答したが曜日を持たない作品で、このまま返すと何も永続化されず
+	// 次回また同じ問い合わせをするため、取得できなかったこととして記録する。
 	if anime.BroadcastDay == nil {
+		s.markEnrichMissing(ctx, constants.CacheKeyBroadcastInfoMissing, anime.ID, constants.JikanEnrichMissingCacheTTL)
 		return
 	}
 
@@ -628,6 +665,13 @@ func (s *AnimeService) enrichAnimeWithWatchProviders(animeWithData *models.Anime
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	// キャッシュヒット時はTMDBを一切叩かずに返す。詳細取得はこのenrichが
+	// 唯一の同期外部API呼び出しで、ここがレスポンス時間の大半を占めるため。
+	if cached, ok := s.getCachedWatchProviders(ctx, animeWithData.ID); ok {
+		animeWithData.WatchProviders = cached
+		return
+	}
+
 	// First, try to get TMDB ID and series_tmdb_id from database
 	var tmdbID int
 	var seriesTMDBID sql.NullInt64
@@ -636,6 +680,8 @@ func (s *AnimeService) enrichAnimeWithWatchProviders(animeWithData *models.Anime
 
 	// Determine media type (movie or tv)
 	mediaType := "tv" // Default to TV
+	// mediaTypeKnown が false のときだけ、反対の mediaType での再試行に意味がある
+	mediaTypeKnown := false
 	malID := ""
 	if animeWithData.MalAnimeID != nil {
 		malID = *animeWithData.MalAnimeID
@@ -644,9 +690,9 @@ func (s *AnimeService) enrichAnimeWithWatchProviders(animeWithData *models.Anime
 	// Use series_tmdb_id if available (for series works)
 	if err == nil && seriesTMDBID.Valid && seriesTMDBID.Int64 > 0 {
 		tmdbID = int(seriesTMDBID.Int64)
-		mediaType = s.determineMediaType(ctx, dbMediaType, animeWithData.Media, malID)
+		mediaType, mediaTypeKnown = s.determineMediaType(ctx, dbMediaType, animeWithData.Media, malID)
 	} else if err == nil && tmdbID > 0 {
-		mediaType = s.determineMediaType(ctx, dbMediaType, animeWithData.Media, malID)
+		mediaType, mediaTypeKnown = s.determineMediaType(ctx, dbMediaType, animeWithData.Media, malID)
 
 		// series_tmdb_idが未設定の場合、tmdb_idから設定（非同期）
 		if !seriesTMDBID.Valid || seriesTMDBID.Int64 == 0 {
@@ -683,7 +729,9 @@ func (s *AnimeService) enrichAnimeWithWatchProviders(animeWithData *models.Anime
 		}
 		tmdbID = foundID
 		// Use the media type returned by FindTMDBID (this is the actual type from TMDB)
+		// TMDB自身が返した型なので、反対側を試す必要はない
 		mediaType = foundMediaType
+		mediaTypeKnown = true
 
 		// Save TMDB ID and series_tmdb_id to database for future use (async)
 		animeID := animeWithData.ID
@@ -694,18 +742,20 @@ func (s *AnimeService) enrichAnimeWithWatchProviders(animeWithData *models.Anime
 		})
 	}
 
-	// Get watch providers from TMDB with fallback (try other mediaType if not found)
-	providers, err := s.tmdbClient.GetJapaneseWatchProvidersWithFallback(ctx, tmdbID, mediaType)
+	// mediaTypeが確定している場合は反対の型を試さない。TVのIDを /movie/ に投げても
+	// TMDBは正しい答えを返さず、待ち時間を増やしてレート制限を消費するだけになる。
+	var providers []TMDBProvider
+	if mediaTypeKnown {
+		providers, err = s.tmdbClient.GetJapaneseWatchProviders(ctx, tmdbID, mediaType)
+	} else {
+		providers, err = s.tmdbClient.GetJapaneseWatchProvidersWithFallback(ctx, tmdbID, mediaType)
+	}
 	if err != nil {
 		s.logger.Debug("Failed to get watch providers from TMDB",
 			"anime_id", animeWithData.ID,
 			"tmdb_id", tmdbID,
 			"media_type", mediaType,
 			"error", err)
-		return
-	}
-
-	if len(providers) == 0 {
 		return
 	}
 
@@ -719,5 +769,75 @@ func (s *AnimeService) enrichAnimeWithWatchProviders(animeWithData *models.Anime
 		})
 	}
 
+	// 0件も含めてキャッシュする。配信サービスが無い作品ほどフォールバックまで
+	// 走って遅くなるため、そこを繰り返さないことが効果的。
+	s.cacheWatchProviders(ctx, animeWithData.ID, watchProviders)
+
+	if len(watchProviders) == 0 {
+		return
+	}
 	animeWithData.WatchProviders = watchProviders
+}
+
+// getCachedWatchProviders は作品の配信サービスをRedisから取得する。
+// 「0件」も有効なキャッシュ値として扱うため、戻り値のsliceの長さではなく
+// 2つ目の戻り値でヒット有無を判定する。
+func (s *AnimeService) getCachedWatchProviders(ctx context.Context, animeID int) ([]models.WatchProvider, bool) {
+	if s.redisCache == nil {
+		return nil, false
+	}
+	var cached []models.WatchProvider
+	found, err := s.redisCache.Get(ctx, watchProvidersCacheKey(animeID), &cached)
+	if err != nil {
+		s.logger.Debug("Failed to read watch providers from cache", "anime_id", animeID, "error", err)
+		return nil, false
+	}
+	return cached, found
+}
+
+func (s *AnimeService) cacheWatchProviders(ctx context.Context, animeID int, providers []models.WatchProvider) {
+	if s.redisCache == nil {
+		return
+	}
+	if err := s.redisCache.Set(ctx, watchProvidersCacheKey(animeID), providers, constants.WatchProvidersCacheTTL); err != nil {
+		s.logger.Debug("Failed to cache watch providers", "anime_id", animeID, "error", err)
+	}
+}
+
+func watchProvidersCacheKey(animeID int) string {
+	return fmt.Sprintf("%s%d", constants.CacheKeyWatchProviders, animeID)
+}
+
+// isEnrichKnownMissing は、直近のJikan問い合わせで当該項目を取得できなかった作品か
+// どうかを返す。キーの有無だけが意味を持つため、格納した値は使わない。
+//
+// Jikanは成功時しかDBに永続化されない項目が複数あり、記録しないと「データが無い作品」に
+// 対して詳細取得のたびに同じ問い合わせを同期的に繰り返してしまう。3req/秒のレート制限を
+// 使い切ってリトライ待ちが発生するため、取得できなかったこと自体を覚えておく。
+func (s *AnimeService) isEnrichKnownMissing(ctx context.Context, keyPrefix string, animeID int) bool {
+	if s.redisCache == nil {
+		return false
+	}
+	var placeholder bool
+	found, err := s.redisCache.Get(ctx, enrichMissingCacheKey(keyPrefix, animeID), &placeholder)
+	if err != nil {
+		s.logger.Debug("Failed to read enrich miss cache",
+			"key_prefix", keyPrefix, "anime_id", animeID, "error", err)
+		return false
+	}
+	return found
+}
+
+func (s *AnimeService) markEnrichMissing(ctx context.Context, keyPrefix string, animeID int, ttl time.Duration) {
+	if s.redisCache == nil {
+		return
+	}
+	if err := s.redisCache.Set(ctx, enrichMissingCacheKey(keyPrefix, animeID), true, ttl); err != nil {
+		s.logger.Debug("Failed to cache enrich miss",
+			"key_prefix", keyPrefix, "anime_id", animeID, "error", err)
+	}
+}
+
+func enrichMissingCacheKey(keyPrefix string, animeID int) string {
+	return fmt.Sprintf("%s%d", keyPrefix, animeID)
 }
