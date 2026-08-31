@@ -32,7 +32,10 @@ func (h *AuthHandler) GetMe(c *gin.Context) {
 		return
 	}
 
-	user, err := h.authService.GetUserByID(userID)
+	avatarURL, _ := c.Get("user_avatar_url")
+	avatarURLStr, _ := avatarURL.(string)
+
+	user, err := h.authService.GetUserByID(userID, avatarURLStr)
 	if err != nil {
 		h.response.NotFoundError(c, "ユーザーが見つかりません")
 		return
@@ -61,15 +64,10 @@ func (h *AuthHandler) UpdateMe(c *gin.Context) {
 		}
 	}
 
-	// 任意のURLを icon に入れられないよう許可リストで検証する。
-	// これを省くと、アップロード廃止（#763）の目的である
-	// 「外部画像を持ち込ませない」が達成できない。
-	if req.Icon != nil && !models.IsValidPresetAvatarID(*req.Icon) {
-		h.response.ValidationError(c, "指定されたアイコンは選択できません")
-		return
-	}
+	avatarURL, _ := c.Get("user_avatar_url")
+	avatarURLStr, _ := avatarURL.(string)
 
-	user, err := h.authService.UpdateUser(userID, req)
+	user, err := h.authService.UpdateUser(userID, req, avatarURLStr)
 	if err != nil {
 		h.response.InternalServerError(c, "プロフィール更新に失敗しました")
 		return

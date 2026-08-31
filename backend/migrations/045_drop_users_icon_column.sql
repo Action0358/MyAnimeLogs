@@ -1,0 +1,11 @@
+-- アイコン機能をGoogleアカウントのアイコンに一本化する（#779）
+--
+-- 背景:
+-- 認証はGoogleソーシャルログインのみを利用しており、SupabaseのJWTに
+-- Googleのプロフィール画像URL（user_metadata.avatar_url / picture）が
+-- 既に含まれている。プリセットアイコン選択方式（#763）を廃止し、
+-- 認証時にJWTから都度取得する方式に切り替えるため、DBでの保持が不要になった。
+--
+-- 冪等性:
+-- IF EXISTS のため再実行しても影響はない。
+ALTER TABLE users DROP COLUMN IF EXISTS icon;
