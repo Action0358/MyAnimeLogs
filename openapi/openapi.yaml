@@ -32,59 +32,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
-    put:
-      summary: マイページ情報を更新
-      security:
-        - bearerAuth: []
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                name:
-                  type: string
-                  minLength: 1
-                  maxLength: 100
-                  example: "山田 太郎"
-                description:
-                  type: string
-                  maxLength: 10000
-                  example: "アニメが大好きです"
-                favorite_anime:
-                  type: string
-                  maxLength: 300
-                  example: "鬼滅の刃、進撃の巨人"
-                sns_link:
-                  type: string
-                  format: uri
-                  maxLength: 500
-                  example: "https://twitter.com/example"
-      responses:
-        "200":
-          description: プロフィールを更新しました
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  message:
-                    type: string
-                    example: "プロフィールを更新しました。"
-                  user:
-                    $ref: "#/components/schemas/User"
-        "400":
-          description: バリデーションエラー
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-        "401":
-          description: 認証が必要です
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
     delete:
       summary: アカウントを削除
       description: |
@@ -1237,11 +1184,6 @@ components:
           type: string
           format: email
           example: "taro@example.com"
-        description:
-          type: string
-          nullable: true
-          maxLength: 10000
-          example: "アニメが大好きです"
         avatar_url:
           type: string
           format: uri
@@ -1251,17 +1193,6 @@ components:
             認証時にSupabase JWT（user_metadata.avatar_url/picture）から
             都度取得する。未設定の場合は null。
           example: "https://lh3.googleusercontent.com/a/example"
-        favorite_anime:
-          type: string
-          nullable: true
-          maxLength: 300
-          example: "鬼滅の刃、進撃の巨人"
-        sns_link:
-          type: string
-          format: uri
-          nullable: true
-          maxLength: 500
-          example: "https://twitter.com/example"
         created_at:
           type: string
           format: date-time

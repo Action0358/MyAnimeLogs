@@ -11,8 +11,6 @@ type UserRepositoryInterface interface {
 	GetByEmail(email string) (*models.User, error)
 	GetOrCreateByAuthUserID(authUserID, email, name string) (*models.User, repository.AuthLinkResult, error)
 	Create(user *models.User) error
-	Update(user *models.User) error
-	UpdatePartial(userID int, req models.UserUpdateRequest) (*models.User, error)
 }
 
 // AuthServiceInterface defines the interface for user management service
@@ -21,7 +19,6 @@ type AuthServiceInterface interface {
 	DeleteAccount(userID int, authUserID string) error
 	// avatarURL はSupabase JWTから取得したGoogleアカウントのプロフィール画像URL（#779）
 	GetUserByID(userID int, avatarURL string) (*models.UserResponse, error)
-	UpdateUser(userID int, req models.UserUpdateRequest, avatarURL string) (*models.UserResponse, error)
 	ExportUserData(userID int, format string) (interface{}, error)
 }
 

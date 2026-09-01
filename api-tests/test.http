@@ -29,57 +29,15 @@ GET {{baseUrl}}/health
 ### 2. 詳細ヘルスチェック
 GET {{baseUrl}}/health/detailed
 
-### ===== プロフィール管理API =====
+### ===== ユーザー情報API =====
 
-### 3. プロフィール取得
+### 3. ユーザー情報取得
 GET {{baseUrl}}/api/users/me
 Authorization: Bearer {{supabaseToken}}
 
-### 4. プロフィール更新
-PUT {{baseUrl}}/api/users/me
-Content-Type: {{contentType}}
-Authorization: Bearer {{supabaseToken}}
-
-{
-  "name": "更新されたAPIテストユーザー",
-  "description": "REST Clientでテスト中のユーザーです",
-  "favorite_anime": "アクション、ファンタジー系のアニメが好きです",
-  "sns_link": "https://twitter.com/apitest"
-}
-
-### 4-1. アイコンの選択
-# 画像アップロードは廃止し、プリセットからの選択に変更した（#763）。
-# icon には許可されたプリセットIDのみを指定できる。
-PUT {{baseUrl}}/api/users/me
-Content-Type: {{contentType}}
-Authorization: Bearer {{supabaseToken}}
-
-{
-  "name": "APIテストユーザー",
-  "icon": "preset-03"
-}
-
-### 4-2. アイコンの解除（未設定に戻す）
-# null ではなく空文字を送る。null は omitempty で無視され解除できない
-PUT {{baseUrl}}/api/users/me
-Content-Type: {{contentType}}
-Authorization: Bearer {{supabaseToken}}
-
-{
-  "name": "APIテストユーザー",
-  "icon": ""
-}
-
-### 4-3. 許可されていないアイコン（400エラー）
-# 任意のURLを保存できないことの確認
-PUT {{baseUrl}}/api/users/me
-Content-Type: {{contentType}}
-Authorization: Bearer {{supabaseToken}}
-
-{
-  "name": "APIテストユーザー",
-  "icon": "https://example.com/evil.png"
-}
+# PUT /api/users/me は #789 で廃止した。
+# プロフィールの自由記述項目を撤去し、表示名・アイコンはGoogleアカウント由来で
+# 固定したため、ユーザーが更新できる項目が無くなった。
 
 ### 5. データエクスポート（JSON）
 GET {{baseUrl}}/api/users/me/export?format=json

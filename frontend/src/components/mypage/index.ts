@@ -1,2 +1,2 @@
 export { MyPageContent } from './MyPageContent';
-export { ProfileEditContent } from './ProfileEditContent';
+export { SettingsContent } from './SettingsContent';
