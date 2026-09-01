@@ -52,11 +52,6 @@ export interface User {
   name?: string;
   email?: string;
   /**
-   * @maxLength 10000
-   * @nullable
-   */
-  description?: string | null;
-  /**
    * Googleアカウントのプロフィール画像URL。DBには保持せず、
 認証時にSupabase JWT（user_metadata.avatar_url/picture）から
 都度取得する。未設定の場合は null。
@@ -64,16 +59,6 @@ export interface User {
    * @nullable
    */
   avatar_url?: string | null;
-  /**
-   * @maxLength 300
-   * @nullable
-   */
-  favorite_anime?: string | null;
-  /**
-   * @maxLength 500
-   * @nullable
-   */
-  sns_link?: string | null;
   created_at?: string;
 }
 
@@ -334,25 +319,6 @@ export interface SearchLog {
  * 管理者権限がありません（管理者以外のユーザー）
  */
 export type ForbiddenErrorResponse = Error;
-
-export type PutUsersMeBody = {
-  /**
-   * @minLength 1
-   * @maxLength 100
-   */
-  name?: string;
-  /** @maxLength 10000 */
-  description?: string;
-  /** @maxLength 300 */
-  favorite_anime?: string;
-  /** @maxLength 500 */
-  sns_link?: string;
-};
-
-export type PutUsersMe200 = {
-  message?: string;
-  user?: User;
-};
 
 export type DeleteUsersMe200 = {
   message?: string;
@@ -916,68 +882,6 @@ export function useGetUsersMe<TData = Awaited<ReturnType<typeof getUsersMe>>, TE
 
 
 
-/**
- * @summary マイページ情報を更新
- */
-export const putUsersMe = (
-    putUsersMeBody: PutUsersMeBody, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<PutUsersMe200>> => {
-    
-    
-    return axios.put(
-      `/users/me`,
-      putUsersMeBody,options
-    );
-  }
-
-
-
-export const getPutUsersMeMutationOptions = <TError = AxiosError<Error | Error>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putUsersMe>>, TError,{data: PutUsersMeBody}, TContext>, axios?: AxiosRequestConfig}
-): UseMutationOptions<Awaited<ReturnType<typeof putUsersMe>>, TError,{data: PutUsersMeBody}, TContext> => {
-
-const mutationKey = ['putUsersMe'];
-const {mutation: mutationOptions, axios: axiosOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, axios: undefined};
-
-      
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof putUsersMe>>, {data: PutUsersMeBody}> = (props) => {
-          const {data} = props ?? {};
-
-          return  putUsersMe(data,axiosOptions)
-        }
-
-        
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type PutUsersMeMutationResult = NonNullable<Awaited<ReturnType<typeof putUsersMe>>>
-    export type PutUsersMeMutationBody = PutUsersMeBody
-    export type PutUsersMeMutationError = AxiosError<Error | Error>
-
-    /**
- * @summary マイページ情報を更新
- */
-export const usePutUsersMe = <TError = AxiosError<Error | Error>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof putUsersMe>>, TError,{data: PutUsersMeBody}, TContext>, axios?: AxiosRequestConfig}
- , queryClient?: QueryClient): UseMutationResult<
-        Awaited<ReturnType<typeof putUsersMe>>,
-        TError,
-        {data: PutUsersMeBody},
-        TContext
-      > => {
-
-      const mutationOptions = getPutUsersMeMutationOptions(options);
-
-      return useMutation(mutationOptions , queryClient);
-    }
-    
 /**
  * アカウントを完全に削除します。**復旧はできません。**
 

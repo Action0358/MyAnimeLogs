@@ -45,9 +45,6 @@ describe('MyPage', () => {
     id: 1,
     name: 'テストユーザー',
     email: 'test@example.com',
-    description: 'テスト説明',
-    favorite_anime: '進撃の巨人',
-    sns_link: 'https://twitter.com/testuser',
   }
 
   // ユーザー情報取得が成功する fetch モック
@@ -103,6 +100,7 @@ describe('MyPage', () => {
       })
     })
 
+    // 表示名はGoogleアカウント由来。自由記述項目は #789 で廃止したため表示しない
     it('ユーザー情報を表示する', async () => {
       ;(global.fetch as jest.Mock).mockImplementation(
         createSuccessfulFetchMock()
@@ -112,7 +110,6 @@ describe('MyPage', () => {
 
       await waitFor(() => {
         expect(screen.getByText('テストユーザー')).toBeInTheDocument()
-        expect(screen.getByText('テスト説明')).toBeInTheDocument()
       })
     })
 

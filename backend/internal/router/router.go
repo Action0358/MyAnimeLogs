@@ -110,7 +110,6 @@ func Setup(db *database.DB, cfg *config.Config, syncScheduler handlers.SyncSched
 		{
 			// ユーザールート
 			protected.GET("/users/me", authHandler.GetMe)
-			protected.PUT("/users/me", authHandler.UpdateMe)
 			// アカウントの完全削除（復旧不可）
 			protected.DELETE("/users/me", authHandler.DeleteMe)
 			protected.GET("/users/me/export", authHandler.ExportData)
