@@ -81,14 +81,6 @@ func (s *AuthService) GetUserByID(userID int, avatarURL string) (*models.UserRes
 	return toUserResponse(user, avatarURL), nil
 }
 
-func (s *AuthService) UpdateUser(userID int, req models.UserUpdateRequest, avatarURL string) (*models.UserResponse, error) {
-	user, err := s.getRepository().UpdatePartial(userID, req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to update user: %w", err)
-	}
-	return toUserResponse(user, avatarURL), nil
-}
-
 func (s *AuthService) ExportUserData(userID int, format string) (interface{}, error) {
 	user, err := s.GetUserByID(userID, "")
 	if err != nil {
@@ -157,13 +149,10 @@ func toUserResponse(user *models.User, avatarURL string) *models.UserResponse {
 		avatarURLPtr = &avatarURL
 	}
 	return &models.UserResponse{
-		ID:            user.ID,
-		Name:          user.Name,
-		Email:         user.Email,
-		Description:   user.Description,
-		AvatarURL:     avatarURLPtr,
-		FavoriteAnime: user.FavoriteAnime,
-		SnsLink:       user.SnsLink,
-		CreatedAt:     user.CreatedAt,
+		ID:        user.ID,
+		Name:      user.Name,
+		Email:     user.Email,
+		AvatarURL: avatarURLPtr,
+		CreatedAt: user.CreatedAt,
 	}
 }

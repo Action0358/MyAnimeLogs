@@ -17,10 +17,8 @@ interface User {
   id: number
   name: string
   email: string
-  description?: string
+  // 表示名とアイコンはGoogleアカウント由来。プロフィールの自由記述項目は #789 で廃止
   avatar_url?: string
-  favorite_anime?: string
-  sns_link?: string
   created_at?: string
 }
 
