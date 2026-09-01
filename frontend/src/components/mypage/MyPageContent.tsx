@@ -44,7 +44,6 @@ export const MyPageContent: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<WatchStatusTabKey>('planned')
-  const [favoriteAnime, setFavoriteAnime] = useState('')
   const [imageError, setImageError] = useState(false)
 
   // 視聴ステータス一覧（お気に入りとは独立）
@@ -87,13 +86,6 @@ export const MyPageContent: React.FC = () => {
       setIsLoading(false)
     }
   }, [authUser, token, authLoading, isAuthenticated, fetchData])
-
-  // ユーザー情報から好きなアニメを設定
-  useEffect(() => {
-    if (user) {
-      setFavoriteAnime(user.favorite_anime || '')
-    }
-  }, [user])
 
   const allItems = useMemo(() => filterValidItems(watchStatuses), [watchStatuses])
 
@@ -173,20 +165,6 @@ export const MyPageContent: React.FC = () => {
     return formatDate(date)
   })()
 
-  // 未設定の項目は空欄を並べず、何を追加できるかを示して編集へ誘導する
-  const profileFields = [
-    {
-      label: 'プロフィール',
-      value: user?.description || '',
-      emptyPrompt: '自己紹介を追加',
-    },
-    {
-      label: '好きなアニメ',
-      value: favoriteAnime,
-      emptyPrompt: '作品を追加',
-    },
-  ]
-
   const avatar = (
     <div className="w-16 h-16 md:w-[88px] md:h-[88px] bg-muted rounded-full overflow-hidden flex-shrink-0">
       {user?.avatar_url && !imageError ? (
@@ -210,10 +188,10 @@ export const MyPageContent: React.FC = () => {
       type="button"
       onClick={() => router.push('/mypage/edit')}
       className="flex items-center justify-center gap-1.5 h-9 w-9 md:h-[38px] md:w-auto md:px-3.5 flex-shrink-0 border border-border rounded-md bg-card text-sm font-semibold text-foreground hover:bg-muted transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-      aria-label="プロフィール設定"
+      aria-label="設定"
     >
       <Settings className="w-[15px] h-[15px] flex-shrink-0" aria-hidden="true" />
-      <span className="hidden md:inline">プロフィール設定</span>
+      <span className="hidden md:inline">設定</span>
     </button>
   )
 
@@ -225,7 +203,8 @@ export const MyPageContent: React.FC = () => {
 
   return (
     <Container size="xl" className="max-w-[1180px] py-8">
-      {/* プロフィールヘッダー。アバター・名前・記録数・設定を1つの行にまとめる */}
+      {/* ヘッダー。アバター・名前・記録数・設定を1つの行にまとめる。
+          表示名とアイコンはGoogleアカウント由来のため編集導線は持たせない（#789） */}
       <div className="flex items-center md:items-start gap-4 md:gap-6 pb-5 md:pb-[26px] border-b border-border">
         {avatar}
         <div className="flex-1 min-w-0">
@@ -268,28 +247,6 @@ export const MyPageContent: React.FC = () => {
         ))}
       </div>
 
-      {/* プロフィール項目。未設定は編集への導線にする */}
-      <dl className="grid grid-cols-[88px_1fr] md:grid-cols-[104px_1fr] gap-x-4 md:gap-x-5 gap-y-3 md:gap-y-3.5 py-5 md:py-[22px] mt-4 md:mt-0 border-b border-border text-[12.5px] md:text-[13.5px]">
-        {profileFields.map((field) => (
-          <React.Fragment key={field.label}>
-            <dt className="text-muted-foreground">{field.label}</dt>
-            <dd className="min-w-0">
-              {field.value ? (
-                <span className="text-foreground whitespace-pre-wrap break-words">
-                  {field.value}
-                </span>
-              ) : (
-                <Link
-                  href={'/mypage/edit' as Route}
-                  className="text-primary font-semibold hover:underline"
-                >
-                  {field.emptyPrompt}
-                </Link>
-              )}
-            </dd>
-          </React.Fragment>
-        ))}
-      </dl>
 
       {/* 視聴ステータス別タブナビゲーション */}
       <div className="mt-5 md:mt-[26px] mb-4 md:mb-6">

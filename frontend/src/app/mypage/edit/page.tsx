@@ -2,14 +2,14 @@
 
 import React from 'react';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
-import { ProfileEditContent } from '@/components/mypage';
+import { SettingsContent } from '@/components/mypage';
 
-const ProfileEditPage: React.FC = () => {
+const SettingsPage: React.FC = () => {
   return (
     <ProtectedRoute>
-      <ProfileEditContent />
+      <SettingsContent />
     </ProtectedRoute>
   );
 };
 
-export default ProfileEditPage;
+export default SettingsPage;

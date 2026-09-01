@@ -6,9 +6,7 @@ import (
 
 	"myanimelogs/internal/common"
 	"myanimelogs/internal/middleware"
-	"myanimelogs/internal/models"
 	"myanimelogs/internal/services"
-	"myanimelogs/internal/utils"
 
 	"github.com/gin-gonic/gin"
 )
@@ -44,40 +42,6 @@ func (h *AuthHandler) GetMe(c *gin.Context) {
 	h.response.Success(c, user)
 }
 
-func (h *AuthHandler) UpdateMe(c *gin.Context) {
-	userID, err := h.validator.GetUserIDFromContext(c)
-	if err != nil {
-		h.response.UnauthorizedError(c, "認証が必要です")
-		return
-	}
-
-	var req models.UserUpdateRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		h.response.ValidationError(c, err.Error())
-		return
-	}
-
-	if req.SnsLink != nil {
-		if err := utils.ValidateURL(*req.SnsLink); err != nil {
-			h.response.ValidationError(c, err.Error())
-			return
-		}
-	}
-
-	avatarURL, _ := c.Get("user_avatar_url")
-	avatarURLStr, _ := avatarURL.(string)
-
-	user, err := h.authService.UpdateUser(userID, req, avatarURLStr)
-	if err != nil {
-		h.response.InternalServerError(c, "プロフィール更新に失敗しました")
-		return
-	}
-
-	h.response.Success(c, gin.H{
-		"message": "プロフィールを更新しました。",
-		"user":    user,
-	})
-}
 
 // DeleteMe permanently deletes the authenticated user's account.
 //
