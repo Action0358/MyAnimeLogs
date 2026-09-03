@@ -779,15 +779,39 @@ func (s *AnimeService) enrichAnimeWithWatchProviders(animeWithData *models.Anime
 	animeWithData.WatchProviders = watchProviders
 }
 
-// getCachedWatchProviders は作品の配信サービスをRedisから取得する。
+// cacheGet は Redis を優先し、Redis が無い場合はプロセス内のメモリキャッシュから読む。
+//
+// STG・本番には Redis が無く（REDIS_URL 未設定）、Redis だけを見ていたため
+// 詳細取得のキャッシュがすべて no-op になっていた（#803）。本番は単一マシン構成
+// （min_machines_running=1 / auto_stop_machines=off）のため、プロセス内キャッシュでも
+// 実用上ほぼ同じ効果が得られる。
+func (s *AnimeService) cacheGet(ctx context.Context, key string, dest any) (bool, error) {
+	if s.redisCache != nil {
+		return s.redisCache.Get(ctx, key, dest)
+	}
+	if s.cache != nil {
+		return s.cache.Get(key, dest)
+	}
+	return false, nil
+}
+
+// cacheSet は cacheGet と対になる書き込み。保存先の優先順位も同じ。
+func (s *AnimeService) cacheSet(ctx context.Context, key string, value any, ttl time.Duration) error {
+	if s.redisCache != nil {
+		return s.redisCache.Set(ctx, key, value, ttl)
+	}
+	if s.cache != nil {
+		return s.cache.SetWithTTL(key, value, ttl)
+	}
+	return nil
+}
+
+// getCachedWatchProviders は作品の配信サービスをキャッシュから取得する。
 // 「0件」も有効なキャッシュ値として扱うため、戻り値のsliceの長さではなく
 // 2つ目の戻り値でヒット有無を判定する。
 func (s *AnimeService) getCachedWatchProviders(ctx context.Context, animeID int) ([]models.WatchProvider, bool) {
-	if s.redisCache == nil {
-		return nil, false
-	}
 	var cached []models.WatchProvider
-	found, err := s.redisCache.Get(ctx, watchProvidersCacheKey(animeID), &cached)
+	found, err := s.cacheGet(ctx, watchProvidersCacheKey(animeID), &cached)
 	if err != nil {
 		s.logger.Debug("Failed to read watch providers from cache", "anime_id", animeID, "error", err)
 		return nil, false
@@ -796,10 +820,7 @@ func (s *AnimeService) getCachedWatchProviders(ctx context.Context, animeID int)
 }
 
 func (s *AnimeService) cacheWatchProviders(ctx context.Context, animeID int, providers []models.WatchProvider) {
-	if s.redisCache == nil {
-		return
-	}
-	if err := s.redisCache.Set(ctx, watchProvidersCacheKey(animeID), providers, constants.WatchProvidersCacheTTL); err != nil {
+	if err := s.cacheSet(ctx, watchProvidersCacheKey(animeID), providers, constants.WatchProvidersCacheTTL); err != nil {
 		s.logger.Debug("Failed to cache watch providers", "anime_id", animeID, "error", err)
 	}
 }
@@ -815,11 +836,8 @@ func watchProvidersCacheKey(animeID int) string {
 // 対して詳細取得のたびに同じ問い合わせを同期的に繰り返してしまう。3req/秒のレート制限を
 // 使い切ってリトライ待ちが発生するため、取得できなかったこと自体を覚えておく。
 func (s *AnimeService) isEnrichKnownMissing(ctx context.Context, keyPrefix string, animeID int) bool {
-	if s.redisCache == nil {
-		return false
-	}
 	var placeholder bool
-	found, err := s.redisCache.Get(ctx, enrichMissingCacheKey(keyPrefix, animeID), &placeholder)
+	found, err := s.cacheGet(ctx, enrichMissingCacheKey(keyPrefix, animeID), &placeholder)
 	if err != nil {
 		s.logger.Debug("Failed to read enrich miss cache",
 			"key_prefix", keyPrefix, "anime_id", animeID, "error", err)
@@ -829,10 +847,7 @@ func (s *AnimeService) isEnrichKnownMissing(ctx context.Context, keyPrefix strin
 }
 
 func (s *AnimeService) markEnrichMissing(ctx context.Context, keyPrefix string, animeID int, ttl time.Duration) {
-	if s.redisCache == nil {
-		return
-	}
-	if err := s.redisCache.Set(ctx, enrichMissingCacheKey(keyPrefix, animeID), true, ttl); err != nil {
+	if err := s.cacheSet(ctx, enrichMissingCacheKey(keyPrefix, animeID), true, ttl); err != nil {
 		s.logger.Debug("Failed to cache enrich miss",
 			"key_prefix", keyPrefix, "anime_id", animeID, "error", err)
 	}
