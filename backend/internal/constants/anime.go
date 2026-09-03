@@ -54,6 +54,12 @@ const (
 // MaxRelatedSeasons - 詳細ページに表示する関連シーズン（同シリーズの他作品）の最大件数
 const MaxRelatedSeasons = 12
 
+// MinRelatedTitlePrefixLength - 関連作品をタイトルの前方一致で判定する際、
+// 一致対象双方に要求する最小文字数（文字数、バイト数ではない）。
+// 短すぎるタイトル同士（例: 1〜3文字）の前方一致は無関係な作品を大量に
+// 巻き込むため、実データ計測（サンプル調査）に基づきこの閾値で除外する。
+const MinRelatedTitlePrefixLength = 4
+
 // String returns the string representation of AnimeStatus
 func (s AnimeStatus) String() string {
 	return string(s)
