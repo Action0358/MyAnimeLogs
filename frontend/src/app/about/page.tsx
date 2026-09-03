@@ -78,12 +78,7 @@ interface DataSource {
 const DATA_SOURCES: DataSource[] = [
   { kind: 'アニメ基本情報', name: 'Annict', href: 'https://annict.com' },
   { kind: 'カバー画像・ジャンル', name: 'AniList', href: 'https://anilist.co' },
-  {
-    kind: '放送情報',
-    name: 'MyAnimeList',
-    href: 'https://myanimelist.net',
-    note: 'Jikan API経由',
-  },
+  { kind: '放送情報', name: 'MyAnimeList', href: 'https://myanimelist.net' },
   { kind: '配信情報', name: 'TMDB / JustWatch', href: 'https://www.themoviedb.org/' },
 ]
 
