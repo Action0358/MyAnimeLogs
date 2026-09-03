@@ -321,7 +321,7 @@ func (s *AnimeService) getRelatedSeasons(animeID int, seriesTitle *string) []mod
 	// （例: "2023-autumn" が "2023-winter" より前に来てしまう）。
 	// 年 → 季節（冬→春→夏→秋）の順で明示的に並べる。
 	rows, err := s.db.Query(`
-		SELECT id, title, season, cover_image_medium, image_url
+		SELECT id, title, season, cover_image_extra_large, cover_image_large, cover_image_medium, image_url
 		FROM animes
 		WHERE series_title = $1 AND id != $2
 		ORDER BY
@@ -345,10 +345,16 @@ func (s *AnimeService) getRelatedSeasons(animeID int, seriesTitle *string) []mod
 	var related []models.RelatedAnime
 	for rows.Next() {
 		var r models.RelatedAnime
-		var coverImageMedium sql.NullString
-		if err := rows.Scan(&r.ID, &r.Title, &r.Season, &coverImageMedium, &r.ImageURL); err != nil {
+		var coverImageExtraLarge, coverImageLarge, coverImageMedium sql.NullString
+		if err := rows.Scan(&r.ID, &r.Title, &r.Season, &coverImageExtraLarge, &coverImageLarge, &coverImageMedium, &r.ImageURL); err != nil {
 			s.logger.Warn("Failed to scan related season", "anime_id", animeID, "error", err)
 			continue
+		}
+		if coverImageExtraLarge.Valid {
+			r.CoverImageExtraLarge = coverImageExtraLarge.String
+		}
+		if coverImageLarge.Valid {
+			r.CoverImageLarge = coverImageLarge.String
 		}
 		if coverImageMedium.Valid {
 			r.CoverImageMedium = coverImageMedium.String

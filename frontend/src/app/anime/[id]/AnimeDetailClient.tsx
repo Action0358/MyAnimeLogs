@@ -94,6 +94,8 @@ const toAnimeCardData = (related: RelatedAnime[]): (Anime & { id: number })[] =>
     title: r.title,
     season: r.season ?? undefined,
     image_url: r.image_url ?? undefined,
+    cover_image_extra_large: r.cover_image_extra_large,
+    cover_image_large: r.cover_image_large,
     cover_image_medium: r.cover_image_medium,
   }))
 

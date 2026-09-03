@@ -1348,10 +1348,18 @@ components:
           type: string
           nullable: true
           description: "放送時期（例：2025-summer）"
+        cover_image_extra_large:
+          type: string
+          format: uri
+          description: AniListカバー画像（最大解像度、未取得の場合は省略）
+        cover_image_large:
+          type: string
+          format: uri
+          description: AniListカバー画像（大、未取得の場合は省略）
         cover_image_medium:
           type: string
           format: uri
-          description: AniListカバー画像（未取得の場合は省略）
+          description: AniListカバー画像（小、未取得の場合は省略）
         image_url:
           type: string
           nullable: true

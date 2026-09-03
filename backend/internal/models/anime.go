@@ -61,11 +61,13 @@ type AnimeWithUserData struct {
 // タイトルの季節サフィックス（第2期、Season 2等）を除いた series_title が一致する
 // 作品を、一覧表示に必要な最小限のフィールドのみで返す。
 type RelatedAnime struct {
-	ID               int     `json:"id"`
-	Title            string  `json:"title"`
-	Season           *string `json:"season"`
-	CoverImageMedium string  `json:"cover_image_medium,omitempty"`
-	ImageURL         *string `json:"image_url"`
+	ID                   int     `json:"id"`
+	Title                string  `json:"title"`
+	Season               *string `json:"season"`
+	CoverImageExtraLarge string  `json:"cover_image_extra_large,omitempty"`
+	CoverImageLarge      string  `json:"cover_image_large,omitempty"`
+	CoverImageMedium     string  `json:"cover_image_medium,omitempty"`
+	ImageURL             *string `json:"image_url"`
 }
 
 // WatchProvider represents a streaming service provider

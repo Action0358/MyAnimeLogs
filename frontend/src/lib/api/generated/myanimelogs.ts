@@ -188,7 +188,11 @@ export interface RelatedAnime {
    * @nullable
    */
   season: string | null;
-  /** AniListカバー画像（未取得の場合は省略） */
+  /** AniListカバー画像（最大解像度、未取得の場合は省略） */
+  cover_image_extra_large?: string;
+  /** AniListカバー画像（大、未取得の場合は省略） */
+  cover_image_large?: string;
+  /** AniListカバー画像（小、未取得の場合は省略） */
   cover_image_medium?: string;
   /**
    * Annict画像URL（フォールバック用）

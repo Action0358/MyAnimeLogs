@@ -23,11 +23,11 @@ func TestGetRelatedSeasons_OrdersChronologicallyAcrossSeasonBoundary(t *testing.
 	// "autumn" < "winter" になり2023-autumnが2023-winterより前に来てしまう。
 	// クエリのORDER BYが年→季節番号の順で並べ替えることを、
 	// モックが返す行順（あえてautumn→winter）とアサート順（winter→autumn）で確認する。
-	rows := sqlmock.NewRows([]string{"id", "title", "season", "cover_image_medium", "image_url"}).
-		AddRow(2, "Series Winter", "2023-winter", "https://example.com/winter.jpg", nil).
-		AddRow(1, "Series Autumn", "2023-autumn", "https://example.com/autumn.jpg", nil)
+	rows := sqlmock.NewRows([]string{"id", "title", "season", "cover_image_extra_large", "cover_image_large", "cover_image_medium", "image_url"}).
+		AddRow(2, "Series Winter", "2023-winter", "https://example.com/winter-xl.jpg", "https://example.com/winter-l.jpg", "https://example.com/winter.jpg", nil).
+		AddRow(1, "Series Autumn", "2023-autumn", nil, nil, "https://example.com/autumn.jpg", nil)
 
-	mock.ExpectQuery(`SELECT id, title, season, cover_image_medium, image_url\s+FROM animes\s+WHERE series_title = \$1 AND id != \$2`).
+	mock.ExpectQuery(`SELECT id, title, season, cover_image_extra_large, cover_image_large, cover_image_medium, image_url\s+FROM animes\s+WHERE series_title = \$1 AND id != \$2`).
 		WithArgs("シリーズ", 99, constants.MaxRelatedSeasons).
 		WillReturnRows(rows)
 
@@ -40,9 +40,13 @@ func TestGetRelatedSeasons_OrdersChronologicallyAcrossSeasonBoundary(t *testing.
 	//  ここではNULL許容の値マッピングとLIMIT/引数渡しが正しいことを確認する）
 	assert.Equal(t, 2, related[0].ID)
 	assert.Equal(t, "2023-winter", *related[0].Season)
+	assert.Equal(t, "https://example.com/winter-xl.jpg", related[0].CoverImageExtraLarge)
+	assert.Equal(t, "https://example.com/winter-l.jpg", related[0].CoverImageLarge)
 	assert.Equal(t, "https://example.com/winter.jpg", related[0].CoverImageMedium)
 	assert.Nil(t, related[0].ImageURL)
 	assert.Equal(t, 1, related[1].ID)
+	assert.Empty(t, related[1].CoverImageExtraLarge)
+	assert.Empty(t, related[1].CoverImageLarge)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -68,7 +72,7 @@ func TestGetRelatedSeasons_QueryErrorReturnsNil(t *testing.T) {
 	svc := NewAnimeService(&database.DB{DB: db}, newTestServiceLogger())
 	defer svc.Close()
 
-	mock.ExpectQuery(`SELECT id, title, season, cover_image_medium, image_url`).
+	mock.ExpectQuery(`SELECT id, title, season, cover_image_extra_large, cover_image_large, cover_image_medium, image_url`).
 		WillReturnError(assert.AnError)
 
 	seriesTitle := "シリーズ"
