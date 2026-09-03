@@ -7,7 +7,6 @@ export { AnimeCarousel, CarouselSkeleton } from './AnimeCarousel';
 export { AnimeGrid } from './AnimeGrid';
 export { SkeletonCard } from './SkeletonCard';
 export { WatchProviders } from './WatchProviders';
-export { RelatedSeasons } from './RelatedSeasons';
 export { MediaTabs } from './MediaTabs';
 export type { MediaTabDefinition } from './MediaTabs';
 export type { AnimeCardProps, AnimeCardData } from './AnimeCard';

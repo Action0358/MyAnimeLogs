@@ -9,7 +9,8 @@ import { decode as heDecodeEntities } from 'he'
 import { Container } from '@/components/layout'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { Button, Card, CardContent, SectionHeading } from '@/components/ui'
-import { WatchProviders, RelatedSeasons } from '@/components/anime'
+import { WatchProviders, AnimeGrid } from '@/components/anime'
+import type { Anime, RelatedAnime } from '@/lib/api/generated/myanimelogs'
 import { FavoriteButton, StatusSelector } from '@/components/favorites'
 import { getAnimesId } from '@/lib/api/generated/myanimelogs'
 import { useFavorites } from '@/hooks/useFavorites'
@@ -83,6 +84,18 @@ const ExpandableSynopsis: React.FC<{ text: string }> = ({ text }) => {
 
 /** 情報カードの内側余白（デザイン仕様: 24px / 28px） */
 const DETAIL_CARD_PADDING = 'p-5 md:px-6 md:py-5'
+
+/** 関連シーズンは一覧・検索と同じ AnimeCard 規格で表示するため、
+ *  APIが返す縮小フィールド（RelatedAnime）を AnimeGrid が要求する Anime 形に合わせる。
+ *  status等は含まれないため未設定になるが、AnimeCard 側は任意項目として扱う。 */
+const toAnimeCardData = (related: RelatedAnime[]): (Anime & { id: number })[] =>
+  related.map((r) => ({
+    id: r.id,
+    title: r.title,
+    season: r.season ?? undefined,
+    image_url: r.image_url ?? undefined,
+    cover_image_medium: r.cover_image_medium,
+  }))
 
 
 const AnimeDetailClient: React.FC = () => {
@@ -437,13 +450,37 @@ const AnimeDetailClient: React.FC = () => {
               <WatchProviders providers={anime.watch_providers} />
             )}
 
-            {/* 同シリーズの他シーズン */}
+            {/* 同シリーズの他シーズン（SP版）。
+                PC版は2カラムの外に全幅で出すため、ここではlg未満のみ表示する */}
             {anime.related_seasons && anime.related_seasons.length > 0 && (
-              <RelatedSeasons items={anime.related_seasons} />
+              <div className="lg:hidden">
+                <Card>
+                  <CardContent className={DETAIL_CARD_PADDING}>
+                    <SectionHeading as="h2" size="sm">同シリーズの他シーズン</SectionHeading>
+                    <AnimeGrid
+                      animes={toAnimeCardData(anime.related_seasons)}
+                      columns={{ mobile: 3 }}
+                      cardSize="small"
+                    />
+                  </CardContent>
+                </Card>
+              </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* 同シリーズの他シーズン（PC版）。
+          一覧・検索と同じカード規格を使うため、2カラムの外に全幅6列グリッドで出す */}
+      {anime.related_seasons && anime.related_seasons.length > 0 && (
+        <div className="hidden lg:block mt-14 pt-9 border-t border-border">
+          <div className="mb-5 flex items-baseline gap-3">
+            <h2 className="text-xl font-bold tracking-tight text-foreground">同シリーズの他シーズン</h2>
+            <span className="text-sm text-muted-foreground">{anime.related_seasons.length}作品</span>
+          </div>
+          <AnimeGrid animes={toAnimeCardData(anime.related_seasons)} cardSize="small" />
+        </div>
+      )}
     </Container>
   )
 }
