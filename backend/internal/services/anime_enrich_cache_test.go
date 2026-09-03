@@ -3,9 +3,11 @@ package services
 import (
 	"context"
 	"testing"
+	"time"
 
 	"myanimelogs/internal/common"
 	"myanimelogs/internal/constants"
+	"myanimelogs/internal/models"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -40,9 +42,9 @@ func TestJikanEnrichCacheTTLs(t *testing.T) {
 	assert.Less(t, constants.JikanEnrichErrorCacheTTL, constants.JikanEnrichMissingCacheTTL)
 }
 
-// Redisは任意構成のため、未設定の環境でもenrichがpanicせず
-// 「キャッシュ無し」として素通りすることを確認する。
-func TestEnrichCacheHelpers_NoRedis(t *testing.T) {
+// キャッシュを一切持たない構成でも panic せず「キャッシュ無し」として
+// 素通りすることを確認する。
+func TestEnrichCacheHelpers_NoCache(t *testing.T) {
 	s := &AnimeService{logger: common.NewLogger(common.LogLevelDebug, "text")}
 	ctx := context.Background()
 
@@ -57,4 +59,64 @@ func TestEnrichCacheHelpers_NoRedis(t *testing.T) {
 		s.markEnrichMissing(ctx, constants.CacheKeyBroadcastInfoMissing, 9907, 0)
 		s.cacheWatchProviders(ctx, 9908, nil)
 	})
+}
+
+// newMemoryOnlyService は Redis が無い（STG・本番と同じ）構成を作る。
+func newMemoryOnlyService() *AnimeService {
+	return &AnimeService{
+		logger: common.NewLogger(common.LogLevelDebug, "text"),
+		cache: NewMemoryCache(CacheConfig{
+			DefaultTTL:      time.Minute,
+			CleanupInterval: time.Minute,
+			MaxItems:        constants.CacheMaxItems,
+		}),
+	}
+}
+
+// Redisが無い環境でもメモリキャッシュにフォールバックすることを確認する（#803）。
+// ここが効かないと、STG・本番で詳細取得のキャッシュがすべてno-opになる。
+func TestEnrichCacheHelpers_FallsBackToMemory(t *testing.T) {
+	s := newMemoryOnlyService()
+	defer s.cache.Close()
+	ctx := context.Background()
+
+	// 取得できなかった記録が読み戻せること
+	assert.False(t, s.isEnrichKnownMissing(ctx, constants.CacheKeyBroadcastInfoMissing, 9907))
+	s.markEnrichMissing(ctx, constants.CacheKeyBroadcastInfoMissing, 9907, time.Minute)
+	assert.True(t, s.isEnrichKnownMissing(ctx, constants.CacheKeyBroadcastInfoMissing, 9907))
+
+	// 項目ごとにキーが分かれており、片方の欠損が他方に波及しないこと
+	assert.False(t, s.isEnrichKnownMissing(ctx, constants.CacheKeyReleasedOnMissing, 9907))
+	// 作品ごとにも分かれていること
+	assert.False(t, s.isEnrichKnownMissing(ctx, constants.CacheKeyBroadcastInfoMissing, 9908))
+}
+
+// 配信サービスは「0件」も有効な値としてキャッシュする。
+// 配信が無い作品ほどフォールバックまで走って遅くなるため、
+// 0件をヒットとして扱えないと毎回TMDBを叩き直すことになる。
+func TestCacheWatchProviders_EmptyResultIsCached(t *testing.T) {
+	s := newMemoryOnlyService()
+	defer s.cache.Close()
+	ctx := context.Background()
+
+	s.cacheWatchProviders(ctx, 9908, []models.WatchProvider{})
+
+	providers, found := s.getCachedWatchProviders(ctx, 9908)
+	assert.True(t, found, "0件でもキャッシュヒットとして扱う")
+	assert.Empty(t, providers)
+}
+
+func TestCacheWatchProviders_RoundTrip(t *testing.T) {
+	s := newMemoryOnlyService()
+	defer s.cache.Close()
+	ctx := context.Background()
+
+	s.cacheWatchProviders(ctx, 9908, []models.WatchProvider{
+		{ProviderID: 8, ProviderName: "Netflix", LogoURL: "https://example.com/n.png"},
+	})
+
+	providers, found := s.getCachedWatchProviders(ctx, 9908)
+	assert.True(t, found)
+	assert.Len(t, providers, 1)
+	assert.Equal(t, "Netflix", providers[0].ProviderName)
 }
