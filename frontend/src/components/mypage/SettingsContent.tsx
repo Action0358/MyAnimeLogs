@@ -74,7 +74,7 @@ export const SettingsContent: React.FC = () => {
               <dd className="min-w-0 break-words text-foreground">{user?.email}</dd>
             </dl>
             <p className="mt-3.5 text-[11px] leading-[1.75] text-muted-foreground md:text-[11.5px]">
-              表示名とアイコンはGoogleアカウントの情報を使用しています。変更する場合はGoogleアカウント側で設定してください。
+              表示名・アイコンはGoogleアカウントに準拠します。
             </p>
           </div>
 
