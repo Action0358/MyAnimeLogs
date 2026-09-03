@@ -564,6 +564,11 @@ var animeTitlePatterns = []*regexp.Regexp{
 	regexp.MustCompile(`(?i) part[.\s]*\d+\s*$`),           // " Part 2", " Part.2" (allow trailing spaces)
 	// Roman numerals (uppercase only to avoid over-matching lowercase i/v/x)
 	regexp.MustCompile(` [IVX]+\s*$`), // " II", " III", etc. (allow trailing spaces)
+	// Full-width Roman numeral (U+2160-2169). Unlike the ASCII pattern above, this is not
+	// end-anchored: titles like "無職転生Ⅱ ～異世界行ったら本気だす～" embed the numeral
+	// between the main title and a subtitle, so only the numeral character itself is removed
+	// (the surrounding space is preserved) rather than truncating everything after it.
+	regexp.MustCompile(`[Ⅰ-Ⅹ]`),
 }
 
 // NormalizeAnimeTitle removes season suffixes and other variations from anime titles
