@@ -458,7 +458,7 @@ const AnimeDetailClient: React.FC = () => {
               <div className="lg:hidden">
                 <Card>
                   <CardContent className={DETAIL_CARD_PADDING}>
-                    <SectionHeading as="h2" size="sm">同シリーズの他シーズン</SectionHeading>
+                    <SectionHeading as="h2" size="sm">関連作品</SectionHeading>
                     <AnimeGrid
                       animes={toAnimeCardData(anime.related_seasons)}
                       columns={{ mobile: 3 }}
@@ -477,7 +477,7 @@ const AnimeDetailClient: React.FC = () => {
       {anime.related_seasons && anime.related_seasons.length > 0 && (
         <div className="hidden lg:block mt-14 pt-9 border-t border-border">
           <div className="mb-5 flex items-baseline gap-3">
-            <h2 className="text-xl font-bold tracking-tight text-foreground">同シリーズの他シーズン</h2>
+            <h2 className="text-xl font-bold tracking-tight text-foreground">関連作品</h2>
             <span className="text-sm text-muted-foreground">{anime.related_seasons.length}作品</span>
           </div>
           <AnimeGrid animes={toAnimeCardData(anime.related_seasons)} cardSize="small" />
