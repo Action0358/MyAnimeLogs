@@ -1304,6 +1304,11 @@ components:
           items:
             $ref: "#/components/schemas/WatchProvider"
           description: 配信サービス一覧
+        related_seasons:
+          type: array
+          items:
+            $ref: "#/components/schemas/RelatedAnime"
+          description: 同シリーズの他シーズン（続編・前作）。タイトルの季節サフィックスを除いた series_title が一致する作品を放送時期順に返す。
         created_at:
           type: string
           format: date-time
@@ -1327,6 +1332,38 @@ components:
           type: string
           format: uri
           description: ロゴ画像URL
+    RelatedAnime:
+      type: object
+      required:
+        - id
+        - title
+        - season
+        - image_url
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        season:
+          type: string
+          nullable: true
+          description: "放送時期（例：2025-summer）"
+        cover_image_extra_large:
+          type: string
+          format: uri
+          description: AniListカバー画像（最大解像度、未取得の場合は省略）
+        cover_image_large:
+          type: string
+          format: uri
+          description: AniListカバー画像（大、未取得の場合は省略）
+        cover_image_medium:
+          type: string
+          format: uri
+          description: AniListカバー画像（小、未取得の場合は省略）
+        image_url:
+          type: string
+          nullable: true
+          description: Annict画像URL（フォールバック用）
     Favorite:
       type: object
       properties:
