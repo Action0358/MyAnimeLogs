@@ -300,6 +300,10 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork, existingAnime
 
 	var anime models.Anime
 
+	// シリーズ判定用の正規化タイトル（第2期/Season 2等の季節サフィックスを除去）。
+	// 既存値がある場合はUPDATEで上書きしない（COALESCE）。手動修正等の余地を残すため。
+	seriesTitle := NormalizeAnimeTitle(work.Title)
+
 	// Check if anime already exists
 	var existingID int
 	err := c.DB.QueryRow("SELECT id FROM animes WHERE annict_id = $1", work.ID).Scan(&existingID)
@@ -324,6 +328,7 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork, existingAnime
 				watchers_count = $12,
 				reviews_count = $13,
 				released_on = COALESCE(NULLIF($14, ''), released_on),
+				series_title = COALESCE(NULLIF(series_title, ''), $19),
 				last_synced_at = CURRENT_TIMESTAMP,
 				annict_updated_at = $16,
 				sync_status = $17,
@@ -336,7 +341,7 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork, existingAnime
 			work.Media, work.OfficialSiteURL, work.WikipediaURL,
 			work.TwitterUsername, work.TwitterHashtag, work.MalAnimeID,
 			work.WatchersCount, work.ReviewsCount, work.ReleasedOn, work.ID,
-			annictUpdatedAt, string(constants.SyncStatusSynced),
+			annictUpdatedAt, string(constants.SyncStatusSynced), seriesTitle,
 		).Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.LastSyncedAt, &anime.AnnictUpdatedAt)
 
 		if err != nil {
@@ -353,10 +358,12 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork, existingAnime
 				twitter_username, twitter_hashtag, mal_anime_id, annict_id,
 				watchers_count, reviews_count, released_on,
 				last_synced_at, annict_updated_at, sync_status,
+				series_title,
 				created_at, updated_at
 			) VALUES (
 				DEFAULT, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16,
 				CURRENT_TIMESTAMP, $17, $18,
+				$19,
 				CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
 			)
 			RETURNING id, title, image_url, season, status, annict_id, created_at, updated_at, last_synced_at, annict_updated_at
@@ -365,7 +372,7 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork, existingAnime
 			status, work.Media, work.OfficialSiteURL, work.WikipediaURL,
 			work.TwitterUsername, work.TwitterHashtag, work.MalAnimeID, work.ID,
 			work.WatchersCount, work.ReviewsCount, work.ReleasedOn,
-			annictUpdatedAt, string(constants.SyncStatusSynced),
+			annictUpdatedAt, string(constants.SyncStatusSynced), seriesTitle,
 		).Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.LastSyncedAt, &anime.AnnictUpdatedAt)
 
 		if err != nil {

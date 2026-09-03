@@ -151,6 +151,80 @@ func (s *AnimeService) updateDescriptionByID(ctx context.Context, animeID int, d
 	return err
 }
 
+// SeriesTitleBackfillResult は series_title 一括バックフィルの結果集計。
+type SeriesTitleBackfillResult struct {
+	Total     int // series_title 未設定の件数
+	Processed int // 実際に処理したループ件数（中断時は Total 未満になる）
+	Updated   int // DB更新した件数
+	Failed    int // DB更新に失敗した件数
+}
+
+// BackfillSeriesTitles は series_title が未設定の既存作品に対し、title から
+// NormalizeAnimeTitle で算出した値を設定する（#755: 詳細ページの関連シーズン表示の前提）。
+// 外部APIを呼ばない純粋な文字列処理のため、翻訳バックフィルと異なりスロットリングは不要。
+// force=true の場合は既に設定済みの行も含めて全件再計算する。NormalizeAnimeTitle の
+// 正規化ルールを追加・修正した後、既存の（古いルールで生成された）値を訂正するために使う。
+func (s *AnimeService) BackfillSeriesTitles(ctx context.Context, dryRun bool, limit int, force bool) (*SeriesTitleBackfillResult, error) {
+	query := `SELECT id, title FROM animes`
+	if !force {
+		query += ` WHERE series_title IS NULL OR series_title = ''`
+	}
+	query += ` ORDER BY id`
+	if limit > 0 {
+		query += fmt.Sprintf(" LIMIT %d", limit)
+	}
+
+	rows, err := s.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query animes: %w", err)
+	}
+	type record struct {
+		id    int
+		title string
+	}
+	var records []record
+	for rows.Next() {
+		var r record
+		if err := rows.Scan(&r.id, &r.title); err != nil {
+			rows.Close()
+			return nil, fmt.Errorf("failed to scan row: %w", err)
+		}
+		records = append(records, r)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return nil, fmt.Errorf("row iteration error: %w", err)
+	}
+	rows.Close()
+
+	result := &SeriesTitleBackfillResult{Total: len(records)}
+
+	for _, r := range records {
+		if err := ctx.Err(); err != nil {
+			return result, err
+		}
+		result.Processed++
+
+		seriesTitle := NormalizeAnimeTitle(r.title)
+		if dryRun {
+			continue
+		}
+
+		if _, err := s.db.ExecContext(ctx, `UPDATE animes SET series_title = $1 WHERE id = $2`, seriesTitle, r.id); err != nil {
+			result.Failed++
+			s.logger.Error("DB更新に失敗したためバックフィルを中断します", "anime_id", r.id, "error", err)
+			return result, fmt.Errorf("failed to update series_title (anime_id=%d): %w", r.id, err)
+		}
+		result.Updated++
+
+		if result.Processed%200 == 0 {
+			s.logger.Info("series_title backfill progress", "processed", result.Processed, "total", result.Total)
+		}
+	}
+
+	return result, nil
+}
+
 // sleepWithContext は d だけ待機するが、ctx がキャンセルされた場合は即座に返す。
 func sleepWithContext(ctx context.Context, d time.Duration) error {
 	timer := time.NewTimer(d)
