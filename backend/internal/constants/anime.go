@@ -51,6 +51,9 @@ const (
 	AnimeStatusUpcoming AnimeStatus = "upcoming"
 )
 
+// MaxRelatedSeasons - 詳細ページに表示する関連シーズン（同シリーズの他作品）の最大件数
+const MaxRelatedSeasons = 12
+
 // String returns the string representation of AnimeStatus
 func (s AnimeStatus) String() string {
 	return string(s)
