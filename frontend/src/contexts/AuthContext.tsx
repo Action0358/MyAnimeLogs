@@ -48,6 +48,18 @@ export const translateAuthError = (
   return defaultMessage
 }
 
+/**
+ * プロフィール取得の結果。
+ * unauthorized はトークンが無効、unavailable はバックエンド側の障害を表す。
+ */
+type ProfileFetchResult =
+  | { status: 'ok'; user: User }
+  | { status: 'unauthorized' }
+  | { status: 'unavailable' }
+
+/** 一時的な失敗を1度だけやり直すまでの待ち時間 */
+const PROFILE_RETRY_DELAY_MS = 700
+
 const isUser = (value: unknown): value is User => {
   if (typeof value !== 'object' || value === null) return false
   const obj = value as Record<string, unknown>
@@ -102,21 +114,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLastActivityTime(getLastActivityFromStorage())
   }, [getLastActivityFromStorage])
 
-  // バックエンドからユーザープロフィールを取得
-  const fetchUserProfile = useCallback(async (accessToken: string): Promise<User | null> => {
-    try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/users/me`,
-        { headers: { Authorization: `Bearer ${accessToken}` } }
-      )
-      if (!res.ok) return null
-      const data = await res.json()
-      if (isUser(data)) return data
-      return null
-    } catch {
-      return null
-    }
-  }, [])
+  // バックエンドからユーザープロフィールを取得。
+  //
+  // 失敗を null に潰さず種別を返す。401（認証が無効）と 5xx・通信障害では
+  // ユーザーが取るべき行動が違うため。以前は一律 null にしていた結果、
+  // トークンだけあってユーザーが無い中途半端な状態が残り、画面上は
+  // 「ログインしても何も起きない」としか見えなかった（#797）。
+  const fetchUserProfile = useCallback(
+    async (accessToken: string): Promise<ProfileFetchResult> => {
+      const attempt = async (): Promise<ProfileFetchResult> => {
+        try {
+          const res = await fetch(
+            `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/users/me`,
+            { headers: { Authorization: `Bearer ${accessToken}` } }
+          )
+          if (res.status === 401) return { status: 'unauthorized' }
+          if (!res.ok) return { status: 'unavailable' }
+          const data = await res.json()
+          if (isUser(data)) return { status: 'ok', user: data }
+          // 200でも形が違うならバックエンドとの契約がずれている
+          return { status: 'unavailable' }
+        } catch {
+          // ネットワーク障害・CORS・JSONパース失敗
+          return { status: 'unavailable' }
+        }
+      }
+
+      const first = await attempt()
+      // 認証が無効なら再試行しても結果は変わらない。
+      // 一時的な失敗の可能性がある場合だけ、1度だけやり直す。
+      if (first.status !== 'unavailable') return first
+      await new Promise((resolve) => setTimeout(resolve, PROFILE_RETRY_DELAY_MS))
+      return attempt()
+    },
+    []
+  )
 
   /** Supabaseセッションからトークン・ユーザーを同期する共通処理 */
   const syncSession = useCallback(async (accessToken: string | null) => {
@@ -128,11 +160,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     storeToken(accessToken)
     setToken(accessToken)
-    const profile = await fetchUserProfile(accessToken)
-    if (profile) {
-      setUser(profile)
+
+    const result = await fetchUserProfile(accessToken)
+    if (result.status === 'ok') {
+      setUser(result.user)
+      return
     }
-  }, [fetchUserProfile])
+
+    // プロフィールを取れないまま進むと、トークンだけあってユーザーが無い状態が
+    // 残り、画面上は未ログインと区別がつかなくなる。Supabase側のセッションごと
+    // 破棄して状態を揃えたうえで、理由を添えて /signin へ送る（#797）。
+    // signOut により SIGNED_OUT が発火し syncSession(null) が走るため、
+    // ここで失敗を繰り返すループにはならない。
+    await supabase.auth.signOut()
+    clearToken()
+    storage.remove(STORAGE_KEYS.LAST_ACTIVITY_TIMESTAMP)
+    setUser(null)
+    setToken(null)
+    router.push(
+      result.status === 'unauthorized'
+        ? '/signin?reason=unauthorized'
+        : '/signin?reason=profile-unavailable'
+    )
+  }, [fetchUserProfile, router])
 
   /** トークンリフレッシュ（APIクライアントから呼ばれる） */
   const refreshAccessToken = useCallback(async (): Promise<string | null> => {
