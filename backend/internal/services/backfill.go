@@ -162,8 +162,14 @@ type SeriesTitleBackfillResult struct {
 // BackfillSeriesTitles は series_title が未設定の既存作品に対し、title から
 // NormalizeAnimeTitle で算出した値を設定する（#755: 詳細ページの関連シーズン表示の前提）。
 // 外部APIを呼ばない純粋な文字列処理のため、翻訳バックフィルと異なりスロットリングは不要。
-func (s *AnimeService) BackfillSeriesTitles(ctx context.Context, dryRun bool, limit int) (*SeriesTitleBackfillResult, error) {
-	query := `SELECT id, title FROM animes WHERE series_title IS NULL OR series_title = '' ORDER BY id`
+// force=true の場合は既に設定済みの行も含めて全件再計算する。NormalizeAnimeTitle の
+// 正規化ルールを追加・修正した後、既存の（古いルールで生成された）値を訂正するために使う。
+func (s *AnimeService) BackfillSeriesTitles(ctx context.Context, dryRun bool, limit int, force bool) (*SeriesTitleBackfillResult, error) {
+	query := `SELECT id, title FROM animes`
+	if !force {
+		query += ` WHERE series_title IS NULL OR series_title = ''`
+	}
+	query += ` ORDER BY id`
 	if limit > 0 {
 		query += fmt.Sprintf(" LIMIT %d", limit)
 	}

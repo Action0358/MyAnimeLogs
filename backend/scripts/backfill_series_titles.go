@@ -13,6 +13,9 @@
 //
 //	# 本番フルバックフィル（DATABASE_URLを本番向けに設定して実行）
 //	go run scripts/backfill_series_titles.go -env=production
+//
+//	# NormalizeAnimeTitleのルール変更後、設定済みの行も含めて全件再計算する
+//	go run scripts/backfill_series_titles.go -env=production -force
 package main
 
 import (
@@ -34,6 +37,7 @@ func main() {
 	env := flag.String("env", "local", "環境: local, staging, production")
 	dryRun := flag.Bool("dry-run", false, "集計のみ（DB更新なし）")
 	limit := flag.Int("limit", 0, "先頭N件のみ処理（0=全件）")
+	force := flag.Bool("force", false, "設定済みの行も含め全件再計算する（NormalizeAnimeTitleのルール変更を既存データへ反映する場合に使用）")
 	flag.Parse()
 
 	logger := common.NewLogger(common.LogLevelInfo, "text")
@@ -74,13 +78,17 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	logger.Info("Backfill start", "env", *env, "dry_run", *dryRun, "limit", *limit)
+	logger.Info("Backfill start", "env", *env, "dry_run", *dryRun, "limit", *limit, "force", *force)
 
-	result, err := animeService.BackfillSeriesTitles(ctx, *dryRun, *limit)
+	result, err := animeService.BackfillSeriesTitles(ctx, *dryRun, *limit, *force)
 
 	if result != nil {
 		fmt.Println("\n==== Backfill Result ====")
-		fmt.Printf("対象(series_title未設定): %d 件\n", result.Total)
+		if *force {
+			fmt.Printf("対象(全件): %d 件\n", result.Total)
+		} else {
+			fmt.Printf("対象(series_title未設定): %d 件\n", result.Total)
+		}
 		if *dryRun {
 			fmt.Println("※ DryRunのためDBは更新していません。実行するには -dry-run を外してください。")
 		} else {
