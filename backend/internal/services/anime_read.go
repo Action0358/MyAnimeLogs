@@ -303,7 +303,59 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 	// Get watch providers from TMDB (if TMDB ID is available or can be found)
 	s.enrichAnimeWithWatchProviders(animeWithData)
 
+	// 同シリーズの他シーズン（続編・前作）。series_titleはensureSeriesTitleで
+	// 必ず設定済みのため、常に問い合わせる。
+	animeWithData.RelatedSeasons = s.getRelatedSeasons(animeID, anime.SeriesTitle)
+
 	return animeWithData, nil
+}
+
+// getRelatedSeasons - series_titleが一致する他のアニメ（自分自身を除く）を放送時期順で返す
+func (s *AnimeService) getRelatedSeasons(animeID int, seriesTitle *string) []models.RelatedAnime {
+	if seriesTitle == nil || *seriesTitle == "" {
+		return nil
+	}
+
+	// seasonは "YYYY-season" 形式の文字列のため、単純な文字列ソートだと
+	// 同一年内で "autumn" < "winter" のように字句順とチクロ順がずれる
+	// （例: "2023-autumn" が "2023-winter" より前に来てしまう）。
+	// 年 → 季節（冬→春→夏→秋）の順で明示的に並べる。
+	rows, err := s.db.Query(`
+		SELECT id, title, season, cover_image_medium, image_url
+		FROM animes
+		WHERE series_title = $1 AND id != $2
+		ORDER BY
+			split_part(season, '-', 1) NULLS LAST,
+			CASE split_part(season, '-', 2)
+				WHEN 'winter' THEN 1
+				WHEN 'spring' THEN 2
+				WHEN 'summer' THEN 3
+				WHEN 'autumn' THEN 4
+				ELSE 5
+			END,
+			id
+		LIMIT $3
+	`, *seriesTitle, animeID, constants.MaxRelatedSeasons)
+	if err != nil {
+		s.logger.Warn("Failed to get related seasons", "anime_id", animeID, "error", err)
+		return nil
+	}
+	defer rows.Close()
+
+	var related []models.RelatedAnime
+	for rows.Next() {
+		var r models.RelatedAnime
+		var coverImageMedium sql.NullString
+		if err := rows.Scan(&r.ID, &r.Title, &r.Season, &coverImageMedium, &r.ImageURL); err != nil {
+			s.logger.Warn("Failed to scan related season", "anime_id", animeID, "error", err)
+			continue
+		}
+		if coverImageMedium.Valid {
+			r.CoverImageMedium = coverImageMedium.String
+		}
+		related = append(related, r)
+	}
+	return related
 }
 
 // GetFilterOptions - フィルター情報を取得

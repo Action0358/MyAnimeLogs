@@ -165,6 +165,8 @@ export interface Anime {
   user_watch_status?: WatchStatus;
   /** 配信サービス一覧 */
   watch_providers?: WatchProvider[];
+  /** 同シリーズの他シーズン（続編・前作）。タイトルの季節サフィックスを除いた series_title が一致する作品を放送時期順に返す。 */
+  related_seasons?: RelatedAnime[];
   created_at?: string;
   updated_at?: string;
 }
@@ -176,6 +178,23 @@ export interface WatchProvider {
   provider_name: string;
   /** ロゴ画像URL */
   logo_url: string;
+}
+
+export interface RelatedAnime {
+  id: number;
+  title: string;
+  /**
+   * 放送時期（例：2025-summer）
+   * @nullable
+   */
+  season: string | null;
+  /** AniListカバー画像（未取得の場合は省略） */
+  cover_image_medium?: string;
+  /**
+   * Annict画像URL（フォールバック用）
+   * @nullable
+   */
+  image_url: string | null;
 }
 
 export interface Favorite {

@@ -9,7 +9,7 @@ import { decode as heDecodeEntities } from 'he'
 import { Container } from '@/components/layout'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { Button, Card, CardContent, SectionHeading } from '@/components/ui'
-import { WatchProviders } from '@/components/anime'
+import { WatchProviders, RelatedSeasons } from '@/components/anime'
 import { FavoriteButton, StatusSelector } from '@/components/favorites'
 import { getAnimesId } from '@/lib/api/generated/myanimelogs'
 import { useFavorites } from '@/hooks/useFavorites'
@@ -435,6 +435,11 @@ const AnimeDetailClient: React.FC = () => {
             {/* 配信サービス */}
             {anime.watch_providers && anime.watch_providers.length > 0 && (
               <WatchProviders providers={anime.watch_providers} />
+            )}
+
+            {/* 同シリーズの他シーズン */}
+            {anime.related_seasons && anime.related_seasons.length > 0 && (
+              <RelatedSeasons items={anime.related_seasons} />
             )}
           </div>
         </div>
