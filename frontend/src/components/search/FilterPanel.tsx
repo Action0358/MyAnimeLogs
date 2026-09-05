@@ -1,160 +1,177 @@
 'use client'
 
-import React from 'react'
-import { ChevronDown } from 'lucide-react'
+import React, { useState } from 'react'
+import { Check, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SEASONS, GENRES } from '@/constants/search'
 
+export interface SortOption {
+  value: string
+  label: string
+}
+
+export const sortOptions: SortOption[] = [
+  { value: 'year', label: '放送年順' },
+  { value: 'popularity', label: '人気順' },
+]
+
 export interface FilterPanelProps {
   selectedSeason?: string
-  selectedGenre?: string
-  selectedStatus?: 'airing' | 'finished' | 'not_yet_aired'
+  /** 複数選択。未選択は空配列または undefined */
+  selectedGenres?: string[]
+  sort: string
   onSeasonChange: (season: string | undefined) => void
-  onGenreChange: (genre: string | undefined) => void
-  onStatusChange: (status: 'airing' | 'finished' | 'not_yet_aired' | undefined) => void
-  /** 'inline': デスクトップツールバー用の横並びチップ / 'sheet': モバイルシート用の縦並び+ラベル付き */
-  variant?: 'inline' | 'sheet'
+  onGenresChange: (genres: string[]) => void
+  onSortChange: (sort: string) => void
   className?: string
 }
 
-const STATUS_VALUES = ['airing', 'finished', 'not_yet_aired'] as const
+const toggleGenre = (genres: string[], genre: string): string[] =>
+  genres.includes(genre) ? genres.filter((g) => g !== genre) : [...genres, genre]
 
-const STATUS_LABELS: Record<(typeof STATUS_VALUES)[number], string> = {
-  airing: '放送中',
-  finished: '完結',
-  not_yet_aired: '放送予定',
+interface GenreCheckboxListProps {
+  selectedGenres: string[]
+  onToggle: (genre: string) => void
 }
 
-interface ChipSelectProps {
-  ariaLabel: string
-  value: string
-  options: { value: string; label: string }[]
-  onChange: (value: string) => void
-}
-
-const ChipSelect: React.FC<ChipSelectProps> = ({ ariaLabel, value, options, onChange }) => (
-  <div className="relative inline-flex items-center">
-    <select
-      aria-label={ariaLabel}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className={cn(
-        'h-[38px] pl-3.5 pr-8 rounded-lg border border-input bg-background',
-        'text-sm font-medium text-foreground appearance-none cursor-pointer',
-        'focus:outline-none focus:ring-2 focus:ring-ring'
-      )}
-    >
-      {options.map((opt) => (
-        <option key={opt.value} value={opt.value}>
-          {opt.label}
-        </option>
-      ))}
-    </select>
-    <ChevronDown className="w-3.5 h-3.5 text-muted-foreground absolute right-2.5 pointer-events-none" />
+const GenreCheckboxList: React.FC<GenreCheckboxListProps> = ({ selectedGenres, onToggle }) => (
+  <div role="group" aria-label="ジャンル">
+    {GENRES.map((genre) => {
+      const isSelected = selectedGenres.includes(genre)
+      return (
+        <label
+          key={genre}
+          className="flex cursor-pointer items-center gap-2.5 px-3 py-2 text-sm text-foreground hover:bg-muted"
+        >
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={() => onToggle(genre)}
+            className="sr-only"
+          />
+          {/* ネイティブのcheckboxは色や大きさの調整が効かないため、見た目は自前で描く */}
+          <span
+            aria-hidden="true"
+            className={cn(
+              'flex h-4 w-4 flex-shrink-0 items-center justify-center rounded border',
+              isSelected ? 'border-primary bg-primary text-primary-foreground' : 'border-input'
+            )}
+          >
+            {isSelected && <Check className="h-3 w-3" strokeWidth={3} />}
+          </span>
+          {genre}
+        </label>
+      )
+    })}
   </div>
 )
 
-export const FilterPanel: React.FC<FilterPanelProps> = ({
-  selectedSeason,
-  selectedGenre,
-  selectedStatus,
-  onSeasonChange,
-  onGenreChange,
-  onStatusChange,
-  variant = 'inline',
-  className,
-}) => {
-  if (variant === 'sheet') {
-    return (
-      <div className={cn('space-y-4', className)}>
-        <h3 className="text-sm font-semibold text-foreground">フィルター</h3>
+interface GenreDropdownProps {
+  selectedGenres: string[]
+  onGenresChange: (genres: string[]) => void
+}
 
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-2">放送時期</label>
-          <select
-            value={selectedSeason || ''}
-            onChange={(e) => onSeasonChange(e.target.value || undefined)}
-            className="w-full px-3 py-2 border border-input bg-background rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-          >
-            <option value="">すべて</option>
-            {SEASONS.map((season) => (
-              <option key={season} value={season}>
-                {season}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-2">ジャンル</label>
-          <select
-            value={selectedGenre || ''}
-            onChange={(e) => onGenreChange(e.target.value || undefined)}
-            className="w-full px-3 py-2 border border-input bg-background rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-          >
-            <option value="">すべて</option>
-            {GENRES.map((genre) => (
-              <option key={genre} value={genre}>
-                {genre}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-2">放送状態</label>
-          <select
-            value={selectedStatus || ''}
-            onChange={(e) =>
-              onStatusChange(
-                (e.target.value || undefined) as 'airing' | 'finished' | 'not_yet_aired' | undefined
-              )
-            }
-            className="w-full px-3 py-2 border border-input bg-background rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-          >
-            <option value="">すべて</option>
-            {STATUS_VALUES.map((status) => (
-              <option key={status} value={status}>
-                {STATUS_LABELS[status]}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-    )
-  }
+/**
+ * 放送時期の <select> と見た目を揃えるため、折りたたみ済みのボタンから
+ * 開閉する形にする。
+ *
+ * ネイティブ <select multiple> にしないのは、複数選択に Ctrl/Cmd+クリックを
+ * 要求しブラウザ間で見た目も揃わないため。絶対配置にしないのは、シート内で
+ * スクロールしたときにボタン位置からズレて浮いて見えるのを避けるため
+ * （通常のフローで下に伸ばす）。
+ */
+const GenreDropdown: React.FC<GenreDropdownProps> = ({ selectedGenres, onGenresChange }) => {
+  const [isOpen, setIsOpen] = useState(false)
 
   return (
-    <div className={cn('flex items-center gap-2.5 flex-wrap', className)}>
-      <ChipSelect
-        ariaLabel="放送時期"
-        value={selectedSeason || ''}
-        options={[
-          { value: '', label: '放送時期：すべて' },
-          ...SEASONS.map((season) => ({ value: season, label: season })),
-        ]}
-        onChange={(v) => onSeasonChange(v || undefined)}
-      />
-      <ChipSelect
-        ariaLabel="ジャンル"
-        value={selectedGenre || ''}
-        options={[
-          { value: '', label: 'ジャンル：すべて' },
-          ...GENRES.map((genre) => ({ value: genre, label: genre })),
-        ]}
-        onChange={(v) => onGenreChange(v || undefined)}
-      />
-      <ChipSelect
-        ariaLabel="放送状態"
-        value={selectedStatus || ''}
-        options={[
-          { value: '', label: '放送状態：すべて' },
-          ...STATUS_VALUES.map((status) => ({ value: status, label: STATUS_LABELS[status] })),
-        ]}
-        onChange={(v) =>
-          onStatusChange((v || undefined) as 'airing' | 'finished' | 'not_yet_aired' | undefined)
-        }
-      />
+    <div>
+      <button
+        type="button"
+        aria-haspopup="true"
+        aria-expanded={isOpen}
+        onClick={() => setIsOpen((prev) => !prev)}
+        className="flex w-full items-center justify-between px-3 py-2 border border-input bg-background rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+      >
+        <span className={selectedGenres.length > 0 ? 'text-foreground' : 'text-muted-foreground'}>
+          {selectedGenres.length === 0 ? 'すべて' : selectedGenres.join('、')}
+        </span>
+        <ChevronDown className={cn('h-4 w-4 text-muted-foreground transition-transform', isOpen && 'rotate-180')} />
+      </button>
+
+      {isOpen && (
+        <div className="mt-1.5 rounded-lg border border-input">
+          <GenreCheckboxList
+            selectedGenres={selectedGenres}
+            onToggle={(genre) => onGenresChange(toggleGenre(selectedGenres, genre))}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+export const FilterPanel: React.FC<FilterPanelProps> = ({
+  selectedSeason,
+  selectedGenres,
+  sort,
+  onSeasonChange,
+  onGenresChange,
+  onSortChange,
+  className,
+}) => {
+  const genres = selectedGenres ?? []
+
+  return (
+    <div className={cn('space-y-4', className)}>
+      <div>
+        <label htmlFor="filter-sort" className="block text-sm font-medium text-foreground mb-2">
+          並び替え
+        </label>
+        <select
+          id="filter-sort"
+          value={sort}
+          onChange={(e) => onSortChange(e.target.value)}
+          className="w-full px-3 py-2 border border-input bg-background rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          {sortOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-2">放送時期</label>
+        <select
+          value={selectedSeason || ''}
+          onChange={(e) => onSeasonChange(e.target.value || undefined)}
+          className="w-full px-3 py-2 border border-input bg-background rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          <option value="">すべて</option>
+          {SEASONS.map((season) => (
+            <option key={season} value={season}>
+              {season}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <div className="mb-2 flex items-center justify-between">
+          <span className="text-sm font-medium text-foreground">ジャンル</span>
+          {genres.length > 0 && (
+            <button
+              type="button"
+              onClick={() => onGenresChange([])}
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              すべて解除
+            </button>
+          )}
+        </div>
+        <GenreDropdown selectedGenres={genres} onGenresChange={onGenresChange} />
+      </div>
     </div>
   )
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"myanimelogs/internal/constants"
 	"myanimelogs/internal/models"
@@ -305,14 +306,55 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 
 	// 同シリーズの他シーズン（続編・前作）。series_titleはensureSeriesTitleで
 	// 必ず設定済みのため、常に問い合わせる。
-	animeWithData.RelatedSeasons = s.getRelatedSeasons(animeID, anime.SeriesTitle)
+	animeWithData.RelatedSeasons = s.getRelatedSeasons(animeID, anime.Title, anime.SeriesTitle, anime.SeriesTMDBID)
 
 	return animeWithData, nil
 }
 
-// getRelatedSeasons - series_titleが一致する他のアニメ（自分自身を除く）を放送時期順で返す
-func (s *AnimeService) getRelatedSeasons(animeID int, seriesTitle *string) []models.RelatedAnime {
-	if seriesTitle == nil || *seriesTitle == "" {
+// relatedTitleHeadExpr - タイトルから「シリーズ名」にあたる先頭語を取り出すSQL式。
+// %s に対象のカラム名またはプレースホルダを埋める。
+//
+// 日本語タイトルは「シリーズ名 + 空白 + 副題」の形が多いため、最初の空白までを
+// シリーズ名とみなせる（「鬼滅の刃 遊郭編」→「鬼滅の刃」）。
+// 先頭の「劇場版」「映画」等は作品名ではなく種別を表す修飾語なので、
+// 取り除いてから切り出す（「劇場版 鬼滅の刃 無限列車編」→「鬼滅の刃」）。
+// 実データでは「劇場版 」始まりが184件、「映画 」始まりが25件ある。
+//
+// 自作品側と候補側の両方で同じ式を使い、判定を1か所に集約する。
+const relatedTitleHeadExpr = `split_part(regexp_replace(%s, '^(劇場版|映画|OVA|TVアニメ|テレビアニメ)\s+', ''), ' ', 1)`
+
+// getRelatedSeasons - 以下4条件のいずれかを満たす他のアニメ（自分自身を除く）を
+// 放送時期順で返す。条件はOR結合（マージ）され、重複はidの一意性により自然に排除される。
+//
+//  1. series_title の完全一致（従来ロジック）
+//  2. series_tmdb_id の一致（自身のseries_tmdb_idが非nilの場合のみ）
+//  3. タイトルの双方向前方一致（双方の文字数がMinRelatedTitlePrefixLength以上の場合のみ）
+//  4. タイトル先頭語の一致（relatedTitleHeadExpr。日本語を含み、かつ
+//     MinRelatedTitlePrefixLength文字以上の場合のみ）
+//
+// 条件3はseries_titleの正規化パターンが続編タイトルの命名規則（数字サフィックスや
+// サブタイトル型）を網羅しきれず、1・2でも拾えない関連作品を補完する目的。
+// 短い文字数のタイトル同士（「F」「K」等）が無関係な作品を大量に巻き込むことが
+// 実データ調査で確認されたため、文字数ガードで除外する。
+//
+// 条件3の前方一致に LIKE を使わないのは、タイトルそのものがパターンとして
+// 解釈されてしまうため。実データに「攻殻機動隊 SAC_2045」「NieA_7」（_は任意の
+// 1文字）「いちご100%」（%は任意の文字列）が存在し、LIKEでは意図しない作品まで
+// 拾う。left() による前方一致はメタ文字の影響を受けない。
+//
+// 条件4は条件3で拾えない「共通の接頭辞しか持たない」シリーズを補完する。
+// 「鬼滅の刃 遊郭編」と「鬼滅の刃 刀鍛冶の里編」は互いに前方一致しないため、
+// 単独作品としての「鬼滅の刃」が存在しない以上、条件3では永久に繋がらない。
+//
+// 条件4で先頭語に日本語（非ASCII）を要求するのは、英語タイトルでは空白が
+// 単に単語の区切りであり、先頭語がシリーズ名にならないため。実データで
+// 「BLUE」（BLUE DRAGON / BLUE SEED / BLUE GIANT…）「THE」（THE COCKPIT /
+// THE IDOLM@STER / THE 八犬伝…）「BLACK」（BLACK CAT / BLACK LAGOON…）が
+// 無関係な作品を大量に巻き込むことを確認した。英語タイトルのシリーズは
+// 「FAIRY TAIL」「DEATH NOTE」のように素の作品名が存在することが多く、
+// 条件3で拾えるため実害は小さい。
+func (s *AnimeService) getRelatedSeasons(animeID int, title string, seriesTitle *string, seriesTMDBID *int) []models.RelatedAnime {
+	if (seriesTitle == nil || *seriesTitle == "") && seriesTMDBID == nil && utf8.RuneCountInString(title) < constants.MinRelatedTitlePrefixLength {
 		return nil
 	}
 
@@ -320,10 +362,29 @@ func (s *AnimeService) getRelatedSeasons(animeID int, seriesTitle *string) []mod
 	// 同一年内で "autumn" < "winter" のように字句順とチクロ順がずれる
 	// （例: "2023-autumn" が "2023-winter" より前に来てしまう）。
 	// 年 → 季節（冬→春→夏→秋）の順で明示的に並べる。
-	rows, err := s.db.Query(`
+	selfHead := fmt.Sprintf(relatedTitleHeadExpr, "$4")
+	candidateHead := fmt.Sprintf(relatedTitleHeadExpr, "title")
+
+	rows, err := s.db.Query(fmt.Sprintf(`
 		SELECT id, title, season, cover_image_extra_large, cover_image_large, cover_image_medium, image_url
 		FROM animes
-		WHERE series_title = $1 AND id != $2
+		WHERE id != $2
+		AND (
+			($1::text IS NOT NULL AND series_title = $1)
+			OR ($3::int IS NOT NULL AND series_tmdb_id = $3)
+			OR (
+				length($4) >= $5 AND length(title) >= $5
+				AND (
+					left(title, length($4)) = $4
+					OR left($4, length(title)) = title
+				)
+			)
+			OR (
+				length(%[1]s) >= $5
+				AND %[1]s ~ '[^[:ascii:]]'
+				AND %[2]s = %[1]s
+			)
+		)
 		ORDER BY
 			split_part(season, '-', 1) NULLS LAST,
 			CASE split_part(season, '-', 2)
@@ -334,8 +395,9 @@ func (s *AnimeService) getRelatedSeasons(animeID int, seriesTitle *string) []mod
 				ELSE 5
 			END,
 			id
-		LIMIT $3
-	`, *seriesTitle, animeID, constants.MaxRelatedSeasons)
+		LIMIT $6
+	`, selfHead, candidateHead),
+		seriesTitle, animeID, seriesTMDBID, title, constants.MinRelatedTitlePrefixLength, constants.MaxRelatedSeasons)
 	if err != nil {
 		s.logger.Warn("Failed to get related seasons", "anime_id", animeID, "error", err)
 		return nil

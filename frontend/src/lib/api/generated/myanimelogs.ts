@@ -374,9 +374,13 @@ keyword?: string;
 season?: string;
 status?: GetAnimesStatus;
 /**
- * ジャンルで絞り込み
+ * ジャンルで絞り込み。カンマ区切りで複数指定でき、 指定したいずれかのジャンルを持つ作品を返す（OR）。
  */
 genre?: string;
+/**
+ * 並び替え。title=タイトル順（五十音）、year=放送年順（新しい順）、 popularity=人気順（視聴者数の多い順）
+ */
+sort?: GetAnimesSort;
 page?: number;
 per_page?: number;
 };
@@ -389,6 +393,16 @@ export const GetAnimesStatus = {
   airing: 'airing',
   finished: 'finished',
   not_yet_aired: 'not_yet_aired',
+} as const;
+
+export type GetAnimesSort = typeof GetAnimesSort[keyof typeof GetAnimesSort];
+
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const GetAnimesSort = {
+  title: 'title',
+  year: 'year',
+  popularity: 'popularity',
 } as const;
 
 export type GetAnimes200Meta = {
@@ -437,7 +451,7 @@ export type GetSearchAnimesParams = {
  */
 q?: string;
 /**
- * ジャンル絞り込み
+ * ジャンル絞り込み。カンマ区切りで複数指定でき、 指定したいずれかのジャンルを持つ作品を返す（OR）。
  */
 genre?: string;
 /**

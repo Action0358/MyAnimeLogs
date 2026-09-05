@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Route } from 'next';
 import type { SearchTab } from './SearchContainer';
-import { SEASONS, GENRES } from '@/constants/search';
+import { GENRES } from '@/constants/search';
 
 interface SearchInputAreaProps {
   activeTab: SearchTab;
@@ -13,7 +13,6 @@ interface SearchInputAreaProps {
 const SearchInputArea: React.FC<SearchInputAreaProps> = ({ activeTab }) => {
   const router = useRouter();
   const [keyword, setKeyword] = useState('');
-  const [season, setSeason] = useState('');
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
 
   const handleGenreToggle = (genre: string) => {
@@ -29,8 +28,6 @@ const SearchInputArea: React.FC<SearchInputAreaProps> = ({ activeTab }) => {
 
     if (activeTab === 'keyword' && keyword.trim()) {
       searchQuery = `?keyword=${encodeURIComponent(keyword.trim())}`;
-    } else if (activeTab === 'season' && season) {
-      searchQuery = `?season=${encodeURIComponent(season)}`;
     } else if (activeTab === 'genre' && selectedGenres.length > 0) {
       searchQuery = `?genre=${selectedGenres.map(g => encodeURIComponent(g)).join(',')}`;
     }
@@ -90,43 +87,6 @@ const SearchInputArea: React.FC<SearchInputAreaProps> = ({ activeTab }) => {
             />
           </div>
           {searchButton(!keyword.trim())}
-        </div>
-      )}
-
-      {/* 放送時期検索 */}
-      {activeTab === 'season' && (
-        <div className="flex overflow-hidden rounded-xl shadow-sm">
-          <div className="relative flex-1">
-            <svg
-              className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-              />
-            </svg>
-            <select
-              value={season}
-              onChange={(e) => setSeason(e.target.value)}
-              className={`w-full pl-12 pr-4 py-4 bg-card
-                focus:outline-none text-base font-bold appearance-none cursor-pointer
-                ${season ? 'text-foreground' : 'text-muted-foreground'}`}
-            >
-              <option value="" disabled hidden>放送時期を選択</option>
-              {SEASONS.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </div>
-          {searchButton(!season)}
         </div>
       )}
 
