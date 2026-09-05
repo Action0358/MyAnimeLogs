@@ -2,11 +2,11 @@
 
 import React, { Suspense, useState, useCallback, useRef } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { SlidersHorizontal, X } from 'lucide-react'
+import { ChevronDown, Filter as FilterIcon, X } from 'lucide-react'
 import { Container } from '@/components/layout'
 import { AnimeGrid } from '@/components/anime'
 import { Pagination } from '@/components/ui'
-import { SearchForm, FilterPanel } from '@/components/search'
+import { SearchForm, FilterPanel, sortOptions } from '@/components/search'
 import { useAnimes } from '@/hooks/useAnimes'
 import { useSearch } from '@/hooks/useSearch'
 import { useOnClickOutside } from '@/hooks/useOnClickOutside'
@@ -111,7 +111,14 @@ function SearchContent() {
   )
 
   const selectedGenres = filters.genre ?? []
+  const sort = filters.sort ?? DEFAULT_SORT
+  const isSortDefault = sort === DEFAULT_SORT
   const hasActiveFilters = filters.keyword || filters.season || selectedGenres.length > 0
+  // フィルターボタンのバッジ件数。並び替えは絞り込みではないため0件表示には影響しないが、
+  // 「適用中の設定」としてバッジ・チップには含める
+  const activeFilterCount =
+    (filters.season ? 1 : 0) + selectedGenres.length + (isSortDefault ? 0 : 1)
+  const sortLabel = sortOptions.find((option) => option.value === sort)?.label
 
   const filterPanelProps = {
     selectedSeason: filters.season,
@@ -132,45 +139,33 @@ function SearchContent() {
           <h1 className="sr-only md:not-sr-only text-3xl font-bold text-foreground md:mb-5">
             アニメ検索
           </h1>
-          <SearchForm
-            onSearch={handleSearch}
-            placeholder="タイトルで検索..."
-            recentSearches={searchHistory}
-            onClearHistory={clearHistory}
-            initialValue={filters.keyword || ''}
-            className="max-w-2xl lg:max-w-[650px]"
-          />
-        </div>
 
-        {/* ツールバー: フィルター + 件数。
-            並び替えはフィルターパネル内に統合済み（#812以降ジャンルが
-            18種類まで増え、常時展開の別コントロールだと折り返していたため） */}
-        <div className="flex items-center gap-2.5 flex-nowrap pb-4 border-b border-border mb-6">
-          {/* フィルターボタン */}
-          <button
-            onClick={() => setShowFilters(true)}
-            className="inline-flex flex-shrink-0 items-center gap-2 h-[38px] px-3.5 border border-input bg-background rounded-lg text-sm font-medium text-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
-          >
-            <SlidersHorizontal className="w-4 h-4" />
-            フィルター
-            {hasActiveFilters && <span className="w-1.5 h-1.5 bg-primary rounded-full" />}
-          </button>
-
-          {/* 件数: 結果を説明するラベルとして右端に独立、数字のみ強調。
-              ml-auto で右端に寄せる。狭い画面で spacer を使うと件数だけが
-              次の行に落ちるため、spacer は置かない。
-              0件のときも同じ「件」表記に揃え、文言の出し分けをしない */}
-          <span className="ml-auto flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground">
-            {!isLoading && (
-              <span className="flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap">
-                <span className="text-base font-bold text-foreground">{total.toLocaleString()}</span>
-                件
-              </span>
-            )}
-            {isFetching && !isLoading && (
-              <span className="inline-block flex-shrink-0 animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-primary" />
-            )}
-          </span>
+          {/* 検索ボックス + フィルターボタン。
+              狭い画面では縦積み、lg以上では横並びにする（並び替えは
+              フィルターパネル内に統合済みのため、ここには置かない） */}
+          <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center">
+            <SearchForm
+              onSearch={handleSearch}
+              placeholder="タイトルで検索..."
+              recentSearches={searchHistory}
+              onClearHistory={clearHistory}
+              initialValue={filters.keyword || ''}
+              className="w-full lg:max-w-[440px]"
+            />
+            <button
+              onClick={() => setShowFilters(true)}
+              className="flex w-full lg:w-auto flex-shrink-0 items-center justify-center gap-2 h-10 px-4 border border-input bg-background rounded-full text-sm font-medium text-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              <FilterIcon className="w-4 h-4" />
+              フィルター
+              {activeFilterCount > 0 && (
+                <span className="inline-flex min-w-[18px] h-[18px] items-center justify-center rounded-full bg-primary px-1 text-[11px] font-bold text-primary-foreground">
+                  {activeFilterCount}
+                </span>
+              )}
+              <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+            </button>
+          </div>
         </div>
 
         {/* モバイルフィルターシート */}
@@ -181,7 +176,7 @@ function SearchContent() {
         />
 
         {/* 検索条件表示 */}
-        {hasActiveFilters && (
+        {(hasActiveFilters || !isSortDefault) && (
           <div className="flex flex-wrap gap-2 mb-6">
             {filters.keyword && (
               <span className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary rounded-full text-sm">
@@ -223,8 +218,33 @@ function SearchContent() {
                 </button>
               </span>
             ))}
+            {!isSortDefault && sortLabel && (
+              <span className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary rounded-full text-sm">
+                {sortLabel}
+                <button
+                  onClick={() => updateFilters({ sort: undefined })}
+                  className="ml-1 hover:text-primary/70"
+                  aria-label="並び替えを既定に戻す"
+                >
+                  ×
+                </button>
+              </span>
+            )}
           </div>
         )}
+
+        {/* 件数: 結果を説明するラベルとして独立した行にし、区切り線で結果との関係を示す */}
+        <div className="flex items-center justify-end gap-1.5 pb-4 border-b border-border mb-6 text-sm text-muted-foreground">
+          {!isLoading && (
+            <span className="flex items-center gap-1.5 whitespace-nowrap">
+              <span className="text-base font-bold text-foreground">{total.toLocaleString()}</span>
+              件のアニメ
+            </span>
+          )}
+          {isFetching && !isLoading && (
+            <span className="inline-block h-3.5 w-3.5 flex-shrink-0 animate-spin rounded-full border-b-2 border-primary" />
+          )}
+        </div>
 
         {/* アニメグリッド（一覧ページと統一の全幅グリッド） */}
         <AnimeGrid

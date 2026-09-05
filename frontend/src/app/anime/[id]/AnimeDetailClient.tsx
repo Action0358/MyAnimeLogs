@@ -9,8 +9,8 @@ import { decode as heDecodeEntities } from 'he'
 import { Container } from '@/components/layout'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { Button, Card, CardContent, SectionHeading } from '@/components/ui'
-import { WatchProviders, AnimeGrid } from '@/components/anime'
-import type { Anime, RelatedAnime } from '@/lib/api/generated/myanimelogs'
+import { WatchProviders, RelatedAnimeGrid } from '@/components/anime'
+import type { Anime } from '@/lib/api/generated/myanimelogs'
 import { FavoriteButton, StatusSelector } from '@/components/favorites'
 import { getAnimesId } from '@/lib/api/generated/myanimelogs'
 import { useFavorites } from '@/hooks/useFavorites'
@@ -84,21 +84,6 @@ const ExpandableSynopsis: React.FC<{ text: string }> = ({ text }) => {
 
 /** 情報カードの内側余白（デザイン仕様: 24px / 28px） */
 const DETAIL_CARD_PADDING = 'p-5 md:px-6 md:py-5'
-
-/** 関連シーズンは一覧・検索と同じ AnimeCard 規格で表示するため、
- *  APIが返す縮小フィールド（RelatedAnime）を AnimeGrid が要求する Anime 形に合わせる。
- *  status等は含まれないため未設定になるが、AnimeCard 側は任意項目として扱う。 */
-const toAnimeCardData = (related: RelatedAnime[]): (Anime & { id: number })[] =>
-  related.map((r) => ({
-    id: r.id,
-    title: r.title,
-    season: r.season ?? undefined,
-    image_url: r.image_url ?? undefined,
-    cover_image_extra_large: r.cover_image_extra_large,
-    cover_image_large: r.cover_image_large,
-    cover_image_medium: r.cover_image_medium,
-  }))
-
 
 const AnimeDetailClient: React.FC = () => {
   const params = useParams()
@@ -459,10 +444,9 @@ const AnimeDetailClient: React.FC = () => {
                 <Card>
                   <CardContent className={DETAIL_CARD_PADDING}>
                     <SectionHeading as="h2" size="sm">関連作品</SectionHeading>
-                    <AnimeGrid
-                      animes={toAnimeCardData(anime.related_seasons)}
+                    <RelatedAnimeGrid
+                      related={anime.related_seasons}
                       columns={{ mobile: 3 }}
-                      cardSize="small"
                     />
                   </CardContent>
                 </Card>
@@ -480,7 +464,7 @@ const AnimeDetailClient: React.FC = () => {
             <h2 className="text-xl font-bold tracking-tight text-foreground">関連作品</h2>
             <span className="text-sm text-muted-foreground">{anime.related_seasons.length}作品</span>
           </div>
-          <AnimeGrid animes={toAnimeCardData(anime.related_seasons)} cardSize="small" />
+          <RelatedAnimeGrid related={anime.related_seasons} />
         </div>
       )}
     </Container>
