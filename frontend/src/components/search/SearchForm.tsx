@@ -87,9 +87,9 @@ export const SearchForm: React.FC<SearchFormProps> = ({
     <div ref={containerRef} className={cn('relative', className)}>
       <form onSubmit={handleSubmit}>
         <div className="relative">
-          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
             <svg
-              className="h-5 w-5 text-muted-foreground"
+              className="h-4 w-4 text-muted-foreground"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -111,8 +111,8 @@ export const SearchForm: React.FC<SearchFormProps> = ({
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
             className={cn(
-              'block w-full h-[52px] pl-11 pr-12 border border-input rounded-lg',
-              'text-foreground placeholder-muted-foreground',
+              'block w-full h-10 pl-10 pr-10 border border-input rounded-full',
+              'text-sm text-foreground placeholder-muted-foreground',
               'focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent',
               'transition-shadow'
             )}
@@ -127,10 +127,10 @@ export const SearchForm: React.FC<SearchFormProps> = ({
             <button
               type="button"
               onClick={handleClear}
-              className="absolute inset-y-0 right-12 flex items-center pr-2 text-muted-foreground hover:text-foreground"
+              className="absolute inset-y-0 right-10 flex items-center pr-1.5 text-muted-foreground hover:text-foreground"
               aria-label="検索をクリア"
             >
-              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -142,10 +142,10 @@ export const SearchForm: React.FC<SearchFormProps> = ({
           )}
           <button
             type="submit"
-            className="absolute inset-y-0 right-0 flex items-center pr-4 text-primary hover:text-primary/80"
+            className="absolute inset-y-0 right-0 flex items-center pr-3.5 text-primary hover:text-primary/80"
             aria-label="検索を実行"
           >
-            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
