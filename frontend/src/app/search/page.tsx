@@ -167,16 +167,13 @@ function SearchContent() {
           {/* 件数: 結果を説明するラベルとして右端に独立、数字のみ強調。
               ml-auto で右端に寄せる。狭い画面で spacer を使うと件数だけが
               次の行に落ちるため、spacer は置かない。
-              件数は桁数が増えても省略させない（flex-shrink-0）。一方
-              「検索結果がありません」は長いため、縮む側に回して溢れを防ぐ */}
+              0件のときも同じ「件」表記に揃え、文言の出し分けをしない */}
           <span className="ml-auto flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground">
-            {total > 0 ? (
+            {!isLoading && (
               <span className="flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap">
                 <span className="text-base font-bold text-foreground">{total.toLocaleString()}</span>
                 件
               </span>
-            ) : (
-              !isLoading && <span className="truncate">検索結果がありません</span>
             )}
             {isFetching && !isLoading && (
               <span className="inline-block flex-shrink-0 animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-primary" />
