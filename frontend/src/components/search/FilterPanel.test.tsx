@@ -101,8 +101,26 @@ describe('FilterPanel のジャンル絞り込み', () => {
   })
 
   describe('sheet（モバイル）', () => {
-    it('開閉なしでジャンルを直接選べる', async () => {
+    const openGenreDropdown = async (label: string) => {
+      await userEvent.click(screen.getByRole('button', { name: label }))
+    }
+
+    it('未選択なら「すべて」と表示し、初期状態では選択肢を畳んでいる', () => {
+      render(<FilterPanel {...baseProps} variant="sheet" />)
+
+      expect(screen.getByRole('button', { name: 'すべて' })).toBeInTheDocument()
+      expect(screen.queryByRole('checkbox', { name: 'アクション' })).not.toBeInTheDocument()
+    })
+
+    it('選択中はジャンル名をボタンに表示する', () => {
+      render(<FilterPanel {...baseProps} selectedGenres={['アクション', 'ドラマ']} variant="sheet" />)
+
+      expect(screen.getByRole('button', { name: 'アクション、ドラマ' })).toBeInTheDocument()
+    })
+
+    it('ボタンを開くとジャンルを選べる', async () => {
       render(<FilterPanel {...baseProps} selectedGenres={['アクション']} variant="sheet" />)
+      await openGenreDropdown('アクション')
 
       expect(screen.getByRole('checkbox', { name: 'アクション' })).toBeChecked()
 

@@ -146,6 +146,50 @@ const GenreMultiSelect: React.FC<GenreMultiSelectProps> = ({ selectedGenres, onG
   )
 }
 
+interface GenreDropdownProps {
+  selectedGenres: string[]
+  onGenresChange: (genres: string[]) => void
+}
+
+/**
+ * モバイルシート用。放送時期の <select> と見た目を揃えるため、
+ * 折りたたみ済みのボタンから開閉する形にする。
+ *
+ * ネイティブ <select multiple> ではなく開閉パネルにするのは、
+ * デスクトップの GenreMultiSelect と同じ理由（複数選択の操作性）。
+ * 絶対配置にしないのは、シート内でスクロールしたときにボタン位置から
+ * ズレて浮いて見えるのを避けるため（通常のフローで下に伸ばす）。
+ */
+const GenreDropdown: React.FC<GenreDropdownProps> = ({ selectedGenres, onGenresChange }) => {
+  const [isOpen, setIsOpen] = useState(false)
+
+  return (
+    <div>
+      <button
+        type="button"
+        aria-haspopup="true"
+        aria-expanded={isOpen}
+        onClick={() => setIsOpen((prev) => !prev)}
+        className="flex w-full items-center justify-between px-3 py-2 border border-input bg-background rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+      >
+        <span className={selectedGenres.length > 0 ? 'text-foreground' : 'text-muted-foreground'}>
+          {selectedGenres.length === 0 ? 'すべて' : selectedGenres.join('、')}
+        </span>
+        <ChevronDown className={cn('h-4 w-4 text-muted-foreground transition-transform', isOpen && 'rotate-180')} />
+      </button>
+
+      {isOpen && (
+        <div className="mt-1.5 rounded-lg border border-input">
+          <GenreCheckboxList
+            selectedGenres={selectedGenres}
+            onToggle={(genre) => onGenresChange(toggleGenre(selectedGenres, genre))}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
 const ChipSelect: React.FC<ChipSelectProps> = ({ ariaLabel, value, options, onChange }) => (
   <div className="relative inline-flex items-center">
     <select
@@ -212,13 +256,7 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
               </button>
             )}
           </div>
-          {/* モバイルは画面幅を使えるので、開閉させずチェックボックスを直接並べる */}
-          <div className="rounded-lg border border-input">
-            <GenreCheckboxList
-              selectedGenres={genres}
-              onToggle={(genre) => onGenresChange(toggleGenre(genres, genre))}
-            />
-          </div>
+          <GenreDropdown selectedGenres={genres} onGenresChange={onGenresChange} />
         </div>
       </div>
     )
