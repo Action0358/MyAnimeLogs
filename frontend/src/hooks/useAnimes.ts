@@ -10,6 +10,7 @@ export interface SearchFilters {
   /** 複数指定できる。APIへはカンマ区切りの1パラメータとして送る */
   genre?: string[]
   sort?: string
+  media?: string
 }
 
 export interface SortOption {
@@ -65,11 +66,12 @@ export const useAnimes = (options: UseAnimesOptions = {}): UseAnimesResult => {
       keyword: filters.keyword || undefined,
       season: filters.season || undefined,
       genre: genreParam,
+      media: filters.media as GetAnimesParams['media'],
       sort: filters.sort as GetAnimesParams['sort'],
       page: currentPage,
       per_page: pageSize,
     }),
-    [filters.keyword, filters.season, genreParam, filters.sort, currentPage, pageSize]
+    [filters.keyword, filters.season, genreParam, filters.media, filters.sort, currentPage, pageSize]
   )
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({

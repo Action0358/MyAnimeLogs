@@ -378,6 +378,10 @@ status?: GetAnimesStatus;
  */
 genre?: string;
 /**
+ * メディア種別で絞り込み（大文字小文字を区別しない）
+ */
+media?: GetAnimesMedia;
+/**
  * 並び替え。title=タイトル順（五十音）、year=放送年順（新しい順）、 popularity=人気順（視聴者数の多い順）
  */
 sort?: GetAnimesSort;
@@ -393,6 +397,16 @@ export const GetAnimesStatus = {
   airing: 'airing',
   finished: 'finished',
   not_yet_aired: 'not_yet_aired',
+} as const;
+
+export type GetAnimesMedia = typeof GetAnimesMedia[keyof typeof GetAnimesMedia];
+
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const GetAnimesMedia = {
+  tv: 'tv',
+  web: 'web',
+  movie: 'movie',
 } as const;
 
 export type GetAnimesSort = typeof GetAnimesSort[keyof typeof GetAnimesSort];

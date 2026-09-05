@@ -7,11 +7,21 @@ import { Container } from '@/components/layout'
 import { AnimeGrid } from '@/components/anime'
 import { Pagination } from '@/components/ui'
 import { SearchForm, FilterPanel, sortOptions } from '@/components/search'
+import { MediaTabs, type MediaTabDefinition } from '@/components/anime/MediaTabs'
+import type { MediaType } from '@/utils/mediaFilter'
 import { useAnimes } from '@/hooks/useAnimes'
 import { useSearch } from '@/hooks/useSearch'
 import { useOnClickOutside } from '@/hooks/useOnClickOutside'
 
 const DEFAULT_SORT = 'year'
+
+// 今期アニメ・人気アニメページと同じメディア種別タブ（#812以降の検索絞り込み整理の続き）
+const MEDIA_TABS: MediaTabDefinition[] = [
+  { id: 'all', label: '全て' },
+  { id: 'tv', label: 'TV' },
+  { id: 'web', label: 'Web' },
+  { id: 'movie', label: '映画' },
+]
 
 /**
  * フィルターパネル（画面幅を問わず同じ「ボタン→開閉パネル」の体験に揃える）。
@@ -77,6 +87,7 @@ function SearchContent() {
       keyword: filters.keyword,
       season: filters.season,
       genre: filters.genre,
+      media: filters.media,
       sort: filters.sort ?? DEFAULT_SORT,
     },
     pageSize: 24,
@@ -110,10 +121,19 @@ function SearchContent() {
     [updateFilters]
   )
 
+  const activeMediaTab = (filters.media as MediaType) || 'all'
+  const handleMediaTabChange = useCallback(
+    (tab: MediaType) => {
+      updateFilters({ media: tab === 'all' ? undefined : tab })
+    },
+    [updateFilters]
+  )
+
   const selectedGenres = filters.genre ?? []
   const sort = filters.sort ?? DEFAULT_SORT
   const isSortDefault = sort === DEFAULT_SORT
-  const hasActiveFilters = filters.keyword || filters.season || selectedGenres.length > 0
+  const hasActiveFilters =
+    filters.keyword || filters.season || selectedGenres.length > 0 || filters.media
   // フィルターボタンのバッジ件数。並び替えは絞り込みではないため0件表示には影響しないが、
   // 「適用中の設定」としてバッジ・チップには含める
   const activeFilterCount =
@@ -233,17 +253,21 @@ function SearchContent() {
           </div>
         )}
 
-        {/* 件数: 結果を説明するラベルとして独立した行にし、区切り線で結果との関係を示す */}
-        <div className="flex items-center justify-end gap-1.5 pb-4 border-b border-border mb-6 text-sm text-muted-foreground">
-          {!isLoading && (
-            <span className="flex items-center gap-1.5 whitespace-nowrap">
-              <span className="text-base font-bold text-foreground">{total.toLocaleString()}</span>
-              件のアニメ
-            </span>
-          )}
-          {isFetching && !isLoading && (
-            <span className="inline-block h-3.5 w-3.5 flex-shrink-0 animate-spin rounded-full border-b-2 border-primary" />
-          )}
+        {/* メディア種別タブ + 件数。今期アニメ・人気アニメページと同じ並び（タブ左・件数右）で
+            区切り線を共有する */}
+        <div className="flex items-center justify-between gap-2.5 pb-4 border-b border-border mb-6 text-sm text-muted-foreground">
+          <MediaTabs tabs={MEDIA_TABS} activeTab={activeMediaTab} onTabChange={handleMediaTabChange} />
+          <span className="flex flex-shrink-0 items-center gap-1.5">
+            {!isLoading && (
+              <span className="flex items-center gap-1.5 whitespace-nowrap">
+                <span className="text-base font-bold text-foreground">{total.toLocaleString()}</span>
+                件のアニメ
+              </span>
+            )}
+            {isFetching && !isLoading && (
+              <span className="inline-block h-3.5 w-3.5 flex-shrink-0 animate-spin rounded-full border-b-2 border-primary" />
+            )}
+          </span>
         </div>
 
         {/* アニメグリッド（一覧ページと統一の全幅グリッド） */}

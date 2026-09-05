@@ -10,6 +10,7 @@ export interface SearchFilters {
   genre?: string[]
   year?: number
   sort?: string
+  media?: string
 }
 
 export interface UseSearchResult {
@@ -52,6 +53,7 @@ export const useSearch = (): UseSearchResult => {
     genre: parseGenreParam(searchParams.get('genre')),
     year: searchParams.get('year') ? Number(searchParams.get('year')) : undefined,
     sort: searchParams.get('sort') || undefined,
+    media: searchParams.get('media') || undefined,
   }
 
   // 検索履歴をlocalStorageから読み込み
