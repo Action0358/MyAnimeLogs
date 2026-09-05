@@ -322,6 +322,11 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 // サブタイトル型）を網羅しきれず、1・2でも拾えない関連作品を補完する目的。
 // 短い文字数のタイトル同士（「F」「K」等）が無関係な作品を大量に巻き込むことが
 // 実データ調査で確認されたため、文字数ガードで除外する。
+//
+// 条件3の前方一致に LIKE を使わないのは、タイトルそのものがパターンとして
+// 解釈されてしまうため。実データに「攻殻機動隊 SAC_2045」「NieA_7」（_は任意の
+// 1文字）「いちご100%」（%は任意の文字列）が存在し、LIKEでは意図しない作品まで
+// 拾う。left() による前方一致はメタ文字の影響を受けない。
 func (s *AnimeService) getRelatedSeasons(animeID int, title string, seriesTitle *string, seriesTMDBID *int) []models.RelatedAnime {
 	if (seriesTitle == nil || *seriesTitle == "") && seriesTMDBID == nil && utf8.RuneCountInString(title) < constants.MinRelatedTitlePrefixLength {
 		return nil
@@ -340,7 +345,10 @@ func (s *AnimeService) getRelatedSeasons(animeID int, title string, seriesTitle 
 			OR ($3::int IS NOT NULL AND series_tmdb_id = $3)
 			OR (
 				length($4) >= $5 AND length(title) >= $5
-				AND (title LIKE $4 || '%' OR $4 LIKE title || '%')
+				AND (
+					left(title, length($4)) = $4
+					OR left($4, length(title)) = title
+				)
 			)
 		)
 		ORDER BY

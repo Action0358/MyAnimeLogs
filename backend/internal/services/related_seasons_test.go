@@ -154,3 +154,25 @@ func TestGetRelatedSeasons_SingleCharacterTitleGuardedByMinLength(t *testing.T) 
 		assert.Nil(t, svc.getRelatedSeasons(1, title, nil, nil), "title=%s", title)
 	}
 }
+
+// 前方一致にLIKEを使うと、タイトル自体がパターンとして解釈される。
+// 実データに「攻殻機動隊 SAC_2045」「NieA_7」（_は任意の1文字）や
+// 「いちご100%」（%は任意の文字列）が存在するため、LIKEでは無関係な作品まで
+// 拾ってしまう。left()による前方一致であることをSQLレベルで固定する。
+func TestGetRelatedSeasons_PrefixMatchDoesNotUseLikePatterns(t *testing.T) {
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
+	require.NoError(t, err)
+	defer db.Close()
+
+	svc := NewAnimeService(&database.DB{DB: db}, newTestServiceLogger())
+	defer svc.Close()
+
+	rows := sqlmock.NewRows([]string{"id", "title", "season", "cover_image_extra_large", "cover_image_large", "cover_image_medium", "image_url"})
+
+	// タイトルを連結したLIKEパターンが組み立てられていないこと
+	mock.ExpectQuery(`left\(title, length\(\$4\)\) = \$4`).WillReturnRows(rows)
+
+	svc.getRelatedSeasons(1, "攻殻機動隊 SAC_2045", nil, nil)
+
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
