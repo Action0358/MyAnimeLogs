@@ -13,8 +13,10 @@ import { FilterPanel } from './FilterPanel'
  */
 describe('FilterPanel のジャンル絞り込み', () => {
   const baseProps = {
+    sort: 'year',
     onSeasonChange: jest.fn(),
     onGenresChange: jest.fn(),
+    onSortChange: jest.fn(),
   }
 
   beforeEach(() => {
@@ -70,5 +72,23 @@ describe('FilterPanel のジャンル絞り込み', () => {
     render(<FilterPanel {...baseProps} />)
 
     expect(screen.queryByRole('button', { name: 'すべて解除' })).not.toBeInTheDocument()
+  })
+
+  describe('並び替え', () => {
+    it('タイトル順を選択肢に含まない', () => {
+      render(<FilterPanel {...baseProps} />)
+
+      expect(screen.getByRole('option', { name: '放送年順' })).toBeInTheDocument()
+      expect(screen.getByRole('option', { name: '人気順' })).toBeInTheDocument()
+      expect(screen.queryByRole('option', { name: 'タイトル順' })).not.toBeInTheDocument()
+    })
+
+    it('選択すると通知する', async () => {
+      render(<FilterPanel {...baseProps} />)
+
+      await userEvent.selectOptions(screen.getByLabelText('並び替え'), '人気順')
+
+      expect(baseProps.onSortChange).toHaveBeenCalledWith('popularity')
+    })
   })
 })

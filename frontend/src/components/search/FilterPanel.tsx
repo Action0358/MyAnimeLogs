@@ -5,12 +5,24 @@ import { Check, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SEASONS, GENRES } from '@/constants/search'
 
+export interface SortOption {
+  value: string
+  label: string
+}
+
+export const sortOptions: SortOption[] = [
+  { value: 'year', label: '放送年順' },
+  { value: 'popularity', label: '人気順' },
+]
+
 export interface FilterPanelProps {
   selectedSeason?: string
   /** 複数選択。未選択は空配列または undefined */
   selectedGenres?: string[]
+  sort: string
   onSeasonChange: (season: string | undefined) => void
   onGenresChange: (genres: string[]) => void
+  onSortChange: (sort: string) => void
   className?: string
 }
 
@@ -101,14 +113,34 @@ const GenreDropdown: React.FC<GenreDropdownProps> = ({ selectedGenres, onGenresC
 export const FilterPanel: React.FC<FilterPanelProps> = ({
   selectedSeason,
   selectedGenres,
+  sort,
   onSeasonChange,
   onGenresChange,
+  onSortChange,
   className,
 }) => {
   const genres = selectedGenres ?? []
 
   return (
     <div className={cn('space-y-4', className)}>
+      <div>
+        <label htmlFor="filter-sort" className="block text-sm font-medium text-foreground mb-2">
+          並び替え
+        </label>
+        <select
+          id="filter-sort"
+          value={sort}
+          onChange={(e) => onSortChange(e.target.value)}
+          className="w-full px-3 py-2 border border-input bg-background rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          {sortOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
       <div>
         <label className="block text-sm font-medium text-foreground mb-2">放送時期</label>
         <select

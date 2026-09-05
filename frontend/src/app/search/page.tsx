@@ -6,7 +6,7 @@ import { SlidersHorizontal, X } from 'lucide-react'
 import { Container } from '@/components/layout'
 import { AnimeGrid } from '@/components/anime'
 import { Pagination } from '@/components/ui'
-import { SearchForm, FilterPanel, SortDropdown, sortOptions } from '@/components/search'
+import { SearchForm, FilterPanel } from '@/components/search'
 import { useAnimes } from '@/hooks/useAnimes'
 import { useSearch } from '@/hooks/useSearch'
 import { useOnClickOutside } from '@/hooks/useOnClickOutside'
@@ -116,8 +116,10 @@ function SearchContent() {
   const filterPanelProps = {
     selectedSeason: filters.season,
     selectedGenres: filters.genre,
+    sort: filters.sort ?? DEFAULT_SORT,
     onSeasonChange: (season: string | undefined) => updateFilters({ season }),
     onGenresChange: (genre: string[]) => updateFilters({ genre }),
+    onSortChange: handleSortChange,
   }
 
   return (
@@ -140,10 +142,9 @@ function SearchContent() {
           />
         </div>
 
-        {/* ツールバー: フィルター + 並び替え + 件数。
-            画面幅を問わず同じ構成にする（#812以降ジャンルが18種類まで増え、
-            常時展開のチップ列だとデスクトップでも折り返していたため）。
-            折り返さず、並び替えを縮めて1行に収める */}
+        {/* ツールバー: フィルター + 件数。
+            並び替えはフィルターパネル内に統合済み（#812以降ジャンルが
+            18種類まで増え、常時展開の別コントロールだと折り返していたため） */}
         <div className="flex items-center gap-2.5 flex-nowrap pb-4 border-b border-border mb-6">
           {/* フィルターボタン */}
           <button
@@ -154,15 +155,6 @@ function SearchContent() {
             フィルター
             {hasActiveFilters && <span className="w-1.5 h-1.5 bg-primary rounded-full" />}
           </button>
-
-          {/* 並び替え */}
-          <SortDropdown
-            options={sortOptions}
-            value={filters.sort ?? DEFAULT_SORT}
-            onChange={handleSortChange}
-            // 行が収まらないときに縮む余地を持つのはこの要素だけにする
-            className="min-w-0 flex-shrink"
-          />
 
           {/* 件数: 結果を説明するラベルとして右端に独立、数字のみ強調。
               ml-auto で右端に寄せる。狭い画面で spacer を使うと件数だけが
