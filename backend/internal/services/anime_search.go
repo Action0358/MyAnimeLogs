@@ -93,9 +93,9 @@ func (s *AnimeService) generateSearchCacheKey(params models.AnimeSearchParams) s
 	// "A,B" と "B,A" は同じ検索なので、同じキーに寄せてキャッシュを分断させない。
 	genreKey := strings.Join(params.GenreList(), ",")
 
-	return fmt.Sprintf("%skw:%s:s:%s:st:%s:g:%s:so:%s:p:%d:pp:%d",
+	return fmt.Sprintf("%skw:%s:s:%s:st:%s:g:%s:m:%s:so:%s:p:%d:pp:%d",
 		constants.CacheKeySearch,
-		params.Keyword, params.Season, params.Status, genreKey, params.Sort,
+		params.Keyword, params.Season, params.Status, genreKey, params.Media, params.Sort,
 		params.Page, params.PerPage)
 }
 
@@ -145,6 +145,12 @@ func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int
 		whereClauses = append(whereClauses, clause)
 		args = append(args, genreArgs...)
 		argIndex = newArgIndex
+	}
+
+	if params.Media != "" {
+		whereClauses = append(whereClauses, fmt.Sprintf("LOWER(media) = LOWER($%d)", argIndex))
+		args = append(args, params.Media)
+		argIndex++
 	}
 
 	whereClause := ""

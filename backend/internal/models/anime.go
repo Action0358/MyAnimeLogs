@@ -114,7 +114,9 @@ type AnimeSearchParams struct {
 	Status  string `form:"status"`
 	// Genre はカンマ区切りで複数指定できる（例: "アクション,ドラマ"）。
 	// 単一指定は従来どおり動く。分解には GenreList を使うこと。
-	Genre   string `form:"genre"`
+	Genre string `form:"genre"`
+	// Media はTV/Web/Movieなどのメディア種別。大文字小文字は問わない。
+	Media   string `form:"media"`
 	Year    int    `form:"year"`
 	Sort    string `form:"sort"`
 	Page    int    `form:"page"`
