@@ -10,21 +10,11 @@ export interface FilterPanelProps {
   selectedSeason?: string
   /** 複数選択。未選択は空配列または undefined */
   selectedGenres?: string[]
-  selectedStatus?: 'airing' | 'finished' | 'not_yet_aired'
   onSeasonChange: (season: string | undefined) => void
   onGenresChange: (genres: string[]) => void
-  onStatusChange: (status: 'airing' | 'finished' | 'not_yet_aired' | undefined) => void
   /** 'inline': デスクトップツールバー用の横並びチップ / 'sheet': モバイルシート用の縦並び+ラベル付き */
   variant?: 'inline' | 'sheet'
   className?: string
-}
-
-const STATUS_VALUES = ['airing', 'finished', 'not_yet_aired'] as const
-
-const STATUS_LABELS: Record<(typeof STATUS_VALUES)[number], string> = {
-  airing: '放送中',
-  finished: '完結',
-  not_yet_aired: '放送予定',
 }
 
 interface ChipSelectProps {
@@ -181,10 +171,8 @@ const ChipSelect: React.FC<ChipSelectProps> = ({ ariaLabel, value, options, onCh
 export const FilterPanel: React.FC<FilterPanelProps> = ({
   selectedSeason,
   selectedGenres,
-  selectedStatus,
   onSeasonChange,
   onGenresChange,
-  onStatusChange,
   variant = 'inline',
   className,
 }) => {
@@ -232,26 +220,6 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
             />
           </div>
         </div>
-
-        <div>
-          <label className="block text-sm font-medium text-foreground mb-2">放送状態</label>
-          <select
-            value={selectedStatus || ''}
-            onChange={(e) =>
-              onStatusChange(
-                (e.target.value || undefined) as 'airing' | 'finished' | 'not_yet_aired' | undefined
-              )
-            }
-            className="w-full px-3 py-2 border border-input bg-background rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-          >
-            <option value="">すべて</option>
-            {STATUS_VALUES.map((status) => (
-              <option key={status} value={status}>
-                {STATUS_LABELS[status]}
-              </option>
-            ))}
-          </select>
-        </div>
       </div>
     )
   }
@@ -268,17 +236,6 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
         onChange={(v) => onSeasonChange(v || undefined)}
       />
       <GenreMultiSelect selectedGenres={genres} onGenresChange={onGenresChange} />
-      <ChipSelect
-        ariaLabel="放送状態"
-        value={selectedStatus || ''}
-        options={[
-          { value: '', label: '放送状態：すべて' },
-          ...STATUS_VALUES.map((status) => ({ value: status, label: STATUS_LABELS[status] })),
-        ]}
-        onChange={(v) =>
-          onStatusChange((v || undefined) as 'airing' | 'finished' | 'not_yet_aired' | undefined)
-        }
-      />
     </div>
   )
 }

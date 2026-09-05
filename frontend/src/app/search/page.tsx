@@ -68,7 +68,6 @@ function SearchContent() {
     filters: {
       keyword: filters.keyword,
       season: filters.season,
-      status: filters.status,
       genre: filters.genre,
     },
     pageSize: 24,
@@ -103,17 +102,13 @@ function SearchContent() {
   )
 
   const selectedGenres = filters.genre ?? []
-  const hasActiveFilters =
-    filters.keyword || filters.season || selectedGenres.length > 0 || filters.status
+  const hasActiveFilters = filters.keyword || filters.season || selectedGenres.length > 0
 
   const filterPanelProps = {
     selectedSeason: filters.season,
     selectedGenres: filters.genre,
-    selectedStatus: filters.status as 'airing' | 'finished' | 'not_yet_aired' | undefined,
     onSeasonChange: (season: string | undefined) => updateFilters({ season }),
     onGenresChange: (genre: string[]) => updateFilters({ genre }),
-    onStatusChange: (status: 'airing' | 'finished' | 'not_yet_aired' | undefined) =>
-      updateFilters({ status }),
   }
 
   return (
@@ -239,17 +234,6 @@ function SearchContent() {
                 </button>
               </span>
             ))}
-            {filters.status && (
-              <span className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary rounded-full text-sm">
-                {filters.status === 'airing' ? '放送中' : filters.status === 'not_yet_aired' ? '放送予定' : '完結'}
-                <button
-                  onClick={() => updateFilters({ status: undefined })}
-                  className="ml-1 hover:text-primary/70"
-                >
-                  ×
-                </button>
-              </span>
-            )}
           </div>
         )}
 
