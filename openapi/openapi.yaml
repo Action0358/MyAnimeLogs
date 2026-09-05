@@ -130,6 +130,12 @@ paths:
           description: >-
             ジャンルで絞り込み。カンマ区切りで複数指定でき、
             指定したいずれかのジャンルを持つ作品を返す（OR）。
+        - name: media
+          in: query
+          schema:
+            type: string
+            enum: ["tv", "web", "movie"]
+          description: メディア種別で絞り込み（大文字小文字を区別しない）
         - name: sort
           in: query
           schema:
