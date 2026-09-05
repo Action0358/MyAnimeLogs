@@ -13,7 +13,13 @@ import { useOnClickOutside } from '@/hooks/useOnClickOutside'
 
 const DEFAULT_SORT = 'year'
 
-/** モバイル用フィルターシート（下からスライドイン） */
+/**
+ * フィルターパネル（画面幅を問わず同じ「ボタン→開閉パネル」の体験に揃える）。
+ *
+ * モバイルは下からのスライドシート、デスクトップ（lg以上）は画面中央の
+ * ダイアログとして表示する。デスクトップでも常時展開のチップ列を廃止し、
+ * ジャンルが18種類まで増えた現状でもツールバーが崩れないようにする。
+ */
 function FilterSheet({
   isOpen,
   onClose,
@@ -21,7 +27,7 @@ function FilterSheet({
 }: {
   isOpen: boolean
   onClose: () => void
-} & Omit<React.ComponentProps<typeof FilterPanel>, 'variant'>) {
+} & React.ComponentProps<typeof FilterPanel>) {
   const sheetRef = useRef<HTMLDivElement>(null)
   useOnClickOutside(sheetRef, onClose)
 
@@ -29,10 +35,12 @@ function FilterSheet({
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" aria-hidden="true" />
+      <div className="fixed inset-0 bg-black/50 z-40" aria-hidden="true" />
       <div
         ref={sheetRef}
-        className="fixed inset-x-0 bottom-0 z-50 bg-background rounded-t-2xl shadow-xl lg:hidden max-h-[80vh] overflow-y-auto"
+        className="fixed inset-x-0 bottom-0 z-50 bg-background rounded-t-2xl shadow-xl max-h-[80vh] overflow-y-auto
+          lg:inset-x-auto lg:bottom-auto lg:left-1/2 lg:top-1/2 lg:w-full lg:max-w-md
+          lg:-translate-x-1/2 lg:-translate-y-1/2 lg:rounded-2xl"
         role="dialog"
         aria-modal="true"
         aria-label="フィルター"
@@ -48,7 +56,7 @@ function FilterSheet({
           </button>
         </div>
         <div className="p-5">
-          <FilterPanel {...filterProps} variant="sheet" />
+          <FilterPanel {...filterProps} />
         </div>
       </div>
     </>
@@ -133,36 +141,27 @@ function SearchContent() {
         </div>
 
         {/* ツールバー: フィルター + 並び替え + 件数。
-            狭い画面では折り返さず、並び替えを縮めて1行に収める。
-            折り返すと件数だけが次行へ落ち、余白が間延びして見えるため */}
-        <div className="flex items-center gap-2.5 max-lg:flex-nowrap lg:flex-wrap pb-4 border-b border-border mb-6">
-          {/* デスクトップ: インラインフィルターチップ + 並び替え（操作系を左に集約、検索ボックスと幅を揃える） */}
-          <div className="hidden lg:flex items-center gap-2.5 flex-wrap max-w-2xl">
-            <FilterPanel {...filterPanelProps} variant="inline" />
-            <SortDropdown
-              options={sortOptions}
-              value={filters.sort ?? DEFAULT_SORT}
-              onChange={handleSortChange}
-            />
-          </div>
-
-          {/* モバイル: フィルターボタン */}
+            画面幅を問わず同じ構成にする（#812以降ジャンルが18種類まで増え、
+            常時展開のチップ列だとデスクトップでも折り返していたため）。
+            折り返さず、並び替えを縮めて1行に収める */}
+        <div className="flex items-center gap-2.5 flex-nowrap pb-4 border-b border-border mb-6">
+          {/* フィルターボタン */}
           <button
             onClick={() => setShowFilters(true)}
-            className="lg:hidden inline-flex flex-shrink-0 items-center gap-2 h-[38px] px-3.5 border border-input bg-background rounded-lg text-sm font-medium text-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
+            className="inline-flex flex-shrink-0 items-center gap-2 h-[38px] px-3.5 border border-input bg-background rounded-lg text-sm font-medium text-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
           >
             <SlidersHorizontal className="w-4 h-4" />
             フィルター
             {hasActiveFilters && <span className="w-1.5 h-1.5 bg-primary rounded-full" />}
           </button>
 
-          {/* モバイル: 並び替え（件数と同じ行の左側にまとめる） */}
+          {/* 並び替え */}
           <SortDropdown
             options={sortOptions}
             value={filters.sort ?? DEFAULT_SORT}
             onChange={handleSortChange}
             // 行が収まらないときに縮む余地を持つのはこの要素だけにする
-            className="lg:hidden min-w-0 flex-shrink"
+            className="min-w-0 flex-shrink"
           />
 
           {/* 件数: 結果を説明するラベルとして右端に独立、数字のみ強調。

@@ -15,126 +15,60 @@ describe('FilterPanel のジャンル絞り込み', () => {
   const baseProps = {
     onSeasonChange: jest.fn(),
     onGenresChange: jest.fn(),
-    onStatusChange: jest.fn(),
   }
 
   beforeEach(() => {
     jest.clearAllMocks()
   })
 
-  describe('inline（デスクトップ）', () => {
-    const openGenreMenu = async () => {
-      await userEvent.click(screen.getByRole('button', { name: /^ジャンル：/ }))
-    }
+  const openGenreDropdown = async (label: string) => {
+    await userEvent.click(screen.getByRole('button', { name: label }))
+  }
 
-    it('未選択なら「すべて」と表示する', () => {
-      render(<FilterPanel {...baseProps} variant="inline" />)
+  it('未選択なら「すべて」と表示し、初期状態では選択肢を畳んでいる', () => {
+    render(<FilterPanel {...baseProps} />)
 
-      expect(screen.getByRole('button', { name: 'ジャンル：すべて' })).toBeInTheDocument()
-    })
-
-    it('複数選択されていても「すべて」に戻らない', () => {
-      render(
-        <FilterPanel {...baseProps} selectedGenres={['アクション', 'ドラマ']} variant="inline" />
-      )
-
-      // 表示は幅を一定に保つため件数、読み上げには選択中のジャンルを出す
-      const trigger = screen.getByRole('button', { name: 'ジャンル：アクション、ドラマ' })
-      expect(trigger).toHaveTextContent('ジャンル2件')
-      expect(screen.queryByRole('button', { name: 'ジャンル：すべて' })).not.toBeInTheDocument()
-    })
-
-    it('1つだけならジャンル名をそのまま表示する', () => {
-      render(<FilterPanel {...baseProps} selectedGenres={['アクション']} variant="inline" />)
-
-      // 他のチップと同じく、選択中は項目名を省いて値だけ見せる
-      expect(screen.getByRole('button', { name: 'ジャンル：アクション' })).toHaveTextContent(
-        'アクション'
-      )
-    })
-
-    it('選択中のジャンルにチェックが入っている', async () => {
-      render(<FilterPanel {...baseProps} selectedGenres={['アクション']} variant="inline" />)
-      await openGenreMenu()
-
-      expect(screen.getByRole('checkbox', { name: 'アクション' })).toBeChecked()
-      expect(screen.getByRole('checkbox', { name: 'ドラマ' })).not.toBeChecked()
-    })
-
-    it('選択を追加すると既存の選択を保ったまま通知する', async () => {
-      render(<FilterPanel {...baseProps} selectedGenres={['アクション']} variant="inline" />)
-      await openGenreMenu()
-
-      await userEvent.click(screen.getByRole('checkbox', { name: 'ドラマ' }))
-
-      expect(baseProps.onGenresChange).toHaveBeenCalledWith(['アクション', 'ドラマ'])
-    })
-
-    it('選択済みを押すとその1つだけ外れる', async () => {
-      render(
-        <FilterPanel {...baseProps} selectedGenres={['アクション', 'ドラマ']} variant="inline" />
-      )
-      await openGenreMenu()
-
-      await userEvent.click(screen.getByRole('checkbox', { name: 'アクション' }))
-
-      expect(baseProps.onGenresChange).toHaveBeenCalledWith(['ドラマ'])
-    })
-
-    it('すべて解除すると空配列を通知する', async () => {
-      render(
-        <FilterPanel {...baseProps} selectedGenres={['アクション', 'ドラマ']} variant="inline" />
-      )
-      await openGenreMenu()
-
-      await userEvent.click(screen.getByRole('button', { name: '選択をすべて解除' }))
-
-      expect(baseProps.onGenresChange).toHaveBeenCalledWith([])
-    })
-
-    it('未選択のときは解除ボタンを出さない', async () => {
-      render(<FilterPanel {...baseProps} variant="inline" />)
-      await openGenreMenu()
-
-      expect(screen.queryByRole('button', { name: '選択をすべて解除' })).not.toBeInTheDocument()
-    })
+    expect(screen.getByRole('button', { name: 'すべて' })).toBeInTheDocument()
+    expect(screen.queryByRole('checkbox', { name: 'アクション' })).not.toBeInTheDocument()
   })
 
-  describe('sheet（モバイル）', () => {
-    const openGenreDropdown = async (label: string) => {
-      await userEvent.click(screen.getByRole('button', { name: label }))
-    }
+  it('選択中はジャンル名をボタンに表示する', () => {
+    render(<FilterPanel {...baseProps} selectedGenres={['アクション', 'ドラマ']} />)
 
-    it('未選択なら「すべて」と表示し、初期状態では選択肢を畳んでいる', () => {
-      render(<FilterPanel {...baseProps} variant="sheet" />)
+    expect(screen.getByRole('button', { name: 'アクション、ドラマ' })).toBeInTheDocument()
+  })
 
-      expect(screen.getByRole('button', { name: 'すべて' })).toBeInTheDocument()
-      expect(screen.queryByRole('checkbox', { name: 'アクション' })).not.toBeInTheDocument()
-    })
+  it('ボタンを開くとジャンルを選べる', async () => {
+    render(<FilterPanel {...baseProps} selectedGenres={['アクション']} />)
+    await openGenreDropdown('アクション')
 
-    it('選択中はジャンル名をボタンに表示する', () => {
-      render(<FilterPanel {...baseProps} selectedGenres={['アクション', 'ドラマ']} variant="sheet" />)
+    expect(screen.getByRole('checkbox', { name: 'アクション' })).toBeChecked()
 
-      expect(screen.getByRole('button', { name: 'アクション、ドラマ' })).toBeInTheDocument()
-    })
+    await userEvent.click(screen.getByRole('checkbox', { name: 'SF' }))
 
-    it('ボタンを開くとジャンルを選べる', async () => {
-      render(<FilterPanel {...baseProps} selectedGenres={['アクション']} variant="sheet" />)
-      await openGenreDropdown('アクション')
+    expect(baseProps.onGenresChange).toHaveBeenCalledWith(['アクション', 'SF'])
+  })
 
-      expect(screen.getByRole('checkbox', { name: 'アクション' })).toBeChecked()
+  it('選択済みを押すとその1つだけ外れる', async () => {
+    render(<FilterPanel {...baseProps} selectedGenres={['アクション', 'ドラマ']} />)
+    await openGenreDropdown('アクション、ドラマ')
 
-      await userEvent.click(screen.getByRole('checkbox', { name: 'SF' }))
+    await userEvent.click(screen.getByRole('checkbox', { name: 'アクション' }))
 
-      expect(baseProps.onGenresChange).toHaveBeenCalledWith(['アクション', 'SF'])
-    })
+    expect(baseProps.onGenresChange).toHaveBeenCalledWith(['ドラマ'])
+  })
 
-    it('選択中があれば「すべて解除」を出す', async () => {
-      render(<FilterPanel {...baseProps} selectedGenres={['アクション']} variant="sheet" />)
+  it('選択中があれば「すべて解除」を出す', async () => {
+    render(<FilterPanel {...baseProps} selectedGenres={['アクション']} />)
 
-      await userEvent.click(screen.getByRole('button', { name: 'すべて解除' }))
+    await userEvent.click(screen.getByRole('button', { name: 'すべて解除' }))
 
-      expect(baseProps.onGenresChange).toHaveBeenCalledWith([])
-    })
+    expect(baseProps.onGenresChange).toHaveBeenCalledWith([])
+  })
+
+  it('未選択のときは「すべて解除」を出さない', () => {
+    render(<FilterPanel {...baseProps} />)
+
+    expect(screen.queryByRole('button', { name: 'すべて解除' })).not.toBeInTheDocument()
   })
 })
