@@ -153,10 +153,32 @@ func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int
 	}
 
 	// Build ORDER BY clause
-	orderBy := "ORDER BY title"
+	//
+	// タイトル順: title_kana（ひらがな）がある行はそちらを優先する。
+	// title は先頭に記号・半角スペースが付くデータが混ざっており、
+	// そのままでは五十音順として意味を成さない。
+	orderByTitle := "ORDER BY COALESCE(NULLIF(title_kana, ''), title) ASC"
+
+	orderBy := orderByTitle
 	switch params.Sort {
 	case "year":
-		orderBy = "ORDER BY season DESC"
+		// season は "2024-summer" のような文字列で、単純な DESC では
+		// 同じ年の中で autumn/spring/summer/winter がアルファベット順に
+		// 並んでしまい、実際の放送時期の新しい順にならない。
+		// 年→クール内の順序（winter<spring<summer<autumn）の2段階で並べる。
+		orderBy = `ORDER BY
+			split_part(season, '-', 1)::int DESC,
+			CASE split_part(season, '-', 2)
+				WHEN 'autumn' THEN 4
+				WHEN 'summer' THEN 3
+				WHEN 'spring' THEN 2
+				WHEN 'winter' THEN 1
+				ELSE 0
+			END DESC`
+	case "popularity":
+		// watchers_count が同数の場合にページごとの順序が揺れないよう、
+		// タイトル順をタイブレークにする
+		orderBy = "ORDER BY watchers_count DESC NULLS LAST, " + strings.TrimPrefix(orderByTitle, "ORDER BY ")
 	}
 
 	// Count total results
