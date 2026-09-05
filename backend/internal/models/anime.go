@@ -1,6 +1,8 @@
 package models
 
 import (
+	"sort"
+	"strings"
 	"time"
 )
 
@@ -110,11 +112,43 @@ type AnimeSearchParams struct {
 	Keyword string `form:"keyword"`
 	Season  string `form:"season"`
 	Status  string `form:"status"`
+	// Genre はカンマ区切りで複数指定できる（例: "アクション,ドラマ"）。
+	// 単一指定は従来どおり動く。分解には GenreList を使うこと。
 	Genre   string `form:"genre"`
 	Year    int    `form:"year"`
 	Sort    string `form:"sort"`
 	Page    int    `form:"page"`
 	PerPage int    `form:"per_page"`
+}
+
+// GenreList はカンマ区切りの Genre を個々のジャンルに分解する。
+// 前後の空白と空要素は捨て、重複は取り除く。
+// 呼び出し側でのソートを避けるため、結果は常に昇順で返す。
+func (p AnimeSearchParams) GenreList() []string {
+	if p.Genre == "" {
+		return nil
+	}
+
+	seen := make(map[string]struct{})
+	genres := make([]string, 0, strings.Count(p.Genre, ",")+1)
+	for genre := range strings.SplitSeq(p.Genre, ",") {
+		genre = strings.TrimSpace(genre)
+		if genre == "" {
+			continue
+		}
+		if _, duplicated := seen[genre]; duplicated {
+			continue
+		}
+		seen[genre] = struct{}{}
+		genres = append(genres, genre)
+	}
+
+	if len(genres) == 0 {
+		return nil
+	}
+
+	sort.Strings(genres)
+	return genres
 }
 
 // AdvancedSearchParams - 高度検索用のパラメータ
