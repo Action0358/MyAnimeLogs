@@ -6,14 +6,20 @@ import { SlidersHorizontal, X } from 'lucide-react'
 import { Container } from '@/components/layout'
 import { AnimeGrid } from '@/components/anime'
 import { Pagination } from '@/components/ui'
-import { SearchForm, FilterPanel, SortDropdown, sortOptions } from '@/components/search'
+import { SearchForm, FilterPanel } from '@/components/search'
 import { useAnimes } from '@/hooks/useAnimes'
 import { useSearch } from '@/hooks/useSearch'
 import { useOnClickOutside } from '@/hooks/useOnClickOutside'
 
 const DEFAULT_SORT = 'year'
 
-/** モバイル用フィルターシート（下からスライドイン） */
+/**
+ * フィルターパネル（画面幅を問わず同じ「ボタン→開閉パネル」の体験に揃える）。
+ *
+ * モバイルは下からのスライドシート、デスクトップ（lg以上）は画面中央の
+ * ダイアログとして表示する。デスクトップでも常時展開のチップ列を廃止し、
+ * ジャンルが18種類まで増えた現状でもツールバーが崩れないようにする。
+ */
 function FilterSheet({
   isOpen,
   onClose,
@@ -21,7 +27,7 @@ function FilterSheet({
 }: {
   isOpen: boolean
   onClose: () => void
-} & Omit<React.ComponentProps<typeof FilterPanel>, 'variant'>) {
+} & React.ComponentProps<typeof FilterPanel>) {
   const sheetRef = useRef<HTMLDivElement>(null)
   useOnClickOutside(sheetRef, onClose)
 
@@ -29,10 +35,12 @@ function FilterSheet({
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/50 z-40 lg:hidden" aria-hidden="true" />
+      <div className="fixed inset-0 bg-black/50 z-40" aria-hidden="true" />
       <div
         ref={sheetRef}
-        className="fixed inset-x-0 bottom-0 z-50 bg-background rounded-t-2xl shadow-xl lg:hidden max-h-[80vh] overflow-y-auto"
+        className="fixed inset-x-0 bottom-0 z-50 bg-background rounded-t-2xl shadow-xl max-h-[80vh] overflow-y-auto
+          lg:inset-x-auto lg:bottom-auto lg:left-1/2 lg:top-1/2 lg:w-full lg:max-w-md
+          lg:-translate-x-1/2 lg:-translate-y-1/2 lg:rounded-2xl"
         role="dialog"
         aria-modal="true"
         aria-label="フィルター"
@@ -48,7 +56,7 @@ function FilterSheet({
           </button>
         </div>
         <div className="p-5">
-          <FilterPanel {...filterProps} variant="sheet" />
+          <FilterPanel {...filterProps} />
         </div>
       </div>
     </>
@@ -68,8 +76,8 @@ function SearchContent() {
     filters: {
       keyword: filters.keyword,
       season: filters.season,
-      status: filters.status,
       genre: filters.genre,
+      sort: filters.sort ?? DEFAULT_SORT,
     },
     pageSize: 24,
     initialPage: currentPage,
@@ -102,16 +110,16 @@ function SearchContent() {
     [updateFilters]
   )
 
-  const hasActiveFilters = filters.keyword || filters.season || filters.genre || filters.status
+  const selectedGenres = filters.genre ?? []
+  const hasActiveFilters = filters.keyword || filters.season || selectedGenres.length > 0
 
   const filterPanelProps = {
     selectedSeason: filters.season,
-    selectedGenre: filters.genre,
-    selectedStatus: filters.status as 'airing' | 'finished' | 'not_yet_aired' | undefined,
+    selectedGenres: filters.genre,
+    sort: filters.sort ?? DEFAULT_SORT,
     onSeasonChange: (season: string | undefined) => updateFilters({ season }),
-    onGenreChange: (genre: string | undefined) => updateFilters({ genre }),
-    onStatusChange: (status: 'airing' | 'finished' | 'not_yet_aired' | undefined) =>
-      updateFilters({ status }),
+    onGenresChange: (genre: string[]) => updateFilters({ genre }),
+    onSortChange: handleSortChange,
   }
 
   return (
@@ -134,52 +142,30 @@ function SearchContent() {
           />
         </div>
 
-        {/* ツールバー: フィルター + 並び替え + 件数。
-            狭い画面では折り返さず、並び替えを縮めて1行に収める。
-            折り返すと件数だけが次行へ落ち、余白が間延びして見えるため */}
-        <div className="flex items-center gap-2.5 max-lg:flex-nowrap lg:flex-wrap pb-4 border-b border-border mb-6">
-          {/* デスクトップ: インラインフィルターチップ + 並び替え（操作系を左に集約、検索ボックスと幅を揃える） */}
-          <div className="hidden lg:flex items-center gap-2.5 flex-wrap max-w-2xl">
-            <FilterPanel {...filterPanelProps} variant="inline" />
-            <SortDropdown
-              options={sortOptions}
-              value={filters.sort ?? DEFAULT_SORT}
-              onChange={handleSortChange}
-            />
-          </div>
-
-          {/* モバイル: フィルターボタン */}
+        {/* ツールバー: フィルター + 件数。
+            並び替えはフィルターパネル内に統合済み（#812以降ジャンルが
+            18種類まで増え、常時展開の別コントロールだと折り返していたため） */}
+        <div className="flex items-center gap-2.5 flex-nowrap pb-4 border-b border-border mb-6">
+          {/* フィルターボタン */}
           <button
             onClick={() => setShowFilters(true)}
-            className="lg:hidden inline-flex flex-shrink-0 items-center gap-2 h-[38px] px-3.5 border border-input bg-background rounded-lg text-sm font-medium text-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
+            className="inline-flex flex-shrink-0 items-center gap-2 h-[38px] px-3.5 border border-input bg-background rounded-lg text-sm font-medium text-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
           >
             <SlidersHorizontal className="w-4 h-4" />
             フィルター
             {hasActiveFilters && <span className="w-1.5 h-1.5 bg-primary rounded-full" />}
           </button>
 
-          {/* モバイル: 並び替え（件数と同じ行の左側にまとめる） */}
-          <SortDropdown
-            options={sortOptions}
-            value={filters.sort ?? DEFAULT_SORT}
-            onChange={handleSortChange}
-            // 行が収まらないときに縮む余地を持つのはこの要素だけにする
-            className="lg:hidden min-w-0 flex-shrink"
-          />
-
           {/* 件数: 結果を説明するラベルとして右端に独立、数字のみ強調。
               ml-auto で右端に寄せる。狭い画面で spacer を使うと件数だけが
               次の行に落ちるため、spacer は置かない。
-              件数は桁数が増えても省略させない（flex-shrink-0）。一方
-              「検索結果がありません」は長いため、縮む側に回して溢れを防ぐ */}
+              0件のときも同じ「件」表記に揃え、文言の出し分けをしない */}
           <span className="ml-auto flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground">
-            {total > 0 ? (
+            {!isLoading && (
               <span className="flex flex-shrink-0 items-center gap-1.5 whitespace-nowrap">
                 <span className="text-base font-bold text-foreground">{total.toLocaleString()}</span>
                 件
               </span>
-            ) : (
-              !isLoading && <span className="truncate">検索結果がありません</span>
             )}
             {isFetching && !isLoading && (
               <span className="inline-block flex-shrink-0 animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-primary" />
@@ -219,17 +205,24 @@ function SearchContent() {
                 </button>
               </span>
             )}
-            {filters.status && (
-              <span className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary rounded-full text-sm">
-                {filters.status === 'airing' ? '放送中' : filters.status === 'not_yet_aired' ? '放送予定' : '完結'}
+            {/* ジャンルは複数選べるので1つずつチップにし、個別に外せるようにする */}
+            {selectedGenres.map((genre) => (
+              <span
+                key={genre}
+                className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary rounded-full text-sm"
+              >
+                {genre}
                 <button
-                  onClick={() => updateFilters({ status: undefined })}
+                  onClick={() =>
+                    updateFilters({ genre: selectedGenres.filter((g) => g !== genre) })
+                  }
                   className="ml-1 hover:text-primary/70"
+                  aria-label={`ジャンル「${genre}」の絞り込みを解除`}
                 >
                   ×
                 </button>
               </span>
-            )}
+            ))}
           </div>
         )}
 

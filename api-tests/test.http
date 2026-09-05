@@ -374,6 +374,16 @@ GET {{baseUrl}}/api/filters
 GET {{baseUrl}}/api/animes?genre=アクション
 Authorization: Bearer {{supabaseToken}}
 
+### 70-2. 複数ジャンルでアニメ検索（カンマ区切り・OR条件）
+# トップページのジャンル複数選択がこの形で送る。
+# 単一指定より件数が増えること（AND になっていないこと）を確認する
+GET {{baseUrl}}/api/animes?genre=アクション,ドラマ
+Authorization: Bearer {{supabaseToken}}
+
+### 70-3. 複数ジャンルの順序を入れ替えても同じ結果になること
+GET {{baseUrl}}/api/animes?genre=ドラマ,アクション
+Authorization: Bearer {{supabaseToken}}
+
 ### 71. 複数ジャンルで高度検索
 GET {{baseUrl}}/api/search/advanced?genre=アクション&genre=コメディ
 Authorization: Bearer {{supabaseToken}}

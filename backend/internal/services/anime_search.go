@@ -60,11 +60,42 @@ func buildKeywordSearchClause(keyword string, argIndex int, tableAlias string) (
 	return clause, []interface{}{likePattern, katakanaPattern, hiraganaPattern}, argIndex + 3
 }
 
+// buildGenreFilterClause - ジャンル絞り込みのWHERE句を生成する
+//
+// 指定されたジャンルの「いずれか」を持つ作品を返す（OR）。
+// ANDにすると該当が激減し、複数選択の体験がかえって悪くなるためORを採る。
+// これは高度検索側（anime_search.go の buildAdvancedSearchQuery）の挙動とも揃う。
+//
+// genres が空のときは空文字列を返すので、呼び出し側は clause != "" で判定する。
+func buildGenreFilterClause(genres []string, argIndex int) (string, []interface{}, int) {
+	if len(genres) == 0 {
+		return "", nil, argIndex
+	}
+
+	placeholders := make([]string, len(genres))
+	args := make([]interface{}, len(genres))
+	for i, genre := range genres {
+		placeholders[i] = fmt.Sprintf("$%d", argIndex+i)
+		args[i] = genre
+	}
+
+	clause := fmt.Sprintf(
+		"id IN (SELECT anime_id FROM anime_genres WHERE genre IN (%s))",
+		strings.Join(placeholders, ", "),
+	)
+
+	return clause, args, argIndex + len(genres)
+}
+
 // generateSearchCacheKey - 検索パラメータからキャッシュキーを生成
 func (s *AnimeService) generateSearchCacheKey(params models.AnimeSearchParams) string {
+	// ジャンルは正規化済み（重複除去・昇順）の一覧から組み立てる。
+	// "A,B" と "B,A" は同じ検索なので、同じキーに寄せてキャッシュを分断させない。
+	genreKey := strings.Join(params.GenreList(), ",")
+
 	return fmt.Sprintf("%skw:%s:s:%s:st:%s:g:%s:so:%s:p:%d:pp:%d",
 		constants.CacheKeySearch,
-		params.Keyword, params.Season, params.Status, params.Genre, params.Sort,
+		params.Keyword, params.Season, params.Status, genreKey, params.Sort,
 		params.Page, params.PerPage)
 }
 
@@ -110,10 +141,10 @@ func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int
 		argIndex++
 	}
 
-	if params.Genre != "" {
-		whereClauses = append(whereClauses, fmt.Sprintf("id IN (SELECT anime_id FROM anime_genres WHERE genre = $%d)", argIndex))
-		args = append(args, params.Genre)
-		argIndex++
+	if clause, genreArgs, newArgIndex := buildGenreFilterClause(params.GenreList(), argIndex); clause != "" {
+		whereClauses = append(whereClauses, clause)
+		args = append(args, genreArgs...)
+		argIndex = newArgIndex
 	}
 
 	whereClause := ""
@@ -122,10 +153,32 @@ func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int
 	}
 
 	// Build ORDER BY clause
-	orderBy := "ORDER BY title"
+	//
+	// タイトル順: title_kana（ひらがな）がある行はそちらを優先する。
+	// title は先頭に記号・半角スペースが付くデータが混ざっており、
+	// そのままでは五十音順として意味を成さない。
+	orderByTitle := "ORDER BY COALESCE(NULLIF(title_kana, ''), title) ASC"
+
+	orderBy := orderByTitle
 	switch params.Sort {
 	case "year":
-		orderBy = "ORDER BY season DESC"
+		// season は "2024-summer" のような文字列で、単純な DESC では
+		// 同じ年の中で autumn/spring/summer/winter がアルファベット順に
+		// 並んでしまい、実際の放送時期の新しい順にならない。
+		// 年→クール内の順序（winter<spring<summer<autumn）の2段階で並べる。
+		orderBy = `ORDER BY
+			split_part(season, '-', 1)::int DESC,
+			CASE split_part(season, '-', 2)
+				WHEN 'autumn' THEN 4
+				WHEN 'summer' THEN 3
+				WHEN 'spring' THEN 2
+				WHEN 'winter' THEN 1
+				ELSE 0
+			END DESC`
+	case "popularity":
+		// watchers_count が同数の場合にページごとの順序が揺れないよう、
+		// タイトル順をタイブレークにする
+		orderBy = "ORDER BY watchers_count DESC NULLS LAST, " + strings.TrimPrefix(orderByTitle, "ORDER BY ")
 	}
 
 	// Count total results
