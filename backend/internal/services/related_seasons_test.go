@@ -1,6 +1,8 @@
 package services
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	"myanimelogs/internal/constants"
@@ -173,6 +175,40 @@ func TestGetRelatedSeasons_PrefixMatchDoesNotUseLikePatterns(t *testing.T) {
 	mock.ExpectQuery(`left\(title, length\(\$4\)\) = \$4`).WillReturnRows(rows)
 
 	svc.getRelatedSeasons(1, "攻殻機動隊 SAC_2045", nil, nil)
+
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+// 条件4（タイトル先頭語の一致）が、自作品側と候補側で同じ式を使っていること。
+// 片側だけ「劇場版」等を除去し忘れると、劇場版が本編と繋がらなくなる。
+func TestRelatedTitleHeadExpr_AppliedToBothSides(t *testing.T) {
+	selfHead := fmt.Sprintf(relatedTitleHeadExpr, "$4")
+	candidateHead := fmt.Sprintf(relatedTitleHeadExpr, "title")
+
+	// 埋め込む対象以外は完全に同一であること
+	assert.Equal(t, strings.Replace(selfHead, "$4", "title", 1), candidateHead)
+
+	// 種別を表す修飾語が除去対象に入っていること
+	for _, modifier := range []string{"劇場版", "映画", "OVA"} {
+		assert.Contains(t, relatedTitleHeadExpr, modifier)
+	}
+}
+
+// 先頭語一致は英語タイトルには適用しない。
+// 「BLUE」（BLUE SEED / BLUE DRAGON / BLUE GIANT）「THE」のように、
+// 英語では先頭語が単なる単語でシリーズ名にならず、無関係な作品を巻き込むため。
+func TestGetRelatedSeasons_HeadMatchRequiresNonASCII(t *testing.T) {
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
+	require.NoError(t, err)
+	defer db.Close()
+
+	svc := NewAnimeService(&database.DB{DB: db}, newTestServiceLogger())
+	defer svc.Close()
+
+	mock.ExpectQuery(`~ '\[\^\[:ascii:\]\]'`).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "title", "season", "cover_image_extra_large", "cover_image_large", "cover_image_medium", "image_url"}))
+
+	svc.getRelatedSeasons(1, "BLUE SEED", nil, nil)
 
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
