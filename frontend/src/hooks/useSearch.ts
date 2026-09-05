@@ -9,7 +9,6 @@ export interface SearchFilters {
   /** 複数指定できる。URLではカンマ区切りの1パラメータ（例: genre=アクション,ドラマ） */
   genre?: string[]
   year?: number
-  status?: 'airing' | 'finished' | 'not_yet_aired'
   sort?: string
 }
 
@@ -52,7 +51,6 @@ export const useSearch = (): UseSearchResult => {
     season: searchParams.get('season') || undefined,
     genre: parseGenreParam(searchParams.get('genre')),
     year: searchParams.get('year') ? Number(searchParams.get('year')) : undefined,
-    status: (searchParams.get('status') as 'airing' | 'finished' | 'not_yet_aired') || undefined,
     sort: searchParams.get('sort') || undefined,
   }
 

@@ -7,7 +7,6 @@ import { getAnimes, type GetAnimesParams, type Anime } from '@/lib/api/generated
 export interface SearchFilters {
   keyword?: string
   season?: string
-  status?: 'airing' | 'finished' | 'not_yet_aired'
   /** 複数指定できる。APIへはカンマ区切りの1パラメータとして送る */
   genre?: string[]
 }
@@ -64,12 +63,11 @@ export const useAnimes = (options: UseAnimesOptions = {}): UseAnimesResult => {
     () => ({
       keyword: filters.keyword || undefined,
       season: filters.season || undefined,
-      status: filters.status || undefined,
       genre: genreParam,
       page: currentPage,
       per_page: pageSize,
     }),
-    [filters.keyword, filters.season, filters.status, genreParam, currentPage, pageSize]
+    [filters.keyword, filters.season, genreParam, currentPage, pageSize]
   )
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
