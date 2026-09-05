@@ -6,7 +6,7 @@ import { SlidersHorizontal, X } from 'lucide-react'
 import { Container } from '@/components/layout'
 import { AnimeGrid } from '@/components/anime'
 import { Pagination } from '@/components/ui'
-import { SearchForm, FilterPanel } from '@/components/search'
+import { SearchForm, FilterPanel, sortOptions } from '@/components/search'
 import { useAnimes } from '@/hooks/useAnimes'
 import { useSearch } from '@/hooks/useSearch'
 import { useOnClickOutside } from '@/hooks/useOnClickOutside'
@@ -111,7 +111,14 @@ function SearchContent() {
   )
 
   const selectedGenres = filters.genre ?? []
+  const sort = filters.sort ?? DEFAULT_SORT
+  const isSortDefault = sort === DEFAULT_SORT
   const hasActiveFilters = filters.keyword || filters.season || selectedGenres.length > 0
+  // フィルターボタンのバッジ件数。並び替えは絞り込みではないため0件表示には影響しないが、
+  // 「適用中の設定」としてバッジ・チップには含める
+  const activeFilterCount =
+    (filters.season ? 1 : 0) + selectedGenres.length + (isSortDefault ? 0 : 1)
+  const sortLabel = sortOptions.find((option) => option.value === sort)?.label
 
   const filterPanelProps = {
     selectedSeason: filters.season,
@@ -138,7 +145,7 @@ function SearchContent() {
             recentSearches={searchHistory}
             onClearHistory={clearHistory}
             initialValue={filters.keyword || ''}
-            className="max-w-2xl lg:max-w-[650px]"
+            className="max-w-2xl lg:max-w-[440px]"
           />
         </div>
 
@@ -153,7 +160,11 @@ function SearchContent() {
           >
             <SlidersHorizontal className="w-4 h-4" />
             フィルター
-            {hasActiveFilters && <span className="w-1.5 h-1.5 bg-primary rounded-full" />}
+            {activeFilterCount > 0 && (
+              <span className="inline-flex min-w-[18px] h-[18px] items-center justify-center rounded-full bg-primary px-1 text-[11px] font-bold text-primary-foreground">
+                {activeFilterCount}
+              </span>
+            )}
           </button>
 
           {/* 件数: 結果を説明するラベルとして右端に独立、数字のみ強調。
@@ -181,8 +192,20 @@ function SearchContent() {
         />
 
         {/* 検索条件表示 */}
-        {hasActiveFilters && (
+        {(hasActiveFilters || !isSortDefault) && (
           <div className="flex flex-wrap gap-2 mb-6">
+            {!isSortDefault && sortLabel && (
+              <span className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary rounded-full text-sm">
+                {sortLabel}
+                <button
+                  onClick={() => updateFilters({ sort: undefined })}
+                  className="ml-1 hover:text-primary/70"
+                  aria-label="並び替えを既定に戻す"
+                >
+                  ×
+                </button>
+              </span>
+            )}
             {filters.keyword && (
               <span className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary rounded-full text-sm">
                 キーワード: {filters.keyword}
