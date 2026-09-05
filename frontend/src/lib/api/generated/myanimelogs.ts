@@ -374,7 +374,7 @@ keyword?: string;
 season?: string;
 status?: GetAnimesStatus;
 /**
- * ジャンルで絞り込み
+ * ジャンルで絞り込み。カンマ区切りで複数指定でき、 指定したいずれかのジャンルを持つ作品を返す（OR）。
  */
 genre?: string;
 page?: number;
@@ -437,7 +437,7 @@ export type GetSearchAnimesParams = {
  */
 q?: string;
 /**
- * ジャンル絞り込み
+ * ジャンル絞り込み。カンマ区切りで複数指定でき、 指定したいずれかのジャンルを持つ作品を返す（OR）。
  */
 genre?: string;
 /**

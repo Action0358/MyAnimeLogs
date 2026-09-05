@@ -102,14 +102,16 @@ function SearchContent() {
     [updateFilters]
   )
 
-  const hasActiveFilters = filters.keyword || filters.season || filters.genre || filters.status
+  const selectedGenres = filters.genre ?? []
+  const hasActiveFilters =
+    filters.keyword || filters.season || selectedGenres.length > 0 || filters.status
 
   const filterPanelProps = {
     selectedSeason: filters.season,
-    selectedGenre: filters.genre,
+    selectedGenres: filters.genre,
     selectedStatus: filters.status as 'airing' | 'finished' | 'not_yet_aired' | undefined,
     onSeasonChange: (season: string | undefined) => updateFilters({ season }),
-    onGenreChange: (genre: string | undefined) => updateFilters({ genre }),
+    onGenresChange: (genre: string[]) => updateFilters({ genre }),
     onStatusChange: (status: 'airing' | 'finished' | 'not_yet_aired' | undefined) =>
       updateFilters({ status }),
   }
@@ -219,6 +221,24 @@ function SearchContent() {
                 </button>
               </span>
             )}
+            {/* ジャンルは複数選べるので1つずつチップにし、個別に外せるようにする */}
+            {selectedGenres.map((genre) => (
+              <span
+                key={genre}
+                className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary rounded-full text-sm"
+              >
+                {genre}
+                <button
+                  onClick={() =>
+                    updateFilters({ genre: selectedGenres.filter((g) => g !== genre) })
+                  }
+                  className="ml-1 hover:text-primary/70"
+                  aria-label={`ジャンル「${genre}」の絞り込みを解除`}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
             {filters.status && (
               <span className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary rounded-full text-sm">
                 {filters.status === 'airing' ? '放送中' : filters.status === 'not_yet_aired' ? '放送予定' : '完結'}

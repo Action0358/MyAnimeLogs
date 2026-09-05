@@ -8,7 +8,8 @@ export interface SearchFilters {
   keyword?: string
   season?: string
   status?: 'airing' | 'finished' | 'not_yet_aired'
-  genre?: string
+  /** 複数指定できる。APIへはカンマ区切りの1パラメータとして送る */
+  genre?: string[]
 }
 
 export interface SortOption {
@@ -55,16 +56,20 @@ export const useAnimes = (options: UseAnimesOptions = {}): UseAnimesResult => {
   const [currentPage, setCurrentPage] = useState(initialPage)
   const queryClient = useQueryClient()
 
+  // 配列のままでは毎レンダー参照が変わり useMemo が効かないため、
+  // 依存にも使える文字列へ先に畳んでおく
+  const genreParam = filters.genre?.length ? filters.genre.join(',') : undefined
+
   const queryParams: GetAnimesParams = useMemo(
     () => ({
       keyword: filters.keyword || undefined,
       season: filters.season || undefined,
       status: filters.status || undefined,
-      genre: filters.genre || undefined,
+      genre: genreParam,
       page: currentPage,
       per_page: pageSize,
     }),
-    [filters.keyword, filters.season, filters.status, filters.genre, currentPage, pageSize]
+    [filters.keyword, filters.season, filters.status, genreParam, currentPage, pageSize]
   )
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({

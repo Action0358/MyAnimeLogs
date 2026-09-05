@@ -6,7 +6,8 @@ import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 export interface SearchFilters {
   keyword?: string
   season?: string
-  genre?: string
+  /** 複数指定できる。URLではカンマ区切りの1パラメータ（例: genre=アクション,ドラマ） */
+  genre?: string[]
   year?: number
   status?: 'airing' | 'finished' | 'not_yet_aired'
   sort?: string
@@ -23,6 +24,21 @@ export interface UseSearchResult {
 const SEARCH_HISTORY_KEY = 'anime_search_history'
 const MAX_HISTORY_ITEMS = 10
 
+/**
+ * カンマ区切りの genre パラメータを配列に戻す。
+ * 手書きURLで空要素や余分な空白が混じっても落とさずに拾う。
+ */
+const parseGenreParam = (raw: string | null): string[] | undefined => {
+  if (!raw) return undefined
+
+  const genres = raw
+    .split(',')
+    .map((genre) => genre.trim())
+    .filter(Boolean)
+
+  return genres.length > 0 ? genres : undefined
+}
+
 export const useSearch = (): UseSearchResult => {
   const router = useRouter()
   const pathname = usePathname()
@@ -34,7 +50,7 @@ export const useSearch = (): UseSearchResult => {
   const filters: SearchFilters = {
     keyword: searchParams.get('keyword') || undefined,
     season: searchParams.get('season') || undefined,
-    genre: searchParams.get('genre') || undefined,
+    genre: parseGenreParam(searchParams.get('genre')),
     year: searchParams.get('year') ? Number(searchParams.get('year')) : undefined,
     status: (searchParams.get('status') as 'airing' | 'finished' | 'not_yet_aired') || undefined,
     sort: searchParams.get('sort') || undefined,
@@ -60,6 +76,17 @@ export const useSearch = (): UseSearchResult => {
       const params = new URLSearchParams(searchParams.toString())
 
       Object.entries(newFilters).forEach(([key, value]) => {
+        // 配列（ジャンル）はカンマ区切りの1パラメータにまとめる。
+        // 空配列は「絞り込みなし」なのでパラメータごと消す
+        if (Array.isArray(value)) {
+          if (value.length > 0) {
+            params.set(key, value.join(','))
+          } else {
+            params.delete(key)
+          }
+          return
+        }
+
         if (value !== undefined && value !== null && value !== '') {
           params.set(key, String(value))
         } else {
