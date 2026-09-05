@@ -69,6 +69,7 @@ function SearchContent() {
       keyword: filters.keyword,
       season: filters.season,
       genre: filters.genre,
+      sort: filters.sort ?? DEFAULT_SORT,
     },
     pageSize: 24,
     initialPage: currentPage,
