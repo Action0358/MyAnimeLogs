@@ -1,59 +1,106 @@
 import React from 'react'
 import Link from 'next/link'
 import type { Route } from 'next'
-import { Button, SectionHeading } from '@/components/ui'
+import { ChevronRight } from 'lucide-react'
+import { Container } from '@/components/layout'
 import { CategoryBadge } from './CategoryBadge'
 import { formatAnnouncementDate } from './AnnouncementList'
 import { getAnnouncements, HOME_ANNOUNCEMENT_COUNT } from '@/constants/announcements'
 
 /**
- * トップページのお知らせセクション。最新数件をタイトルだけのリストで出す。
+ * トップページのお知らせセクション。
  *
- * アニメカードが主役のページなので、本文は出さず一覧ページへ送る。
- * お知らせが1件もないときはセクションごと描画しない。
+ * デザインの意図（モックアップ「News Section Redesign」より）:
+ *
+ *   - 本文の幅を720pxに制限する。全幅に1行だけ置くと左端に文字が固まり、
+ *     右2/3が意図しない空白に見えるため。
+ *   - 行を枠付きにし、ホバーで背景を変える。枠も背景もないとクリックできる
+ *     ことが伝わらない。
+ *   - 「すべて見る」は出す価値があるときだけ出す。表示件数で収まりきる件数
+ *     しかないのに置くと、遷移先に続きがある期待を与えてしまう。
+ *   - 背景をわずかに沈めた帯にして、アニメカードのセクションと切り分ける。
+ *     同じ見出し規格で並べると性質の違う情報が同列に見える。
+ *   - 日付とカテゴリをメタ行にまとめ、タイトルを主役にする。3つを均等に
+ *     並べると要素間の関係が読めない。
+ *
+ * 帯にするため Container の外側に置く。ページ側で Container に入れないこと。
  */
 export const AnnouncementSection: React.FC<{ className?: string }> = ({ className }) => {
-  const announcements = getAnnouncements().slice(0, HOME_ANNOUNCEMENT_COUNT)
-
-  if (announcements.length === 0) return null
+  const all = getAnnouncements()
+  const announcements = all.slice(0, HOME_ANNOUNCEMENT_COUNT)
+  // 表示しきれない分があるときだけ一覧への導線を出す
+  const hasMore = all.length > announcements.length
 
   return (
     <section className={className} aria-labelledby="home-announcements">
-      <SectionHeading
-        id="home-announcements"
-        action={
-          <Button variant="outline-gray" size="sm" asChild className="font-bold">
-            <Link href={'/news' as Route}>もっと見る</Link>
-          </Button>
-        }
-      >
-        お知らせ
-      </SectionHeading>
-
-      <ul className="divide-y divide-border border-y border-border">
-        {announcements.map((announcement) => (
-          <li key={announcement.id}>
-            <Link
-              href={'/news' as Route}
-              className="flex flex-col gap-1.5 py-3.5 transition-colors hover:bg-muted/50 sm:flex-row sm:items-center sm:gap-3"
-            >
-              <span className="flex flex-shrink-0 items-center gap-3">
-                <time
-                  dateTime={announcement.date}
-                  className="text-sm tabular-nums text-muted-foreground"
+      <div className="border-t border-border bg-muted/40">
+        <Container size="xl" className="py-9 md:py-12">
+          {/* 1行しかなくても左に寄って見えないよう、本文の幅を絞る */}
+          <div className="max-w-[720px]">
+            <div className="mb-3.5 flex items-center justify-between gap-4 md:mb-[18px]">
+              <div className="flex items-center gap-2.5">
+                <span
+                  aria-hidden="true"
+                  className="h-[17px] w-1 flex-shrink-0 rounded-sm bg-primary md:h-[19px]"
+                />
+                <h2
+                  id="home-announcements"
+                  className="text-[17px] font-bold tracking-tight text-foreground md:text-xl"
                 >
-                  {formatAnnouncementDate(announcement.date)}
-                </time>
-                <CategoryBadge category={announcement.category} />
-              </span>
-              {/* 長いタイトルでも行が増えないよう1行に省略する */}
-              <span className="truncate text-sm font-medium text-foreground">
-                {announcement.title}
-              </span>
-            </Link>
-          </li>
-        ))}
-      </ul>
+                  お知らせ
+                </h2>
+              </div>
+              {hasMore && (
+                <Link
+                  href={'/news' as Route}
+                  className="flex-shrink-0 whitespace-nowrap text-xs font-semibold text-primary hover:underline md:text-[13px]"
+                >
+                  すべて見る →
+                </Link>
+              )}
+            </div>
+
+            {announcements.length > 0 ? (
+              <ul className="overflow-hidden rounded-lg border border-border bg-card">
+                {announcements.map((announcement) => (
+                  <li key={announcement.id} className="border-b border-border last:border-b-0">
+                    {/* 詳細ページは持たないため、行のリンク先は一覧ページ */}
+                    <Link
+                      href={'/news' as Route}
+                      className="flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring md:gap-[18px] md:px-5 md:py-4"
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span className="mb-1 flex items-center gap-2 md:gap-2.5">
+                          <time
+                            dateTime={announcement.date}
+                            className="text-[11px] tabular-nums text-muted-foreground md:text-xs"
+                          >
+                            {formatAnnouncementDate(announcement.date)}
+                          </time>
+                          <CategoryBadge category={announcement.category} size="sm" />
+                        </span>
+                        {/* タイトルを主役にする。長くても行数が増えないよう1行で省略 */}
+                        <span className="block truncate text-[13px] font-semibold leading-[1.6] text-foreground md:text-[14.5px] md:leading-[1.55]">
+                          {announcement.title}
+                        </span>
+                      </span>
+                      <ChevronRight
+                        aria-hidden="true"
+                        className="h-[15px] w-[15px] flex-shrink-0 text-muted-foreground md:h-[17px] md:w-[17px]"
+                      />
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              /* 0件でもセクションは残す。何も起きていないことが分かるほうがよい */
+              <p className="rounded-lg border border-dashed border-border bg-card px-5 py-7 text-center text-[13.5px] text-muted-foreground">
+                現在お知らせはありません
+              </p>
+            )}
+          </div>
+        </Container>
+      </div>
     </section>
   )
 }
