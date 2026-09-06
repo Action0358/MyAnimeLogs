@@ -4,6 +4,7 @@ import type React from 'react';
 import { Container } from '@/components/layout';
 import { CurrentSeasonAnime, PopularAnime } from '@/components/anime';
 import { HeroSection } from '@/components/home';
+import { AnnouncementSection } from '@/components/announcements';
 
 const HomePage: React.FC = () => {
   return (
@@ -19,9 +20,12 @@ const HomePage: React.FC = () => {
         </div>
 
         {/* 人気アニメセクション */}
-        <div>
+        <div className="mb-12 md:mb-16">
           <PopularAnime />
         </div>
+
+        {/* お知らせセクション。お知らせが0件のときは何も描画されない */}
+        <AnnouncementSection />
       </Container>
     </>
   );
