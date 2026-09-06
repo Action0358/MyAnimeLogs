@@ -21,20 +21,13 @@ import { getAnnouncements, HOME_ANNOUNCEMENT_COUNT } from '@/constants/announcem
  *     ことが伝わらない。
  *   - 「すべて見る」は出す価値があるときだけ出す。表示件数で収まりきる件数
  *     しかないのに置くと、遷移先に続きがある期待を与えてしまう。
- *   - アニメカードのセクションと区切り線で分ける。左右の余白は他ページと
- *     同じにする（Container が担う）。
  *   - 日付とカテゴリをメタ行にまとめ、タイトルを主役にする。3つを均等に
  *     並べると要素間の関係が読めない。
  *
- * 見出し・アクションボタンはカードのセクション（AnimeSection）と同じ
- * SectionHeading・Button（variant="outline-gray"）を使う。背景も含め、
- * ページの他セクションと同じ白地にする。モックアップは見出しを一段小さく・
- * アクションを色付きテキストリンクにし、背景を沈めた帯にして区別していたが、
- * 実装後に「今期アニメ・人気アニメと配色・文字サイズを揃えたい」との
- * フィードバックを受け、区切り線のみで分ける形に変えた。
- *
- * Container の外側に置いているのは、区切り線を全幅に通すため
- * （内側の Container がカードのセクションと同じ size="xl" で左右を揃える）。
+ * 見出し・アクションボタン・背景（白地）・上下の余白は、カードのセクション
+ * （AnimeSection、今期アニメ・人気アニメ）と統一している。上部の区切り線・
+ * 沈めた背景は設けない。今期アニメと人気アニメの間に線がないのと同じく、
+ * お知らせも余白のみで前のセクションと区切る。
  */
 export const AnnouncementSection: React.FC<{ className?: string }> = ({ className }) => {
   const all = getAnnouncements()
@@ -44,8 +37,8 @@ export const AnnouncementSection: React.FC<{ className?: string }> = ({ classNam
 
   return (
     <section className={className} aria-labelledby="home-announcements">
-      <div className="border-t border-border">
-        <Container size="xl" className="pb-12 pt-9 md:pb-16 md:pt-11">
+      <div>
+        <Container size="xl" className="pb-12 md:pb-16">
           <div>
             <SectionHeading
               id="home-announcements"
