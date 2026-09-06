@@ -393,6 +393,28 @@ Authorization: Bearer {{supabaseToken}}
 # 例: "Action" → "アクション", "Comedy" → "コメディ"
 GET {{baseUrl}}/api/filters
 
+### ===== メディア種別・並び替えテスト =====
+
+### 72-1. メディア種別でアニメ検索（TV）
+GET {{baseUrl}}/api/animes?media=tv
+Authorization: Bearer {{supabaseToken}}
+
+### 72-2. メディア種別でアニメ検索（映画）
+GET {{baseUrl}}/api/animes?media=movie
+Authorization: Bearer {{supabaseToken}}
+
+### 72-3. メディア種別は大文字小文字を区別しないこと
+GET {{baseUrl}}/api/animes?media=TV
+Authorization: Bearer {{supabaseToken}}
+
+### 72-4. 並び替え（放送年順）
+GET {{baseUrl}}/api/animes?sort=year
+Authorization: Bearer {{supabaseToken}}
+
+### 72-5. 並び替え（人気順）
+GET {{baseUrl}}/api/animes?sort=popularity
+Authorization: Bearer {{supabaseToken}}
+
 ### ===== キャッシュ検証テスト =====
 
 ### 73. 検索キャッシュテスト（1回目 - キャッシュなし）
