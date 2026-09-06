@@ -320,8 +320,21 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 // 取り除いてから切り出す（「劇場版 鬼滅の刃 無限列車編」→「鬼滅の刃」）。
 // 実データでは「劇場版 」始まりが184件、「映画 」始まりが25件ある。
 //
+// さらに2つの正規化を行う。どちらも銀魂シリーズで必要になった（#837）。
+//
+//   - 「」を空白と同じ区切りとして扱う。「銀魂「何事も最初が肝心なので…」」のように
+//     空白を含まず副題が続くタイトルがあり、分割しないと全体が先頭語になる。
+//   - 末尾の派生記号（’ ゜ .）を落とす。「銀魂」「銀魂’」「銀魂゜」「銀魂.」は
+//     同じシリーズの表記違いだが、そのままでは4つの別グループに割れる。
+//
 // 自作品側と候補側の両方で同じ式を使い、判定を1か所に集約する。
-const relatedTitleHeadExpr = `split_part(regexp_replace(%s, '^(劇場版|映画|OVA|TVアニメ|テレビアニメ)\s+', ''), ' ', 1)`
+const relatedTitleHeadExpr = `regexp_replace(` +
+	`split_part(` +
+	`regexp_replace(` +
+	`regexp_replace(%s, '^(劇場版|映画|アニメ|OVA|TVアニメ|テレビアニメ)\s+', '')` +
+	`, '「', ' ')` +
+	`, ' ', 1)` +
+	`, '[’゜.]+$', '')`
 
 // getRelatedSeasons - 以下4条件のいずれかを満たす他のアニメ（自分自身を除く）を
 // 放送時期順で返す。条件はOR結合（マージ）され、重複はidの一意性により自然に排除される。
@@ -353,8 +366,15 @@ const relatedTitleHeadExpr = `split_part(regexp_replace(%s, '^(劇場版|映画|
 // 無関係な作品を大量に巻き込むことを確認した。英語タイトルのシリーズは
 // 「FAIRY TAIL」「DEATH NOTE」のように素の作品名が存在することが多く、
 // 条件3で拾えるため実害は小さい。
+//
+// 条件4の文字数閾値（MinRelatedTitleHeadLength）が条件3より小さいのは、
+// 先頭語一致が「先頭語全体の一致」を要求し前方一致より safer なため。
+// 詳細は各定数のコメントを参照。
 func (s *AnimeService) getRelatedSeasons(animeID int, title string, seriesTitle *string, seriesTMDBID *int) []models.RelatedAnime {
-	if (seriesTitle == nil || *seriesTitle == "") && seriesTMDBID == nil && utf8.RuneCountInString(title) < constants.MinRelatedTitlePrefixLength {
+	// どの条件にも使えるだけの手がかりがない場合だけクエリを省く。
+	// 先頭語一致は前方一致より短いタイトルでも成立するため、判定にはそちらの
+	// 閾値を使う（これを前方一致の閾値のままにすると「銀魂」が弾かれる）。
+	if (seriesTitle == nil || *seriesTitle == "") && seriesTMDBID == nil && utf8.RuneCountInString(title) < constants.MinRelatedTitleHeadLength {
 		return nil
 	}
 
@@ -380,7 +400,7 @@ func (s *AnimeService) getRelatedSeasons(animeID int, title string, seriesTitle 
 				)
 			)
 			OR (
-				length(%[1]s) >= $5
+				length(%[1]s) >= $7
 				AND %[1]s ~ '[^[:ascii:]]'
 				AND %[2]s = %[1]s
 			)
@@ -397,7 +417,9 @@ func (s *AnimeService) getRelatedSeasons(animeID int, title string, seriesTitle 
 			id
 		LIMIT $6
 	`, selfHead, candidateHead),
-		seriesTitle, animeID, seriesTMDBID, title, constants.MinRelatedTitlePrefixLength, constants.MaxRelatedSeasons)
+		seriesTitle, animeID, seriesTMDBID, title,
+		constants.MinRelatedTitlePrefixLength, constants.MaxRelatedSeasons,
+		constants.MinRelatedTitleHeadLength)
 	if err != nil {
 		s.logger.Warn("Failed to get related seasons", "anime_id", animeID, "error", err)
 		return nil
