@@ -1,28 +1,49 @@
 import React from 'react'
-import { Badge, type BadgeProps } from '@/components/ui'
+import { cn } from '@/lib/utils'
 import {
   ANNOUNCEMENT_CATEGORY_LABELS,
   type AnnouncementCategory,
 } from '@/constants/announcements'
 
 /**
- * カテゴリごとのバッジ色。
- * 「重要」だけ目を引く色にし、他は情報量を抑えて本文の邪魔をしないようにする。
+ * カテゴリのタグ意匠。
+ *
+ * 淡い背景に濃い文字（塗りつぶしではない）とし、角は4px。タイトルより先に
+ * 目に入らないようにするため。モックアップの指定に合わせている。
+ *
+ * 「重要」だけは他を上回って目を引く必要があるため赤系にする。
+ * リリース・機能は「新しくなった」知らせなのでどちらもプライマリ系で揃え、
+ * メンテナンスは注意喚起として琥珀系にする。
  */
-const CATEGORY_VARIANTS: Record<AnnouncementCategory, BadgeProps['variant']> = {
-  important: 'destructive',
-  maintenance: 'warning',
-  release: 'default',
-  feature: 'secondary',
+const CATEGORY_CLASSES: Record<AnnouncementCategory, string> = {
+  important: 'bg-destructive/10 text-destructive',
+  maintenance: 'bg-warning/15 text-warning-foreground',
+  release: 'bg-primary/10 text-primary',
+  feature: 'bg-primary/10 text-primary',
 }
 
-export const CategoryBadge: React.FC<{ category: AnnouncementCategory; className?: string }> = ({
+export interface CategoryBadgeProps {
+  category: AnnouncementCategory
+  /** 'sm' はトップページのリスト行用。密度が高いぶん一段小さくする */
+  size?: 'sm' | 'md'
+  className?: string
+}
+
+export const CategoryBadge: React.FC<CategoryBadgeProps> = ({
   category,
+  size = 'md',
   className,
 }) => (
-  <Badge variant={CATEGORY_VARIANTS[category]} className={className}>
+  <span
+    className={cn(
+      'inline-flex flex-shrink-0 items-center rounded font-bold',
+      size === 'sm' ? 'px-2 py-0.5 text-[10px] md:text-[11px]' : 'px-2.5 py-0.5 text-xs',
+      CATEGORY_CLASSES[category],
+      className,
+    )}
+  >
     {ANNOUNCEMENT_CATEGORY_LABELS[category]}
-  </Badge>
+  </span>
 )
 
 export default CategoryBadge
