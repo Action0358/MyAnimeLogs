@@ -139,6 +139,13 @@ function SearchContent() {
   const activeFilterCount =
     (filters.season ? 1 : 0) + selectedGenres.length + (isSortDefault ? 0 : 1)
   const sortLabel = sortOptions.find((option) => option.value === sort)?.label
+  // チップ行を出すかどうかは「実際にチップが1つ以上出るか」で判断する。
+  // hasActiveFilters には media が含まれるが media に対応するチップはないため、
+  // これで判定すると中身のない div が mb-6 ぶんの余白だけを作り、
+  // メディアタブを切り替えるたびに以降の要素が24pxずれる（#838）。
+  const hasFilterChips = Boolean(
+    filters.keyword || filters.season || selectedGenres.length > 0 || (!isSortDefault && sortLabel)
+  )
 
   const filterPanelProps = {
     selectedSeason: filters.season,
@@ -196,7 +203,7 @@ function SearchContent() {
         />
 
         {/* 検索条件表示 */}
-        {(hasActiveFilters || !isSortDefault) && (
+        {hasFilterChips && (
           <div className="flex flex-wrap gap-2 mb-6">
             {filters.keyword && (
               <span className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary rounded-full text-sm">
