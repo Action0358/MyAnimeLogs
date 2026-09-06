@@ -81,7 +81,33 @@ describe('お知らせ一覧ページ', () => {
 
     render(<NewsPage />)
 
-    expect(screen.getByText('現在お知らせはありません。')).toBeInTheDocument()
+    expect(screen.getByText('現在お知らせはありません')).toBeInTheDocument()
     expect(screen.queryByRole('listitem')).not.toBeInTheDocument()
+  })
+
+  it('複数件でも1つのカードにまとめて表示する', () => {
+    mockGetAnnouncements.mockReturnValue([
+      build({ id: 'a', date: '2026-09-06' }),
+      build({ id: 'b', date: '2026-08-20', title: '定期メンテナンスのお知らせ' }),
+      build({ id: 'c', date: '2026-08-01', title: '検索にジャンル絞り込みを追加しました' }),
+    ])
+
+    render(<NewsPage />)
+
+    expect(screen.getAllByRole('listitem')).toHaveLength(3)
+  })
+
+  /**
+   * モックアップ（News Page Redesign）は行全体をクリック可能にしホバー＋
+   * シェブロンで反応させているが、詳細ページを持たないこのプロジェクトでは
+   * 遷移先のない行を押せるように見せると「空振り」になる。link指定のない
+   * 項目は行全体をリンクにしないことを固定する。
+   */
+  it('linkを指定していない項目は行全体をリンクにしない', () => {
+    mockGetAnnouncements.mockReturnValue([build()])
+
+    render(<NewsPage />)
+
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
   })
 })

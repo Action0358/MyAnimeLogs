@@ -3,6 +3,7 @@ import Link from 'next/link'
 import type { Route } from 'next'
 import { ChevronRight } from 'lucide-react'
 import { Container } from '@/components/layout'
+import { Button, SectionHeading } from '@/components/ui'
 import { CategoryBadge } from './CategoryBadge'
 import { formatAnnouncementDate } from './AnnouncementList'
 import { getAnnouncements, HOME_ANNOUNCEMENT_COUNT } from '@/constants/announcements'
@@ -12,18 +13,21 @@ import { getAnnouncements, HOME_ANNOUNCEMENT_COUNT } from '@/constants/announcem
  *
  * デザインの意図（モックアップ「News Section Redesign」より）:
  *
- *   - 本文の幅を720pxに制限する。全幅に1行だけ置くと左端に文字が固まり、
- *     右2/3が意図しない空白に見えるため。
+ *   - 行を枠付きにして右端にシェブロンを置く。全幅に文字だけを置くと左端に
+ *     固まって右側が意図しない空白に見えるが、枠と右端の目印があれば全幅でも
+ *     余白が空きに見えない。幅は上のカードグリッドと揃える（絞ると右端が
+ *     不揃いになるため）。
  *   - 行を枠付きにし、ホバーで背景を変える。枠も背景もないとクリックできる
  *     ことが伝わらない。
  *   - 「すべて見る」は出す価値があるときだけ出す。表示件数で収まりきる件数
  *     しかないのに置くと、遷移先に続きがある期待を与えてしまう。
- *   - 背景をわずかに沈めた帯にして、アニメカードのセクションと切り分ける。
- *     同じ見出し規格で並べると性質の違う情報が同列に見える。
  *   - 日付とカテゴリをメタ行にまとめ、タイトルを主役にする。3つを均等に
  *     並べると要素間の関係が読めない。
  *
- * 帯にするため Container の外側に置く。ページ側で Container に入れないこと。
+ * 見出し・アクションボタン・背景（白地）・上下の余白は、カードのセクション
+ * （AnimeSection、今期アニメ・人気アニメ）と統一している。上部の区切り線・
+ * 沈めた背景は設けない。今期アニメと人気アニメの間に線がないのと同じく、
+ * お知らせも余白のみで前のセクションと区切る。
  */
 export const AnnouncementSection: React.FC<{ className?: string }> = ({ className }) => {
   const all = getAnnouncements()
@@ -33,32 +37,21 @@ export const AnnouncementSection: React.FC<{ className?: string }> = ({ classNam
 
   return (
     <section className={className} aria-labelledby="home-announcements">
-      <div className="border-t border-border bg-muted/40">
-        <Container size="xl" className="py-9 md:py-12">
-          {/* 1行しかなくても左に寄って見えないよう、本文の幅を絞る */}
-          <div className="max-w-[720px]">
-            <div className="mb-3.5 flex items-center justify-between gap-4 md:mb-[18px]">
-              <div className="flex items-center gap-2.5">
-                <span
-                  aria-hidden="true"
-                  className="h-[17px] w-1 flex-shrink-0 rounded-sm bg-primary md:h-[19px]"
-                />
-                <h2
-                  id="home-announcements"
-                  className="text-[17px] font-bold tracking-tight text-foreground md:text-xl"
-                >
-                  お知らせ
-                </h2>
-              </div>
-              {hasMore && (
-                <Link
-                  href={'/news' as Route}
-                  className="flex-shrink-0 whitespace-nowrap text-xs font-semibold text-primary hover:underline md:text-[13px]"
-                >
-                  すべて見る →
-                </Link>
-              )}
-            </div>
+      <div>
+        <Container size="xl" className="pb-12 md:pb-16">
+          <div>
+            <SectionHeading
+              id="home-announcements"
+              action={
+                hasMore ? (
+                  <Button variant="outline-gray" size="sm" asChild className="font-bold">
+                    <Link href={'/news' as Route}>もっと見る</Link>
+                  </Button>
+                ) : undefined
+              }
+            >
+              お知らせ
+            </SectionHeading>
 
             {announcements.length > 0 ? (
               <ul className="overflow-hidden rounded-lg border border-border bg-card">
@@ -70,17 +63,21 @@ export const AnnouncementSection: React.FC<{ className?: string }> = ({ classNam
                       className="flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring md:gap-[18px] md:px-5 md:py-4"
                     >
                       <span className="min-w-0 flex-1">
-                        <span className="mb-1 flex items-center gap-2 md:gap-2.5">
+                        <span className="mb-1 flex items-center gap-2 md:mb-1.5 md:gap-2.5">
+                          {/* 日付・カテゴリの文字サイズはカード（AnimeCard）の
+                              放送時期表記と揃える */}
                           <time
                             dateTime={announcement.date}
-                            className="text-[11px] tabular-nums text-muted-foreground md:text-xs"
+                            className="text-xs tabular-nums text-muted-foreground"
                           >
                             {formatAnnouncementDate(announcement.date)}
                           </time>
                           <CategoryBadge category={announcement.category} size="sm" />
                         </span>
-                        {/* タイトルを主役にする。長くても行数が増えないよう1行で省略 */}
-                        <span className="block truncate text-[13px] font-semibold leading-[1.6] text-foreground md:text-[14.5px] md:leading-[1.55]">
+                        {/* タイトルはカード（AnimeCard）のタイトル文字サイズと揃える。
+                            全幅を使えるようになったため、省略はせず折り返させる
+                            （SPで長いタイトルを隠さない） */}
+                        <span className="block text-sm font-semibold leading-[1.4] text-foreground md:text-base">
                           {announcement.title}
                         </span>
                       </span>

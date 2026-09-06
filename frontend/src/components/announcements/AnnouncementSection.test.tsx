@@ -66,16 +66,16 @@ describe('トップページのお知らせセクション', () => {
   })
 
   /**
-   * 表示件数で収まりきる件数しかないのに「すべて見る」を置くと、
+   * 表示件数で収まりきる件数しかないのに「もっと見る」を置くと、
    * 遷移先に続きがある期待を与えてしまう。
    */
-  describe('「すべて見る」の出し分け', () => {
+  describe('「もっと見る」の出し分け', () => {
     it('表示しきれない分があるときだけ出す', () => {
       mockGetAnnouncements.mockReturnValue(buildMany(HOME_ANNOUNCEMENT_COUNT + 1))
 
       render(<AnnouncementSection />)
 
-      expect(screen.getByRole('link', { name: /すべて見る/ })).toHaveAttribute('href', '/news')
+      expect(screen.getByRole('link', { name: /もっと見る/ })).toHaveAttribute('href', '/news')
     })
 
     it('ちょうど表示件数に収まるときは出さない', () => {
@@ -83,7 +83,7 @@ describe('トップページのお知らせセクション', () => {
 
       render(<AnnouncementSection />)
 
-      expect(screen.queryByRole('link', { name: /すべて見る/ })).not.toBeInTheDocument()
+      expect(screen.queryByRole('link', { name: /もっと見る/ })).not.toBeInTheDocument()
     })
 
     it('1件だけのときは出さない', () => {
@@ -91,7 +91,7 @@ describe('トップページのお知らせセクション', () => {
 
       render(<AnnouncementSection />)
 
-      expect(screen.queryByRole('link', { name: /すべて見る/ })).not.toBeInTheDocument()
+      expect(screen.queryByRole('link', { name: /もっと見る/ })).not.toBeInTheDocument()
     })
   })
 
@@ -106,12 +106,12 @@ describe('トップページのお知らせセクション', () => {
       expect(screen.queryByRole('listitem')).not.toBeInTheDocument()
     })
 
-    it('「すべて見る」は出さない', () => {
+    it('「もっと見る」は出さない', () => {
       mockGetAnnouncements.mockReturnValue([])
 
       render(<AnnouncementSection />)
 
-      expect(screen.queryByRole('link', { name: /すべて見る/ })).not.toBeInTheDocument()
+      expect(screen.queryByRole('link', { name: /もっと見る/ })).not.toBeInTheDocument()
     })
   })
 })
