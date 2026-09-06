@@ -25,9 +25,8 @@ const HomePage: React.FC = () => {
         </div>
       </Container>
 
-      {/* お知らせセクション。運営からの情報で作品カードとは性質が違うため、
-          背景をわずかに沈めた帯にして切り分ける。帯を全幅にするため
-          Container の外側に置く（セクション側で内側に Container を持つ） */}
+      {/* お知らせセクション。区切り線を全幅に通すため Container の外側に置く
+          （セクション側で内側に Container を持つ） */}
       <AnnouncementSection />
     </>
   );
