@@ -30,7 +30,7 @@ func TestGetRelatedSeasons_OrdersChronologicallyAcrossSeasonBoundary(t *testing.
 		AddRow(1, "Series Autumn", "2023-autumn", nil, nil, "https://example.com/autumn.jpg", nil)
 
 	mock.ExpectQuery(`SELECT id, title, season, cover_image_extra_large, cover_image_large, cover_image_medium, image_url\s+FROM animes\s+WHERE id != \$2`).
-		WithArgs("シリーズ", 99, nil, "シリーズタイトル", constants.MinRelatedTitlePrefixLength, constants.MaxRelatedSeasons).
+		WithArgs("シリーズ", 99, nil, "シリーズタイトル", constants.MinRelatedTitlePrefixLength, constants.MaxRelatedSeasons, constants.MinRelatedTitleHeadLength).
 		WillReturnRows(rows)
 
 	seriesTitle := "シリーズ"
@@ -101,7 +101,7 @@ func TestGetRelatedSeasons_FallsBackToSeriesTMDBID(t *testing.T) {
 		AddRow(9361, "この素晴らしい世界に祝福を！3", "2024-spring", nil, nil, nil, nil)
 
 	mock.ExpectQuery(`SELECT id, title, season, cover_image_extra_large, cover_image_large, cover_image_medium, image_url\s+FROM animes\s+WHERE id != \$2`).
-		WithArgs("この素晴らしい世界に祝福を！", 2211, 65844, "この素晴らしい世界に祝福を！", constants.MinRelatedTitlePrefixLength, constants.MaxRelatedSeasons).
+		WithArgs("この素晴らしい世界に祝福を！", 2211, 65844, "この素晴らしい世界に祝福を！", constants.MinRelatedTitlePrefixLength, constants.MaxRelatedSeasons, constants.MinRelatedTitleHeadLength).
 		WillReturnRows(rows)
 
 	seriesTitle := "この素晴らしい世界に祝福を！"
@@ -130,7 +130,7 @@ func TestGetRelatedSeasons_ExistingSeriesTitleMatchStillWorks(t *testing.T) {
 		AddRow(1685, "ダンジョンに出会いを求めるのは間違っているだろうかⅢ", "2020-autumn", nil, nil, nil, nil)
 
 	mock.ExpectQuery(`SELECT id, title, season, cover_image_extra_large, cover_image_large, cover_image_medium, image_url\s+FROM animes\s+WHERE id != \$2`).
-		WithArgs("ダンジョンに出会いを求めるのは間違っているだろうか", 84, nil, "ダンジョンに出会いを求めるのは間違っているだろうか", constants.MinRelatedTitlePrefixLength, constants.MaxRelatedSeasons).
+		WithArgs("ダンジョンに出会いを求めるのは間違っているだろうか", 84, nil, "ダンジョンに出会いを求めるのは間違っているだろうか", constants.MinRelatedTitlePrefixLength, constants.MaxRelatedSeasons, constants.MinRelatedTitleHeadLength).
 		WillReturnRows(rows)
 
 	seriesTitle := "ダンジョンに出会いを求めるのは間違っているだろうか"
@@ -211,4 +211,48 @@ func TestGetRelatedSeasons_HeadMatchRequiresNonASCII(t *testing.T) {
 	svc.getRelatedSeasons(1, "BLUE SEED", nil, nil)
 
 	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+// 先頭語一致は前方一致より短い閾値を使う。
+// 4文字を要求していた頃は「銀魂」（2文字）が全13作品で関連0件だった（#837）。
+func TestMinRelatedTitleHeadLength_IsLooserThanPrefix(t *testing.T) {
+	assert.Less(t, constants.MinRelatedTitleHeadLength, constants.MinRelatedTitlePrefixLength)
+	assert.Equal(t, 2, constants.MinRelatedTitleHeadLength,
+		"「銀魂」（2文字）を拾える閾値であること")
+}
+
+// 先頭語の切り出しが銀魂シリーズの表記揺れを吸収すること（#837）。
+// SQL式そのものは実行できないため、除去・分割の対象が式に含まれることを固定する。
+func TestRelatedTitleHeadExpr_NormalizesTitleVariants(t *testing.T) {
+	// 「銀魂」「銀魂’」「銀魂゜」「銀魂.」を同じ先頭語に寄せるための派生記号
+	for _, mark := range []string{"’", "゜", "."} {
+		assert.Contains(t, relatedTitleHeadExpr, mark,
+			"末尾の派生記号 %s を落とすこと", mark)
+	}
+
+	// 「銀魂「何事も最初が肝心なので…」」は空白を含まないため、
+	// 「 を区切りとして扱わないと全体が先頭語になる
+	assert.Contains(t, relatedTitleHeadExpr, "「")
+
+	// 「アニメ ブルーナの絵本」等が先頭語「アニメ」で誤って束ねられないよう、
+	// 総称語として除去する
+	assert.Contains(t, relatedTitleHeadExpr, "アニメ")
+}
+
+// 2文字の日本語タイトルでも、手がかりなしとして早期returnしないこと。
+// ここで弾くと SQL に到達せず、先頭語一致の閾値を下げた意味がなくなる。
+func TestGetRelatedSeasons_ShortJapaneseTitleStillQueries(t *testing.T) {
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
+	require.NoError(t, err)
+	defer db.Close()
+
+	svc := NewAnimeService(&database.DB{DB: db}, newTestServiceLogger())
+	defer svc.Close()
+
+	mock.ExpectQuery(`FROM animes`).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "title", "season", "cover_image_extra_large", "cover_image_large", "cover_image_medium", "image_url"}))
+
+	svc.getRelatedSeasons(1, "銀魂", nil, nil)
+
+	assert.NoError(t, mock.ExpectationsWereMet(), "クエリが発行されること")
 }
