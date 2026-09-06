@@ -58,6 +58,7 @@ export const FOOTER_LINKS: NavItem[] = [
   { label: 'お気に入り', href: '/favorites' },
   { label: '検索', href: '/search' },
   { label: 'サイト紹介', href: '/about' },
+  { label: 'お知らせ', href: '/news' },
   { label: 'マイページ', href: '/mypage' },
 ]
 
