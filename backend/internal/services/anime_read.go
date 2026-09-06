@@ -118,7 +118,81 @@ func (s *AnimeService) getAnimesByQuery(query string, args []interface{}, queryN
 	return animes, nil
 }
 
+// GetAnimeByID はアニメ詳細を返す。ユーザー固有ではない部分（本体データ・
+// ジャンル・関連作品・配信サービス）はキャッシュし、ユーザー固有部分
+// （お気に入り・視聴ステータス）は常に最新を都度取得して合成する。
+//
+// buildAnimeDetail はAniList/Jikan/TMDBへの同期問い合わせを含み、未キャッシュの
+// 作品では数秒かかることがある。同じ作品への再訪・複数ユーザーの同時アクセスで
+// これを繰り返さないためにレスポンス単位でキャッシュする（#851）。
 func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWithUserData, error) {
+	ctx := context.Background()
+	cacheKey := fmt.Sprintf("%s%d", constants.CacheKeyAnimeDetail, animeID)
+
+	var animeWithData *models.AnimeWithUserData
+	var cached models.AnimeWithUserData
+	if found, err := s.cacheGet(ctx, cacheKey, &cached); found && err == nil {
+		animeWithData = &cached
+	} else {
+		built, err := s.buildAnimeDetail(animeID)
+		if err != nil {
+			return nil, err
+		}
+		animeWithData = built
+		if cacheErr := s.cacheSet(ctx, cacheKey, animeWithData, constants.AnimeDetailCacheTTL); cacheErr != nil {
+			s.logger.Debug("Failed to cache anime detail", "anime_id", animeID, "error", cacheErr)
+		}
+	}
+
+	// Add user data if authenticated（ユーザー固有のためキャッシュ対象外、常に最新を取得）
+	if userID != nil {
+		// Get user favorite (heart)
+		var favorite models.UserFavorite
+		err := s.db.QueryRow(`
+			SELECT id, user_id, anime_id, created_at, updated_at
+			FROM user_favorites WHERE user_id = $1 AND anime_id = $2
+		`, *userID, animeID).Scan(&favorite.ID, &favorite.UserID, &favorite.AnimeID, &favorite.CreatedAt, &favorite.UpdatedAt)
+		if err != nil && err != sql.ErrNoRows {
+			s.logger.Warn("Failed to get user favorite",
+				"user_id", *userID,
+				"anime_id", animeID,
+				"error", err)
+			animeWithData.UserFavorite = nil
+		} else if err == nil {
+			animeWithData.UserFavorite = &favorite
+		} else {
+			animeWithData.UserFavorite = nil
+		}
+
+		// Get user watch status
+		var watchStatus models.UserWatchStatus
+		err = s.db.QueryRow(`
+			SELECT id, user_id, anime_id, status, created_at, updated_at
+			FROM user_watch_status WHERE user_id = $1 AND anime_id = $2
+		`, *userID, animeID).Scan(&watchStatus.ID, &watchStatus.UserID, &watchStatus.AnimeID, &watchStatus.Status, &watchStatus.CreatedAt, &watchStatus.UpdatedAt)
+		if err != nil && err != sql.ErrNoRows {
+			s.logger.Warn("Failed to get user watch status",
+				"user_id", *userID,
+				"anime_id", animeID,
+				"error", err)
+			animeWithData.UserWatchStatus = nil
+		} else if err == nil {
+			animeWithData.UserWatchStatus = &watchStatus
+		} else {
+			animeWithData.UserWatchStatus = nil
+		}
+	} else {
+		// 未認証時、キャッシュに前ユーザーの値が残っていないことを保証する
+		animeWithData.UserFavorite = nil
+		animeWithData.UserWatchStatus = nil
+	}
+
+	return animeWithData, nil
+}
+
+// buildAnimeDetail はキャッシュ対象となるアニメ詳細本体（ユーザー固有部分を除く）を
+// DB・外部APIから組み立てる。GetAnimeByID からのみ呼ばれる。
+func (s *AnimeService) buildAnimeDetail(animeID int) (*models.AnimeWithUserData, error) {
 	var anime models.Anime
 	var description, media, officialSiteURL, titleKana, titleEn, releasedOn, seriesTitle sql.NullString
 	var broadcastDay, broadcastTime, broadcastTimezone sql.NullString
@@ -264,40 +338,6 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 		}
 		if len(genres) > 0 {
 			animeWithData.Genres = genres
-		}
-	}
-
-	// Add user data if authenticated
-	if userID != nil {
-		// Get user favorite (heart)
-		var favorite models.UserFavorite
-		err := s.db.QueryRow(`
-			SELECT id, user_id, anime_id, created_at, updated_at
-			FROM user_favorites WHERE user_id = $1 AND anime_id = $2
-		`, *userID, animeID).Scan(&favorite.ID, &favorite.UserID, &favorite.AnimeID, &favorite.CreatedAt, &favorite.UpdatedAt)
-		if err != nil && err != sql.ErrNoRows {
-			// Log error but don't fail the entire request
-			s.logger.Warn("Failed to get user favorite",
-				"user_id", *userID,
-				"anime_id", animeID,
-				"error", err)
-		} else if err == nil {
-			animeWithData.UserFavorite = &favorite
-		}
-
-		// Get user watch status
-		var watchStatus models.UserWatchStatus
-		err = s.db.QueryRow(`
-			SELECT id, user_id, anime_id, status, created_at, updated_at
-			FROM user_watch_status WHERE user_id = $1 AND anime_id = $2
-		`, *userID, animeID).Scan(&watchStatus.ID, &watchStatus.UserID, &watchStatus.AnimeID, &watchStatus.Status, &watchStatus.CreatedAt, &watchStatus.UpdatedAt)
-		if err != nil && err != sql.ErrNoRows {
-			s.logger.Warn("Failed to get user watch status",
-				"user_id", *userID,
-				"anime_id", animeID,
-				"error", err)
-		} else if err == nil {
-			animeWithData.UserWatchStatus = &watchStatus
 		}
 	}
 

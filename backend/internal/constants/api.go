@@ -76,6 +76,12 @@ const (
 	// 検索結果は10分キャッシュ
 	SearchResultCacheTTL = 10 * time.Minute
 
+	// AnimeDetailCacheTTL - アニメ詳細（ユーザー固有部分を除く）のキャッシュ有効期限
+	// 初回アクセス時はAniList/Jikan/TMDBへの同期問い合わせで数秒かかることがあり、
+	// 同じ作品への再訪・複数ユーザーからの同時アクセスでこれを繰り返さないために
+	// レスポンス単位でキャッシュする（#851）。検索結果と同じ10分に揃える
+	AnimeDetailCacheTTL = 10 * time.Minute
+
 	// JikanEnrichMissingCacheTTL - Jikan側にデータが無かった項目を覚えておく期間
 	// 毎回問い合わせても結果が変わらないため、詳細取得のたびに同期的な
 	// リトライを繰り返さないよう記憶する
@@ -106,6 +112,7 @@ const (
 	CacheKeyAdvSearch       = "adv_search:"
 	CacheKeyPopularSearches = "popular_searches:"
 	CacheKeyWatchProviders  = "watch_providers:"
+	CacheKeyAnimeDetail     = "anime_detail:"
 	// 以下はJikanから取得できなかった項目のマーカー。
 	// キーの有無だけが意味を持ち、値は参照しない
 	CacheKeyMovieDurationMissing = "movie_duration_missing:"
