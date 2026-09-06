@@ -12,18 +12,22 @@ import { getAnnouncements, HOME_ANNOUNCEMENT_COUNT } from '@/constants/announcem
  *
  * デザインの意図（モックアップ「News Section Redesign」より）:
  *
- *   - 本文の幅を720pxに制限する。全幅に1行だけ置くと左端に文字が固まり、
- *     右2/3が意図しない空白に見えるため。
+ *   - 行を枠付きにして右端にシェブロンを置く。全幅に文字だけを置くと左端に
+ *     固まって右側が意図しない空白に見えるが、枠と右端の目印があれば全幅でも
+ *     余白が空きに見えない。幅は上のカードグリッドと揃える（絞ると右端が
+ *     不揃いになるため）。
  *   - 行を枠付きにし、ホバーで背景を変える。枠も背景もないとクリックできる
  *     ことが伝わらない。
  *   - 「すべて見る」は出す価値があるときだけ出す。表示件数で収まりきる件数
  *     しかないのに置くと、遷移先に続きがある期待を与えてしまう。
  *   - 背景をわずかに沈めた帯にして、アニメカードのセクションと切り分ける。
- *     同じ見出し規格で並べると性質の違う情報が同列に見える。
+ *     同じ見出し規格で並べると性質の違う情報が同列に見える。左右の余白は
+ *     他ページと同じにする（Container が担う）。
  *   - 日付とカテゴリをメタ行にまとめ、タイトルを主役にする。3つを均等に
  *     並べると要素間の関係が読めない。
  *
  * 帯にするため Container の外側に置く。ページ側で Container に入れないこと。
+ * 内側の Container はカードのセクションと同じ size="xl" にして右端を揃える。
  */
 export const AnnouncementSection: React.FC<{ className?: string }> = ({ className }) => {
   const all = getAnnouncements()
@@ -34,9 +38,8 @@ export const AnnouncementSection: React.FC<{ className?: string }> = ({ classNam
   return (
     <section className={className} aria-labelledby="home-announcements">
       <div className="border-t border-border bg-muted/40">
-        <Container size="xl" className="py-9 md:py-12">
-          {/* 1行しかなくても左に寄って見えないよう、本文の幅を絞る */}
-          <div className="max-w-[720px]">
+        <Container size="xl" className="pb-8 pt-[26px] md:pb-12 md:pt-11">
+          <div>
             <div className="mb-3.5 flex items-center justify-between gap-4 md:mb-[18px]">
               <div className="flex items-center gap-2.5">
                 <span
@@ -70,7 +73,7 @@ export const AnnouncementSection: React.FC<{ className?: string }> = ({ classNam
                       className="flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring md:gap-[18px] md:px-5 md:py-4"
                     >
                       <span className="min-w-0 flex-1">
-                        <span className="mb-1 flex items-center gap-2 md:gap-2.5">
+                        <span className="mb-1 flex items-center gap-2 md:mb-[5px] md:gap-2.5">
                           <time
                             dateTime={announcement.date}
                             className="text-[11px] tabular-nums text-muted-foreground md:text-xs"
@@ -79,8 +82,9 @@ export const AnnouncementSection: React.FC<{ className?: string }> = ({ classNam
                           </time>
                           <CategoryBadge category={announcement.category} size="sm" />
                         </span>
-                        {/* タイトルを主役にする。長くても行数が増えないよう1行で省略 */}
-                        <span className="block truncate text-[13px] font-semibold leading-[1.6] text-foreground md:text-[14.5px] md:leading-[1.55]">
+                        {/* タイトルを主役にする。全幅を使えるようになったため、
+                            省略はせず折り返させる（SPで長いタイトルを隠さない） */}
+                        <span className="block text-[13px] font-semibold leading-[1.6] text-foreground md:text-[14.5px] md:leading-[1.55]">
                           {announcement.title}
                         </span>
                       </span>
