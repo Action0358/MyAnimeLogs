@@ -42,7 +42,15 @@ export const ANNOUNCEMENT_CATEGORY_LABELS: Record<AnnouncementCategory, string> 
  * お知らせの一覧。並び順は問わない（表示側で日付の降順に並べ替える）。
  * 新しいものを上に足していくと差分が読みやすい。
  */
-export const ANNOUNCEMENTS: Announcement[] = []
+export const ANNOUNCEMENTS: Announcement[] = [
+  {
+    id: '2026-09-06-news-start',
+    date: '2026-09-06',
+    category: 'feature',
+    title: 'お知らせの掲載を開始しました',
+    body: 'このページで、運営からのお知らせを掲載していきます。\n新機能の追加やメンテナンスの予定などをお伝えします。',
+  },
+]
 
 /**
  * 新しい順に並べ替える。同じ日付のときはIDで並べ、順序が実行ごとにぶれないようにする。
