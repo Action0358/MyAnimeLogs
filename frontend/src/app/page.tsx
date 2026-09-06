@@ -20,13 +20,14 @@ const HomePage: React.FC = () => {
         </div>
 
         {/* 人気アニメセクション */}
-        <div className="mb-12 md:mb-16">
+        <div>
           <PopularAnime />
         </div>
-
-        {/* お知らせセクション。お知らせが0件のときは何も描画されない */}
-        <AnnouncementSection />
       </Container>
+
+      {/* お知らせセクション。区切り線を全幅に通すため Container の外側に置く
+          （セクション側で内側に Container を持つ） */}
+      <AnnouncementSection />
     </>
   );
 };
