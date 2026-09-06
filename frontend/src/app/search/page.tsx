@@ -159,40 +159,43 @@ function SearchContent() {
   return (
     <Container className="py-8">
       <div className="max-w-7xl mx-auto">
-        {/* ヘッダー */}
+        {/* ヘッダー。見出し・件数の体裁は今期アニメ／人気アニメ（AnimeListPage）に揃える。
+            件数は見出しと同じ行にベースライン揃えで併記し、視線の流れを一本化する */}
         <div className="mb-5">
-          {/* 狭い画面では検索フォーム自体が用途を示すため見出しを出さない。
-              ページの見出し構造は保つため、読み上げには残す */}
-          <h1 className="sr-only md:not-sr-only text-3xl font-bold text-foreground md:mb-5">
-            アニメ検索
-          </h1>
-
-          {/* 検索ボックス + フィルターボタン。
-              狭い画面では縦積み、lg以上では横並びにする（並び替えは
-              フィルターパネル内に統合済みのため、ここには置かない） */}
-          <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center">
-            <SearchForm
-              onSearch={handleSearch}
-              placeholder="タイトルで検索..."
-              recentSearches={searchHistory}
-              onClearHistory={clearHistory}
-              initialValue={filters.keyword || ''}
-              className="w-full lg:max-w-[440px]"
-            />
-            <button
-              onClick={() => setShowFilters(true)}
-              className="flex w-full lg:w-auto flex-shrink-0 items-center justify-center gap-2 h-10 px-4 border border-input bg-background rounded-full text-sm font-medium text-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              <FilterIcon className="w-4 h-4" />
-              フィルター
-              {activeFilterCount > 0 && (
-                <span className="inline-flex min-w-[18px] h-[18px] items-center justify-center rounded-full bg-primary px-1 text-[11px] font-bold text-primary-foreground">
-                  {activeFilterCount}
-                </span>
+          <div className="mb-4 flex items-baseline gap-2 md:gap-3 min-w-0">
+            <h1 className="text-xl md:text-[26px] font-bold text-foreground tracking-tight">
+              アニメ検索
+            </h1>
+            <span className="flex flex-shrink-0 items-baseline gap-1 text-sm text-muted-foreground">
+              {isLoading ? (
+                '読み込み中...'
+              ) : (
+                <>
+                  <span className="text-base font-bold text-foreground">
+                    {total.toLocaleString()}
+                  </span>
+                  件
+                </>
               )}
-              <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
-            </button>
+            </span>
+            {isFetching && !isLoading && (
+              <span
+                className="h-4 w-4 flex-shrink-0 animate-spin rounded-full border-b-2 border-primary"
+                role="status"
+                aria-label="更新中"
+              />
+            )}
           </div>
+
+          {/* 検索ボックスは全幅。フィルターはメディアタブと同じ行へ移した */}
+          <SearchForm
+            onSearch={handleSearch}
+            placeholder="タイトルで検索..."
+            recentSearches={searchHistory}
+            onClearHistory={clearHistory}
+            initialValue={filters.keyword || ''}
+            className="w-full"
+          />
         </div>
 
         {/* モバイルフィルターシート */}
@@ -260,21 +263,25 @@ function SearchContent() {
           </div>
         )}
 
-        {/* メディア種別タブ + 件数。今期アニメ・人気アニメページと同じ並び（タブ左・件数右）で
-            区切り線を共有する */}
-        <div className="flex items-center justify-between gap-2.5 pb-4 border-b border-border mb-6 text-sm text-muted-foreground">
+        {/* メディア種別タブ + フィルター。件数は見出し横へ移したので、
+            空いたこの位置にフィルターを置く。PC・SPで位置を揃えるため
+            折り返さず1行に収める（タブ側が横スクロールで縮む） */}
+        <div className="flex items-center justify-between gap-2.5 pb-4 border-b border-border mb-6">
           <MediaTabs tabs={MEDIA_TABS} activeTab={activeMediaTab} onTabChange={handleMediaTabChange} />
-          <span className="flex flex-shrink-0 items-center gap-1.5">
-            {!isLoading && (
-              <span className="flex items-center gap-1.5 whitespace-nowrap">
-                <span className="text-base font-bold text-foreground">{total.toLocaleString()}</span>
-                件のアニメ
+          <button
+            onClick={() => setShowFilters(true)}
+            className="flex flex-shrink-0 items-center justify-center gap-2 h-10 px-4 border border-input bg-background rounded-full text-sm font-medium text-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            <FilterIcon className="w-4 h-4" />
+            {/* 狭い画面ではアイコンとバッジで用途が伝わるため、ラベルを省いて幅を稼ぐ */}
+            <span className="max-sm:sr-only">フィルター</span>
+            {activeFilterCount > 0 && (
+              <span className="inline-flex min-w-[18px] h-[18px] items-center justify-center rounded-full bg-primary px-1 text-[11px] font-bold text-primary-foreground">
+                {activeFilterCount}
               </span>
             )}
-            {isFetching && !isLoading && (
-              <span className="inline-block h-3.5 w-3.5 flex-shrink-0 animate-spin rounded-full border-b-2 border-primary" />
-            )}
-          </span>
+            <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+          </button>
         </div>
 
         {/* アニメグリッド（一覧ページと統一の全幅グリッド） */}
