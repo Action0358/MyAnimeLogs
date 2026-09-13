@@ -64,5 +64,18 @@ export const sortAnnouncements = (items: Announcement[]): Announcement[] =>
 /** 新しい順に並べ替えたお知らせを返す */
 export const getAnnouncements = (): Announcement[] => sortAnnouncements(ANNOUNCEMENTS)
 
+/**
+ * 一覧ページ内の該当お知らせを指すURL。
+ *
+ * 1件ごとの詳細ページは持たない（#848）ため、遷移先は一覧ページ + アンカー。
+ * リンクを張る側と id を出力する側でずれないよう、組み立てはここに集約する。
+ *
+ * id は日付始まりで数字から始まるが、HTML の id 属性としては有効で
+ * getElementById・アンカー遷移・:target のいずれも動く。
+ * ただし CSS や querySelector の id セレクタ（#2026-...）は不正になるため、
+ * 要素を取るときは getElementById を使うこと。
+ */
+export const announcementHref = (id: string): string => `/news#${id}`
+
 /** トップページに出す件数。アニメカードが主役のため控えめにする */
 export const HOME_ANNOUNCEMENT_COUNT = 3

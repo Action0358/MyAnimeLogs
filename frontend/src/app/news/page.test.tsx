@@ -2,7 +2,7 @@ import React from 'react'
 import { render, screen } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import NewsPage from './page'
-import { getAnnouncements } from '@/constants/announcements'
+import { announcementHref, getAnnouncements } from '@/constants/announcements'
 import type { Announcement } from '@/constants/announcements'
 
 jest.mock('@/constants/announcements', () => {
@@ -109,5 +109,66 @@ describe('お知らせ一覧ページ', () => {
     render(<NewsPage />)
 
     expect(screen.queryByRole('link')).not.toBeInTheDocument()
+  })
+})
+
+/**
+ * 1件ごとの詳細ページは持たない代わりに、/news#<id> で個別に指せるようにする。
+ * トップのお知らせ行や外部からの共有リンクがここへ着地する。
+ */
+describe('お知らせのアンカー', () => {
+  beforeEach(() => jest.clearAllMocks())
+
+  it('各項目に id を振る', () => {
+    mockGetAnnouncements.mockReturnValue([
+      build(),
+      build({ id: '2026-08-20-maintenance', date: '2026-08-20', title: 'メンテナンス' }),
+    ])
+
+    const { container } = render(<NewsPage />)
+
+    // id セレクタは数字始まりだと不正になるため getElementById で取る
+    const first = container.ownerDocument.getElementById('2026-09-06-beta')
+    const second = container.ownerDocument.getElementById('2026-08-20-maintenance')
+
+    expect(first).not.toBeNull()
+    expect(second).not.toBeNull()
+    expect(first).toHaveTextContent('ベータ版を公開しました')
+    expect(second).toHaveTextContent('メンテナンス')
+  })
+
+  it('id はデータのIDをそのまま使う（リンク側と一致させる）', () => {
+    mockGetAnnouncements.mockReturnValue([build({ id: 'custom-id' })])
+
+    const { container } = render(<NewsPage />)
+
+    expect(container.ownerDocument.getElementById('custom-id')).not.toBeNull()
+    expect(announcementHref('custom-id')).toBe('/news#custom-id')
+  })
+
+  it('アンカーで指された項目が分かるようにする', () => {
+    mockGetAnnouncements.mockReturnValue([build()])
+
+    const { container } = render(<NewsPage />)
+    const item = container.ownerDocument.getElementById('2026-09-06-beta')
+
+    // :target で背景を変える。枠線だと高さが変わって他の項目が動く
+    expect(item).toHaveClass('target:bg-primary/5')
+    // ヘッダー直下に貼り付かないよう余白を残す
+    expect(item).toHaveClass('scroll-mt-6')
+  })
+
+  it('IDが重複していない（重複するとアンカーが先頭の項目に固定される）', () => {
+    mockGetAnnouncements.mockReturnValue([
+      build({ id: 'a' }),
+      build({ id: 'b', date: '2026-08-20' }),
+      build({ id: 'c', date: '2026-08-01' }),
+    ])
+
+    const { container } = render(<NewsPage />)
+    const ids = [...container.querySelectorAll('li[id]')].map((el) => el.id)
+
+    expect(ids).toEqual(['a', 'b', 'c'])
+    expect(new Set(ids).size).toBe(ids.length)
   })
 })
