@@ -35,18 +35,31 @@ describe('トップページのお知らせセクション', () => {
     expect(screen.getByRole('heading', { name: 'お知らせ' })).toBeInTheDocument()
   })
 
-  it('日付・カテゴリ・タイトルを出し、/news へ送る', () => {
+  it('日付・カテゴリ・タイトルを出し、一覧の該当項目へ送る', () => {
     mockGetAnnouncements.mockReturnValue([build('a', '2026-09-06', 'ベータ版を公開しました')])
 
     render(<AnnouncementSection />)
 
     expect(screen.getByText('2026年9月6日')).toBeInTheDocument()
     expect(screen.getByText('リリース')).toBeInTheDocument()
-    // 詳細ページは持たないため、項目のリンク先も一覧ページ
+    // 詳細ページは持たないため一覧ページへ送るが、先頭ではなく該当項目に着地させる。
+    // 先頭に着地すると、どのお知らせを押したのか分からなくなる
     expect(screen.getByRole('link', { name: /ベータ版を公開しました/ })).toHaveAttribute(
       'href',
-      '/news',
+      '/news#a',
     )
+  })
+
+  it('項目ごとに別のアンカーへ送る', () => {
+    mockGetAnnouncements.mockReturnValue([
+      build('first', '2026-09-06', '1件目'),
+      build('second', '2026-09-05', '2件目'),
+    ])
+
+    render(<AnnouncementSection />)
+
+    expect(screen.getByRole('link', { name: /1件目/ })).toHaveAttribute('href', '/news#first')
+    expect(screen.getByRole('link', { name: /2件目/ })).toHaveAttribute('href', '/news#second')
   })
 
   it('本文はトップには出さない', () => {
