@@ -2,6 +2,7 @@ import React from 'react'
 import Link from 'next/link'
 import type { Route } from 'next'
 import { CategoryBadge } from './CategoryBadge'
+import { cn } from '@/lib/utils'
 import type { Announcement } from '@/constants/announcements'
 
 /** YYYY-MM-DD を「2026年9月6日」に整形する。日付は文字列で持っているためパースしない */
@@ -19,6 +20,7 @@ const isExternal = (href: string) => /^https?:\/\//.test(href)
  *
  * 1件ごとの詳細ページは持たない。お知らせは短文中心で、
  * 遷移させるより読み切れたほうが速いため（#848）。
+ * 代わりに各項目へ id を振り、/news#<id> で個別に指せるようにしている。
  *
  * モックアップ（News Page Redesign）は行全体をクリック可能にしホバー＋
  * シェブロンで反応させているが、これは各項目に遷移先（詳細ページ）が
@@ -33,7 +35,21 @@ export const AnnouncementList: React.FC<{ announcements: Announcement[] }> = ({
 }) => (
   <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
     {announcements.map((announcement) => (
-      <li key={announcement.id} className="px-4 py-4 md:px-6 md:py-[22px]">
+      <li
+        key={announcement.id}
+        // /news#<id> で個別のお知らせを直接指せるようにする。
+        // 詳細ページを持たない代わりの導線で、トップのお知らせ行や
+        // 外部からの共有リンクがここへ着地する。
+        id={announcement.id}
+        className={cn(
+          'px-4 py-4 md:px-6 md:py-[22px]',
+          // ヘッダーは固定ではないが、上端ぴったりに着地すると窮屈に見えるため少し余白を残す
+          'scroll-mt-6',
+          // アンカーで来たときに「どれが指された項目か」が分かるようにする。
+          // 枠線ではなく背景にするのは、行の高さが変わって他が動かないようにするため
+          'target:bg-primary/5',
+        )}
+      >
         <div className="mb-2 flex items-center gap-2.5">
           <time
             dateTime={announcement.date}
