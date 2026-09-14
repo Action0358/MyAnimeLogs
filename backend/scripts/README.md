@@ -90,6 +90,47 @@
 | スキーマの差分を確認したい                     | `check-schema-diff.sh`                             | 全環境            |
 | アニメデータを同期したい                       | `manual_full_sync.go` / `sync-*-data.sh`           | ステージング/本番 |
 | デプロイ後の動作を確認したい                   | `verify-deployment.sh`                             | ステージング/本番 |
+| 利用状況（登録数・利用率・検索傾向）を見たい   | `analytics.sql`                                    | 本番/ローカル     |
+
+---
+
+## 📊 利用状況の集計
+
+### `analytics.sql`
+
+新規登録数・利用率・継続・検索傾向を実データから集計する参照専用のクエリ集（#868）。
+
+```bash
+# 本番
+psql "$PRODUCTION_DATABASE_URL" -f backend/scripts/analytics.sql
+
+# ローカル
+docker exec -i supabase_db_myanimelogs-supabase \
+  psql -U postgres -d postgres -f /dev/stdin < backend/scripts/analytics.sql
+```
+
+全部流すと結果が多いため、普段は必要な節だけコピーして実行するとよい。
+
+**内容**
+
+| 節 | 内容 |
+| -- | ---- |
+| 1 | 月別の新規登録数 |
+| 2 | 利用率（登録者のうち記録機能を使った割合） |
+| 3 | 登録月ごとの定着（コホート） |
+| 4 | 直近30日に記録操作をしたユーザー数 |
+| 5 | 記録の内訳（お気に入り / 視聴ステータス） |
+| 6 | 視聴ステータスの分布 |
+| 7 | 検索キーワード上位 |
+| 8 | 0件だった検索（改善ネタ） |
+| 9 | 検索のログイン別内訳 |
+
+**登録率について**
+
+本サービスはログインしなくても使えるため、「来たが登録しなかった人」はDBに痕跡を残さない。
+登録率を出すには分母（訪問者数）が必要で、Cloudflare Web Analytics の訪問者数 ÷ 1) の新規登録数 で算出する。
+
+> ⚠️ このファイルは参照専用。`UPDATE` / `DELETE` は書かないこと。
 
 ---
 
