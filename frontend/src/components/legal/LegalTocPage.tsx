@@ -1,5 +1,6 @@
 import React from 'react'
 import Link from 'next/link'
+import type { Route } from 'next'
 import { Container } from '@/components/layout'
 
 export interface LegalTocItem {
@@ -125,11 +126,23 @@ interface LegalContactCardProps {
   email: string
 }
 
+/**
+ * 法的ページ（プライバシーポリシー）の問い合わせ窓口。
+ *
+ * メールを主に出すのは、個人情報の開示・訂正・削除の請求窓口だから。
+ * 法的な請求の受付をフォームだけにしないため、ここはメールのまま残す（#869）。
+ * 一般の問い合わせは /contact のフォームへ誘導する。
+ */
 export const LegalContactCard: React.FC<LegalContactCardProps> = ({ id, operator, email }) => (
   <div id={id} className="mt-7 scroll-mt-20 rounded-lg border border-border bg-muted/40 p-5 sm:p-6">
     <h2 className="mb-2 text-sm font-bold text-foreground sm:text-base">お問い合わせ</h2>
     <p className="mb-4 text-[12.5px] leading-relaxed text-muted-foreground sm:text-[13.5px]">
-      本ポリシーに関するお問い合わせ、および保有する情報の開示・訂正・削除のご請求は、以下までご連絡ください。
+      保有する情報の開示・訂正・削除のご請求は、以下までご連絡ください。
+      不具合のご報告など本ポリシー以外のお問い合わせは、
+      <Link href={'/contact' as Route} className="mx-0.5 text-primary hover:underline">
+        お問い合わせフォーム
+      </Link>
+      をご利用ください。
     </p>
     <div className="flex flex-col gap-2.5 text-[12.5px] sm:grid sm:grid-cols-[64px_1fr] sm:gap-x-3.5 sm:gap-y-2 sm:text-[13.5px]">
       <div className="text-muted-foreground">運営者</div>
