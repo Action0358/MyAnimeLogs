@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
+import type { Route } from 'next'
 import Link from 'next/link'
 import { useAuth, DEFAULT_LOGIN_ERROR } from '@/contexts/AuthContext'
 import { AuthLayout } from '@/components/auth/AuthLayout'
@@ -93,7 +94,8 @@ const SignInInner: React.FC = () => {
       const params = new URLSearchParams(searchParams.toString())
       params.delete('reason')
       const newUrl = params.toString() ? `${pathname}?${params.toString()}` : pathname
-      router.replace(newUrl)
+      // クエリを組み立てた動的URLのため Route 型には収まらない
+      router.replace(newUrl as Route)
     }
   }
 
