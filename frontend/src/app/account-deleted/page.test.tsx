@@ -31,8 +31,11 @@ describe('AccountDeletedPage', () => {
     render(<AccountDeletedPage />)
 
     expect(screen.getByRole('link', { name: 'トップページへ' })).toHaveAttribute('href', '/')
-    expect(
-      screen.getByRole('link', { name: 'myanimelogs-support@googlegroups.com' })
-    ).toHaveAttribute('href', 'mailto:myanimelogs-support@googlegroups.com')
+    // 削除後はログインできないため、ログイン不要で送れるフォームへ案内する。
+    // メールアドレスを直接出すとメーラーが必要になり、退会直後の導線として重い
+    expect(screen.getByRole('link', { name: 'お問い合わせフォーム' })).toHaveAttribute(
+      'href',
+      '/contact'
+    )
   })
 })

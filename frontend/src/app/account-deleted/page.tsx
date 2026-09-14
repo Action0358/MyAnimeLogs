@@ -1,7 +1,7 @@
 import React from 'react'
 import Link from 'next/link'
+import type { Route } from 'next'
 import { Container } from '@/components/layout'
-import { SUPPORT_EMAIL } from '@/lib/constants'
 
 export const metadata = {
   title: 'アカウント削除完了 | MyAnimeLogs',
@@ -51,11 +51,13 @@ const AccountDeletedPage: React.FC = () => (
         >
           トップページへ
         </Link>
+        {/* 削除後はログインできないため、ログイン不要で送れるフォームを主に案内する。
+            退会理由のフィードバックもここから受け取れる */}
         <p className="text-xs text-muted-foreground">
           お問い合わせ:{' '}
-          <a href={`mailto:${SUPPORT_EMAIL}`} className="text-primary hover:underline">
-            {SUPPORT_EMAIL}
-          </a>
+          <Link href={'/contact' as Route} className="text-primary hover:underline">
+            お問い合わせフォーム
+          </Link>
         </p>
       </div>
     </div>
