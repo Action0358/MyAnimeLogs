@@ -143,6 +143,23 @@ export const toAnimeStatus = (status: unknown): AnimeStatus | undefined => {
 export const OPERATOR_NAME = 'MyAnimeLogs 運営'
 
 /**
- * 問い合わせ先。Google OAuth 同意画面のサポートメールと共通のアドレス。
+ * 問い合わせ先メールアドレス。
+ *
+ * Google OAuth 同意画面のサポートメールと共通のため、問い合わせの主導線を
+ * フォームへ移したあとも有効なまま維持する必要がある（Googleが開発者への
+ * 連絡に使う）。
+ *
+ * 一般の問い合わせはフォーム（SUPPORT_FORM_URL）へ誘導し、こちらは
+ * 個人情報の開示・削除などの請求窓口として残す。法的な請求の受付を
+ * フォームだけにしないため。
  */
 export const SUPPORT_EMAIL = 'myanimelogs-support@googlegroups.com'
+
+/**
+ * お問い合わせフォーム（Googleフォーム）。
+ *
+ * 送信者のメールアドレスは自動収集しない設定にしてあるため、匿名でも
+ * 送信できる。回答はスプレッドシートに蓄積され、新着は運営者へメール通知される。
+ */
+export const SUPPORT_FORM_URL =
+  'https://docs.google.com/forms/d/e/1FAIpQLSf7W1gZTxI7GhzpGniIpWACjDRXd-NEEmIdKEjZ9Kl4nKY6rg/viewform'

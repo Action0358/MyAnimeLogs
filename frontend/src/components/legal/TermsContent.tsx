@@ -269,7 +269,11 @@ export const TermsContent: React.FC = () => {
               >
                 <h2 className="mb-2.5 text-[15px] font-bold text-foreground md:text-base">お問い合わせ</h2>
                 <p className="mb-4 text-[12.5px] leading-[1.9] text-foreground/80 md:text-[13.5px]">
-                  本規約に関するお問い合わせは、以下までご連絡ください。
+                  不具合のご報告やご要望などのお問い合わせは、
+                  <Link href={'/contact' as Route} className="mx-0.5 text-primary hover:underline">
+                    お問い合わせフォーム
+                  </Link>
+                  をご利用ください。本規約に関するお問い合わせは、以下までご連絡ください。
                 </p>
                 <div className="flex flex-col gap-2.5 text-[12.5px] md:grid md:grid-cols-[64px_1fr] md:gap-x-3.5 md:gap-y-2.5 md:text-[13.5px]">
                   <span className="text-muted-foreground">運営者</span>

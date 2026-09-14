@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
+import type { Route } from 'next'
 
 export interface SearchFilters {
   keyword?: string
@@ -98,7 +99,8 @@ export const useSearch = (): UseSearchResult => {
       params.delete('page')
 
       const queryString = params.toString()
-      router.push(queryString ? `${pathname}?${queryString}` : pathname)
+      // クエリを組み立てた動的URLのため Route 型には収まらない
+      router.push((queryString ? `${pathname}?${queryString}` : pathname) as Route)
     },
     [router, pathname, searchParams]
   )

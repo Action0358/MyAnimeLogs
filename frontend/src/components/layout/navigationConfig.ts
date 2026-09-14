@@ -60,6 +60,7 @@ export const FOOTER_LINKS: NavItem[] = [
   { label: 'サイト紹介', href: '/about' },
   { label: 'お知らせ', href: '/news' },
   { label: 'マイページ', href: '/mypage' },
+  { label: 'お問い合わせ', href: '/contact' },
 ]
 
 // ナビゲーション共通のテキストスタイル
