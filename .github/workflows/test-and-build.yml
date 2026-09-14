@@ -42,6 +42,13 @@ jobs:
         working-directory: ./frontend
         run: npm ci
 
+      # 型エラーはテストより先に落としたほうがフィードバックが速い。
+      # jest は SWC でトランスパイルするだけで型を見ないため、
+      # これがないと型エラーがテスト成功のまま本番まで抜ける（#872）。
+      - name: Type check
+        working-directory: ./frontend
+        run: npm run type-check
+
       - name: Run tests
         working-directory: ./frontend
         run: npm test

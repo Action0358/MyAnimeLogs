@@ -36,6 +36,7 @@
     "check:env": "echo 'NEXT_PUBLIC_API_URL:' $NEXT_PUBLIC_API_URL",
     "start": "next start",
     "lint": "next lint",
+    "type-check": "tsc --noEmit",
     "test": "jest",
     "generate:api": "orval --config ./orval.config.js",
     "storybook": "storybook dev -p 6006",
