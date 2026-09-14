@@ -166,7 +166,8 @@ describe('お知らせのアンカー', () => {
     ])
 
     const { container } = render(<NewsPage />)
-    const ids = [...container.querySelectorAll('li[id]')].map((el) => el.id)
+    // tsconfig の target が es5 のため NodeList はスプレッドできない。Array.from を使う
+    const ids = Array.from(container.querySelectorAll('li[id]')).map((el) => el.id)
 
     expect(ids).toEqual(['a', 'b', 'c'])
     expect(new Set(ids).size).toBe(ids.length)
