@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import type { Route } from 'next'
 import { useAuth } from '@/contexts/AuthContext'
 
 interface ProtectedRouteProps {
@@ -21,7 +22,8 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     if (!isLoading) {
       if (!isAuthenticated) {
         // 認証されていない場合は即座にリダイレクト（履歴を残さない）
-        router.replace(redirectTo)
+        // redirectTo は呼び出し側が渡す任意のパスで、typedRoutes の Route 型には収まらない
+        router.replace(redirectTo as Route)
       } else {
         // 認証されている場合のみレンダリングを許可
         setShouldRender(true)
