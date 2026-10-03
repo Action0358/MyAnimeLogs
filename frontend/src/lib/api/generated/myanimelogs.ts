@@ -777,6 +777,10 @@ export type GetAnimesCurrentParams = {
  * @maximum 100
  */
 limit?: number;
+/**
+ * trueのとき、今期アニメをランダムな順序で返す （トップページのカルーセル向け）。選出結果はキャッシュしない
+ */
+random?: boolean;
 };
 
 export type GetAnimesCurrent200 = {

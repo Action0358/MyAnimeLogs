@@ -112,9 +112,12 @@ export const annictApi = {
 
 // バックエンドDBからアニメを取得するAPI
 export const animeApi = {
-  async getCurrentSeasonAnimes(limit?: number): Promise<DBAnimeResponse> {
+  async getCurrentSeasonAnimes(limit?: number, random?: boolean): Promise<DBAnimeResponse> {
     try {
-      const params = limit ? `?limit=${limit}` : ''
+      const query = new URLSearchParams()
+      if (limit) query.set('limit', String(limit))
+      if (random) query.set('random', 'true')
+      const params = query.toString() ? `?${query.toString()}` : ''
       return await get<DBAnimeResponse>(`/api/animes/current${params}`)
     } catch (error) {
       if (error instanceof ApiClientError) {

@@ -963,6 +963,14 @@ paths:
             default: 12
             maximum: 100
           description: 取得件数
+        - name: random
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: >-
+            trueのとき、今期アニメをランダムな順序で返す
+            （トップページのカルーセル向け）。選出結果はキャッシュしない
       responses:
         "200":
           description: 今期アニメ一覧
