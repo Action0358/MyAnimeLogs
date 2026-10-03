@@ -58,24 +58,22 @@ func (s *AnimeService) GetCurrentSeasonAnimes(limit int) ([]models.Anime, error)
 //
 // random が true のとき、人気上位 constants.PopularAnimeLimit 件のプールから
 // limit 件をランダムに選出する（トップページのカルーセル向け、#884）。
-// 毎リクエスト再抽選すると表示のたびに作品が変わってしまうため、選出結果は
-// 通常の人気アニメ取得と同じTTLでキャッシュし、一定時間は同じ選出を保つ。
+// リロードのたびに違う作品を見せるのが目的のため、ランダム抽選はキャッシュしない
+// （#884フォローアップ）。通常のランキング取得は従来通りキャッシュする。
 func (s *AnimeService) GetPopularAnimes(limit int, random bool) ([]models.Anime, error) {
 	if limit <= 0 {
 		limit = 12
 	}
 
-	// キャッシュキーを生成（ランダム抽選と通常のランキングは別キーで管理する）
 	cacheKey := fmt.Sprintf("%s%d", constants.CacheKeyPopular, limit)
-	if random {
-		cacheKey = fmt.Sprintf("%s%d:random", constants.CacheKeyPopular, limit)
-	}
 
-	// キャッシュから取得を試みる
-	var cachedAnimes []models.Anime
-	if found, err := s.cache.Get(cacheKey, &cachedAnimes); found && err == nil {
-		s.logger.Debug("Cache hit for popular animes", "limit", limit, "random", random)
-		return cachedAnimes, nil
+	if !random {
+		// キャッシュから取得を試みる
+		var cachedAnimes []models.Anime
+		if found, err := s.cache.Get(cacheKey, &cachedAnimes); found && err == nil {
+			s.logger.Debug("Cache hit for popular animes", "limit", limit)
+			return cachedAnimes, nil
+		}
 	}
 
 	var animes []models.Anime
@@ -112,9 +110,11 @@ func (s *AnimeService) GetPopularAnimes(limit int, random bool) ([]models.Anime,
 		return nil, err
 	}
 
-	// キャッシュに保存
-	if cacheErr := s.cache.SetWithTTL(cacheKey, animes, constants.PopularAnimeCacheTTL); cacheErr != nil {
-		s.logger.Warn("Failed to cache popular animes", "error", cacheErr)
+	if !random {
+		// キャッシュに保存
+		if cacheErr := s.cache.SetWithTTL(cacheKey, animes, constants.PopularAnimeCacheTTL); cacheErr != nil {
+			s.logger.Warn("Failed to cache popular animes", "error", cacheErr)
+		}
 	}
 
 	return animes, nil
