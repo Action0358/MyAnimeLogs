@@ -12,7 +12,7 @@ import { HOME_CURRENT_SEASON_ANIME_LIMIT } from '@/lib/constants'
  */
 export const currentSeasonAnimeQuery = {
   queryKey: ['currentSeasonAnime'] as const,
-  queryFn: () => animeApi.getCurrentSeasonAnimes(HOME_CURRENT_SEASON_ANIME_LIMIT),
+  queryFn: () => animeApi.getCurrentSeasonAnimes(HOME_CURRENT_SEASON_ANIME_LIMIT, true),
   staleTime: 1000 * 60 * 15,
   gcTime: 1000 * 60 * 30,
 }

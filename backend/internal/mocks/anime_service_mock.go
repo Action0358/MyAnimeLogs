@@ -154,8 +154,8 @@ func (m *MockAnimeService) DeleteWatchStatus(userID, animeID int) error {
 }
 
 // GetCurrentSeasonAnimes mocks the GetCurrentSeasonAnimes method
-func (m *MockAnimeService) GetCurrentSeasonAnimes(limit int) ([]models.Anime, error) {
-	args := m.Called(limit)
+func (m *MockAnimeService) GetCurrentSeasonAnimes(limit int, random bool) ([]models.Anime, error) {
+	args := m.Called(limit, random)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}

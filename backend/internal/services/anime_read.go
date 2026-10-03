@@ -13,8 +13,14 @@ import (
 	"myanimelogs/internal/utils"
 )
 
-// GetCurrentSeasonAnimes returns animes for the current season from the database
-func (s *AnimeService) GetCurrentSeasonAnimes(limit int) ([]models.Anime, error) {
+// GetCurrentSeasonAnimes returns animes for the current season from the database。
+//
+// random が true のとき、今期アニメをランダムな順序で返す（トップページの
+// カルーセル向け、#884と同じ対応）。リロードのたびに違う作品を見せるのが
+// 目的のため、ランダム時はキャッシュしない。今期アニメは放送数自体が
+// 数十〜百件程度と小さいため、人気アニメのような事前の母集団の絞り込みは
+// 行わず季節全体からそのまま抽選する。
+func (s *AnimeService) GetCurrentSeasonAnimes(limit int, random bool) ([]models.Anime, error) {
 	if limit <= 0 {
 		limit = 12
 	}
@@ -22,14 +28,20 @@ func (s *AnimeService) GetCurrentSeasonAnimes(limit int) ([]models.Anime, error)
 	// Get current season string (e.g., "2026-winter")
 	currentSeason := utils.SeasonForTime(time.Now())
 
-	// キャッシュキーを生成
 	cacheKey := fmt.Sprintf("%s%s:%d", constants.CacheKeyCurrentSeason, currentSeason, limit)
 
-	// キャッシュから取得を試みる
-	var cachedAnimes []models.Anime
-	if found, err := s.cache.Get(cacheKey, &cachedAnimes); found && err == nil {
-		s.logger.Debug("Cache hit for current season animes", "season", currentSeason, "limit", limit)
-		return cachedAnimes, nil
+	if !random {
+		// キャッシュから取得を試みる
+		var cachedAnimes []models.Anime
+		if found, err := s.cache.Get(cacheKey, &cachedAnimes); found && err == nil {
+			s.logger.Debug("Cache hit for current season animes", "season", currentSeason, "limit", limit)
+			return cachedAnimes, nil
+		}
+	}
+
+	orderBy := "ORDER BY watchers_count DESC NULLS LAST, title"
+	if random {
+		orderBy = "ORDER BY random()"
 	}
 
 	// DBから取得（VIEWを使用してステータスを動的に計算）
@@ -37,7 +49,7 @@ func (s *AnimeService) GetCurrentSeasonAnimes(limit int) ([]models.Anime, error)
 		`SELECT `+animeSelectColumns+`
 		FROM animes_with_computed_status
 		WHERE season = $1
-		ORDER BY watchers_count DESC NULLS LAST, title
+		`+orderBy+`
 		LIMIT $2`,
 		[]interface{}{currentSeason, limit},
 		"current season animes",
@@ -46,9 +58,11 @@ func (s *AnimeService) GetCurrentSeasonAnimes(limit int) ([]models.Anime, error)
 		return nil, err
 	}
 
-	// キャッシュに保存
-	if cacheErr := s.cache.SetWithTTL(cacheKey, animes, constants.CurrentSeasonAnimeCacheTTL); cacheErr != nil {
-		s.logger.Warn("Failed to cache current season animes", "error", cacheErr)
+	if !random {
+		// キャッシュに保存
+		if cacheErr := s.cache.SetWithTTL(cacheKey, animes, constants.CurrentSeasonAnimeCacheTTL); cacheErr != nil {
+			s.logger.Warn("Failed to cache current season animes", "error", cacheErr)
+		}
 	}
 
 	return animes, nil
