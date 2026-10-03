@@ -34,10 +34,25 @@ describe('お問い合わせページ', () => {
     expect(link).toHaveAttribute('rel', 'noopener noreferrer')
   })
 
-  it('ログイン不要であることを明記する', () => {
+  it('冗長な補足文を置かない', () => {
     render(<ContactPage />)
 
-    expect(screen.getByText(/ログインは不要です/)).toBeInTheDocument()
+    // ログイン不要は当然の前提で、書くと逆に身構えさせる（#879）
+    expect(screen.queryByText(/ログインは不要です/)).not.toBeInTheDocument()
+    // 別タブで開くことはアイコンで足りるため、本文には出さない
+    expect(screen.queryByText(/別のタブで開きます/)).not.toBeInTheDocument()
+  })
+
+  it('別タブで開くことを読み上げには伝える', () => {
+    render(<ContactPage />)
+
+    // 外部リンクアイコンは aria-hidden のため、消したぶんを読み上げ用に残す。
+    // アクセシブル名に含まれることで、リンクを読んだ時点で伝わる。
+    // JSXの改行がアクセシブル名では空白になるため、空白は無視して照合する
+    const link = screen.getByRole('link', { name: /お問い合わせフォームを開く/ })
+    expect(link).toHaveAccessibleName(
+      expect.stringContaining('新しいタブで開きます') as unknown as string
+    )
   })
 
   it('個人情報に関する請求はメール窓口を残す', () => {

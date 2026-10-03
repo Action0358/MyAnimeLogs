@@ -33,8 +33,7 @@ const ContactPage: React.FC = () => (
         </h2>
         <p className="mb-5 text-sm leading-[1.8] text-foreground/80">
           不具合のご報告、機能のご要望、作品情報の誤りなどは、お問い合わせフォームからお寄せください。
-          ログインは不要です。ご返信をご希望の場合のみメールアドレスをご記入いただければ、
-          そのアドレス宛にご連絡します。
+          ご返信をご希望の場合のみメールアドレスをご記入いただければ、そのアドレス宛にご連絡します。
         </p>
 
         <a
@@ -44,13 +43,11 @@ const ContactPage: React.FC = () => (
           className="inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground transition-colors hover:bg-primary/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
           お問い合わせフォームを開く
+          {/* 別タブで開くことは視覚的にはアイコンで示す。アイコンは aria-hidden のため、
+              読み上げにはここで伝える（#879） */}
+          <span className="sr-only">（新しいタブで開きます）</span>
           <ExternalLink className="h-4 w-4" aria-hidden="true" />
         </a>
-
-        {/* 外部サイトへ遷移することを事前に伝える。別タブで開く挙動の予告も兼ねる */}
-        <p className="mt-3 text-xs text-muted-foreground">
-          Googleフォームが別のタブで開きます。
-        </p>
       </section>
 
       <section className="mt-5 rounded-lg border border-border bg-card px-5 py-6 md:px-6 md:py-7">
