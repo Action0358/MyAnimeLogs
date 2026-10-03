@@ -54,32 +54,60 @@ func (s *AnimeService) GetCurrentSeasonAnimes(limit int) ([]models.Anime, error)
 	return animes, nil
 }
 
-// GetPopularAnimes returns popular animes from the database (sorted by watchers_count)
-func (s *AnimeService) GetPopularAnimes(limit int) ([]models.Anime, error) {
+// GetPopularAnimes returns popular animes from the database (sorted by watchers_count)。
+//
+// random が true のとき、人気上位 constants.PopularAnimeLimit 件のプールから
+// limit 件をランダムに選出する（トップページのカルーセル向け、#884）。
+// 毎リクエスト再抽選すると表示のたびに作品が変わってしまうため、選出結果は
+// 通常の人気アニメ取得と同じTTLでキャッシュし、一定時間は同じ選出を保つ。
+func (s *AnimeService) GetPopularAnimes(limit int, random bool) ([]models.Anime, error) {
 	if limit <= 0 {
 		limit = 12
 	}
 
-	// キャッシュキーを生成
+	// キャッシュキーを生成（ランダム抽選と通常のランキングは別キーで管理する）
 	cacheKey := fmt.Sprintf("%s%d", constants.CacheKeyPopular, limit)
+	if random {
+		cacheKey = fmt.Sprintf("%s%d:random", constants.CacheKeyPopular, limit)
+	}
 
 	// キャッシュから取得を試みる
 	var cachedAnimes []models.Anime
 	if found, err := s.cache.Get(cacheKey, &cachedAnimes); found && err == nil {
-		s.logger.Debug("Cache hit for popular animes", "limit", limit)
+		s.logger.Debug("Cache hit for popular animes", "limit", limit, "random", random)
 		return cachedAnimes, nil
 	}
 
-	// DBから取得（VIEWを使用してステータスを動的に計算）
-	animes, err := s.getAnimesByQuery(
-		`SELECT `+animeSelectColumns+`
-		FROM animes_with_computed_status
-		WHERE watchers_count > 0
-		ORDER BY watchers_count DESC, title
-		LIMIT $1`,
-		[]interface{}{limit},
-		"popular animes",
-	)
+	var animes []models.Anime
+	var err error
+	if random {
+		// DBから取得（VIEWを使用してステータスを動的に計算）。
+		// 人気上位のプールに絞ってからランダム抽選することで、「人気アニメ」の
+		// 体裁を保ったまま表示のたびに違う作品を見せる
+		animes, err = s.getAnimesByQuery(
+			`SELECT `+animeSelectColumns+`
+			FROM (
+				SELECT * FROM animes_with_computed_status
+				WHERE watchers_count > 0
+				ORDER BY watchers_count DESC
+				LIMIT $1
+			) popular_pool
+			ORDER BY random()
+			LIMIT $2`,
+			[]interface{}{constants.PopularAnimeLimit, limit},
+			"popular animes (random)",
+		)
+	} else {
+		animes, err = s.getAnimesByQuery(
+			`SELECT `+animeSelectColumns+`
+			FROM animes_with_computed_status
+			WHERE watchers_count > 0
+			ORDER BY watchers_count DESC, title
+			LIMIT $1`,
+			[]interface{}{limit},
+			"popular animes",
+		)
+	}
 	if err != nil {
 		return nil, err
 	}

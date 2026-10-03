@@ -40,7 +40,7 @@ type AnimeServiceInterface interface {
 	GetPopularSearches(limit int) ([]string, error)
 	GetSearchSuggestions(query string, limit int) ([]string, error)
 	GetCurrentSeasonAnimes(limit int) ([]models.Anime, error)
-	GetPopularAnimes(limit int) ([]models.Anime, error)
+	GetPopularAnimes(limit int, random bool) ([]models.Anime, error)
 	// 検索履歴
 	GetSearchHistory(userID int, limit int) ([]models.SearchLog, error)
 	DeleteSearchHistory(userID int) error

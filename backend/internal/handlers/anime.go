@@ -331,8 +331,25 @@ func (h *AnimeHandler) GetCurrentSeasonAnimes(c *gin.Context) {
 }
 
 // GetPopularAnimes 人気アニメ取得API
+// random=true のとき、人気上位のプールからランダムに選出する（トップページのカルーセル向け、#884）
 func (h *AnimeHandler) GetPopularAnimes(c *gin.Context) {
-	h.getAnimesWithLimit(c, h.animeService.GetPopularAnimes, "人気アニメ")
+	limitStr := c.DefaultQuery("limit", "12")
+	limit := utils.ParseLimitQuery(limitStr, 12, constants.PopularAnimeLimit) // 今期・人気アニメ専用ページ対応
+	random := c.Query("random") == "true"
+
+	animes, err := h.animeService.GetPopularAnimes(limit, random)
+	if err != nil {
+		h.logger.Error("Failed to get 人気アニメ", "error", err)
+		h.response.InternalServerError(c, "人気アニメの取得に失敗しました")
+		return
+	}
+
+	h.response.Success(c, gin.H{
+		"animes": animes,
+		// NOTE: totalは現在のレスポンスに含まれる件数（limit適用後）
+		// DBの総件数が必要な場合は別途COUNT(*)クエリが必要
+		"total": len(animes),
+	})
 }
 
 // getAnimesWithLimit is a helper method to handle anime list endpoints with limit parameter
