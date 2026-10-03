@@ -167,8 +167,8 @@ func (m *MockAnimeService) GetCurrentSeasonAnimes(limit int) ([]models.Anime, er
 }
 
 // GetPopularAnimes mocks the GetPopularAnimes method
-func (m *MockAnimeService) GetPopularAnimes(limit int) ([]models.Anime, error) {
-	args := m.Called(limit)
+func (m *MockAnimeService) GetPopularAnimes(limit int, random bool) ([]models.Anime, error) {
+	args := m.Called(limit, random)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}

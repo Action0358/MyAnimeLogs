@@ -791,6 +791,10 @@ export type GetAnimesPopularParams = {
  * @maximum 100
  */
 limit?: number;
+/**
+ * trueのとき、人気上位100件のプールからランダムに選出する （トップページのカルーセル向け）。選出結果は一定時間キャッシュされる
+ */
+random?: boolean;
 };
 
 export type GetAnimesPopular200 = {
