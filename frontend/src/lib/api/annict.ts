@@ -124,9 +124,12 @@ export const animeApi = {
     }
   },
 
-  async getPopularAnimes(limit?: number): Promise<DBAnimeResponse> {
+  async getPopularAnimes(limit?: number, random?: boolean): Promise<DBAnimeResponse> {
     try {
-      const params = limit ? `?limit=${limit}` : ''
+      const query = new URLSearchParams()
+      if (limit) query.set('limit', String(limit))
+      if (random) query.set('random', 'true')
+      const params = query.toString() ? `?${query.toString()}` : ''
       return await get<DBAnimeResponse>(`/api/animes/popular${params}`)
     } catch (error) {
       if (error instanceof ApiClientError) {
