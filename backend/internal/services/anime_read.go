@@ -134,13 +134,17 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 	if found, err := s.cacheGet(ctx, cacheKey, &cached); found && err == nil {
 		animeWithData = &cached
 	} else {
-		built, err := s.buildAnimeDetail(animeID)
+		built, isComplete, err := s.buildAnimeDetail(animeID)
 		if err != nil {
 			return nil, err
 		}
 		animeWithData = built
-		if cacheErr := s.cacheSet(ctx, cacheKey, animeWithData, constants.AnimeDetailCacheTTL); cacheErr != nil {
-			s.logger.Debug("Failed to cache anime detail", "anime_id", animeID, "error", cacheErr)
+		// 外部APIへの問い合わせをバックグラウンドへ回した不完全なレスポンスは
+		// キャッシュしない。次回アクセス時にDBの最新値で組み立て直させるため
+		if isComplete {
+			if cacheErr := s.cacheSet(ctx, cacheKey, animeWithData, constants.AnimeDetailCacheTTL); cacheErr != nil {
+				s.logger.Debug("Failed to cache anime detail", "anime_id", animeID, "error", cacheErr)
+			}
 		}
 	}
 
@@ -192,7 +196,12 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 
 // buildAnimeDetail はキャッシュ対象となるアニメ詳細本体（ユーザー固有部分を除く）を
 // DB・外部APIから組み立てる。GetAnimeByID からのみ呼ばれる。
-func (s *AnimeService) buildAnimeDetail(animeID int) (*models.AnimeWithUserData, error) {
+//
+// 戻り値の bool は、DBの情報だけで完成できたか（true）、AniList/Jikan/TMDBへの
+// 問い合わせが必要でバックグラウンドへ回したか（false）を示す。false の場合、
+// 呼び出し元はレスポンスをキャッシュしてはいけない（#851 残課題）。
+func (s *AnimeService) buildAnimeDetail(animeID int) (*models.AnimeWithUserData, bool, error) {
+	ctx := context.Background()
 	var anime models.Anime
 	var description, media, officialSiteURL, titleKana, titleEn, releasedOn, seriesTitle sql.NullString
 	var broadcastDay, broadcastTime, broadcastTimezone sql.NullString
@@ -216,9 +225,9 @@ func (s *AnimeService) buildAnimeDetail(animeID int) (*models.AnimeWithUserData,
 	// Check error immediately after Scan - accessing scanned variables before error check is undefined behavior
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, ErrAnimeNotFound
+			return nil, false, ErrAnimeNotFound
 		}
-		return nil, fmt.Errorf("failed to get anime: %w", err)
+		return nil, false, fmt.Errorf("failed to get anime: %w", err)
 	}
 
 	// Set nullable fields (safe to access after error check)
@@ -264,17 +273,6 @@ func (s *AnimeService) buildAnimeDetail(animeID int) (*models.AnimeWithUserData,
 		anime.CoverImageUpdatedAt = &coverImageUpdatedAt.Time
 	}
 
-	// カバー画像が未取得、またはTTL期限切れの場合のみAniListから取得
-	if anime.CoverImageExtraLarge == "" || anime.CoverImageLarge == "" ||
-		anime.CoverImageUpdatedAt == nil || time.Since(*anime.CoverImageUpdatedAt) > constants.CoverImageCacheTTL {
-		s.enrichAnimeWithCoverImage(&anime)
-	}
-
-	// descriptionがない場合はAniList APIから取得
-	if anime.Description == nil || *anime.Description == "" {
-		s.enrichAnimeWithDescription(&anime)
-	}
-
 	// DBキャッシュ済みのあらすじも含め、表示時に書式を統一する（バックフィル前の既存データ対策）。
 	// sanitizeDescription は冪等なため、enrich 済みの値に再適用しても問題ない。
 	if anime.Description != nil {
@@ -282,16 +280,12 @@ func (s *AnimeService) buildAnimeDetail(animeID int) (*models.AnimeWithUserData,
 		anime.Description = &sanitized
 	}
 
-	// series_titleがない場合は設定（シリーズフォールバック用）
+	// series_titleがない場合は設定（シリーズフォールバック用）。DB書き込みのみで
+	// 外部APIを呼ばないため、下の関連作品検索より前に同期的に確定させる
 	s.ensureSeriesTitle(&anime)
 
-	// released_onがない場合はJikan APIから取得
-	if anime.ReleasedOn == nil || *anime.ReleasedOn == "" {
-		s.enrichAnimeWithReleasedOn(&anime)
-	}
-
 	// released_on取得後にステータスを補正（VIEWはDB時点のreleased_onで計算するため、
-	// enrichAnimeWithReleasedOnでオンデマンド取得した場合はstatusが未反映）
+	// released_onが後から埋まった場合にstatusが未反映なことがある）
 	if anime.ReleasedOn != nil && *anime.ReleasedOn != "" {
 		releaseDate, parseErr := time.ParseInLocation("2006-01-02", *anime.ReleasedOn, time.UTC)
 		if parseErr == nil {
@@ -305,16 +299,6 @@ func (s *AnimeService) buildAnimeDetail(animeID int) (*models.AnimeWithUserData,
 				anime.Status = &airingStatus
 			}
 		}
-	}
-
-	// 放送情報がない場合はJikan APIから取得
-	if anime.BroadcastDay == nil {
-		s.enrichAnimeWithBroadcastInfo(&anime)
-	}
-
-	// 映画の上映時間がない場合はJikan APIから取得
-	if anime.Media != nil && *anime.Media == "movie" && anime.DurationMinutes == nil {
-		s.enrichAnimeWithMovieDuration(&anime)
 	}
 
 	animeWithData := &models.AnimeWithUserData{Anime: anime}
@@ -341,14 +325,70 @@ func (s *AnimeService) buildAnimeDetail(animeID int) (*models.AnimeWithUserData,
 		}
 	}
 
-	// Get watch providers from TMDB (if TMDB ID is available or can be found)
-	s.enrichAnimeWithWatchProviders(animeWithData)
+	// 配信サービスはキャッシュヒットのときだけ同期的に反映する。ミス時はTMDBへの
+	// 同期問い合わせでレスポンスが1〜3秒伸びるため、他のenrichと同様に
+	// バックグラウンドへ回す（#851）
+	watchProvidersCached := false
+	if providers, ok := s.getCachedWatchProviders(ctx, animeID); ok {
+		animeWithData.WatchProviders = providers
+		watchProvidersCached = true
+	}
 
 	// 同シリーズの他シーズン（続編・前作）。series_titleはensureSeriesTitleで
-	// 必ず設定済みのため、常に問い合わせる。
+	// 必ず設定済みのため、常に問い合わせる。DBのみの問い合わせのため同期でよい
 	animeWithData.RelatedSeasons = s.getRelatedSeasons(animeID, anime.Title, anime.SeriesTitle, anime.SeriesTMDBID)
 
-	return animeWithData, nil
+	// AniList/Jikan/TMDBへの同期問い合わせが必要な項目は、レスポンスを待たせず
+	// バックグラウンドで取得・DB保存する（#851）。初回アクセスの体感速度を
+	// 優先し、欠けている情報は次回アクセス時（または#848のキャッシュ経由）に
+	// 反映される
+	needsCoverImage := anime.CoverImageExtraLarge == "" || anime.CoverImageLarge == "" ||
+		anime.CoverImageUpdatedAt == nil || time.Since(*anime.CoverImageUpdatedAt) > constants.CoverImageCacheTTL
+	needsDescription := anime.Description == nil || *anime.Description == ""
+	needsReleasedOn := anime.ReleasedOn == nil || *anime.ReleasedOn == ""
+	needsBroadcastInfo := anime.BroadcastDay == nil
+	needsMovieDuration := anime.Media != nil && *anime.Media == "movie" && anime.DurationMinutes == nil
+	needsWatchProviders := !watchProvidersCached
+
+	isComplete := !needsCoverImage && !needsDescription && !needsReleasedOn &&
+		!needsBroadcastInfo && !needsMovieDuration && !needsWatchProviders
+
+	if !isComplete {
+		animeSnapshot := anime
+		needsWatchProvidersSnapshot := needsWatchProviders
+		s.enqueueBackgroundTask(func() {
+			s.backgroundEnrichAnime(animeSnapshot, needsWatchProvidersSnapshot)
+		})
+	}
+
+	return animeWithData, isComplete, nil
+}
+
+// backgroundEnrichAnime は buildAnimeDetail がレスポンスを待たせずに済ませた
+// AniList/Jikan/TMDBへの問い合わせを実行し、結果をDBへ永続化する（#851）。
+// 呼び出し元のレスポンスは既に返却済みのため、ここでの結果はこのgoroutine内の
+// anime（値渡しのスナップショット）にしか反映されず、各enrich関数が内部で
+// 行うDB保存だけが外から観測できる。次回アクセス時にDBの最新値として現れる。
+func (s *AnimeService) backgroundEnrichAnime(anime models.Anime, needsWatchProviders bool) {
+	if anime.CoverImageExtraLarge == "" || anime.CoverImageLarge == "" ||
+		anime.CoverImageUpdatedAt == nil || time.Since(*anime.CoverImageUpdatedAt) > constants.CoverImageCacheTTL {
+		s.enrichAnimeWithCoverImage(&anime)
+	}
+	if anime.Description == nil || *anime.Description == "" {
+		s.enrichAnimeWithDescription(&anime)
+	}
+	if anime.ReleasedOn == nil || *anime.ReleasedOn == "" {
+		s.enrichAnimeWithReleasedOn(&anime)
+	}
+	if anime.BroadcastDay == nil {
+		s.enrichAnimeWithBroadcastInfo(&anime)
+	}
+	if anime.Media != nil && *anime.Media == "movie" && anime.DurationMinutes == nil {
+		s.enrichAnimeWithMovieDuration(&anime)
+	}
+	if needsWatchProviders {
+		s.enrichAnimeWithWatchProviders(&models.AnimeWithUserData{Anime: anime})
+	}
 }
 
 // relatedTitleHeadExpr - タイトルから「シリーズ名」にあたる先頭語を取り出すSQL式。
