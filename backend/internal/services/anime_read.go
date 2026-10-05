@@ -243,7 +243,6 @@ func (s *AnimeService) GetAnimeByID(animeID int, userID *int) (*models.AnimeWith
 // 問い合わせが必要でバックグラウンドへ回したか（false）を示す。false の場合、
 // 呼び出し元はレスポンスをキャッシュしてはいけない（#851 残課題）。
 func (s *AnimeService) buildAnimeDetail(animeID int) (*models.AnimeWithUserData, bool, error) {
-	ctx := context.Background()
 	var anime models.Anime
 	var description, media, officialSiteURL, titleKana, titleEn, releasedOn, seriesTitle sql.NullString
 	var broadcastDay, broadcastTime, broadcastTimezone sql.NullString
@@ -367,39 +366,35 @@ func (s *AnimeService) buildAnimeDetail(animeID int) (*models.AnimeWithUserData,
 		}
 	}
 
-	// 配信サービスはキャッシュヒットのときだけ同期的に反映する。ミス時はTMDBへの
-	// 同期問い合わせでレスポンスが1〜3秒伸びるため、他のenrichと同様に
-	// バックグラウンドへ回す（#851）
-	watchProvidersCached := false
-	if providers, ok := s.getCachedWatchProviders(ctx, animeID); ok {
-		animeWithData.WatchProviders = providers
-		watchProvidersCached = true
-	}
+	// 配信サービスは同期的に取得する。内部で24時間キャッシュを見ており、
+	// ヒット時はほぼノーコスト。ミス時のみTMDBへ同期問い合わせが発生し
+	// レスポンスが1〜3秒伸びるが、これをバックグラウンドへ回すと
+	// 「初回アクセスでは必ず配信サービスが空で返る」挙動になってしまう
+	// （#851の対応で一時バックグラウンド化したが、配信サービスのキャッシュは
+	// DBに永続化されず独立したTTLキャッシュのため、同期取得に戻した）
+	s.enrichAnimeWithWatchProviders(animeWithData)
 
 	// 同シリーズの他シーズン（続編・前作）。series_titleはensureSeriesTitleで
 	// 必ず設定済みのため、常に問い合わせる。DBのみの問い合わせのため同期でよい
 	animeWithData.RelatedSeasons = s.getRelatedSeasons(animeID, anime.Title, anime.SeriesTitle, anime.SeriesTMDBID)
 
-	// AniList/Jikan/TMDBへの同期問い合わせが必要な項目は、レスポンスを待たせず
+	// AniList/Jikanへの同期問い合わせが必要な項目は、レスポンスを待たせず
 	// バックグラウンドで取得・DB保存する（#851）。初回アクセスの体感速度を
-	// 優先し、欠けている情報は次回アクセス時（または#848のキャッシュ経由）に
-	// 反映される
+	// 優先し、欠けている情報は次回アクセス時に反映される
 	needsCoverImage := anime.CoverImageExtraLarge == "" || anime.CoverImageLarge == "" ||
 		anime.CoverImageUpdatedAt == nil || time.Since(*anime.CoverImageUpdatedAt) > constants.CoverImageCacheTTL
 	needsDescription := anime.Description == nil || *anime.Description == ""
 	needsReleasedOn := anime.ReleasedOn == nil || *anime.ReleasedOn == ""
 	needsBroadcastInfo := anime.BroadcastDay == nil
 	needsMovieDuration := anime.Media != nil && *anime.Media == "movie" && anime.DurationMinutes == nil
-	needsWatchProviders := !watchProvidersCached
 
 	isComplete := !needsCoverImage && !needsDescription && !needsReleasedOn &&
-		!needsBroadcastInfo && !needsMovieDuration && !needsWatchProviders
+		!needsBroadcastInfo && !needsMovieDuration
 
 	if !isComplete {
 		animeSnapshot := anime
-		needsWatchProvidersSnapshot := needsWatchProviders
 		s.enqueueBackgroundTask(func() {
-			s.backgroundEnrichAnime(animeSnapshot, needsWatchProvidersSnapshot)
+			s.backgroundEnrichAnime(animeSnapshot)
 		})
 	}
 
@@ -407,11 +402,13 @@ func (s *AnimeService) buildAnimeDetail(animeID int) (*models.AnimeWithUserData,
 }
 
 // backgroundEnrichAnime は buildAnimeDetail がレスポンスを待たせずに済ませた
-// AniList/Jikan/TMDBへの問い合わせを実行し、結果をDBへ永続化する（#851）。
+// AniList/Jikanへの問い合わせを実行し、結果をDBへ永続化する（#851）。
 // 呼び出し元のレスポンスは既に返却済みのため、ここでの結果はこのgoroutine内の
 // anime（値渡しのスナップショット）にしか反映されず、各enrich関数が内部で
 // 行うDB保存だけが外から観測できる。次回アクセス時にDBの最新値として現れる。
-func (s *AnimeService) backgroundEnrichAnime(anime models.Anime, needsWatchProviders bool) {
+//
+// 配信サービス（TMDB）はここに含めない。buildAnimeDetailで同期取得している。
+func (s *AnimeService) backgroundEnrichAnime(anime models.Anime) {
 	if anime.CoverImageExtraLarge == "" || anime.CoverImageLarge == "" ||
 		anime.CoverImageUpdatedAt == nil || time.Since(*anime.CoverImageUpdatedAt) > constants.CoverImageCacheTTL {
 		s.enrichAnimeWithCoverImage(&anime)
@@ -427,9 +424,6 @@ func (s *AnimeService) backgroundEnrichAnime(anime models.Anime, needsWatchProvi
 	}
 	if anime.Media != nil && *anime.Media == "movie" && anime.DurationMinutes == nil {
 		s.enrichAnimeWithMovieDuration(&anime)
-	}
-	if needsWatchProviders {
-		s.enrichAnimeWithWatchProviders(&models.AnimeWithUserData{Anime: anime})
 	}
 }
 
