@@ -162,6 +162,17 @@ func (s *AnimeService) finalizeDescriptionText(ctx context.Context, raw string) 
 func (s *AnimeService) enrichAnimeWithDescription(anime *models.Anime) {
 	ctx := context.Background()
 
+	// 直近の試行で日本語化できなかった場合、TTL内は再試行しない
+	// （ユーザーには表示しないため欠落扱いが続くが、毎回API呼び出しするのは無駄なコスト）
+	{
+		mctx, cancel := context.WithTimeout(ctx, constants.BackgroundTaskDBTimeout)
+		known := s.isEnrichKnownMissing(mctx, constants.CacheKeyDescriptionNotJapanese, anime.ID)
+		cancel()
+		if known {
+			return
+		}
+	}
+
 	// まずTMDBから日本語あらすじを取得を試みる（MAL ID経由優先）
 	if s.tmdbClient != nil && s.tmdbClient.IsEnabled() {
 		malID := ""
@@ -182,6 +193,9 @@ func (s *AnimeService) enrichAnimeWithDescription(anime *models.Anime) {
 		if err == nil && overview != "" {
 			finalized := s.finalizeDescriptionText(ctx, overview)
 			anime.Description = &finalized
+			if !isJapaneseText(finalized) {
+				s.markDescriptionNotJapanese(ctx, anime.ID)
+			}
 
 			// DBに保存（非同期）
 			animeID := anime.ID
@@ -210,6 +224,9 @@ func (s *AnimeService) enrichAnimeWithDescription(anime *models.Anime) {
 			// シリーズDBの値は過去の処理で整形済みだが、念のため整形（翻訳は不要）
 			finalized := sanitizeDescription(seriesDescription)
 			anime.Description = &finalized
+			if !isJapaneseText(finalized) {
+				s.markDescriptionNotJapanese(ctx, anime.ID)
+			}
 
 			// DBに保存（非同期）
 			animeID := anime.ID
@@ -255,6 +272,9 @@ func (s *AnimeService) enrichAnimeWithDescription(anime *models.Anime) {
 		return
 	}
 	anime.Description = &finalized
+	if !isJapaneseText(finalized) {
+		s.markDescriptionNotJapanese(ctx, anime.ID)
+	}
 
 	// DBに保存（非同期）
 	malID := *anime.MalAnimeID
@@ -851,6 +871,15 @@ func (s *AnimeService) markEnrichMissing(ctx context.Context, keyPrefix string, 
 		s.logger.Debug("Failed to cache enrich miss",
 			"key_prefix", keyPrefix, "anime_id", animeID, "error", err)
 	}
+}
+
+// markDescriptionNotJapanese は、日本語化できなかったあらすじを記録する。
+// TTL内は再度TMDB/AniList/Claudeへ問い合わせない（ユーザーには表示しないため、
+// 毎回のAPI呼び出しは無駄なコストになる）
+func (s *AnimeService) markDescriptionNotJapanese(ctx context.Context, animeID int) {
+	mctx, cancel := context.WithTimeout(ctx, constants.BackgroundTaskDBTimeout)
+	defer cancel()
+	s.markEnrichMissing(mctx, constants.CacheKeyDescriptionNotJapanese, animeID, constants.JikanEnrichMissingCacheTTL)
 }
 
 func enrichMissingCacheKey(keyPrefix string, animeID int) string {
