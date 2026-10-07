@@ -321,6 +321,12 @@ func (s *AnimeService) buildAnimeDetail(animeID int) (*models.AnimeWithUserData,
 		anime.Description = &sanitized
 	}
 
+	// 日本語化できていないあらすじ（Claude翻訳が無効/失敗した場合の英語原文フォールバック等）は
+	// ユーザーに見せず欠落扱いにする。日本語版が取得でき次第、次回アクセス時に自動的に表示される
+	if anime.Description != nil && !isJapaneseText(*anime.Description) {
+		anime.Description = nil
+	}
+
 	// series_titleがない場合は設定（シリーズフォールバック用）。DB書き込みのみで
 	// 外部APIを呼ばないため、下の関連作品検索より前に同期的に確定させる
 	s.ensureSeriesTitle(&anime)
