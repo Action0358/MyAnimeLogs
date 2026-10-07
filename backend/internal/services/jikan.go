@@ -111,27 +111,6 @@ func (c *JikanClient) GetAnimeAiredDate(malAnimeID string) (string, error) {
 	return "", nil
 }
 
-// GetAnimeGenres fetches genre information for a given MAL anime ID
-func (c *JikanClient) GetAnimeGenres(malAnimeID string) ([]models.JikanGenre, error) {
-	if malAnimeID == "" {
-		return nil, fmt.Errorf("mal_anime_id is required")
-	}
-
-	url := fmt.Sprintf("%s/anime/%s", c.baseURL, malAnimeID)
-
-	var response models.JikanAnimeResponse
-	err := c.makeRequestWithRetry(url, &response)
-	if err != nil {
-		return nil, err
-	}
-
-	c.logger.Debug("Fetched genres from Jikan API",
-		"mal_anime_id", malAnimeID,
-		"genre_count", len(response.Data.Genres))
-
-	return response.Data.Genres, nil
-}
-
 // makeRequestWithRetry makes an HTTP request with exponential backoff retry
 func (c *JikanClient) makeRequestWithRetry(url string, result interface{}) error {
 	var lastErr error

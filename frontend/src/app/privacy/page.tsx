@@ -110,7 +110,7 @@ const PrivacyPage: React.FC = () => (
           },
           {
             term: 'Fly.io / Cloudflare',
-            desc: '本サービスのホスティングおよび配信に利用します。',
+            desc: '本サービスのホスティングおよび配信に利用します。また、Cloudflareのアクセス解析機能（Cloudflare Web Analytics）により、訪問状況を把握するための統計情報を取得します。',
           },
         ]}
       />
@@ -119,6 +119,10 @@ const PrivacyPage: React.FC = () => (
     <LegalArticle id={SECTION_IDS[5]} num="第6節" title="Cookie等の利用">
       <p>
         本サービスは、ログイン状態を維持するためにブラウザのローカルストレージおよびCookieを使用します。これらは認証の維持を目的とするものであり、広告配信を目的とした追跡は行っていません。
+      </p>
+      <p>
+        また、前節のアクセス解析（Cloudflare Web
+        Analytics）はCookieを使用せず、個人を特定できない形で訪問状況の統計情報のみを取得します。
       </p>
     </LegalArticle>
 
