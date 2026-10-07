@@ -45,6 +45,11 @@ func (s *AnimeService) determineMediaType(ctx context.Context, dbMediaType sql.N
 	return "tv", false
 }
 
+// seasonStartGracePeriodDays - シーズン開始月のうち、released_on未確定の作品を
+// 「放送予定」扱いとする猶予日数。この期間を過ぎてもreleased_onが無ければ、
+// 従来通りシーズン期間内＝放送中とみなす
+const seasonStartGracePeriodDays = 14
+
 // determineStatusBySeason はシーズンと放送開始日を考慮してアニメの放送状態を判定します。
 // TMDBの情報が利用できない場合のフォールバックとして使用されます。
 func determineStatusBySeason(season *string, releasedOn *string) string {
@@ -114,6 +119,15 @@ func determineStatusBySeasonAt(seasonName string, releasedOn *string, now time.T
 			// シーズン開始月より前 → 放送予定
 			return constants.AnimeStatusUpcoming.String()
 		} else if currentMonth <= seasonEndMonth {
+			// シーズン開始月の最初の14日間は、released_onが未確定（Annict/Jikan双方とも
+			// 放送開始日を取得できていない）作品を「放送予定」として扱う。
+			// released_onが無くても season の月範囲に入っていれば放送中とみなす現行ロジックは、
+			// シーズン開始直後は多くの作品がまだ未確定のreleased_onを抱えており、
+			// 実際にはまだ初回放送されていない作品まで「放送中」と誤表示してしまうため。
+			if currentMonth == seasonStartMonth && now.Day() <= seasonStartGracePeriodDays &&
+				(releasedOn == nil || *releasedOn == "") {
+				return constants.AnimeStatusUpcoming.String()
+			}
 			// シーズン期間中 → 放送中
 			return constants.AnimeStatusAiring.String()
 		} else {
