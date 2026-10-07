@@ -319,7 +319,7 @@ const AnimeDetailClient: React.FC = () => {
               </>
             ) : (
               <Link href="/signin" className="block flex-1">
-                <Button className="w-full h-12">ログインしてお気に入り・視聴管理</Button>
+                <Button className="w-full h-12">ログインしてお気に入り・視聴登録</Button>
               </Link>
             )}
           </div>
