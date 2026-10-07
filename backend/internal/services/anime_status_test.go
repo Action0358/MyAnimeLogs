@@ -120,6 +120,28 @@ func TestDetermineStatusBySeasonAt_ReleasedOnOverride(t *testing.T) {
 	}
 }
 
+// TestDetermineStatusBySeasonAt_SeasonStartGracePeriod は、シーズン開始月の
+// released_on未確定作品が「放送予定」として扱われる猶予期間を検証する（#906関連）
+func TestDetermineStatusBySeasonAt_SeasonStartGracePeriod(t *testing.T) {
+	tests := []struct {
+		name     string
+		now      time.Time
+		expected string
+	}{
+		{"秋シーズン開始1日目 + released_onなし → upcoming", time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC), constants.AnimeStatusUpcoming.String()},
+		{"秋シーズン開始14日目 + released_onなし → upcoming", time.Date(2026, 10, 14, 23, 59, 0, 0, time.UTC), constants.AnimeStatusUpcoming.String()},
+		{"秋シーズン開始15日目 + released_onなし → airing", time.Date(2026, 10, 15, 0, 0, 0, 0, time.UTC), constants.AnimeStatusAiring.String()},
+		{"秋シーズン開始から1ヶ月後 + released_onなし → airing", time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC), constants.AnimeStatusAiring.String()},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := determineStatusBySeasonAt("2026-autumn", nil, tt.now)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
 func strPtr(s string) *string {
 	return &s
 }
