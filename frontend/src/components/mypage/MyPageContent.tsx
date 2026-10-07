@@ -253,7 +253,6 @@ export const MyPageContent: React.FC = () => {
         <WatchStatusTabs
           activeTab={activeTab}
           onTabChange={setActiveTab}
-          counts={counts}
         />
       </div>
 

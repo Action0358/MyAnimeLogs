@@ -28,16 +28,14 @@ export const WATCH_STATUS_TAB_LABELS: Record<WatchStatusTabKey, string> = {
 interface WatchStatusTabsProps {
   activeTab: WatchStatusTabKey
   onTabChange: (tab: WatchStatusTabKey) => void
-  counts?: Record<WatchStatusTabKey, number>
 }
 
 export const WatchStatusTabs: React.FC<WatchStatusTabsProps> = ({
   activeTab,
   onTabChange,
-  counts,
 }) => {
   // 一覧・検索ページの MediaTabs と同じピル型に揃える。
-  // 件数はラベルに続けて示し、バッジを重ねない。
+  // 件数はヘッダーの記録数カードに表示済みのため、ここでは出さない。
   return (
     <nav
       className="flex gap-1 overflow-x-auto scrollbar-hide touch-pan-x"
@@ -45,7 +43,6 @@ export const WatchStatusTabs: React.FC<WatchStatusTabsProps> = ({
     >
       {WATCH_STATUS_TABS.map((tab) => {
         const isActive = activeTab === tab.key
-        const count = counts?.[tab.key]
 
         return (
           <button
@@ -62,10 +59,7 @@ export const WatchStatusTabs: React.FC<WatchStatusTabsProps> = ({
             )}
             aria-current={isActive ? 'page' : undefined}
           >
-            <span>{tab.label}</span>
-            {count !== undefined && (
-              <span className="ml-1.5 tabular-nums">{count}</span>
-            )}
+            {tab.label}
           </button>
         )
       })}

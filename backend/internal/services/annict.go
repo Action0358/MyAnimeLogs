@@ -295,6 +295,15 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork, existingAnime
 	// Use season name directly (format: "YYYY-season", e.g., "2024-winter")
 	season := work.SeasonName
 
+	// released_on_aboutが設定されている場合、Annict自身が日付を未確定（年のみ判明等）と
+	// マークしている。その状態でもreleased_onに"YYYY-01-01"等のダミー日付が入ることがあり、
+	// そのまま確定日として保存すると誤った放送時期を表示してしまう（例: 季節が秋なのに
+	// released_on=YYYY-01-01になるケース）。未確定な場合はreleased_onを書き込まない。
+	releasedOn := work.ReleasedOn
+	if work.ReleasedOnAbout != "" {
+		releasedOn = ""
+	}
+
 	// デフォルトステータスを設定（後でSyncAnimeStatusで更新される）
 	status := constants.AnimeStatusFinished.String()
 
@@ -340,7 +349,7 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork, existingAnime
 			work.Title, work.TitleKana, work.TitleEn, imageURL, season,
 			work.Media, work.OfficialSiteURL, work.WikipediaURL,
 			work.TwitterUsername, work.TwitterHashtag, work.MalAnimeID,
-			work.WatchersCount, work.ReviewsCount, work.ReleasedOn, work.ID,
+			work.WatchersCount, work.ReviewsCount, releasedOn, work.ID,
 			annictUpdatedAt, string(constants.SyncStatusSynced), seriesTitle,
 		).Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.LastSyncedAt, &anime.AnnictUpdatedAt)
 
@@ -371,7 +380,7 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork, existingAnime
 			work.Title, work.TitleKana, work.TitleEn, imageURL, season,
 			status, work.Media, work.OfficialSiteURL, work.WikipediaURL,
 			work.TwitterUsername, work.TwitterHashtag, work.MalAnimeID, work.ID,
-			work.WatchersCount, work.ReviewsCount, work.ReleasedOn,
+			work.WatchersCount, work.ReviewsCount, releasedOn,
 			annictUpdatedAt, string(constants.SyncStatusSynced), seriesTitle,
 		).Scan(&anime.ID, &anime.Title, &anime.ImageURL, &anime.Season, &anime.Status, &anime.AnnictID, &anime.CreatedAt, &anime.UpdatedAt, &anime.LastSyncedAt, &anime.AnnictUpdatedAt)
 
