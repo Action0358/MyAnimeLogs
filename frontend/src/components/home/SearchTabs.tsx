@@ -12,6 +12,7 @@ const SearchTabs: React.FC<SearchTabsProps> = ({ activeTab, onTabChange }) => {
   const tabs: { id: SearchTab; label: string }[] = [
     { id: 'keyword', label: 'キーワード' },
     { id: 'genre', label: 'ジャンル' },
+    { id: 'season', label: '放送時期' },
   ];
 
   return (

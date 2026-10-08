@@ -90,6 +90,26 @@ func TestPreviousSeasonForTime(t *testing.T) {
 	}
 }
 
+func TestNextSeasonForTime(t *testing.T) {
+	tests := []struct {
+		name     string
+		time     time.Time
+		expected string
+	}{
+		{"January - Next Spring", time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC), "2025-spring"},
+		{"April - Next Summer", time.Date(2025, 4, 15, 0, 0, 0, 0, time.UTC), "2025-summer"},
+		{"July - Next Autumn", time.Date(2025, 7, 15, 0, 0, 0, 0, time.UTC), "2025-autumn"},
+		{"October - Next Winter (year boundary)", time.Date(2025, 10, 15, 0, 0, 0, 0, time.UTC), "2026-winter"},
+		{"December 31", time.Date(2025, 12, 31, 23, 59, 59, 0, time.UTC), "2026-winter"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, NextSeasonForTime(tt.time))
+		})
+	}
+}
+
 func TestGenerateAllSeasons(t *testing.T) {
 	tests := []struct {
 		name      string

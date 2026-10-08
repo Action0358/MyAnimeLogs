@@ -29,20 +29,21 @@ const getCurrentSeason = (): { year: number; seasonIndex: number } => {
 };
 
 /**
- * 放送時期の選択肢を動的生成（現在のシーズン〜1979年春まで新しい順）
+ * 放送時期の選択肢を動的生成（来期〜1979年春まで新しい順）
  *
  * 年+シーズンを通し番号(year*4+seasonIndex)に変換し降順ループすることで、
- * 未来のシーズンや開始年以前のシーズンを確実に除外する
+ * 開始年以前のシーズンを確実に除外する。来期分はバックエンドが事前同期しているため
+ * 先頭に1件だけ含める（それ以降の未来シーズンはまだデータが無いため含めない）
  */
 const generateSeasons = (): string[] => {
   const { year: currentYear, seasonIndex: currentSeasonIdx } = getCurrentSeason();
 
-  const currentSerial = currentYear * 4 + currentSeasonIdx;
+  const nextSerial = currentYear * 4 + currentSeasonIdx + 1;
   const startSerial = START_YEAR * 4 + START_SEASON_INDEX;
 
   const seasons: string[] = [];
 
-  for (let serial = currentSerial; serial >= startSerial; serial--) {
+  for (let serial = nextSerial; serial >= startSerial; serial--) {
     const year = Math.floor(serial / 4);
     const seasonIdx = serial % 4;
     seasons.push(`${year}年${SEASON_NAMES[seasonIdx]}`);
@@ -53,6 +54,20 @@ const generateSeasons = (): string[] => {
 
 /** 放送時期の選択肢（動的生成） */
 export const SEASONS = generateSeasons();
+
+/**
+ * トップページのヒーロー検索向け、放送時期の軽量な選択肢。
+ *
+ * 検索画面のSEASONSは全187件(1979年〜)に及び、一度トップページに置いたところ
+ * 「発見の入口として機能していなかった」ため撤去した経緯がある（#812）。
+ * 同じ轍を踏まないよう、直近3シーズン（来期・今期・前期）のみに絞る。
+ * SEASONSが新しい順（来期→過去）のため、先頭3件がそのまま該当する。
+ */
+export const HERO_SEASON_OPTIONS = [
+  { tag: '来期', season: SEASONS[0] },
+  { tag: '今期', season: SEASONS[1] },
+  { tag: '前期', season: SEASONS[2] },
+] as const;
 
 /** ジャンルの選択肢（五十音順、DBの実データに存在するもののみ。アダルト向けタグは除外） */
 export const GENRES = [
