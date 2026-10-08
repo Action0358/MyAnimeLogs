@@ -5,11 +5,11 @@ import { cn } from '@/lib/utils'
 import { WatchStatusStatus } from '@/lib/api/generated/myanimelogs'
 import { useOnClickOutside } from '@/hooks/useOnClickOutside'
 
-// 視聴ステータスは 視聴予定 / 視聴中 / 完了 の3つ
+// 視聴ステータスは 視聴予定 / 視聴中 / 視聴済 の3つ
 export const STATUS_CONFIG = {
   planned: { label: '視聴予定', color: 'bg-yellow-500', textColor: 'text-yellow-600', icon: '⏰' },
   watching: { label: '視聴中', color: 'bg-blue-500', textColor: 'text-blue-600', icon: '▶' },
-  completed: { label: '完了', color: 'bg-green-500', textColor: 'text-green-600', icon: '✓' },
+  completed: { label: '視聴済', color: 'bg-green-500', textColor: 'text-green-600', icon: '✓' },
 } as const
 
 interface StatusSelectorProps {
@@ -115,7 +115,7 @@ export const StatusSelector: React.FC<StatusSelectorProps> = ({
                     className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 transition-colors"
                   >
                     <span>✕</span>
-                    <span>視聴ステータス解除</span>
+                    <span>解除</span>
                   </button>
                 </li>
               </>
