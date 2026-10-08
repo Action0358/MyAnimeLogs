@@ -119,7 +119,7 @@ func TestAnimeService_BuildOrderByClause(t *testing.T) {
 				Sort:  "title",
 				Order: "asc",
 			},
-			expected: "ORDER BY a.title ASC",
+			expected: "ORDER BY a.title ASC, a.id ASC",
 		},
 		{
 			name: "タイトル降順",
@@ -127,7 +127,7 @@ func TestAnimeService_BuildOrderByClause(t *testing.T) {
 				Sort:  "title",
 				Order: "desc",
 			},
-			expected: "ORDER BY a.title DESC",
+			expected: "ORDER BY a.title DESC, a.id DESC",
 		},
 		{
 			name: "年降順",
@@ -135,7 +135,7 @@ func TestAnimeService_BuildOrderByClause(t *testing.T) {
 				Sort:  "year",
 				Order: "desc",
 			},
-			expected: "ORDER BY SUBSTRING(a.season FROM 1 FOR 4) DESC, a.season DESC",
+			expected: "ORDER BY SUBSTRING(a.season FROM 1 FOR 4) DESC, a.season DESC, a.id DESC",
 		},
 		{
 			name: "人気度降順",
@@ -143,7 +143,7 @@ func TestAnimeService_BuildOrderByClause(t *testing.T) {
 				Sort:  "popularity",
 				Order: "desc",
 			},
-			expected: "ORDER BY a.watchers_count DESC",
+			expected: "ORDER BY a.watchers_count DESC, a.id DESC",
 		},
 		{
 			name: "更新日降順",
@@ -151,7 +151,7 @@ func TestAnimeService_BuildOrderByClause(t *testing.T) {
 				Sort:  "updated",
 				Order: "desc",
 			},
-			expected: "ORDER BY a.updated_at DESC",
+			expected: "ORDER BY a.updated_at DESC, a.id DESC",
 		},
 		{
 			name: "無効なソート - デフォルト（タイトル昇順）",
@@ -159,7 +159,7 @@ func TestAnimeService_BuildOrderByClause(t *testing.T) {
 				Sort:  "invalid",
 				Order: "asc",
 			},
-			expected: "ORDER BY a.title ASC",
+			expected: "ORDER BY a.title ASC, a.id ASC",
 		},
 	}
 
