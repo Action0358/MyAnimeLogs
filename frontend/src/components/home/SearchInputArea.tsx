@@ -3,8 +3,10 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Route } from 'next';
+import { ChevronRight } from 'lucide-react';
 import type { SearchTab } from './SearchContainer';
 import { GENRES, HERO_SEASON_OPTIONS } from '@/constants/search';
+import { cn } from '@/lib/utils';
 
 interface SearchInputAreaProps {
   activeTab: SearchTab;
@@ -127,19 +129,51 @@ const SearchInputArea: React.FC<SearchInputAreaProps> = ({ activeTab }) => {
         </div>
       )}
 
-      {/* 放送時期検索 */}
+      {/* 放送時期検索。今期だけ白塗りで強調し、来期・前期は半透明のガラス調タイルにする
+          （3つとも同じ白タイルだと選択中タブも含めて白が並び、階層が消えて見えるため） */}
       {activeTab === 'season' && (
-        <div className="grid grid-cols-3 gap-2">
-          {HERO_SEASON_OPTIONS.map(({ tag, season }) => (
-            <button
-              key={season}
-              onClick={() => handleSeasonSelect(season)}
-              className="flex flex-col items-center justify-center gap-1 py-4 rounded-xl bg-card text-foreground hover:bg-card/80 transition-all duration-150 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground/70"
-            >
-              <span className="text-xs font-bold text-primary">{tag}</span>
-              <span className="text-sm font-bold">{season}</span>
-            </button>
-          ))}
+        <div className="grid grid-cols-1 gap-2.5 md:grid-cols-3 md:gap-3">
+          {HERO_SEASON_OPTIONS.map(({ tag, season }) => {
+            const isCurrent = tag === '今期';
+            return (
+              <button
+                key={season}
+                onClick={() => handleSeasonSelect(season)}
+                className={cn(
+                  'flex h-14 items-center gap-3.5 rounded-xl border px-4 text-left transition-all duration-150',
+                  'md:h-[76px] md:flex-col md:items-start md:justify-center md:gap-[3px] md:px-5',
+                  'focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground/70',
+                  isCurrent
+                    ? 'border-card bg-card shadow-lg shadow-black/20 hover:brightness-[1.02]'
+                    : 'border-primary-foreground/25 bg-[rgba(30,27,75,0.30)] hover:bg-[rgba(30,27,75,0.4)]'
+                )}
+              >
+                <span
+                  className={cn(
+                    'w-[30px] flex-shrink-0 text-xs font-bold md:w-auto',
+                    isCurrent ? 'text-primary' : 'text-primary-foreground'
+                  )}
+                >
+                  {tag}
+                </span>
+                <span
+                  className={cn(
+                    'flex-1 text-[17px] font-bold tracking-tight md:flex-none md:text-xl',
+                    isCurrent ? 'text-foreground' : 'text-primary-foreground'
+                  )}
+                >
+                  {season}
+                </span>
+                <ChevronRight
+                  className={cn(
+                    'h-4 w-4 flex-shrink-0 md:hidden',
+                    isCurrent ? 'text-foreground/70' : 'text-primary-foreground/70'
+                  )}
+                  aria-hidden="true"
+                />
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
