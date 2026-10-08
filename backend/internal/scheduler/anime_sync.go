@@ -369,6 +369,8 @@ func (s *AnimeSyncScheduler) syncAllSeasons(nextSyncTime time.Time) {
 
 	// Generate all seasons from syncStartYear-spring to current
 	seasons := utils.GenerateAllSeasons(syncStartYear, currentYear, currentSeason)
+	// 来期もトップページの放送時期ピッカーで選択できるよう事前に含める
+	seasons = append(seasons, utils.NextSeasonForTime(startTime))
 
 	totalAnimeCount := 0
 	var syncErrors []string
@@ -531,13 +533,18 @@ func (s *AnimeSyncScheduler) syncCurrentSeasonAnimes() {
 	// Use startTime for all time-based calculations to ensure consistency
 	currentSeason := utils.SeasonForTime(startTime)
 	previousSeason := utils.PreviousSeasonForTime(startTime)
+	nextSeason := utils.NextSeasonForTime(startTime)
 
 	// Step 1: 基本情報の差分同期（Annict）
 	// needsSyncメソッドにより変更があるもののみUPDATE
 	currentCount, currentErr := s.syncSeason(currentSeason)
 	previousCount, previousErr := s.syncSeason(previousSeason)
+	// 来期は、トップページの放送時期ピッカーで来期を選択できるようにするための
+	// 事前取り込み。released_on・broadcast_dayは未確定のまま入ることが多いが、
+	// ステータス判定はseasonベースのロジック（未来シーズン→upcoming）で正しく処理される
+	nextCount, nextErr := s.syncSeason(nextSeason)
 
-	totalAnimeCount := currentCount + previousCount
+	totalAnimeCount := currentCount + previousCount + nextCount
 	var syncErrors []string
 
 	if currentErr != nil {
@@ -545,6 +552,9 @@ func (s *AnimeSyncScheduler) syncCurrentSeasonAnimes() {
 	}
 	if previousErr != nil {
 		syncErrors = append(syncErrors, fmt.Sprintf("Previous season (%s): %s", previousSeason, previousErr.Error()))
+	}
+	if nextErr != nil {
+		syncErrors = append(syncErrors, fmt.Sprintf("Next season (%s): %s", nextSeason, nextErr.Error()))
 	}
 
 	// タイムアウト確認
@@ -622,6 +632,9 @@ func (s *AnimeSyncScheduler) syncCurrentSeasonAnimes() {
 			"previous_season", previousSeason,
 			"previous_count", previousCount,
 			"previous_error", previousErr,
+			"next_season", nextSeason,
+			"next_count", nextCount,
+			"next_error", nextErr,
 			"error_count", len(syncErrors))
 	} else {
 		s.logger.Info("Scheduled anime sync completed successfully (differential mode)",
@@ -630,6 +643,8 @@ func (s *AnimeSyncScheduler) syncCurrentSeasonAnimes() {
 			"current_count", currentCount,
 			"previous_season", previousSeason,
 			"previous_count", previousCount,
+			"next_season", nextSeason,
+			"next_count", nextCount,
 			"total_count", totalAnimeCount)
 	}
 }

@@ -58,6 +58,28 @@ func PreviousSeasonForTime(t time.Time) string {
 	return fmt.Sprintf("%d-%s", year, season)
 }
 
+// NextSeasonForTime returns the next season string for a given time
+// This is a pure function that takes time as input for easier testing
+func NextSeasonForTime(t time.Time) string {
+	year := t.Year()
+	month := t.Month()
+
+	var season string
+	switch {
+	case month >= 1 && month <= 3:
+		season = "spring"
+	case month >= 4 && month <= 6:
+		season = "summer"
+	case month >= 7 && month <= 9:
+		season = "autumn"
+	default:
+		season = "winter"
+		year++
+	}
+
+	return fmt.Sprintf("%d-%s", year, season)
+}
+
 // GenerateAllSeasons generates all season strings from startYear-spring to endSeason
 // For startYear=1979, it starts from 1979-spring (skipping 1979-winter)
 // Returns empty slice if endSeason is before the effective start season (startYear-spring)

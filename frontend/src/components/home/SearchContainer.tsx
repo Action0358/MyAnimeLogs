@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import SearchTabs from './SearchTabs';
 import SearchInputArea from './SearchInputArea';
 
-export type SearchTab = 'keyword' | 'genre';
+export type SearchTab = 'keyword' | 'genre' | 'season';
 
 const SearchContainer: React.FC = () => {
   const [activeTab, setActiveTab] = useState<SearchTab>('keyword');
