@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { Route } from 'next';
 import type { SearchTab } from './SearchContainer';
-import { GENRES } from '@/constants/search';
+import { GENRES, HERO_SEASON_OPTIONS } from '@/constants/search';
 
 interface SearchInputAreaProps {
   activeTab: SearchTab;
@@ -35,6 +35,10 @@ const SearchInputArea: React.FC<SearchInputAreaProps> = ({ activeTab }) => {
     if (searchQuery) {
       router.push(`/search${searchQuery}` as Route);
     }
+  };
+
+  const handleSeasonSelect = (season: string) => {
+    router.push(`/search?season=${encodeURIComponent(season)}` as Route);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -120,6 +124,22 @@ const SearchInputArea: React.FC<SearchInputAreaProps> = ({ activeTab }) => {
           >
             検 索
           </button>
+        </div>
+      )}
+
+      {/* 放送時期検索 */}
+      {activeTab === 'season' && (
+        <div className="grid grid-cols-3 gap-2">
+          {HERO_SEASON_OPTIONS.map(({ tag, season }) => (
+            <button
+              key={season}
+              onClick={() => handleSeasonSelect(season)}
+              className="flex flex-col items-center justify-center gap-1 py-4 rounded-xl bg-card text-foreground hover:bg-card/80 transition-all duration-150 shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground/70"
+            >
+              <span className="text-xs font-bold text-primary">{tag}</span>
+              <span className="text-sm font-bold">{season}</span>
+            </button>
+          ))}
         </div>
       )}
     </div>
