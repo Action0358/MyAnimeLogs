@@ -71,8 +71,6 @@ export const MobileNav: React.FC<MobileNavProps> = ({ isOpen, onClose, triggerRe
     }
   }, [isOpen, onClose])
 
-  if (!isOpen) return null
-
   const handleLogout = () => {
     logout()
     onClose()
@@ -84,20 +82,28 @@ export const MobileNav: React.FC<MobileNavProps> = ({ isOpen, onClose, triggerRe
     <>
       {/* オーバーレイ */}
       {/* ドロワーの外側であればどこを押しても閉じる。
-          document のリスナー任せにせず、受け止める実体側でも閉じる */}
+          document のリスナー任せにせず、受け止める実体側でも閉じる。
+          常時マウントしてopacityで開閉することで、閉じる際もフェードする */}
       <div
-        className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
+        className={cn(
+          'fixed inset-0 z-40 bg-black/50 transition-opacity duration-300 ease-in-out md:hidden',
+          isOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
+        )}
         aria-hidden="true"
         onMouseDown={onClose}
         onTouchStart={onClose}
       />
 
-      {/* サイドメニュー（左側から表示） */}
+      {/* サイドメニュー（左側から表示）。常時マウントしてtranslate-xで開閉する */}
       <div
         ref={menuRef}
-        className="fixed inset-y-0 left-0 flex w-72 flex-col bg-background shadow-xl transform transition-transform duration-300 ease-in-out z-50 md:hidden"
+        className={cn(
+          'fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-background shadow-xl transition-transform duration-300 ease-in-out md:hidden',
+          isOpen ? 'translate-x-0' : '-translate-x-full'
+        )}
         role="dialog"
         aria-modal="true"
+        aria-hidden={!isOpen}
         aria-label="モバイルナビゲーション"
       >
         {/* ヘッダー。ブランド名で今どこにいるかを示し、閉じる操作を明示する */}
