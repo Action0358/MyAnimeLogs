@@ -2,73 +2,74 @@ import React from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import type { Route } from 'next'
+import { ChevronRight } from 'lucide-react'
 import Container from './Container'
 import { SUB_LOGO_PATH } from '@/lib/constants'
 
-// フッターカラムヘッダーコンポーネント
-interface FooterColumnHeaderProps {
-  children: React.ReactNode
-}
-
-const FooterColumnHeader = ({ children }: FooterColumnHeaderProps) => (
-  <div className="h-10 flex items-center mb-4">
-    {children}
-  </div>
-)
+// 規約・ポリシーは Google OAuth 同意画面からも参照されるため、全ページから到達できるフッターに常設する
+const FOOTER_LINKS: { href: Route; label: string }[] = [
+  { href: '/contact' as Route, label: 'お問い合わせ' },
+  { href: '/privacy' as Route, label: 'プライバシーポリシー' },
+  { href: '/terms' as Route, label: '利用規約' },
+]
 
 const Footer: React.FC = () => {
   const currentYear = new Date().getFullYear()
 
   return (
-    <footer className="bg-background border-t border-border mt-16">
-      <Container>
-        <div className="py-12">
-          {/* サイト情報 */}
-          <div className="mb-8">
-            <FooterColumnHeader>
-              <Link href={"/" as Route}>
-                <Image
-                  src={SUB_LOGO_PATH}
-                  alt="MyAnimeLogs"
-                  width={1792}
-                  height={576}
-                  className="h-10 w-auto"
-                />
-              </Link>
-            </FooterColumnHeader>
-            <p className="text-muted-foreground">あなたの視聴記録がここに</p>
-          </div>
+    // 直前のお知らせセクションが既に下余白を持つため、ここでは追加のmt-16を入れない
+    <footer className="border-t border-border bg-background">
+      {/* 本文（お知らせ等）と同じ幅に揃える。lgのままだと本文より狭くなり、
+          ロゴ・リンクの左右端がカード群とズレて見える */}
+      <Container size="xl" className="pt-10 pb-8 sm:pb-10">
+        <Link href={'/' as Route} className="inline-block">
+          <Image
+            src={SUB_LOGO_PATH}
+            alt="MyAnimeLogs"
+            width={1792}
+            height={576}
+            className="h-8 w-auto sm:h-9"
+          />
+        </Link>
+        <p className="mt-2 text-[13px] text-muted-foreground">あなたの視聴記録がここに</p>
 
-          {/* コピーライト */}
-          <div className="border-t border-border mt-8 pt-8">
-            <div className="flex flex-col md:flex-row justify-between items-center">
-              <p className="text-muted-foreground text-sm">
-                &copy; {currentYear} MyAnimeLogs. All rights reserved.
-              </p>
-              <div className="flex items-center space-x-4 mt-4 md:mt-0">
-                {/* 規約・ポリシーは Google OAuth 同意画面からも参照されるため、
-                    全ページから到達できるフッターに常設する */}
-                <Link
-                  href={"/contact" as Route}
-                  className="text-muted-foreground hover:text-foreground text-sm transition-colors"
-                >
-                  問い合わせ
-                </Link>
-                <Link
-                  href={"/privacy" as Route}
-                  className="text-muted-foreground hover:text-foreground text-sm transition-colors"
-                >
-                  プライバシーポリシー
-                </Link>
-                <Link
-                  href={"/terms" as Route}
-                  className="text-muted-foreground hover:text-foreground text-sm transition-colors"
-                >
-                  利用規約
-                </Link>
-              </div>
-            </div>
-          </div>
+        {/*
+          flex-col-reverse でSPのみ見た目の順序を反転させる。DOM順は
+          コピーライト→リンクのままなので、PC（md:flex-row）ではコピーライトが
+          左・リンクが右に並び、SPでは見た目上リンク→コピーライトの順になる
+          （操作要素のリンクを上に、終端情報のコピーライトを最後に残す）。
+        */}
+        <div className="mt-7 flex flex-col-reverse gap-5 border-t border-border pt-5 sm:gap-6 md:flex-row md:items-center md:justify-between">
+          <p className="text-xs text-muted-foreground">
+            &copy; {currentYear} MyAnimeLogs. All rights reserved.
+          </p>
+
+          {/* PC: 横並びリンク。間隔は24px（詰まって1語に見えないように） */}
+          <nav className="hidden items-center gap-6 md:flex">
+            {FOOTER_LINKS.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+              >
+                {link.label}
+              </Link>
+            ))}
+          </nav>
+
+          {/* SP: 1行1リンク・高さ44pxでタップ領域を確保する（隣接リンクの誤タップ防止） */}
+          <nav className="flex flex-col md:hidden">
+            {FOOTER_LINKS.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="flex h-11 items-center justify-between border-b border-border text-[13px] font-medium text-muted-foreground last:border-b-0"
+              >
+                <span>{link.label}</span>
+                <ChevronRight className="h-[15px] w-[15px] text-muted-foreground" aria-hidden="true" />
+              </Link>
+            ))}
+          </nav>
         </div>
       </Container>
     </footer>
