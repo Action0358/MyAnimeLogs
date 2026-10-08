@@ -25,7 +25,7 @@ const isValidLogoutReason = (reason: string): reason is keyof typeof LOGOUT_REAS
 
 const BENEFITS = [
   '今期アニメの放送状況をまとめてチェック',
-  '視聴予定・視聴中・完了で記録を整理',
+  '視聴予定・視聴中・視聴済で記録を整理',
   'お気に入り作品をいつでも見返せる',
 ]
 

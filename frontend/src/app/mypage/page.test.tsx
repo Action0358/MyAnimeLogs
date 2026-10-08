@@ -128,7 +128,7 @@ describe('MyPage', () => {
         screen.getByRole('button', { name: new RegExp(name) })
       expect(tab('視聴中')).toBeInTheDocument()
       expect(tab('視聴予定')).toBeInTheDocument()
-      expect(tab('完了')).toBeInTheDocument()
+      expect(tab('視聴済')).toBeInTheDocument()
 
       // 廃止したタブ（すべて / 中断 / 視聴履歴）は表示されない
       expect(screen.queryByText('すべて')).not.toBeInTheDocument()
