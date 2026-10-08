@@ -163,7 +163,7 @@ func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int
 	// タイトル順: title_kana（ひらがな）がある行はそちらを優先する。
 	// title は先頭に記号・半角スペースが付くデータが混ざっており、
 	// そのままでは五十音順として意味を成さない。
-	orderByTitle := "ORDER BY COALESCE(NULLIF(title_kana, ''), title) ASC"
+	orderByTitle := "ORDER BY COALESCE(NULLIF(title_kana, ''), title) ASC, id ASC"
 
 	orderBy := orderByTitle
 	switch params.Sort {
@@ -172,6 +172,10 @@ func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int
 		// 同じ年の中で autumn/spring/summer/winter がアルファベット順に
 		// 並んでしまい、実際の放送時期の新しい順にならない。
 		// 年→クール内の順序（winter<spring<summer<autumn）の2段階で並べる。
+		// 同じシーズン内の作品はこれだけでは順序が確定しない（新規シーズンは
+		// watchers_countが同値で並ぶことが多く、タイブレークが無いとページ送りの
+		// たびに順序が揺れ、同じ作品が複数ページに重複して現れることがあったため、
+		// 一意なidを最終タイブレークにする
 		orderBy = `ORDER BY
 			split_part(season, '-', 1)::int DESC,
 			CASE split_part(season, '-', 2)
@@ -180,10 +184,11 @@ func (s *AnimeService) SearchAnimes(params models.AnimeSearchParams, userID *int
 				WHEN 'spring' THEN 2
 				WHEN 'winter' THEN 1
 				ELSE 0
-			END DESC`
+			END DESC,
+			id DESC`
 	case "popularity":
 		// watchers_count が同数の場合にページごとの順序が揺れないよう、
-		// タイトル順をタイブレークにする
+		// タイトル順（さらにidをタイブレークにするorderByTitleを流用）を続ける
 		orderBy = "ORDER BY watchers_count DESC NULLS LAST, " + strings.TrimPrefix(orderByTitle, "ORDER BY ")
 	}
 
@@ -634,21 +639,24 @@ func (s *AnimeService) buildOrderByClause(params models.AdvancedSearchParams) st
 		orderDirection = "DESC"
 	}
 
+	// 同値の行が並ぶと、OFFSET/LIMITでのページ送りのたびに順序が揺れ、
+	// 同じ作品が複数ページに重複して現れたり抜け落ちたりする（一意なidを
+	// 最終タイブレークにすることで、どの並び替えでも順序を確定させる）
 	switch params.Sort {
 	case SortByTitle:
-		return fmt.Sprintf("ORDER BY a.title %s", orderDirection)
+		return fmt.Sprintf("ORDER BY a.title %s, a.id %s", orderDirection, orderDirection)
 	case SortByYear:
 		// season から年を抽出してソート
 		// NOTE: SUBSTRING関数を使用しているため、インデックスが利用されません
 		// 大規模データセットでパフォーマンスが問題になる場合は、
 		// CREATE INDEX idx_animes_season_year ON animes (SUBSTRING(season FROM 1 FOR 4))
 		// のような関数ベースのインデックスを作成することを検討してください
-		return fmt.Sprintf("ORDER BY SUBSTRING(a.season FROM 1 FOR 4) %s, a.season %s", orderDirection, orderDirection)
+		return fmt.Sprintf("ORDER BY SUBSTRING(a.season FROM 1 FOR 4) %s, a.season %s, a.id %s", orderDirection, orderDirection, orderDirection)
 	case SortByPopularity:
-		return fmt.Sprintf("ORDER BY a.watchers_count %s", orderDirection)
+		return fmt.Sprintf("ORDER BY a.watchers_count %s, a.id %s", orderDirection, orderDirection)
 	case SortByUpdated:
-		return fmt.Sprintf("ORDER BY a.updated_at %s", orderDirection)
+		return fmt.Sprintf("ORDER BY a.updated_at %s, a.id %s", orderDirection, orderDirection)
 	default:
-		return fmt.Sprintf("ORDER BY a.title %s", orderDirection)
+		return fmt.Sprintf("ORDER BY a.title %s, a.id %s", orderDirection, orderDirection)
 	}
 }
