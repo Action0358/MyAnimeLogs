@@ -26,8 +26,8 @@ const SearchTabs: React.FC<SearchTabsProps> = ({ activeTab, onTabChange }) => {
             aria-selected={isActive}
             onClick={() => onTabChange(tab.id)}
             className={`
-              relative flex-1 flex items-center justify-center gap-1.5
-              px-3 py-3 md:py-3.5 text-xs md:text-sm font-bold
+              relative flex-1 flex h-11 select-none items-center justify-center gap-1.5
+              px-3 text-xs md:text-sm font-bold
               transition-all duration-200 ease-out rounded-t-xl
               focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground/70
               ${
