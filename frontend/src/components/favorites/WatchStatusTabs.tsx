@@ -4,7 +4,7 @@ import React from 'react'
 import { cn } from '@/lib/utils'
 import { WatchStatusStatus } from '@/lib/api/generated/myanimelogs'
 
-// 視聴ステータスのタブ（視聴中 / 視聴予定 / 完了）。「すべて」「中断」は持たない。
+// 視聴ステータスのタブ（視聴中 / 視聴予定 / 視聴済）。「すべて」「中断」は持たない。
 export type WatchStatusTabKey = WatchStatusStatus
 
 interface TabConfig {
@@ -16,13 +16,13 @@ interface TabConfig {
 export const WATCH_STATUS_TABS: TabConfig[] = [
   { key: 'planned', label: '視聴予定', color: 'bg-yellow-500' },
   { key: 'watching', label: '視聴中', color: 'bg-blue-500' },
-  { key: 'completed', label: '完了', color: 'bg-green-500' },
+  { key: 'completed', label: '視聴済', color: 'bg-green-500' },
 ]
 
 export const WATCH_STATUS_TAB_LABELS: Record<WatchStatusTabKey, string> = {
   watching: '視聴中',
   planned: '視聴予定',
-  completed: '完了',
+  completed: '視聴済',
 }
 
 interface WatchStatusTabsProps {
