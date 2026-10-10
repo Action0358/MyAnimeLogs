@@ -14,7 +14,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.25'
+          go-version: '1.26'
           # ランナーのプリインストール版(古いパッチ)ではなく最新パッチを取得する。
           # 未指定だと govulncheck が修正済みの標準ライブラリ脆弱性を検出してCIが落ちる
           check-latest: true
@@ -63,7 +63,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.25'
+          go-version: '1.26'
           # ランナーのプリインストール版(古いパッチ)ではなく最新パッチを取得する。
           # 未指定だと govulncheck が修正済みの標準ライブラリ脆弱性を検出してCIが落ちる
           check-latest: true
