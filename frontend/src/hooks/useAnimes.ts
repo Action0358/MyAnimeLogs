@@ -57,6 +57,16 @@ export const useAnimes = (options: UseAnimesOptions = {}): UseAnimesResult => {
   const [currentPage, setCurrentPage] = useState(initialPage)
   const queryClient = useQueryClient()
 
+  // initialPageは呼び出し側（検索ページ）がURLのpageパラメータから算出した値。
+  // フィルター変更時にURLのpageが削除され1ページ目に戻るが、useState(initialPage)は
+  // マウント時の値しか見ないため、このコンポーネントインスタンスが再マウントされない限り
+  // 内部stateが追従せず、「ページネーション表示は1ページ目なのに表示される作品は
+  // 直前のページのまま」という乖離が起きていた。initialPageの変化を検知して同期する
+  useEffect(() => {
+    setCurrentPage(initialPage)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialPage])
+
   // 配列のままでは毎レンダー参照が変わり useMemo が効かないため、
   // 依存にも使える文字列へ先に畳んでおく
   const genreParam = filters.genre?.length ? filters.genre.join(',') : undefined
