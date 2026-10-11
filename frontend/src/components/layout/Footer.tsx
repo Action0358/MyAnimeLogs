@@ -21,7 +21,7 @@ const Footer: React.FC = () => {
     <footer className="border-t border-border bg-background">
       {/* ヘッダー・本文と同じ共通コンテナ（最大1180px）に揃える。幅が違うと
           ロゴ・リンクの左右端が本文とズレて見える */}
-      <Container size="xl" className="max-w-[1180px] pt-10 pb-8 sm:pb-10">
+      <Container size="xl" className="pt-10 pb-8 sm:pb-10">
         <Link href={'/' as Route} className="inline-block">
           <Image
             src={SUB_LOGO_PATH}
