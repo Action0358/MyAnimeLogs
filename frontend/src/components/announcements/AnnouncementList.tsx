@@ -30,9 +30,11 @@ const isExternal = (href: string) => /^https?:\/\//.test(href)
  * 行全体のリンク化・ホバー・シェブロンは見送った。`link` を指定した項目は
  * 従来どおり本文の下に明示的なテキストリンクとして出す。
  */
-export const AnnouncementList: React.FC<{ announcements: Announcement[] }> = ({
-  announcements,
-}) => (
+export const AnnouncementList: React.FC<{
+  announcements: Announcement[]
+  /** アンカーで指された項目。ページ切り替え後に描画された項目にも強調を効かせるため */
+  highlightedId?: string | null
+}> = ({ announcements, highlightedId }) => (
   <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
     {announcements.map((announcement) => (
       <li
@@ -48,6 +50,7 @@ export const AnnouncementList: React.FC<{ announcements: Announcement[] }> = ({
           // アンカーで来たときに「どれが指された項目か」が分かるようにする。
           // 枠線ではなく背景にするのは、行の高さが変わって他が動かないようにするため
           'target:bg-primary/5',
+          announcement.id === highlightedId && 'bg-primary/5',
         )}
       >
         <div className="mb-2 flex items-center gap-2.5">
@@ -64,8 +67,10 @@ export const AnnouncementList: React.FC<{ announcements: Announcement[] }> = ({
           {announcement.title}
         </h3>
 
-        {/* 本文の改行をそのまま反映する。Markdownは導入していない */}
-        <p className="whitespace-pre-wrap text-xs leading-[1.8] text-foreground/80 md:text-sm">
+        {/* 本文の改行はそのまま反映する（段落を分けたいとき用。Markdownは導入していない）。
+            行の折り返しは text-wrap: pretty に任せ、文末の1〜2文字だけが次の行に
+            孤立しないようにする */}
+        <p className="whitespace-pre-wrap text-pretty text-[12.5px] leading-[1.8] text-foreground/80 md:text-[13.5px] md:leading-[1.85]">
           {announcement.body}
         </p>
 

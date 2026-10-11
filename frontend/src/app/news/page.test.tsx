@@ -1,9 +1,10 @@
 import React from 'react'
-import { render, screen } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import NewsPage from './page'
 import { announcementHref, getAnnouncements } from '@/constants/announcements'
 import type { Announcement } from '@/constants/announcements'
+import { NEWS_FILTER_MIN_COUNT, NEWS_PAGE_SIZE } from '@/components/announcements/AnnouncementBrowser'
 
 jest.mock('@/constants/announcements', () => {
   const actual = jest.requireActual('@/constants/announcements')
@@ -11,6 +12,11 @@ jest.mock('@/constants/announcements', () => {
 })
 
 const mockGetAnnouncements = getAnnouncements as jest.Mock
+
+// jsdom は scrollIntoView を実装していない
+beforeAll(() => {
+  Element.prototype.scrollIntoView = jest.fn()
+})
 
 const build = (overrides: Partial<Announcement> = {}): Announcement => ({
   id: '2026-09-06-beta',
@@ -171,5 +177,139 @@ describe('お知らせのアンカー', () => {
 
     expect(ids).toEqual(['a', 'b', 'c'])
     expect(new Set(ids).size).toBe(ids.length)
+  })
+})
+
+/** 新しい順に並んだ n 件。日付は1日ずつ遡り、年をまたがない */
+const buildMany = (count: number, overrides: (i: number) => Partial<Announcement> = () => ({})) =>
+  Array.from({ length: count }, (_, i) =>
+    build({
+      id: `n${String(count - i).padStart(2, '0')}`,
+      date: `2026-09-${String(28 - i).padStart(2, '0')}`,
+      title: `お知らせ${i + 1}`,
+      ...overrides(i),
+    }),
+  )
+
+/**
+ * 件数が増えたときの受け皿（モックアップ「News Page Redesign」修正版）。
+ * 少ないうちは出さず、過剰な装置に見せない。
+ */
+describe('絞り込みとページ送り', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+    window.location.hash = ''
+  })
+
+  it('5件以下ではカテゴリタブ・年の区切り・ページ送りを出さない', () => {
+    mockGetAnnouncements.mockReturnValue(buildMany(NEWS_FILTER_MIN_COUNT - 1))
+
+    render(<NewsPage />)
+
+    expect(screen.queryByRole('group', { name: 'カテゴリで絞り込む' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '2026年' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: 'ページネーション' })).not.toBeInTheDocument()
+  })
+
+  it('6件以上でタブと年の区切りを出す。タブはデータにあるカテゴリだけ', () => {
+    mockGetAnnouncements.mockReturnValue(
+      buildMany(NEWS_FILTER_MIN_COUNT, (i) => ({ category: i % 2 ? 'maintenance' : 'feature' })),
+    )
+
+    render(<NewsPage />)
+
+    const tabs = within(screen.getByRole('group', { name: 'カテゴリで絞り込む' }))
+    expect(tabs.getAllByRole('button').map((b) => b.textContent)).toEqual([
+      'すべて',
+      '機能',
+      'メンテナンス',
+    ])
+    expect(tabs.getByRole('button', { name: 'すべて' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('heading', { name: '2026年' })).toBeInTheDocument()
+  })
+
+  it('カテゴリで絞り込むと、項目と件数が絞られる', () => {
+    mockGetAnnouncements.mockReturnValue(
+      buildMany(8, (i) => ({ category: i < 3 ? 'maintenance' : 'feature' })),
+    )
+
+    render(<NewsPage />)
+    fireEvent.click(screen.getByRole('button', { name: 'メンテナンス' }))
+
+    expect(screen.getAllByRole('listitem')).toHaveLength(3)
+    const heading = screen.getByRole('heading', { name: 'お知らせ', level: 1 })
+    expect(heading.parentElement).toHaveTextContent('3件')
+  })
+
+  it('年をまたぐと年ごとに区切る', () => {
+    mockGetAnnouncements.mockReturnValue([
+      ...buildMany(5),
+      build({ id: 'old', date: '2025-12-24', title: '去年のお知らせ' }),
+    ])
+
+    render(<NewsPage />)
+
+    expect(screen.getByRole('heading', { name: '2026年' })).toBeInTheDocument()
+    const lastYear = screen.getByRole('region', { name: '2025年' })
+    expect(within(lastYear).getByText('去年のお知らせ')).toBeInTheDocument()
+  })
+
+  it(`${NEWS_PAGE_SIZE}件を超えるとページ送りを出し、ページを切り替えられる`, () => {
+    mockGetAnnouncements.mockReturnValue(buildMany(NEWS_PAGE_SIZE + 2))
+
+    render(<NewsPage />)
+
+    expect(screen.getAllByRole('listitem')).toHaveLength(NEWS_PAGE_SIZE)
+    expect(screen.getByRole('button', { name: '前のページ' })).toBeDisabled()
+
+    fireEvent.click(screen.getByRole('button', { name: '2' }))
+
+    expect(screen.getAllByRole('listitem')).toHaveLength(2)
+    expect(screen.getByRole('button', { name: '2' })).toHaveAttribute('aria-current', 'page')
+    expect(screen.getByRole('button', { name: '次のページ' })).toBeDisabled()
+  })
+
+  it('絞り込みを変えると1ページ目に戻る', () => {
+    mockGetAnnouncements.mockReturnValue(buildMany(NEWS_PAGE_SIZE + 2))
+
+    render(<NewsPage />)
+    fireEvent.click(screen.getByRole('button', { name: '2' }))
+    fireEvent.click(screen.getByRole('button', { name: 'すべて' }))
+
+    expect(screen.getAllByRole('listitem')).toHaveLength(NEWS_PAGE_SIZE)
+  })
+
+  /**
+   * 詳細ページを持たないため /news#<id> が個別の着地点になる。
+   * 2ページ目以降の項目を指されても空振りしないようにする。
+   */
+  it('2ページ目の項目をアンカーで指されたら、そのページへ切り替えて強調する', () => {
+    const items = buildMany(NEWS_PAGE_SIZE + 2)
+    const target = items[NEWS_PAGE_SIZE + 1]
+    mockGetAnnouncements.mockReturnValue(items)
+    window.location.hash = `#${target.id}`
+
+    const { container } = render(<NewsPage />)
+
+    const item = container.ownerDocument.getElementById(target.id)
+    expect(item).not.toBeNull()
+    expect(item).toHaveClass('bg-primary/5')
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalled()
+  })
+
+  it('表示後にハッシュが変わったときも該当ページへ切り替える', () => {
+    const items = buildMany(NEWS_PAGE_SIZE + 2)
+    const target = items[NEWS_PAGE_SIZE]
+    mockGetAnnouncements.mockReturnValue(items)
+
+    const { container } = render(<NewsPage />)
+    expect(container.ownerDocument.getElementById(target.id)).toBeNull()
+
+    act(() => {
+      window.location.hash = `#${target.id}`
+      window.dispatchEvent(new HashChangeEvent('hashchange'))
+    })
+
+    expect(container.ownerDocument.getElementById(target.id)).not.toBeNull()
   })
 })
