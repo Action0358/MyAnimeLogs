@@ -44,9 +44,11 @@ const Header: React.FC = () => {
           : 'bg-background border-b border-border'
       )}
     >
-      {/* 本文・フッターと同じ共通コンテナ（最大1180px）に収め、ロゴ・ログインの
-          左右端を本文の端と揃える。全幅のままだと広い画面で本文と基準線がずれる */}
-      <div className="mx-auto flex max-w-[1180px] items-center justify-between h-20 sm:h-24 px-4 sm:px-6 lg:px-8">
+      {/* ヘッダーは本文の列（最大1180px）に収めず、画面幅いっぱいに置く（左右40px、SPは16px）。
+          トップではヒーロー画像が全幅に広がるため、ヘッダーだけ列に収めると広い画面で
+          左右に大きな空きができ、内側に寄って見える（モックアップ「Header Alignment
+          Redesign」）。白ヘッダーの通常ページも同じ位置にし、遷移でロゴが動かないようにする */}
+      <div className="flex items-center justify-between h-20 sm:h-24 px-4 md:px-10">
         {/* 左側: ハンバーガーメニュー（モバイル）/ ロゴ + グローバルナビゲーション（デスクトップ） */}
         <div className="flex items-center gap-6 flex-1">
           {/* モバイルメニューボタン（左側に配置） */}
