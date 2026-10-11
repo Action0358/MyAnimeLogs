@@ -21,7 +21,11 @@ export interface Announcement {
   date: string
   category: AnnouncementCategory
   title: string
-  /** 本文。改行はそのまま表示に反映される */
+  /**
+   * 本文。改行はそのまま表示に反映されるが、段落を分けるときだけに使う。
+   * 見た目の行の長さを整えるための改行は入れない（画面幅によって自動の
+   * 折り返しと重なり、「す。」のように1文字だけの行ができるため）
+   */
   body: string
   /** 任意。本文の後に置く導線 */
   link?: {
@@ -48,7 +52,7 @@ export const ANNOUNCEMENTS: Announcement[] = [
     date: '2026-09-06',
     category: 'feature',
     title: 'お知らせの掲載を開始しました',
-    body: 'このページで、運営からのお知らせを掲載していきます。\n新機能の追加やメンテナンスの予定などをお伝えします。',
+    body: 'このページで、運営からのお知らせを掲載していきます。新機能の追加やメンテナンスの予定などをお伝えします。',
   },
 ]
 

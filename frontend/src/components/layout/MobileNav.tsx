@@ -98,8 +98,10 @@ export const MobileNav: React.FC<MobileNavProps> = ({ isOpen, onClose, triggerRe
       <div
         ref={menuRef}
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-background shadow-xl transition-transform duration-300 ease-in-out md:hidden',
-          isOpen ? 'translate-x-0' : '-translate-x-full'
+          'fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-background transition-[transform,box-shadow] duration-300 ease-in-out md:hidden',
+          // 影は開いているときだけ付ける。閉じて画面外にあっても影は右へ
+          // はみ出すため、ヘッダー左上に影が漏れて見える
+          isOpen ? 'translate-x-0 shadow-xl' : '-translate-x-full shadow-none'
         )}
         role="dialog"
         aria-modal="true"

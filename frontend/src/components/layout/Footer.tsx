@@ -19,9 +19,9 @@ const Footer: React.FC = () => {
   return (
     // 直前のお知らせセクションが既に下余白を持つため、ここでは追加のmt-16を入れない
     <footer className="border-t border-border bg-background">
-      {/* 本文（お知らせ等）と同じ幅に揃える。lgのままだと本文より狭くなり、
-          ロゴ・リンクの左右端がカード群とズレて見える */}
-      <Container size="xl" className="pt-10 pb-8 sm:pb-10">
+      {/* ヘッダー・本文と同じ共通コンテナ（最大1180px）に揃える。幅が違うと
+          ロゴ・リンクの左右端が本文とズレて見える */}
+      <Container size="xl" className="max-w-[1180px] pt-10 pb-8 sm:pb-10">
         <Link href={'/' as Route} className="inline-block">
           <Image
             src={SUB_LOGO_PATH}
