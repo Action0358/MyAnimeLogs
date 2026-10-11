@@ -202,7 +202,7 @@ export const MyPageContent: React.FC = () => {
   }))
 
   return (
-    <Container size="xl" className="max-w-[1180px] py-8">
+    <Container size="xl" className="py-8">
       {/* ヘッダー。アバター・名前・記録数・設定を1つの行にまとめる。
           表示名とアイコンはGoogleアカウント由来のため編集導線は持たせない（#789） */}
       <div className="flex items-center md:items-start gap-4 md:gap-6 pb-5 md:pb-[26px] border-b border-border">
