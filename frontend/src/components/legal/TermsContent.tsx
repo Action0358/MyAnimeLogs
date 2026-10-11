@@ -163,7 +163,7 @@ export const TermsContent: React.FC = () => {
 
   return (
     <div className="bg-muted/30 min-h-screen">
-      <Container size="xl" className="max-w-[1180px] py-8 md:py-10">
+      <Container size="xl" className="py-8 md:py-10">
         {/* パンくず */}
         <nav aria-label="パンくずリスト" className="mb-4 text-[12px] md:text-[12.5px]">
           <Link href={'/' as Route} className="text-muted-foreground hover:text-primary transition-colors">

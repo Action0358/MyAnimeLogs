@@ -21,7 +21,7 @@ export const metadata: Metadata = {
  * 切り出してクライアント化している。
  */
 const ContactPage: React.FC = () => (
-  <Container size="xl" className="max-w-[1180px] py-8">
+  <Container size="xl" className="py-8">
     {/* 本文はコンテナ中央の読み幅列（760px）に置く。ヘッダー・フッターと同じ
         共通コンテナ幅に揃え、/news と同じ扱いにする（モックアップ「Contact Redesign」修正版） */}
     <div className="mx-auto max-w-[760px]">

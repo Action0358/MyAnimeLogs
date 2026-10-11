@@ -20,7 +20,8 @@ const Container: React.FC<ContainerProps> = ({
     sm: 'max-w-sm',
     md: 'max-w-md',
     lg: 'max-w-4xl',
-    xl: 'max-w-6xl',
+    // サイト共通のコンテナ幅。ヘッダー（Header.tsx）も同じ1180pxに揃えている
+    xl: 'max-w-[1180px]',
     full: 'max-w-full',
   };
 

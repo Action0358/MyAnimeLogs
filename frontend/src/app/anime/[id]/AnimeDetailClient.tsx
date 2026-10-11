@@ -145,7 +145,7 @@ const AnimeDetailClient: React.FC = () => {
   // ローディング表示
   if (isNaN(animeId) || isLoadingAnime) {
     return (
-      <Container size="xl" className="max-w-[1180px] py-8">
+      <Container size="xl" className="py-8">
         <div className="animate-pulse">
           <div className="h-4 bg-muted rounded w-48 mb-6" />
           <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-6 lg:gap-10 items-start">
@@ -246,7 +246,7 @@ const AnimeDetailClient: React.FC = () => {
   }
 
   return (
-    <Container size="xl" className="max-w-[1180px] py-8">
+    <Container size="xl" className="py-8">
       {/* 戻る導線。遷移元は from クエリで受け取り、既知の一覧でなければホームへ */}
       <div className="mb-6">
         <Link

@@ -99,7 +99,7 @@ export const AnimeListPage: React.FC<AnimeListPageProps> = ({
 
   if (error) {
     return (
-      <Container size="xl" className="max-w-[1180px] py-8">
+      <Container size="xl" className="py-8">
         <div className="text-center py-12">
           <p className="text-destructive mb-4">{errorMessage}</p>
         </div>
@@ -108,7 +108,7 @@ export const AnimeListPage: React.FC<AnimeListPageProps> = ({
   }
 
   return (
-    <Container size="xl" className="max-w-[1180px] py-8">
+    <Container size="xl" className="py-8">
       <div>
         {/* ページヘッダー: タイトル・件数・フィルタタブを1ブロックにまとめ、
             下端の区切り線でグリッドと分離する。
