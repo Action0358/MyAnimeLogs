@@ -16,7 +16,7 @@ export const metadata: Metadata = {
  * 絞り込み・ページ送りの操作だけを AnnouncementBrowser（クライアント）に任せる。
  */
 const NewsPage: React.FC = () => (
-  <Container size="xl" className="max-w-[1180px] py-8">
+  <Container size="xl" className="py-8">
     {/* 本文はコンテナ中央の読み幅列（760px）に置く。左寄せだと右に大きな空白が
         でき、1件だけのときに特に偏って見える（モックアップ「News Page Redesign」
         修正版）。一覧ページには横に並ぶカードグリッドが無いため、全幅にはせず

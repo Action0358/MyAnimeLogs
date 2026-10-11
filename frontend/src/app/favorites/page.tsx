@@ -25,7 +25,7 @@ const FavoritesContent: React.FC = () => {
 
   if (error) {
     return (
-      <Container size="xl" className="max-w-[1180px] py-8">
+      <Container size="xl" className="py-8">
         <div className="text-center py-16">
           <div className="text-6xl mb-4" aria-hidden="true">⚠️</div>
           <h2 className="text-xl font-semibold text-foreground mb-2">
@@ -41,7 +41,7 @@ const FavoritesContent: React.FC = () => {
   }
 
   return (
-    <Container size="xl" className="max-w-[1180px] py-8">
+    <Container size="xl" className="py-8">
       {/* ヘッダーの構成は今期／人気アニメの AnimeListPage と揃える */}
       <div className="pb-4 md:pb-[18px] border-b border-border mb-5 md:mb-6">
         <div className="flex items-baseline gap-2 md:gap-3 min-w-0">
