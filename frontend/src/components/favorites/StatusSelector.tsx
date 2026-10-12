@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useRef, useCallback } from 'react'
+import { PlayCircle, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { WatchStatusStatus } from '@/lib/api/generated/myanimelogs'
 import { useOnClickOutside } from '@/hooks/useOnClickOutside'
@@ -18,6 +19,8 @@ interface StatusSelectorProps {
   onRemove?: () => void
   disabled?: boolean
   size?: 'sm' | 'md' | 'lg'
+  /** outline: 枠線のみ（既定）。primary: 塗り（ページで一番重要な操作として扱う場所向け） */
+  variant?: 'outline' | 'primary'
   /** 外側のラッパーに付与する。幅・高さを呼び出し側で揃えたいときに渡す */
   className?: string
 }
@@ -28,6 +31,7 @@ export const StatusSelector: React.FC<StatusSelectorProps> = ({
   onRemove,
   disabled = false,
   size = 'md',
+  variant = 'outline',
   className,
 }) => {
   const [isOpen, setIsOpen] = useState(false)
@@ -52,25 +56,32 @@ export const StatusSelector: React.FC<StatusSelectorProps> = ({
         disabled={disabled}
         className={cn(
           // ラッパーに幅・高さが指定された場合はそれに追従する
-          'flex w-full h-full items-center justify-center gap-2 rounded-md border border-gray-300 bg-white transition-colors',
-          'hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500',
+          'flex w-full h-full items-center justify-center gap-2 rounded-md font-semibold transition-colors',
+          'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
           'disabled:opacity-50 disabled:cursor-not-allowed',
-          sizeStyles[size]
+          sizeStyles[size],
+          variant === 'primary'
+            ? 'border-none bg-primary text-primary-foreground hover:bg-primary/90'
+            : 'border border-gray-300 bg-white hover:bg-gray-50'
         )}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
       >
         {currentStatus ? (
           <>
-            <span className={cn('w-2 h-2 rounded-full', STATUS_CONFIG[currentStatus].color)} />
+            {variant === 'primary' ? (
+              <PlayCircle className="w-[17px] h-[17px]" aria-hidden="true" />
+            ) : (
+              <span className={cn('w-2 h-2 rounded-full', STATUS_CONFIG[currentStatus].color)} />
+            )}
             <span>{STATUS_CONFIG[currentStatus].label}</span>
           </>
         ) : (
-          <span className="text-gray-500">ステータスを選択</span>
+          <span className={variant === 'primary' ? undefined : 'text-gray-500 font-normal'}>
+            ステータスを選択
+          </span>
         )}
-        <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
+        <ChevronDown className="w-4 h-4 ml-1" aria-hidden="true" />
       </button>
 
       {isOpen && (
