@@ -16,6 +16,7 @@ import { getAnimesId } from '@/lib/api/generated/myanimelogs'
 import { useFavorites } from '@/hooks/useFavorites'
 import { useWatchStatus } from '@/hooks/useWatchStatus'
 import { useAuth } from '@/contexts/AuthContext'
+import { SignInLink } from '@/components/auth/SignInLink'
 import { cn } from '@/lib/utils'
 import { getAnimeStatusLabel, type BroadcastStatusLabel } from '@/utils/animeStatus'
 import { formatSeason } from '@/utils/formatSeason'
@@ -307,9 +308,10 @@ const AnimeDetailClient: React.FC = () => {
       />
     </div>
   ) : (
-    <Link href="/signin" className="block">
+    // ログイン後にこの作品へ戻ってきて、そのまま記録を始められるようにする
+    <SignInLink className="block">
       <Button className="w-full h-12">ログインして記録する</Button>
-    </Link>
+    </SignInLink>
   )
 
   const synopsisCard = anime.description && (

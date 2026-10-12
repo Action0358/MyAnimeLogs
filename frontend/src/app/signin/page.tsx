@@ -10,6 +10,7 @@ import { AuthPosterPanel } from '@/components/auth/AuthPosterPanel'
 import { AuthMessages } from '@/components/auth/AuthMessages'
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton'
 import { LOGOUT_REASON_MESSAGES } from '@/lib/constants'
+import { saveReturnPath } from '@/lib/authReturnPath'
 
 const EXTRA_MESSAGES: Record<string, string> = {
   'auth-callback-failed': 'Googleログインを完了できませんでした。お手数ですが再度お試しください。',
@@ -104,6 +105,8 @@ const SignInInner: React.FC = () => {
     setInfo('')
     clearReasonParam()
     setIsLoading(true)
+    // Googleから /auth/callback へ戻ってきたあと、ログイン前のページへ戻すため
+    saveReturnPath(searchParams.get('next'))
 
     try {
       await loginWithGoogle()

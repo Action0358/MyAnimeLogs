@@ -1,7 +1,6 @@
 'use client'
 
 import React from 'react'
-import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import {
   CalendarDays,
@@ -14,6 +13,7 @@ import {
 } from 'lucide-react'
 import { Container } from '@/components/layout'
 import { useAuth } from '@/contexts/AuthContext'
+import { SignInLink } from '@/components/auth/SignInLink'
 import { currentSeasonAnimeQuery } from '@/lib/queries/currentSeasonAnime'
 
 interface Feature {
@@ -227,12 +227,11 @@ const AboutPage: React.FC = () => {
                 Googleアカウントですぐに使いはじめられます。
               </p>
             </div>
-            <Link
-              href="/signin"
+            <SignInLink
               className="mt-4 flex h-12 w-full items-center justify-center rounded-md bg-primary px-7 text-sm font-semibold text-primary-foreground transition-colors hover:opacity-90 sm:mt-0 sm:h-[52px] sm:w-auto sm:flex-shrink-0 sm:text-[15px]"
             >
               はじめる
-            </Link>
+            </SignInLink>
           </section>
         )}
       </Container>
