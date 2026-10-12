@@ -1,16 +1,18 @@
 'use client'
 
 import React, { useState, useRef, useCallback } from 'react'
-import { PlayCircle, ChevronDown } from 'lucide-react'
+import { Plus, Bookmark, CirclePlay, CircleCheck, Check, X, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { WatchStatusStatus } from '@/lib/api/generated/myanimelogs'
 import { useOnClickOutside } from '@/hooks/useOnClickOutside'
 
-// 視聴ステータスは 視聴予定 / 視聴中 / 視聴済 の3つ
+// 視聴ステータスは 視聴予定 / 視聴中 / 視聴済 の3つ。
+// 色は全ステータス共通のインディゴで統一し、違いはアイコンとラベルのみで示す
+// （アニメ詳細UI刷新v2「ステータスボタン」）
 export const STATUS_CONFIG = {
-  planned: { label: '視聴予定', color: 'bg-yellow-500', textColor: 'text-yellow-600', icon: '⏰' },
-  watching: { label: '視聴中', color: 'bg-blue-500', textColor: 'text-blue-600', icon: '▶' },
-  completed: { label: '視聴済', color: 'bg-green-500', textColor: 'text-green-600', icon: '✓' },
+  planned: { label: '視聴予定', icon: Bookmark },
+  watching: { label: '視聴中', icon: CirclePlay },
+  completed: { label: '視聴済', icon: CircleCheck },
 } as const
 
 interface StatusSelectorProps {
@@ -19,7 +21,8 @@ interface StatusSelectorProps {
   onRemove?: () => void
   disabled?: boolean
   size?: 'sm' | 'md' | 'lg'
-  /** outline: 枠線のみ（既定）。primary: 塗り（ページで一番重要な操作として扱う場所向け） */
+  /** outline: 枠線のみ（既定）。primary: 未選択=枠線／選択済み=インディゴ塗り
+   *  （ページで一番重要な操作として扱う場所向け） */
   variant?: 'outline' | 'primary'
   /** 外側のラッパーに付与する。幅・高さを呼び出し側で揃えたいときに渡す */
   className?: string
@@ -47,6 +50,10 @@ export const StatusSelector: React.FC<StatusSelectorProps> = ({
   }
 
   const statuses = Object.entries(STATUS_CONFIG) as [WatchStatusStatus, typeof STATUS_CONFIG[WatchStatusStatus]][]
+  const TriggerIcon = currentStatus ? STATUS_CONFIG[currentStatus].icon : Plus
+  // primaryバリアントは未選択=枠線、選択済み=インディゴ塗りに切り替わる。
+  // 記録済みであることが一目で分かるようにする
+  const isFilled = variant === 'primary' && currentStatus !== null
 
   return (
     <div className={cn('relative', className)} ref={dropdownRef}>
@@ -60,80 +67,77 @@ export const StatusSelector: React.FC<StatusSelectorProps> = ({
           'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
           'disabled:opacity-50 disabled:cursor-not-allowed',
           sizeStyles[size],
-          variant === 'primary'
+          isFilled
             ? 'border-none bg-primary text-primary-foreground hover:bg-primary/90'
-            : 'border border-gray-300 bg-white hover:bg-gray-50'
+            : 'border border-gray-300 bg-white text-gray-800 hover:bg-gray-50'
         )}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
       >
-        {currentStatus ? (
-          <>
-            {variant === 'primary' ? (
-              <PlayCircle className="w-[17px] h-[17px]" aria-hidden="true" />
-            ) : (
-              <span className={cn('w-2 h-2 rounded-full', STATUS_CONFIG[currentStatus].color)} />
-            )}
-            <span>{STATUS_CONFIG[currentStatus].label}</span>
-          </>
-        ) : (
-          <span className={variant === 'primary' ? undefined : 'text-gray-500 font-normal'}>
-            ステータスを選択
-          </span>
-        )}
+        <TriggerIcon className="w-[17px] h-[17px]" aria-hidden="true" />
+        <span className={currentStatus ? undefined : 'text-gray-500 font-normal'}>
+          {currentStatus ? STATUS_CONFIG[currentStatus].label : 'ステータスを選択'}
+        </span>
         <ChevronDown className="w-4 h-4 ml-1" aria-hidden="true" />
       </button>
 
-      {isOpen && (
-        <div className="absolute z-50 mt-1 w-full min-w-[140px] bg-white border border-gray-200 rounded-md shadow-lg">
-          <ul role="listbox" className="py-1">
-            {statuses.map(([status, config]) => (
-              <li key={status}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    onStatusChange(status)
-                    setIsOpen(false)
-                  }}
-                  className={cn(
-                    'w-full flex items-center gap-2 px-3 py-2 text-left text-sm',
-                    'hover:bg-gray-100 transition-colors',
-                    currentStatus === status && 'bg-gray-50'
-                  )}
-                  role="option"
-                  aria-selected={currentStatus === status}
-                >
-                  <span className={cn('w-2 h-2 rounded-full', config.color)} />
-                  <span>{config.label}</span>
-                  {currentStatus === status && (
-                    <svg className="w-4 h-4 ml-auto text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                    </svg>
-                  )}
-                </button>
-              </li>
-            ))}
-            {onRemove && currentStatus && (
-              <>
-                <li className="border-t border-gray-200 my-1" />
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onRemove()
-                      setIsOpen(false)
-                    }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 transition-colors"
-                  >
-                    <span>✕</span>
-                    <span>解除</span>
-                  </button>
-                </li>
-              </>
-            )}
-          </ul>
-        </div>
-      )}
+      {/* 常時マウントしてopacity/transformで開閉する（UserMenuと同じフェード＋6pxスライド） */}
+      <div
+        role="listbox"
+        aria-hidden={!isOpen}
+        className={cn(
+          'absolute z-50 mt-1.5 w-full min-w-[140px] origin-top rounded-lg border border-border bg-popover p-1.5 shadow-lg',
+          'transition-[opacity,transform] duration-150 ease-out',
+          isOpen
+            ? 'translate-y-0 opacity-100'
+            : 'pointer-events-none -translate-y-1.5 opacity-0'
+        )}
+      >
+        {statuses.map(([status, config]) => {
+          const Icon = config.icon
+          const isSelected = currentStatus === status
+          return (
+            <button
+              key={status}
+              type="button"
+              onClick={() => {
+                onStatusChange(status)
+                setIsOpen(false)
+              }}
+              className={cn(
+                'w-full flex items-center gap-2.5 h-10 px-2.5 rounded-md text-left text-sm transition-colors',
+                'hover:bg-muted',
+                isSelected ? 'font-bold text-foreground bg-primary/5' : 'font-medium text-foreground/90'
+              )}
+              role="option"
+              aria-selected={isSelected}
+            >
+              <Icon
+                className={cn('w-[17px] h-[17px]', isSelected ? 'text-primary' : 'text-muted-foreground')}
+                aria-hidden="true"
+              />
+              <span className="flex-1">{config.label}</span>
+              {isSelected && <Check className="w-4 h-4 text-primary" aria-hidden="true" />}
+            </button>
+          )
+        })}
+        {onRemove && currentStatus && (
+          <>
+            <div className="h-px bg-border mx-1 my-1.5" />
+            <button
+              type="button"
+              onClick={() => {
+                onRemove()
+                setIsOpen(false)
+              }}
+              className="w-full flex items-center gap-2.5 h-10 px-2.5 rounded-md text-left text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
+            >
+              <X className="w-4 h-4" aria-hidden="true" />
+              <span>ステータスを外す</span>
+            </button>
+          </>
+        )}
+      </div>
     </div>
   )
 }
