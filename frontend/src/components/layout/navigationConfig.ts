@@ -27,7 +27,7 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Star,
   },
   {
-    label: '検索',
+    label: '作品検索',
     href: '/search',
     icon: Search,
   },
