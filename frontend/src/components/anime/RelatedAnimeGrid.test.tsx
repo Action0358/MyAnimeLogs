@@ -75,10 +75,21 @@ describe('RelatedAnimeGrid', () => {
     expect(renderedTitles()).toHaveLength(RELATED_INITIAL_COUNT)
   })
 
-  it('13件のときは「他1件」と出す（境界）', () => {
-    render(<RelatedAnimeGrid related={buildRelated(RELATED_INITIAL_COUNT + 1)} />)
+  it('残りが1行（6件）以内なら、ボタンを出さず全件表示する', () => {
+    // 12件+6件=18件。最も列数が多いPC（6列）の1行ぶんに収まるため、
+    // クリックさせずに全件出す（アニメ詳細UI刷新v2）
+    render(<RelatedAnimeGrid related={buildRelated(RELATED_INITIAL_COUNT + 6)} />)
 
-    expect(screen.getByRole('button', { name: /他1件を表示/ })).toBeInTheDocument()
+    expect(renderedTitles()).toHaveLength(RELATED_INITIAL_COUNT + 6)
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
+  })
+
+  it('残りが1行を超えたら、12件だけ出してボタンで折りたたむ（境界）', () => {
+    // 12件+7件=19件。1行(6件)を超えるため折りたたむ
+    render(<RelatedAnimeGrid related={buildRelated(RELATED_INITIAL_COUNT + 7)} />)
+
+    expect(renderedTitles()).toHaveLength(RELATED_INITIAL_COUNT)
+    expect(screen.getByRole('button', { name: /他7件を表示/ })).toBeInTheDocument()
   })
 
   it('先頭から順に表示する（放送順を崩さない）', () => {

@@ -9,6 +9,10 @@ import type { Anime, RelatedAnime } from '@/lib/api/generated/myanimelogs'
  *  縦に伸びすぎるため、既定ではここまでに抑えて残りは展開で見せる */
 export const RELATED_INITIAL_COUNT = 12
 
+/** 最も列数が多いPC表示（6列）の1行ぶん。残りがこの件数以内なら、
+ *  クリックさせるほどの量ではないため折りたたまずそのまま全件表示する */
+const ONE_ROW_AT_WIDEST = 6
+
 /** 関連作品は一覧・検索と同じ AnimeCard 規格で表示するため、
  *  APIが返す縮小フィールド（RelatedAnime）を AnimeGrid が要求する Anime 形に合わせる。
  *  status等は含まれないため未設定になるが、AnimeCard 側は任意項目として扱う。 */
@@ -38,8 +42,12 @@ export interface RelatedAnimeGridProps {
 export const RelatedAnimeGrid: React.FC<RelatedAnimeGridProps> = ({ related, columns }) => {
   const [isExpanded, setIsExpanded] = useState(false)
 
-  const hiddenCount = related.length - RELATED_INITIAL_COUNT
-  const visible = isExpanded ? related : related.slice(0, RELATED_INITIAL_COUNT)
+  const rawHiddenCount = related.length - RELATED_INITIAL_COUNT
+  // 残りが1行以内なら、ボタンを押させず最初から全件表示する
+  const fitsInOneMoreRow = rawHiddenCount > 0 && rawHiddenCount <= ONE_ROW_AT_WIDEST
+  const effectiveInitialCount = fitsInOneMoreRow ? related.length : RELATED_INITIAL_COUNT
+  const hiddenCount = related.length - effectiveInitialCount
+  const visible = isExpanded ? related : related.slice(0, effectiveInitialCount)
 
   return (
     <>
