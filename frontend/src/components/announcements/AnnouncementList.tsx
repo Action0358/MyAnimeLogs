@@ -68,9 +68,9 @@ export const AnnouncementList: React.FC<{
         </h3>
 
         {/* 本文の改行はそのまま反映する（段落を分けたいとき用。Markdownは導入していない）。
-            行の折り返しは text-wrap: pretty に任せ、文末の1〜2文字だけが次の行に
-            孤立しないようにする */}
-        <p className="whitespace-pre-wrap text-pretty text-[12.5px] leading-[1.8] text-foreground/80 md:text-[13.5px] md:leading-[1.85]">
+            text-wrap: pretty は付けない。Safari は段落全体の行長を揃えようとして各行を
+            早めに折り返すため、日本語では右側に余白が残り本文が左に寄って見える */}
+        <p className="whitespace-pre-wrap text-[12.5px] leading-[1.8] text-foreground/80 md:text-[13.5px] md:leading-[1.85]">
           {announcement.body}
         </p>
 
