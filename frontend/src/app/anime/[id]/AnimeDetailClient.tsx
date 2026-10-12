@@ -308,10 +308,15 @@ const AnimeDetailClient: React.FC = () => {
       />
     </div>
   ) : (
-    // ログイン後にこの作品へ戻ってきて、そのまま記録を始められるようにする
-    <SignInLink className="block">
-      <Button className="w-full h-12">ログインして記録する</Button>
-    </SignInLink>
+    <div>
+      {/* ログイン後にこの作品へ戻ってきて、そのまま記録を始められるようにする */}
+      <SignInLink className="block">
+        <Button className="w-full h-12">ログインして記録する</Button>
+      </SignInLink>
+      <p className="mt-2.5 text-center text-xs text-muted-foreground">
+        視聴状況とお気に入りを保存できます
+      </p>
+    </div>
   )
 
   const synopsisCard = anime.description && (
