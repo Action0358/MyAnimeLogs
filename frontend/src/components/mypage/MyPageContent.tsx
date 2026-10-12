@@ -196,19 +196,18 @@ export const MyPageContent: React.FC = () => {
 
   return (
     <Container size="xl" className="py-8">
-      {/* ヘッダー。アバター・名前・記録数・設定を1つの行にまとめる。
+      {/* ヘッダー。アバター・名前・登録日・設定を1つの行にまとめる。
+          下線はタブ側にのみ引く（マイページUI刷新v2）。
           表示名とアイコンはGoogleアカウント由来のため編集導線は持たせない（#789） */}
-      <div className="flex items-center md:items-start gap-4 md:gap-6 pb-5 md:pb-[26px] border-b border-border">
+      <div className="flex items-center gap-4 md:gap-5">
         {avatar}
         <div className="flex-1 min-w-0">
-          <div className="flex flex-col md:flex-row md:items-center md:gap-3">
-            <h1 className="text-lg md:text-2xl font-bold text-foreground truncate">
-              {user?.name}
-            </h1>
-            <p className="text-[11.5px] md:text-[12.5px] text-muted-foreground mt-1 md:mt-0 flex-shrink-0">
-              {registrationDate} 登録
-            </p>
-          </div>
+          <h1 className="text-lg md:text-2xl font-bold text-foreground truncate leading-tight">
+            {user?.name}
+          </h1>
+          <p className="text-[11.5px] md:text-[12.5px] text-muted-foreground mt-1">
+            {registrationDate} 登録
+          </p>
         </div>
         {settingsButton}
       </div>
