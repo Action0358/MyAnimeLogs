@@ -13,6 +13,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { UserMenu } from './UserMenu'
 import { GlobalNav } from './GlobalNav'
 import { MobileNav } from './MobileNav'
+import { SignInLink } from '../auth/SignInLink'
 
 
 const Header: React.FC = () => {
@@ -148,7 +149,7 @@ const Header: React.FC = () => {
               して浮かないようにする（モックアップ「Header Alignment Redesign」SP）
             */
             <div className="flex items-center gap-2 sm:gap-3">
-              <Link href={"/signin" as Route}>
+              <SignInLink>
                 <Button
                   variant={isHomePage ? 'primary-on-dark' : 'primary'}
                   className={cn(
@@ -158,7 +159,7 @@ const Header: React.FC = () => {
                 >
                   ログイン
                 </Button>
-              </Link>
+              </SignInLink>
             </div>
           )}
         </div>

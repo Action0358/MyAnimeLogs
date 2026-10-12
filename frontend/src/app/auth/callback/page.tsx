@@ -2,8 +2,10 @@
 
 import { Suspense, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import type { Route } from 'next'
 import { supabase } from '@/lib/supabase'
 import { Container } from '@/components/layout'
+import { consumeReturnPath } from '@/lib/authReturnPath'
 
 const LoadingView: React.FC = () => (
   <Container className="py-24">
@@ -33,19 +35,22 @@ const AuthCallbackInner: React.FC = () => {
 
     const code = searchParams.get('code')
     const failureUrl = '/signin?reason=auth-callback-failed'
+    // ログイン前にいたページ（/signin?next= で受け取ったもの）。無ければトップ。
+    // 戻り先は任意のパスで typedRoutes の Route 型には収まらない
+    const successUrl = () => consumeReturnPath() as Route
     const finalize = async () => {
       try {
         if (code) {
           // PKCEフロー: exchangeCodeForSession の戻り値にセッションが含まれるため
           // 後続の getSession() は呼ばない（ネットワーク往復を1回削減）
           const { data, error } = await supabase.auth.exchangeCodeForSession(code)
-          router.replace(error || !data.session ? failureUrl : '/')
+          router.replace(error || !data.session ? failureUrl : successUrl())
           return
         }
         // implicit フロー: URLハッシュ内のトークンをSupabaseクライアントが
         // 自動で読み取りセッションを張る。読み取り結果をここで確認する。
         const { data: { session } } = await supabase.auth.getSession()
-        router.replace(session ? '/' : failureUrl)
+        router.replace(session ? successUrl() : failureUrl)
       } catch {
         // ネットワーク/クライアント例外時もローディングのまま固まらないようにする
         router.replace(failureUrl)
