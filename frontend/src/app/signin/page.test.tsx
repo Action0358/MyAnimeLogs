@@ -143,4 +143,32 @@ describe('SignInPage', () => {
       expect(mockReplace).toHaveBeenCalledWith('/signin')
     })
   })
+
+  // 作品詳細などからログインしたとき、Googleから戻ったあと元のページへ戻すため
+  it('ボタン押下時に next の戻り先を退避する', async () => {
+    sessionStorage.clear()
+    setSearchParams('next=%2Fanime%2F123')
+    mockLoginWithGoogle.mockResolvedValue(undefined)
+
+    render(<SignInPage />)
+    await act(async () => {
+      await userEvent.click(await screen.findByRole('button', { name: 'Googleで続ける' }))
+    })
+
+    expect(sessionStorage.getItem('auth_return_path')).toBe('/anime/123')
+  })
+
+  it('reason を取り除くときも next は残す', async () => {
+    setSearchParams('reason=timeout&next=%2Fanime%2F123')
+    mockLoginWithGoogle.mockResolvedValue(undefined)
+
+    render(<SignInPage />)
+    await act(async () => {
+      await userEvent.click(await screen.findByRole('button', { name: 'Googleで続ける' }))
+    })
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/signin?next=%2Fanime%2F123')
+    })
+  })
 })
