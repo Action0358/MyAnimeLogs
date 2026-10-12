@@ -12,8 +12,6 @@ const CAROUSEL_CONSTANTS = {
   SCROLL_THRESHOLD: 4,
   /** スクロール量の係数（コンテナ幅に対する割合） */
   SCROLL_AMOUNT_RATIO: 0.75,
-  /** プログレスバーの最小幅（%） */
-  MIN_PROGRESS_WIDTH: 8,
   /** スケルトン表示数 */
   SKELETON_COUNT: 6,
 } as const
@@ -43,7 +41,6 @@ export const AnimeCarousel: React.FC<AnimeCarouselProps> = ({
   const scrollRef = useRef<HTMLDivElement>(null)
   const [canScrollLeft, setCanScrollLeft] = useState(false)
   const [canScrollRight, setCanScrollRight] = useState(false)
-  const [scrollProgress, setScrollProgress] = useState(0)
 
   const checkScroll = useCallback(() => {
     const el = scrollRef.current
@@ -51,8 +48,6 @@ export const AnimeCarousel: React.FC<AnimeCarouselProps> = ({
     const { scrollLeft, scrollWidth, clientWidth } = el
     setCanScrollLeft(scrollLeft > CAROUSEL_CONSTANTS.SCROLL_THRESHOLD)
     setCanScrollRight(scrollLeft < scrollWidth - clientWidth - CAROUSEL_CONSTANTS.SCROLL_THRESHOLD)
-    const maxScroll = scrollWidth - clientWidth
-    setScrollProgress(maxScroll > 0 ? (scrollLeft / maxScroll) * 100 : 0)
   }, [])
 
   // イベントリスナーの登録（初回のみ）
@@ -83,7 +78,7 @@ export const AnimeCarousel: React.FC<AnimeCarouselProps> = ({
   }
 
   return (
-    <div className={cn('group/carousel relative', className)}>
+    <div className={cn('relative', className)}>
       {/* 左ナビゲーション */}
       {canScrollLeft && (
         <button
@@ -95,8 +90,8 @@ export const AnimeCarousel: React.FC<AnimeCarouselProps> = ({
             'flex items-center justify-center',
             'hover:bg-white hover:scale-110 hover:shadow-xl',
             'transition-all duration-200',
-            'opacity-0 group-hover/carousel:opacity-100',
-            'focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-primary'
+            // SPにはホバーが無く、触れるまでスクロール可能だと分からないため常時表示にする
+            'focus:outline-none focus:ring-2 focus:ring-primary'
           )}
           aria-label="前へスクロール"
         >
@@ -153,25 +148,13 @@ export const AnimeCarousel: React.FC<AnimeCarouselProps> = ({
             'flex items-center justify-center',
             'hover:bg-white hover:scale-110 hover:shadow-xl',
             'transition-all duration-200',
-            'opacity-0 group-hover/carousel:opacity-100',
-            'focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-primary'
+            // SPにはホバーが無く、触れるまでスクロール可能だと分からないため常時表示にする
+            'focus:outline-none focus:ring-2 focus:ring-primary'
           )}
           aria-label="次へスクロール"
         >
           <ChevronRight className="w-5 h-5 text-gray-700" />
         </button>
-      )}
-
-      {/* スクロールプログレスバー */}
-      {animes.length > 0 && (
-        <div className="mt-4 flex justify-center">
-          <div className="w-24 h-1 bg-gray-200 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-primary rounded-full transition-all duration-150"
-              style={{ width: `${Math.max(scrollProgress, CAROUSEL_CONSTANTS.MIN_PROGRESS_WIDTH)}%` }}
-            />
-          </div>
-        </div>
       )}
     </div>
   )
