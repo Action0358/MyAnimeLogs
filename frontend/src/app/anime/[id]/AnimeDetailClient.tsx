@@ -18,13 +18,12 @@ import { useWatchStatus } from '@/hooks/useWatchStatus'
 import { useAuth } from '@/contexts/AuthContext'
 import { cn } from '@/lib/utils'
 import { getAnimeStatusLabel, type BroadcastStatusLabel } from '@/utils/animeStatus'
-import { translateBroadcastDay } from '@/utils/broadcast'
-import { formatDuration } from '@/utils/duration'
+import { formatSeason } from '@/utils/formatSeason'
 import { resolveBackTarget, type BackTarget } from '@/lib/animeListOrigin'
 
 /** あらすじの既定表示行数。作品ごとの文字数差でカード高さが大きくぶれるため折りたたむ。
  *  Tailwind のJITは動的なクラス名を検出できないためリテラルで指定する */
-const SYNOPSIS_CLAMP_CLASS = 'line-clamp-5'
+const SYNOPSIS_CLAMP_CLASS = 'line-clamp-4'
 
 /**
  * 既定では指定行数で折りたたみ、収まらない場合のみ展開ボタンを出す本文。
@@ -58,8 +57,8 @@ const ExpandableSynopsis: React.FC<{ text: string }> = ({ text }) => {
         className={cn(
           'text-foreground/80 leading-[1.75] whitespace-pre-wrap text-sm',
           // 折りたたみ時は既定行数ぶんの高さを確保し、作品ごとの高さのぶれを抑える
-          // 14px(text-sm) × 1.75(leading) × 5行 = 122.5px
-          !isExpanded && `${SYNOPSIS_CLAMP_CLASS} min-h-[122.5px]`,
+          // 14px(text-sm) × 1.75(leading) × 4行 = 98px
+          !isExpanded && `${SYNOPSIS_CLAMP_CLASS} min-h-[98px]`,
         )}
       >
         {text}
@@ -245,6 +244,152 @@ const AnimeDetailClient: React.FC = () => {
     return heDecodeEntities(text).trim()
   }
 
+  // 放送状況・メディア種別・放送時期はタイトル直下のバッジにまとめ、
+  // 下の作品情報表からは外す（アニメ詳細UI刷新v2）
+  const badges = [statusInfo.label, getMediaLabel(anime.media), formatSeason(anime.season)].filter(
+    (b): b is string => Boolean(b)
+  )
+
+  const badgesEl = badges.length > 0 && (
+    <div className="flex flex-wrap gap-1.5">
+      {badges.map((b) => (
+        <span
+          key={b}
+          className="inline-flex items-center rounded-md bg-muted px-2.5 py-1 text-xs font-semibold text-foreground/70"
+        >
+          {b}
+        </span>
+      ))}
+    </div>
+  )
+
+  const posterEl = (
+    <div className="relative aspect-[2/3] w-full bg-muted rounded-lg overflow-hidden shadow-[0_12px_32px_-12px_rgba(15,23,42,0.25)]">
+      {imageUrl && !imageError ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={imageUrl}
+          alt={anime.title || 'アニメ画像'}
+          className="w-full h-full object-cover"
+          onError={() => setImageError(true)}
+        />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/15 to-primary/5">
+          <span className="text-5xl">📺</span>
+        </div>
+      )}
+    </div>
+  )
+
+  // ログイン後は「視聴ステータス」を主ボタン（塗り）、お気に入りを48px角の
+  // アイコンボタンにする。ログイン前のCTAと高さ48pxを揃え、状態が変わっても
+  // 操作の重さが揃って見えるようにする（アニメ詳細UI刷新v2）
+  const actionsEl = isAuthenticated ? (
+    <div className="flex items-stretch gap-2">
+      <div className="flex-1 min-w-0 h-12">
+        <StatusSelector
+          currentStatus={getStatus(animeId)}
+          onStatusChange={(status) => updateStatus(animeId, status)}
+          onRemove={() => removeStatus(animeId)}
+          size="lg"
+          variant="primary"
+          className="w-full h-full"
+        />
+      </div>
+      <FavoriteButton
+        isFavorite={isFavorite(animeId)}
+        onToggle={() =>
+          isFavorite(animeId) ? removeFavorite(animeId) : addFavorite(animeId)
+        }
+        variant="icon"
+        size="lg"
+        className="flex-shrink-0"
+      />
+    </div>
+  ) : (
+    <Link href="/signin" className="block">
+      <Button className="w-full h-12">ログインして記録する</Button>
+    </Link>
+  )
+
+  const synopsisCard = anime.description && (
+    <Card>
+      <CardContent className={DETAIL_CARD_PADDING}>
+        <SectionHeading as="h2" size="sm">あらすじ</SectionHeading>
+        <ExpandableSynopsis text={stripHtmlTags(anime.description)} />
+      </CardContent>
+    </Card>
+  )
+
+  // 作品情報は放送開始・公式サイト・ジャンルに絞る（放送状況・メディア・放送時期は
+  // 上のバッジへ移動済み。アニメ詳細UI刷新v2）
+  const infoCard = (anime.released_on || anime.official_site_url || (anime.genres && anime.genres.length > 0)) && (
+    <Card>
+      <CardContent className={DETAIL_CARD_PADDING}>
+        <SectionHeading as="h2" size="sm">作品情報</SectionHeading>
+        <dl className="grid grid-cols-[76px_1fr] md:grid-cols-[84px_1fr] gap-x-4 gap-y-3 text-sm">
+          {anime.released_on && (
+            <>
+              <dt className="text-muted-foreground">放送開始</dt>
+              <dd className="text-foreground font-medium">{formatReleasedOn(anime.released_on)}</dd>
+            </>
+          )}
+          {anime.official_site_url && (
+            <>
+              <dt className="text-muted-foreground">公式サイト</dt>
+              <dd className="min-w-0">
+                <a
+                  href={anime.official_site_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary font-medium hover:underline truncate block"
+                >
+                  {(() => {
+                    try {
+                      return new URL(anime.official_site_url).hostname
+                    } catch {
+                      return anime.official_site_url
+                    }
+                  })()}
+                </a>
+              </dd>
+            </>
+          )}
+          {anime.genres && anime.genres.length > 0 && (
+            <>
+              <dt className="text-muted-foreground self-start pt-0.5">ジャンル</dt>
+              <dd className="flex flex-wrap gap-1.5">
+                {anime.genres.map((genre) => (
+                  <Link
+                    key={genre}
+                    href={`/search?genre=${encodeURIComponent(genre)}`}
+                    className="inline-flex items-center px-2.5 py-0.5 rounded-full border border-border text-xs font-medium text-foreground/70 hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                  >
+                    {genre}
+                  </Link>
+                ))}
+              </dd>
+            </>
+          )}
+        </dl>
+      </CardContent>
+    </Card>
+  )
+
+  const providersEl = anime.watch_providers && anime.watch_providers.length > 0 && (
+    <WatchProviders providers={anime.watch_providers} />
+  )
+
+  const relatedSection = anime.related_seasons && anime.related_seasons.length > 0 && (
+    <div className="mt-7 pt-[22px] lg:mt-14 lg:pt-9 border-t border-border">
+      <div className="mb-3.5 lg:mb-5 flex items-baseline gap-2.5 lg:gap-3">
+        <h2 className="text-base lg:text-xl font-bold tracking-tight text-foreground">関連作品</h2>
+        <span className="text-xs lg:text-sm text-muted-foreground">{anime.related_seasons.length}作品</span>
+      </div>
+      <RelatedAnimeGrid related={anime.related_seasons} />
+    </div>
+  )
+
   return (
     <Container size="xl" className="py-8">
       {/* 戻る導線。遷移元は from クエリで受け取り、既知の一覧でなければホームへ */}
@@ -266,207 +411,51 @@ const AnimeDetailClient: React.FC = () => {
         </Link>
       </div>
 
-      {/* 2カラム: 左=ポスターと操作 / 右=情報カード
-          コンテンツ列に上限を設けないと情報が横に間延びするため minmax で 720px に制限する */}
-      <div className="grid grid-cols-1 lg:grid-cols-[405px_minmax(0,720px)] gap-8 lg:gap-10 items-start">
-        {/* 左カラム */}
-        <div>
-          {/* ポスター画像。余白の中で主役になるようドロップシャドウを添える */}
-          <div className="relative aspect-[2/3] w-full bg-muted rounded-lg overflow-hidden shadow-[0_12px_32px_-12px_rgba(15,23,42,0.25)]">
-            {imageUrl && !imageError ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={imageUrl}
-                alt={anime.title || 'アニメ画像'}
-                className="w-full h-full object-cover"
-                onError={() => setImageError(true)}
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/15 to-primary/5">
-                <span className="text-5xl">📺</span>
-              </div>
-            )}
-          </div>
-
-          {/* お気に入り・視聴ステータス操作。
-              2つを横並びにし、flex-1 で等分してポスターの横幅にちょうど収める。
-              高さは h-11 で揃える（StatusSelector は内部の button が h-full で追従） */}
-          <div className="mt-4 lg:mt-5 flex items-stretch gap-2">
-            {isAuthenticated ? (
-              <>
-                {/* flex-1 は padding/border を基準サイズに加算するため、
-                    button を直接 flex アイテムにすると StatusSelector 側と幅がずれる。
-                    余白を持たない div で包んで両者を対称にする */}
-                <div className="flex-1 min-w-0 h-11">
-                  <FavoriteButton
-                    isFavorite={isFavorite(animeId)}
-                    onToggle={() =>
-                      isFavorite(animeId)
-                        ? removeFavorite(animeId)
-                        : addFavorite(animeId)
-                    }
-                    size="sm"
-                    className="w-full h-full justify-center"
-                  />
-                </div>
-                <StatusSelector
-                  currentStatus={getStatus(animeId)}
-                  onStatusChange={(status) => updateStatus(animeId, status)}
-                  onRemove={() => removeStatus(animeId)}
-                  size="sm"
-                  className="flex-1 min-w-0 h-11"
-                />
-              </>
-            ) : (
-              <Link href="/signin" className="block flex-1">
-                <Button className="w-full h-12">ログインして視聴記録を始める</Button>
-              </Link>
-            )}
+      {/* SP: ポスター（左・40%）＋タイトル・バッジ（右）の横並び。
+          最初の画面でタイトルと操作が見えるようにする（アニメ詳細UI刷新v2） */}
+      <div className="lg:hidden">
+        <div className="flex gap-3.5 items-start">
+          <div className="w-[40%] flex-shrink-0">{posterEl}</div>
+          <div className="flex-1 min-w-0 pt-0.5">
+            <h1 className="text-lg font-bold text-foreground tracking-tight leading-snug">
+              {anime.title}
+            </h1>
+            {badgesEl && <div className="mt-2.5">{badgesEl}</div>}
           </div>
         </div>
 
-        {/* 右カラム */}
+        <div className="mt-4">{actionsEl}</div>
+
+        <div className="flex flex-col gap-4 mt-5">
+          {synopsisCard}
+          {infoCard}
+          {providersEl}
+        </div>
+      </div>
+
+      {/* PC: 2カラム（左=ポスターと操作 / 右=タイトル・情報カード）。
+          コンテンツ列に上限を設けないと情報が横に間延びするため minmax で 720px に制限する */}
+      <div className="hidden lg:grid lg:grid-cols-[405px_minmax(0,720px)] gap-10 items-start">
+        <div>
+          {posterEl}
+          <div className="mt-5">{actionsEl}</div>
+        </div>
+
         <div className="min-w-0">
-          {/* タイトルと属性 */}
-          <h1 className="text-xl md:text-[28px] font-bold text-foreground tracking-tight leading-snug mb-7">
+          <h1 className="text-[28px] font-bold text-foreground tracking-tight leading-snug">
             {anime.title}
           </h1>
+          {badgesEl && <div className="mt-3 mb-7">{badgesEl}</div>}
 
-
-
-
-          {/* 情報カード群。カード間の余白は 24px で統一する */}
           <div className="flex flex-col gap-6">
-            {/* あらすじ */}
-            {anime.description && (
-              <Card>
-                <CardContent className={DETAIL_CARD_PADDING}>
-                  <SectionHeading as="h2" size="sm">あらすじ</SectionHeading>
-                  <ExpandableSynopsis text={stripHtmlTags(anime.description)} />
-                </CardContent>
-              </Card>
-            )}
-
-            {/* 作品情報。ラベルと値を4列グリッドに並べ、右側の余白を作らない */}
-            {(statusInfo.label || anime.released_on || anime.media || anime.official_site_url || (anime.genres && anime.genres.length > 0)) && (
-              <Card>
-                <CardContent className={DETAIL_CARD_PADDING}>
-                  <SectionHeading as="h2" size="sm">作品情報</SectionHeading>
-                  <dl className="grid grid-cols-[76px_1fr] md:grid-cols-[88px_1fr_88px_1fr] gap-x-4 gap-y-3.5 text-sm">
-                    {statusInfo.label && (
-                      <>
-                        <dt className="text-muted-foreground">放送状況</dt>
-                        <dd className="text-foreground font-medium">{statusInfo.label}</dd>
-                      </>
-                    )}
-                    {anime.released_on && (
-                      <>
-                        <dt className="text-muted-foreground">放送開始</dt>
-                        <dd className="text-foreground font-medium">{formatReleasedOn(anime.released_on)}</dd>
-                      </>
-                    )}
-                    {anime.broadcast_day && (
-                      <>
-                        <dt className="text-muted-foreground">放送日</dt>
-                        <dd className="text-foreground font-medium">{translateBroadcastDay(anime.broadcast_day)}</dd>
-                      </>
-                    )}
-                    {anime.broadcast_time && (
-                      <>
-                        <dt className="text-muted-foreground">放送時間</dt>
-                        <dd className="text-foreground font-medium">{anime.broadcast_time}</dd>
-                      </>
-                    )}
-                    {/* 映画の上映時間 */}
-                    {anime.media === 'movie' && anime.duration_minutes && (
-                      <>
-                        <dt className="text-muted-foreground">上映時間</dt>
-                        <dd className="text-foreground font-medium">{formatDuration(anime.duration_minutes)}</dd>
-                      </>
-                    )}
-                    {anime.media && (
-                      <>
-                        <dt className="text-muted-foreground">メディア</dt>
-                        <dd className="text-foreground font-medium">{getMediaLabel(anime.media)}</dd>
-                      </>
-                    )}
-                    {anime.official_site_url && (
-                      <>
-                        <dt className="text-muted-foreground">公式サイト</dt>
-                        <dd className="min-w-0">
-                          <a
-                            href={anime.official_site_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-primary font-medium hover:underline truncate block"
-                          >
-                            {(() => {
-                              try {
-                                return new URL(anime.official_site_url).hostname
-                              } catch {
-                                return anime.official_site_url
-                              }
-                            })()}
-                          </a>
-                        </dd>
-                      </>
-                    )}
-                    {anime.genres && anime.genres.length > 0 && (
-                      <>
-                        <dt className="text-muted-foreground">ジャンル</dt>
-                        <dd className="md:col-span-3 flex flex-wrap gap-1.5">
-                          {anime.genres.map((genre) => (
-                            <Link
-                              key={genre}
-                              href={`/search?genre=${encodeURIComponent(genre)}`}
-                              className="inline-flex items-center px-2.5 py-0.5 rounded-full border border-border text-xs font-medium text-foreground/70 hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                            >
-                              {genre}
-                            </Link>
-                          ))}
-                        </dd>
-                      </>
-                    )}
-                  </dl>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* 配信サービス */}
-            {anime.watch_providers && anime.watch_providers.length > 0 && (
-              <WatchProviders providers={anime.watch_providers} />
-            )}
-
-            {/* 同シリーズの他シーズン（SP版）。
-                PC版は2カラムの外に全幅で出すため、ここではlg未満のみ表示する */}
-            {anime.related_seasons && anime.related_seasons.length > 0 && (
-              <div className="lg:hidden">
-                <Card>
-                  <CardContent className={DETAIL_CARD_PADDING}>
-                    <SectionHeading as="h2" size="sm">関連作品</SectionHeading>
-                    <RelatedAnimeGrid
-                      related={anime.related_seasons}
-                      columns={{ mobile: 3 }}
-                    />
-                  </CardContent>
-                </Card>
-              </div>
-            )}
+            {synopsisCard}
+            {infoCard}
+            {providersEl}
           </div>
         </div>
       </div>
 
-      {/* 同シリーズの他シーズン（PC版）。
-          一覧・検索と同じカード規格を使うため、2カラムの外に全幅6列グリッドで出す */}
-      {anime.related_seasons && anime.related_seasons.length > 0 && (
-        <div className="hidden lg:block mt-14 pt-9 border-t border-border">
-          <div className="mb-5 flex items-baseline gap-3">
-            <h2 className="text-xl font-bold tracking-tight text-foreground">関連作品</h2>
-            <span className="text-sm text-muted-foreground">{anime.related_seasons.length}作品</span>
-          </div>
-          <RelatedAnimeGrid related={anime.related_seasons} />
-        </div>
-      )}
+      {relatedSection}
     </Container>
   )
 }
