@@ -8,6 +8,7 @@ import { NavLink } from './NavLink'
 import { HOME_NAV_ITEM, NAV_ITEMS, USER_MENU_ITEMS, NAV_TEXT_STYLES } from './navigationConfig'
 import { useAuth } from '@/contexts/AuthContext'
 import { cn } from '@/lib/utils'
+import { SignInLink } from '../auth/SignInLink'
 
 interface MobileNavProps {
   isOpen: boolean
@@ -217,13 +218,12 @@ export const MobileNav: React.FC<MobileNavProps> = ({ isOpen, onClose, triggerRe
               Google認証ではログインと新規登録が同じ操作になるため、ボタンは1つ。
               ヘッダーから移設し、ヒーロー画像の上に単独で浮かないようにする。
             */
-            <Link
-              href={'/signin' as Route}
+            <SignInLink
               onClick={onClose}
               className="flex h-11 items-center justify-center rounded-md bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               ログイン
-            </Link>
+            </SignInLink>
           )}
         </div>
       </div>
