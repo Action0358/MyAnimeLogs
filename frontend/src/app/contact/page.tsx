@@ -34,10 +34,11 @@ const ContactPage: React.FC = () => (
         <h2 className="mb-2 text-base font-bold text-foreground md:text-lg">
           ご意見・不具合のご報告
         </h2>
-        {/* text-pretty で追い出し改行を防ぐ。JSX内で改行すると半角スペースが
-            挿入されて「ください。 詳しくは」のような不要な空白ができるため、
-            1行にまとめている */}
-        <p className="mb-5 text-sm leading-[1.8] text-foreground/80 text-pretty">
+        {/* JSX内で改行すると半角スペースが挿入されて「ください。 詳しくは」の
+            ような不要な空白ができるため、1行にまとめている。
+            text-wrap: pretty は付けない。Safari は段落全体の行長を揃えようとして
+            各行を早めに折り返すため、日本語では本文が左に寄って見える */}
+        <p className="mb-5 text-sm leading-[1.8] text-foreground/80">
           不具合のご報告、機能のご要望、作品情報の誤りなどは、お問い合わせフォームからお寄せください。ご返信をご希望の場合のみメールアドレスをご記入いただければ、そのアドレス宛にご連絡します。
         </p>
 
@@ -59,7 +60,7 @@ const ContactPage: React.FC = () => (
         <h2 className="mb-2 text-base font-bold text-foreground md:text-lg">
           個人情報に関するご請求
         </h2>
-        <p className="mb-5 text-sm leading-[1.8] text-foreground/80 text-pretty">
+        <p className="mb-5 text-sm leading-[1.8] text-foreground/80">
           登録情報の開示・訂正・削除・利用停止のご請求は、以下のメールアドレスへご連絡ください。詳しくは<a href="/privacy" className="text-primary hover:underline">プライバシーポリシー</a>をご確認ください。
         </p>
 
