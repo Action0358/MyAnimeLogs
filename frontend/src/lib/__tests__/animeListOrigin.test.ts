@@ -32,6 +32,11 @@ describe('resolveBackTarget', () => {
     // 一覧以外にカードを持つ画面。ここが漏れるとホームに戻ってしまう
     expect(resolveBackTarget('/favorites').label).toBe('お気に入り')
     expect(resolveBackTarget('/mypage').label).toBe('マイページ')
+    // マイページは表示中のタブを含めて戻す
+    expect(resolveBackTarget(encodeURIComponent('/mypage?tab=watching'))).toEqual({
+      href: '/mypage?tab=watching',
+      label: 'マイページ',
+    })
   })
 
   // 本番ビルドのみ trailingSlash が有効なため、開発サーバーでは再現しない差分。

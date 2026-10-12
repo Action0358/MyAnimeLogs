@@ -21,6 +21,25 @@ import { get, ApiClientError } from '@/lib/api/client'
 // マイページに表示する視聴ステータスの最大件数
 const MAX_WATCH_STATUSES = 20
 
+const DEFAULT_TAB: WatchStatusTabKey = 'planned'
+
+const isWatchStatusTabKey = (value: string | null): value is WatchStatusTabKey =>
+  value !== null && value in WATCH_STATUS_TAB_LABELS
+
+/**
+ * 表示中のタブはURLの ?tab= に持たせる。作品詳細の「マイページに戻る」や
+ * ブラウザの戻るで、遷移前に開いていたタブへ戻ってこられるようにするため。
+ *
+ * マイページは ProtectedRoute の認証確認後にクライアントでのみ描画されるため、
+ * 初期値を window から読んでもハイドレーション不整合は起きない。
+ * useSearchParams は静的エクスポート時に Suspense 境界を要求するので使わない。
+ */
+const readTabFromUrl = (): WatchStatusTabKey => {
+  if (typeof window === 'undefined') return DEFAULT_TAB
+  const tab = new URLSearchParams(window.location.search).get('tab')
+  return isWatchStatusTabKey(tab) ? tab : DEFAULT_TAB
+}
+
 // id が number の作品のみを抽出（WatchStatusCard は id 必須）
 const filterValidItems = (
   items: WatchStatusAnime[]
@@ -42,7 +61,7 @@ export const MyPageContent: React.FC = () => {
   const [user, setUser] = useState(authUser)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<WatchStatusTabKey>('planned')
+  const [activeTab, setActiveTab] = useState<WatchStatusTabKey>(readTabFromUrl)
   const [imageError, setImageError] = useState(false)
 
   // 視聴ステータス一覧（お気に入りとは独立）
@@ -85,6 +104,12 @@ export const MyPageContent: React.FC = () => {
       setIsLoading(false)
     }
   }, [authUser, token, authLoading, isAuthenticated, fetchData])
+
+  const changeTab = (tab: WatchStatusTabKey) => {
+    setActiveTab(tab)
+    // 履歴を積まずにURLだけ更新する。タブ切り替えのたびに戻る操作が増えないように
+    router.replace(`/mypage?tab=${tab}` as Route, { scroll: false })
+  }
 
   const allItems = useMemo(() => filterValidItems(watchStatuses), [watchStatuses])
 
@@ -217,7 +242,7 @@ export const MyPageContent: React.FC = () => {
       <div className="mt-[22px] mb-[18px] md:mt-[30px] md:mb-7">
         <WatchStatusTabs
           activeTab={activeTab}
-          onTabChange={setActiveTab}
+          onTabChange={changeTab}
           counts={counts}
         />
       </div>
@@ -226,7 +251,7 @@ export const MyPageContent: React.FC = () => {
       {filteredItems.length > 0 ? (
         <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-x-2.5 gap-y-3.5 md:gap-x-[18px] md:gap-y-5">
           {filteredItems.map((anime) => (
-            <WatchStatusCard key={anime.id} anime={anime} />
+            <WatchStatusCard key={anime.id} anime={anime} from={`/mypage?tab=${activeTab}`} />
           ))}
         </div>
       ) : (

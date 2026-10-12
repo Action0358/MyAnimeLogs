@@ -12,6 +12,8 @@ import { withBackParam } from '@/lib/animeListOrigin'
 interface WatchStatusCardProps {
   anime: Anime & { id: number } // id is required
   isUpdating?: boolean
+  /** 詳細ページの「戻る」の戻り先。マイページは表示中のタブを含めて渡す */
+  from?: string
 }
 
 /**
@@ -23,6 +25,7 @@ interface WatchStatusCardProps {
 export const WatchStatusCard: React.FC<WatchStatusCardProps> = ({
   anime,
   isUpdating = false,
+  from = '/mypage',
 }) => {
   const imageUrl =
     anime.cover_image_extra_large ||
@@ -34,7 +37,7 @@ export const WatchStatusCard: React.FC<WatchStatusCardProps> = ({
 
   return (
     <Link
-      href={withBackParam(`/anime/${anime.id}`, '/mypage') as Route}
+      href={withBackParam(`/anime/${anime.id}`, from) as Route}
       prefetch={false}
       className={cn(
         'block rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
