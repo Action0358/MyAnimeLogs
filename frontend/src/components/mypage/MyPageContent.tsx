@@ -12,7 +12,6 @@ import {
   WatchStatusTabs,
   WatchStatusCard,
   WatchStatusTabKey,
-  WATCH_STATUS_TABS,
   WATCH_STATUS_TAB_LABELS,
 } from '@/components/favorites'
 import { useWatchStatus, WatchStatusAnime } from '@/hooks/useWatchStatus'
@@ -195,12 +194,6 @@ export const MyPageContent: React.FC = () => {
     </button>
   )
 
-  const stats = WATCH_STATUS_TABS.map((tab) => ({
-    key: tab.key,
-    label: tab.label,
-    value: counts[tab.key],
-  }))
-
   return (
     <Container size="xl" className="py-8">
       {/* ヘッダー。アバター・名前・記録数・設定を1つの行にまとめる。
@@ -216,43 +209,17 @@ export const MyPageContent: React.FC = () => {
               {registrationDate} 登録
             </p>
           </div>
-
-          {/* 記録数。狭い画面では下のカードに出すため隠す */}
-          <div className="hidden md:flex gap-7 mt-4">
-            {stats.map((stat) => (
-              <div key={stat.key}>
-                <div className="text-xl font-bold leading-tight tabular-nums text-foreground">
-                  {stat.value}
-                </div>
-                <div className="text-xs text-muted-foreground mt-[3px]">{stat.label}</div>
-              </div>
-            ))}
-          </div>
         </div>
         {settingsButton}
       </div>
 
-      {/* 記録数（狭い画面）。1行に収めてスクロール量を抑える */}
-      <div className="grid grid-cols-3 gap-2 mt-4 md:hidden">
-        {stats.map((stat) => (
-          <div
-            key={stat.key}
-            className="border border-border rounded-lg py-3 px-2.5 text-center"
-          >
-            <div className="text-lg font-bold leading-tight tabular-nums text-foreground">
-              {stat.value}
-            </div>
-            <div className="text-[11px] text-muted-foreground mt-[3px]">{stat.label}</div>
-          </div>
-        ))}
-      </div>
-
-
-      {/* 視聴ステータス別タブナビゲーション */}
-      <div className="mt-5 md:mt-[26px] mb-4 md:mb-6">
+      {/* 視聴ステータス別タブナビゲーション。件数はタブ内のピルに統合し、
+          記録数カードとの二重表示をなくす（マイページUI刷新v2） */}
+      <div className="mt-[22px] mb-[18px] md:mt-[30px] md:mb-7">
         <WatchStatusTabs
           activeTab={activeTab}
           onTabChange={setActiveTab}
+          counts={counts}
         />
       </div>
 
