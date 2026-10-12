@@ -142,15 +142,17 @@ const Header: React.FC = () => {
             /*
               Google認証ではログインと新規登録が同じ操作になるため、
               ボタンは1つに統合し /signin へ送る。
-              狭い画面ではハンバーガーメニューのフッターに移設した。
-              ホームのヒーロー画像の上にボタンが単独で浮いて見えるため。
+              狭い画面でもヘッダー右上に出す（ドロワーのフッターにも残す）。
+              ログインは記録・お気に入りの入口で、ドロワーの中だけだと
+              開くまで存在に気づけないため。ヒーロー上では白地のボタンに
+              して浮かないようにする（モックアップ「Header Alignment Redesign」SP）
             */
-            <div className="hidden md:flex items-center gap-2 sm:gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               <Link href={"/signin" as Route}>
                 <Button
                   variant={isHomePage ? 'primary-on-dark' : 'primary'}
                   className={cn(
-                    'h-9 text-xs px-2 py-1.5 font-bold',
+                    'h-auto text-xs px-[13px] py-[7px] font-bold',
                     'md:h-11 md:text-base md:px-3 md:py-2'
                   )}
                 >
