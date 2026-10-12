@@ -28,17 +28,19 @@ export const WATCH_STATUS_TAB_LABELS: Record<WatchStatusTabKey, string> = {
 interface WatchStatusTabsProps {
   activeTab: WatchStatusTabKey
   onTabChange: (tab: WatchStatusTabKey) => void
+  counts: Record<WatchStatusTabKey, number>
 }
 
 export const WatchStatusTabs: React.FC<WatchStatusTabsProps> = ({
   activeTab,
   onTabChange,
+  counts,
 }) => {
-  // 一覧・検索ページの MediaTabs と同じピル型に揃える。
-  // 件数はヘッダーの記録数カードに表示済みのため、ここでは出さない。
+  // 下線タブ型。件数は各タブにピルとして添え、ヘッダーの記録数カードとの
+  // 二重表示をなくす（マイページUI刷新v2）
   return (
     <nav
-      className="flex gap-1 overflow-x-auto scrollbar-hide touch-pan-x"
+      className="grid grid-cols-3 md:flex md:gap-7 border-b border-border"
       aria-label="視聴ステータスタブ"
     >
       {WATCH_STATUS_TABS.map((tab) => {
@@ -50,16 +52,35 @@ export const WatchStatusTabs: React.FC<WatchStatusTabsProps> = ({
             type="button"
             onClick={() => onTabChange(tab.key)}
             className={cn(
-              'relative rounded-md px-3 py-1.5 md:px-4 md:py-2 text-[12.5px] md:text-[13.5px]',
-              'whitespace-nowrap flex-shrink-0 transition-colors duration-200',
+              'flex items-center justify-center md:justify-start gap-1.5 md:gap-2',
+              '-mb-px border-b-2 pb-3 md:pb-[13px] transition-colors duration-200',
               'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-              isActive
-                ? 'bg-primary/10 text-primary font-semibold'
-                : 'text-muted-foreground font-medium hover:text-foreground hover:bg-muted'
+              isActive ? 'border-primary' : 'border-transparent'
             )}
             aria-current={isActive ? 'page' : undefined}
           >
-            {tab.label}
+            <span
+              className={cn(
+                'text-[13px] md:text-[14px]',
+                isActive
+                  ? 'font-bold text-foreground'
+                  : 'font-medium text-muted-foreground'
+              )}
+            >
+              {tab.label}
+            </span>
+            <span
+              className={cn(
+                'flex h-[18px] min-w-[19px] items-center justify-center rounded-full px-1.5',
+                'md:h-5 md:min-w-[22px] md:px-[7px]',
+                'text-[10.5px] md:text-[11.5px] font-bold tabular-nums',
+                isActive
+                  ? 'bg-primary/10 text-primary'
+                  : 'bg-muted text-muted-foreground'
+              )}
+            >
+              {counts[tab.key]}
+            </span>
           </button>
         )
       })}
