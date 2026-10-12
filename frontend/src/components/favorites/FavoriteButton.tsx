@@ -48,13 +48,13 @@ export const FavoriteButton: React.FC<FavoriteButtonProps> = ({
         onClick={onToggle}
         disabled={isLoading}
         className={cn(
-          'flex items-center justify-center rounded-full transition-all',
-          'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+          'flex items-center justify-center rounded-md border transition-colors',
+          'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
           'disabled:opacity-50 disabled:cursor-not-allowed',
           sizeStyles[size].icon,
           isFavorite
-            ? 'bg-pink-500 text-white hover:bg-pink-600'
-            : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+            ? 'border-pink-200 bg-pink-50 text-pink-600 hover:bg-pink-100'
+            : 'border-gray-300 bg-white text-gray-600 hover:bg-gray-50'
         )}
         aria-label={isFavorite ? 'お気に入りから削除' : 'お気に入りに追加'}
         aria-pressed={isFavorite}

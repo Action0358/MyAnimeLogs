@@ -66,13 +66,14 @@ export const WatchProviders: React.FC<WatchProvidersProps> = ({ providers }) => 
     <Card>
       <CardContent className="p-5 md:px-6 md:py-5">
         <SectionHeading as="h2" size="sm">配信サービス</SectionHeading>
-        {/* ロゴは元画像の縦横比・余白がまちまちなため、均一なタイルに収めて揃える */}
-        <div className="flex flex-wrap gap-2.5 md:gap-3">
+        {/* ロゴは元画像の縦横比・余白がまちまちなため、均一なタイルに収めて揃える。
+            48px（SP）はタイル5つが横一列に収まるサイズ */}
+        <div className="flex flex-wrap gap-2 md:gap-2.5">
           {visibleProviders.map((provider) => (
             // ロゴ単体で表示（サービス名はタイル上には表示せず、title/alt で保持）
             <div
               key={provider.provider_id}
-              className="w-14 h-14 md:w-16 md:h-16 flex items-center justify-center p-2 bg-muted border border-border rounded-[10px] hover:bg-accent transition-colors"
+              className="w-12 h-12 md:w-14 md:h-14 flex items-center justify-center p-1.5 bg-muted border border-border rounded-[10px] hover:bg-accent transition-colors"
               title={provider.provider_name}
             >
               {provider.logo_url ? (
