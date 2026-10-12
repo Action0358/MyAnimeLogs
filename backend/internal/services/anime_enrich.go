@@ -82,32 +82,34 @@ func (s *AnimeService) enrichAnimeWithCoverImage(anime *models.Anime) {
 		anime.CoverImageLarge = coverImage.Large
 		anime.CoverImageMedium = coverImage.Medium
 
-		// DBに保存（MAL IDがある場合のみ）- ワーカープールで非同期実行
-		if hasMalID {
-			malID := *anime.MalAnimeID
-			extraLarge := coverImage.ExtraLarge
-			large := coverImage.Large
-			medium := coverImage.Medium
-			s.enqueueBackgroundTask(func() {
-				// タイムアウト付きcontextでDBハングを防止
-				ctx, cancel := context.WithTimeout(context.Background(), constants.BackgroundTaskDBTimeout)
-				defer cancel()
+		// DBに保存。MAL IDの有無に関わらずanime.IDで一意に更新する。
+		// 以前はhasMalIDの場合のみ保存しており、MAL IDが無いアニメ（Annictで
+		// MALと紐付かなかった特別編・総集編など）はタイトルフォールバックで
+		// 画像を取得できてもDBに永続化されず、毎回バックグラウンド再取得が
+		// 空振りし続けてポスターが永久に表示されない不具合があった
+		animeID := anime.ID
+		extraLarge := coverImage.ExtraLarge
+		large := coverImage.Large
+		medium := coverImage.Medium
+		s.enqueueBackgroundTask(func() {
+			// タイムアウト付きcontextでDBハングを防止
+			ctx, cancel := context.WithTimeout(context.Background(), constants.BackgroundTaskDBTimeout)
+			defer cancel()
 
-				_, saveErr := s.db.ExecContext(ctx, `
-					UPDATE animes 
-					SET cover_image_extra_large = $1,
-						cover_image_large = $2,
-						cover_image_medium = $3,
-						cover_image_updated_at = NOW()
-					WHERE mal_anime_id = $4
-				`, extraLarge, large, medium, malID)
-				if saveErr != nil {
-					s.logger.Warn("Failed to save cover image to DB",
-						"error", saveErr,
-						"mal_anime_id", malID)
-				}
-			})
-		}
+			_, saveErr := s.db.ExecContext(ctx, `
+				UPDATE animes
+				SET cover_image_extra_large = $1,
+					cover_image_large = $2,
+					cover_image_medium = $3,
+					cover_image_updated_at = NOW()
+				WHERE id = $4
+			`, extraLarge, large, medium, animeID)
+			if saveErr != nil {
+				s.logger.Warn("Failed to save cover image to DB",
+					"error", saveErr,
+					"anime_id", animeID)
+			}
+		})
 	}
 }
 
