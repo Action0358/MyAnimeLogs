@@ -7,6 +7,7 @@ import { Container } from '@/components/layout'
 import { useAuth } from '@/contexts/AuthContext'
 import { deleteAccount } from '@/lib/api/account'
 import { DeleteAccountDialog } from './DeleteAccountDialog'
+import { readMyPageTabFromUrl, myPageHref } from './myPageTab'
 
 /**
  * 設定画面。
@@ -20,6 +21,8 @@ export const SettingsContent: React.FC = () => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState('')
+  // マイページで開いていたタブ。パンくずからそのタブへ戻す
+  const [myPageTab] = useState(readMyPageTabFromUrl)
 
   const handleDeleteAccount = async () => {
     setDeleteError('')
@@ -45,7 +48,7 @@ export const SettingsContent: React.FC = () => {
             className="text-[11.5px] md:text-[12.5px] mb-3 md:mb-[18px]"
           >
             <Link
-              href={'/mypage' as Route}
+              href={myPageHref(myPageTab) as Route}
               className="text-muted-foreground hover:text-primary transition-colors"
             >
               マイページ

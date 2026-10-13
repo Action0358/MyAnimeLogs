@@ -17,28 +17,10 @@ import {
 import { useWatchStatus, WatchStatusAnime } from '@/hooks/useWatchStatus'
 import { WatchStatusStatus } from '@/lib/api/generated/myanimelogs'
 import { get, ApiClientError } from '@/lib/api/client'
+import { readMyPageTabFromUrl, myPageHref, myPageSettingsHref } from './myPageTab'
 
 // マイページに表示する視聴ステータスの最大件数
 const MAX_WATCH_STATUSES = 20
-
-const DEFAULT_TAB: WatchStatusTabKey = 'planned'
-
-const isWatchStatusTabKey = (value: string | null): value is WatchStatusTabKey =>
-  value !== null && value in WATCH_STATUS_TAB_LABELS
-
-/**
- * 表示中のタブはURLの ?tab= に持たせる。作品詳細の「マイページに戻る」や
- * ブラウザの戻るで、遷移前に開いていたタブへ戻ってこられるようにするため。
- *
- * マイページは ProtectedRoute の認証確認後にクライアントでのみ描画されるため、
- * 初期値を window から読んでもハイドレーション不整合は起きない。
- * useSearchParams は静的エクスポート時に Suspense 境界を要求するので使わない。
- */
-const readTabFromUrl = (): WatchStatusTabKey => {
-  if (typeof window === 'undefined') return DEFAULT_TAB
-  const tab = new URLSearchParams(window.location.search).get('tab')
-  return isWatchStatusTabKey(tab) ? tab : DEFAULT_TAB
-}
 
 // id が number の作品のみを抽出（WatchStatusCard は id 必須）
 const filterValidItems = (
@@ -61,7 +43,7 @@ export const MyPageContent: React.FC = () => {
   const [user, setUser] = useState(authUser)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<WatchStatusTabKey>(readTabFromUrl)
+  const [activeTab, setActiveTab] = useState<WatchStatusTabKey>(readMyPageTabFromUrl)
   const [imageError, setImageError] = useState(false)
 
   // 視聴ステータス一覧（お気に入りとは独立）
@@ -108,7 +90,7 @@ export const MyPageContent: React.FC = () => {
   const changeTab = (tab: WatchStatusTabKey) => {
     setActiveTab(tab)
     // 履歴を積まずにURLだけ更新する。タブ切り替えのたびに戻る操作が増えないように
-    router.replace(`/mypage?tab=${tab}` as Route, { scroll: false })
+    router.replace(myPageHref(tab) as Route, { scroll: false })
   }
 
   const allItems = useMemo(() => filterValidItems(watchStatuses), [watchStatuses])
@@ -210,7 +192,8 @@ export const MyPageContent: React.FC = () => {
   const settingsButton = (
     <button
       type="button"
-      onClick={() => router.push('/mypage/edit')}
+      // 設定画面のパンくずから、いま開いているタブへ戻れるようにタブを渡す
+      onClick={() => router.push(myPageSettingsHref(activeTab) as Route)}
       className="flex items-center justify-center gap-1.5 h-9 w-9 md:h-[38px] md:w-auto md:px-3.5 flex-shrink-0 border border-border rounded-md bg-card text-sm font-semibold text-foreground hover:bg-muted transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
       aria-label="設定"
     >
@@ -251,7 +234,7 @@ export const MyPageContent: React.FC = () => {
       {filteredItems.length > 0 ? (
         <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-x-2.5 gap-y-3.5 md:gap-x-[18px] md:gap-y-5">
           {filteredItems.map((anime) => (
-            <WatchStatusCard key={anime.id} anime={anime} from={`/mypage?tab=${activeTab}`} />
+            <WatchStatusCard key={anime.id} anime={anime} from={myPageHref(activeTab)} />
           ))}
         </div>
       ) : (
