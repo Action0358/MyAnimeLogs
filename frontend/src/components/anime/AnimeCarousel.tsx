@@ -84,7 +84,9 @@ export const AnimeCarousel: React.FC<AnimeCarouselProps> = ({
         <button
           onClick={() => scroll('left')}
           className={cn(
-            'absolute -left-4 top-[calc(50%-40px)] -translate-y-1/2 z-10',
+            // ページのコンテナ余白が-left-4と同じ16pxのため、SPではボタンの外側の端が
+            // 画面端にゼロマージンで接し、見切れて見えていた（-left-2で8pxの余白を残す）
+            'absolute -left-2 top-[calc(50%-40px)] -translate-y-1/2 z-10',
             'w-10 h-10 md:w-11 md:h-11 rounded-full',
             'bg-white/95 shadow-lg border border-gray-200',
             'flex items-center justify-center',
@@ -142,7 +144,8 @@ export const AnimeCarousel: React.FC<AnimeCarouselProps> = ({
         <button
           onClick={() => scroll('right')}
           className={cn(
-            'absolute -right-4 top-[calc(50%-40px)] -translate-y-1/2 z-10',
+            // 左ボタンと同じ理由でオフセットを縮小している
+            'absolute -right-2 top-[calc(50%-40px)] -translate-y-1/2 z-10',
             'w-10 h-10 md:w-11 md:h-11 rounded-full',
             'bg-white/95 shadow-lg border border-gray-200',
             'flex items-center justify-center',
