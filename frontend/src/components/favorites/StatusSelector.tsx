@@ -78,7 +78,11 @@ export const StatusSelector: React.FC<StatusSelectorProps> = ({
         <span className={currentStatus ? undefined : 'text-gray-500 font-normal'}>
           {currentStatus ? STATUS_CONFIG[currentStatus].label : 'ステータスを選択'}
         </span>
-        <ChevronDown className="w-4 h-4 ml-1" aria-hidden="true" />
+        {/* 開いている間は上向きにして、押すと閉じることを示す（検索のFilterPanelと同じ） */}
+        <ChevronDown
+          className={cn('w-4 h-4 ml-1 transition-transform duration-150', isOpen && 'rotate-180')}
+          aria-hidden="true"
+        />
       </button>
 
       {/* 常時マウントしてopacity/transformで開閉する（UserMenuと同じフェード＋6pxスライド） */}

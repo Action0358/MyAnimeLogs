@@ -26,10 +26,11 @@ const anime = (id: number, status: string, title: string) => ({
 
 describe('MyPageContent のタブ', () => {
   const mockReplace = jest.fn()
+  const mockPush = jest.fn()
 
   beforeEach(() => {
     jest.clearAllMocks()
-    ;(useRouter as jest.Mock).mockReturnValue({ replace: mockReplace, push: jest.fn() })
+    ;(useRouter as jest.Mock).mockReturnValue({ replace: mockReplace, push: mockPush })
     ;(useAuth as jest.Mock).mockReturnValue({
       user,
       token: 't',
@@ -74,6 +75,16 @@ describe('MyPageContent のタブ', () => {
     await userEvent.click(tab('視聴中'))
 
     expect(mockReplace).toHaveBeenCalledWith('/mypage?tab=watching', { scroll: false })
+  })
+
+  // 設定画面のパンくずから、開いていたタブへ戻れるようにする
+  it('設定画面へ表示中のタブを渡す', async () => {
+    window.history.replaceState(null, '', '/mypage?tab=watching')
+    render(<MyPageContent />)
+
+    await userEvent.click(await screen.findByRole('button', { name: '設定' }))
+
+    expect(mockPush).toHaveBeenCalledWith('/mypage/edit?tab=watching')
   })
 
   it('作品カードの戻り先に表示中のタブを含める', async () => {
