@@ -3,6 +3,7 @@ export { default as CurrentSeasonAnime } from './CurrentSeasonAnime';
 export { default as PopularAnime } from './PopularAnime';
 export { default as AnimeListPage } from './AnimeListPage';
 export { AnimeCard } from './AnimeCard';
+export { PosterFallback } from './PosterFallback';
 export { AnimeCarousel, CarouselSkeleton } from './AnimeCarousel';
 export { AnimeGrid } from './AnimeGrid';
 export { RelatedAnimeGrid, RELATED_INITIAL_COUNT } from './RelatedAnimeGrid';
