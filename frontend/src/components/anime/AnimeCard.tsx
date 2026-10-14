@@ -9,6 +9,7 @@ import { withBackParam } from '@/lib/animeListOrigin'
 import { formatSeason } from '@/utils/formatSeason'
 import { getAnimeStatusLabel, type BroadcastStatusLabel } from '@/utils/animeStatus'
 import type { Anime } from '@/lib/api/generated/myanimelogs'
+import { PosterFallback } from './PosterFallback'
 
 /** AnimeCard用の共有型定義 */
 export type AnimeCardData = Anime & { id: number }
@@ -107,21 +108,8 @@ export const AnimeCard: React.FC<AnimeCardProps> = ({
             onError={() => setImageError(true)}
             loading="lazy"
           />
-        ) : size === 'small' ? (
-          // 関連作品グリッド用。他のポスターと質感を合わせるため、絵文字ではなく
-          // グレーの面に作品名を重ねる表示にする
-          <div className="absolute inset-0 flex flex-col justify-end gap-1 p-3 bg-muted">
-            <span className="text-[10px] font-bold tracking-wider text-muted-foreground">
-              NO IMAGE
-            </span>
-            <span className="text-xs font-bold leading-[1.4] text-foreground/70 line-clamp-3">
-              {anime.title}
-            </span>
-          </div>
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/20">
-            <span className="text-4xl">📺</span>
-          </div>
+          <PosterFallback />
         )}
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-200" />
 

@@ -9,7 +9,7 @@ import { decode as heDecodeEntities } from 'he'
 import { Container } from '@/components/layout'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { Button, Card, CardContent, SectionHeading } from '@/components/ui'
-import { WatchProviders, RelatedAnimeGrid } from '@/components/anime'
+import { WatchProviders, RelatedAnimeGrid, PosterFallback } from '@/components/anime'
 import type { Anime } from '@/lib/api/generated/myanimelogs'
 import { FavoriteButton, StatusSelector } from '@/components/favorites'
 import { getAnimesId } from '@/lib/api/generated/myanimelogs'
@@ -275,9 +275,7 @@ const AnimeDetailClient: React.FC = () => {
           onError={() => setImageError(true)}
         />
       ) : (
-        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/15 to-primary/5">
-          <span className="text-5xl">📺</span>
-        </div>
+        <PosterFallback />
       )}
     </div>
   )
