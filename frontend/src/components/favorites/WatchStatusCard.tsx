@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import type { Route } from 'next'
@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { formatSeason } from '@/utils/formatSeason'
 import { Anime } from '@/lib/api/generated/myanimelogs'
 import { withBackParam } from '@/lib/animeListOrigin'
+import { PosterFallback } from '@/components/anime'
 
 interface WatchStatusCardProps {
   anime: Anime & { id: number } // id is required
@@ -27,12 +28,12 @@ export const WatchStatusCard: React.FC<WatchStatusCardProps> = ({
   isUpdating = false,
   from = '/mypage',
 }) => {
+  const [imageError, setImageError] = useState(false)
   const imageUrl =
     anime.cover_image_extra_large ||
     anime.cover_image_large ||
     anime.cover_image_medium ||
-    anime.image_url ||
-    '/placeholder-anime.png'
+    anime.image_url
   const formattedSeason = formatSeason(anime.season)
 
   return (
@@ -57,13 +58,18 @@ export const WatchStatusCard: React.FC<WatchStatusCardProps> = ({
             'transition-shadow duration-200 group-hover:shadow-[0_8px_20px_-6px_rgba(15,23,42,0.28)]'
           )}
         >
-          <Image
-            src={imageUrl}
-            alt=""
-            fill
-            className="object-cover group-hover:scale-105 transition-transform duration-300"
-            sizes="(max-width: 767px) 33vw, (max-width: 1023px) 25vw, 16vw"
-          />
+          {imageUrl && !imageError ? (
+            <Image
+              src={imageUrl}
+              alt=""
+              fill
+              className="object-cover group-hover:scale-105 transition-transform duration-300"
+              sizes="(max-width: 767px) 33vw, (max-width: 1023px) 25vw, 16vw"
+              onError={() => setImageError(true)}
+            />
+          ) : (
+            <PosterFallback />
+          )}
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-200" />
         </div>
 
