@@ -153,6 +153,64 @@ func (c *AnnictClient) FetchPopularWorks() (*models.AnnictWorkResponse, error) {
 	return c.makeRequest(params)
 }
 
+// FetchAllWorksBySeason はシーズンの作品を視聴者数の降順でページをたどって取得する。
+//
+// 1ページ目（上位50件）は視聴者数に関わらずすべて返し、2ページ目以降は
+// 視聴者数が AnnictSeasonMinWatchersCount 以上の作品だけを返す。降順のため、
+// 下限を下回る作品が現れたページで打ち切る。
+//
+// 以前は1ページ目しか取得しておらず、1シーズン50件を超える分が取り込まれて
+// いなかった（例: 新劇場版 銀魂 -吉原大炎上-）。
+// 途中のページで失敗した場合は、取得済みの作品とエラーの両方を返す。
+func (c *AnnictClient) FetchAllWorksBySeason(season string) (*models.AnnictWorkResponse, error) {
+	var allWorks []models.AnnictWork
+
+	for page := 1; page <= constants.AnnictSeasonMaxPages; page++ {
+		params := url.Values{}
+		params.Add("filter_season", season)
+		params.Add("sort_watchers_count", defaultSortOrder)
+		params.Add("per_page", fmt.Sprintf("%d", constants.AnnictAPIPerPage))
+		params.Add("page", fmt.Sprintf("%d", page))
+
+		response, err := c.makeRequest(params)
+		if err != nil {
+			if len(allWorks) > 0 {
+				if c.logger != nil {
+					c.logger.Warn("Partial season data returned due to API error",
+						"season", season,
+						"page", page,
+						"fetched", len(allWorks),
+						"error", err)
+				}
+				return &models.AnnictWorkResponse{Works: allWorks, TotalCount: len(allWorks)},
+					fmt.Errorf("partial data: fetched %d items before error: %w", len(allWorks), err)
+			}
+			return nil, err
+		}
+
+		reachedMin := false
+		for _, work := range response.Works {
+			if page > 1 && work.WatchersCount < constants.AnnictSeasonMinWatchersCount {
+				reachedMin = true
+				break
+			}
+			allWorks = append(allWorks, work)
+		}
+
+		if reachedMin || response.NextPage == nil || len(response.Works) == 0 {
+			break
+		}
+	}
+
+	if c.logger != nil {
+		c.logger.Info("Fetched season works from Annict",
+			"season", season,
+			"total", len(allWorks))
+	}
+
+	return &models.AnnictWorkResponse{Works: allWorks, TotalCount: len(allWorks)}, nil
+}
+
 // FetchPopularWorksWithLimit fetches popular works with pagination to get up to the specified limit
 // This function makes multiple API calls to fetch more than the default per_page limit
 // Returns partial data with error if API fails mid-pagination
@@ -471,13 +529,19 @@ func (c *AnnictClient) SyncWorksToDatabase(works []models.AnnictWork) ([]models.
 }
 
 // FetchAndSyncWorksBySeason fetches works from Annict and syncs to database
+// 51件目以降も取り込むため FetchAllWorksBySeason を使う。途中のページで失敗しても
+// 取得できた分は同期し、エラーは呼び出し側へ返す。
 func (c *AnnictClient) FetchAndSyncWorksBySeason(season string) ([]models.Anime, error) {
-	response, err := c.FetchWorksBySeason(season)
-	if err != nil {
-		return nil, err
+	response, fetchErr := c.FetchAllWorksBySeason(season)
+	if response == nil {
+		return nil, fetchErr
 	}
 
-	return c.SyncWorksToDatabase(response.Works)
+	animes, err := c.SyncWorksToDatabase(response.Works)
+	if err != nil {
+		return animes, err
+	}
+	return animes, fetchErr
 }
 
 // FetchAndSyncPopularWorks fetches popular works from Annict and syncs to database

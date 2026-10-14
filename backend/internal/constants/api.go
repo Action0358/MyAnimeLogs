@@ -138,6 +138,17 @@ const (
 
 	// AnnictAPIPerPage - Annict APIの1ページあたりの取得件数
 	AnnictAPIPerPage = 50
+
+	// AnnictSeasonMinWatchersCount - シーズン同期で51件目以降を取り込む視聴者数の下限。
+	// 1ページ目（視聴者数上位50件）は従来どおり無条件に取り込む。放送前の新作は
+	// 視聴者数が少なく、下限を全件に掛けると次シーズンの作品が一覧から消えるため。
+	// 51件目以降はPVやコラボ動画など小規模な作品が増えるため、下限で絞る（#1023）。
+	AnnictSeasonMinWatchersCount = 100
+
+	// AnnictSeasonMaxPages - シーズン同期で取得するページ数の上限（暴走防止）。
+	// 1シーズンは多くても200件強（4〜5ページ）で、視聴者数の降順で取得するため
+	// 下限を下回った時点で打ち切られる。
+	AnnictSeasonMaxPages = 20
 )
 
 // バッチ処理関連の定数
