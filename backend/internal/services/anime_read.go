@@ -442,6 +442,13 @@ func (s *AnimeService) backgroundEnrichAnime(anime models.Anime) {
 // 取り除いてから切り出す（「劇場版 鬼滅の刃 無限列車編」→「鬼滅の刃」）。
 // 実データでは「劇場版 」始まりが184件、「映画 」始まりが25件ある。
 //
+// 「新劇場版」「劇場版総集編」「続」「真」なども同じ扱いにする。除去しないと
+// 修飾語そのものが先頭語になり、「新劇場版 銀魂」と「新劇場版 頭文字D」、
+// 「劇場版総集編 呪術廻戦」と「劇場版総集編 オーバーロード」のように無関係な
+// 作品同士が束ねられ、本来のシリーズとは繋がらなかった。
+// 選択肢は長いものから並べ、「劇場版総集編」が「劇場版」で途中まで
+// 削られないようにする。
+//
 // さらに2つの正規化を行う。どちらも銀魂シリーズで必要になった（#837）。
 //
 //   - 「」を空白と同じ区切りとして扱う。「銀魂「何事も最初が肝心なので…」」のように
@@ -453,14 +460,19 @@ func (s *AnimeService) backgroundEnrichAnime(anime models.Anime) {
 const relatedTitleHeadExpr = `regexp_replace(` +
 	`split_part(` +
 	`regexp_replace(` +
-	`regexp_replace(%s, '^(劇場版|映画|アニメ|OVA|TVアニメ|テレビアニメ)\s+', '')` +
+	`regexp_replace(%s, '^(劇場版総集編|劇場総集編|総集編|新劇場版|劇場版アニメ|劇場版3D|劇場版|劇場アニメ|映画|特別編|特別篇|アニメ|OVA|TVアニメ|テレビアニメ|続|真)\s+', '')` +
 	`, '「', ' ')` +
 	`, ' ', 1)` +
 	`, '[’゜.]+$', '')`
 
-// getRelatedSeasons - 以下4条件のいずれかを満たす他のアニメ（自分自身を除く）を
+// relatedSelfSeriesExpr - 自作品（id=$2）の所属シリーズ。未取得（NULL）は空配列として扱い、
+// cardinality() で「シリーズ情報あり」を判定できるようにする。
+const relatedSelfSeriesExpr = `COALESCE((SELECT annict_series_names FROM animes WHERE id = $2), '{}')`
+
+// getRelatedSeasons - 以下の条件のいずれかを満たす他のアニメ（自分自身を除く）を
 // 放送時期順で返す。条件はOR結合（マージ）され、重複はidの一意性により自然に排除される。
 //
+//  0. Annictの所属シリーズ（annict_series_names）が1つでも重なる
 //  1. series_title の完全一致（従来ロジック）
 //  2. series_tmdb_id の一致（自身のseries_tmdb_idが非nilの場合のみ）
 //  3. タイトルの双方向前方一致（双方の文字数がMinRelatedTitlePrefixLength以上の場合のみ）
@@ -491,6 +503,14 @@ const relatedTitleHeadExpr = `regexp_replace(` +
 //
 // 条件4の文字数閾値（MinRelatedTitleHeadLength）が条件3より小さいのは、
 // 先頭語一致が「先頭語全体の一致」を要求し前方一致より safer なため。
+//
+// 条件0はAnnictで人手により整理されたシリーズ情報で、タイトルの推測では拾えない
+// 「銀魂オンシアター2D」（空白なしで副題が続く）のような作品も繋げられる。
+// 条件0は繋がりを足すだけで、シリーズが食い違う作品をタイトル由来の条件から
+// 除外することはしない。Annictのシリーズは「名探偵コナン」と「劇場版 名探偵コナン」、
+// 「ルパン三世 TVアニメ」と「ルパン三世 TVスペシャル」のように同じ作品群でも
+// 細かく分かれており、除外に使うとTV版と劇場版が切れてしまうため
+// （ローカルDBの全作品で2,219組が切れることを確認した）。
 // 詳細は各定数のコメントを参照。
 func (s *AnimeService) getRelatedSeasons(animeID int, title string, seriesTitle *string, seriesTMDBID *int) []models.RelatedAnime {
 	// どの条件にも使えるだけの手がかりがない場合だけクエリを省く。
@@ -512,8 +532,9 @@ func (s *AnimeService) getRelatedSeasons(animeID int, title string, seriesTitle 
 		FROM animes
 		WHERE id != $2
 		AND (
-			($1::text IS NOT NULL AND series_title = $1)
+			(cardinality(%[3]s) > 0 AND annict_series_names && %[3]s)
 			OR ($3::int IS NOT NULL AND series_tmdb_id = $3)
+			OR ($1::text IS NOT NULL AND series_title = $1)
 			OR (
 				length($4) >= $5 AND length(title) >= $5
 				AND (
@@ -538,7 +559,7 @@ func (s *AnimeService) getRelatedSeasons(animeID int, title string, seriesTitle 
 			END,
 			id
 		LIMIT $6
-	`, selfHead, candidateHead),
+	`, selfHead, candidateHead, relatedSelfSeriesExpr),
 		seriesTitle, animeID, seriesTMDBID, title,
 		constants.MinRelatedTitlePrefixLength, constants.MaxRelatedSeasons,
 		constants.MinRelatedTitleHeadLength)

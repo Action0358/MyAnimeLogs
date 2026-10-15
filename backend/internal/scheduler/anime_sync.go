@@ -389,6 +389,9 @@ func (s *AnimeSyncScheduler) syncAllSeasons(nextSyncTime time.Time) {
 		return
 	}
 
+	// Annictの所属シリーズ（関連作品の判定に使う）。初回は既存作品の補完を兼ねる
+	syncErrors = s.syncAnnictSeries(ctx, syncErrors)
+
 	// 今期・前期作品のreleased_on同期（Jikan API）
 	previousSeason := utils.PreviousSeasonForTime(startTime)
 	s.logger.Info("Syncing released_on for current/previous season animes (initial sync)")
@@ -562,6 +565,9 @@ func (s *AnimeSyncScheduler) syncCurrentSeasonAnimes() {
 		return
 	}
 
+	// Step 1.1: 新しく取り込んだ作品の所属シリーズ（Annict GraphQL）
+	syncErrors = s.syncAnnictSeries(ctx, syncErrors)
+
 	// Step 1.5: 今期・前期作品のreleased_on同期（Jikan API）
 	// released_onがNULLの作品に対してJikanから放送開始日を取得し、ステータスを再判定
 	s.logger.Info("Syncing released_on for current/previous season animes")
@@ -647,6 +653,22 @@ func (s *AnimeSyncScheduler) syncCurrentSeasonAnimes() {
 			"next_count", nextCount,
 			"total_count", totalAnimeCount)
 	}
+}
+
+// syncAnnictSeries はシリーズ未取得の作品について、Annictから所属シリーズを取得する。
+// 関連作品の判定に使う補助情報のため、失敗しても同期全体は止めずエラーとして記録する。
+func (s *AnimeSyncScheduler) syncAnnictSeries(ctx context.Context, syncErrors []string) []string {
+	if s.annictClient == nil {
+		return syncErrors
+	}
+	saved, err := s.annictClient.SyncSeriesNames(ctx)
+	if err != nil {
+		return append(syncErrors, fmt.Sprintf("Annict series sync: %s", err.Error()))
+	}
+	if saved > 0 {
+		s.logger.Info("Annict series sync completed", "saved_count", saved)
+	}
+	return syncErrors
 }
 
 // syncSeason syncs animes for a specific season
