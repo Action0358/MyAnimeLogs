@@ -239,6 +239,21 @@ func TestRelatedTitleHeadExpr_NormalizesTitleVariants(t *testing.T) {
 	assert.Contains(t, relatedTitleHeadExpr, "アニメ")
 }
 
+// 「新劇場版」「劇場版総集編」などの修飾語が先頭語にならないこと。
+// 除去しないと「新劇場版 銀魂 -吉原大炎上-」が「新劇場版 頭文字D」と、
+// 「劇場版総集編 呪術廻戦」が「劇場版総集編 オーバーロード」と束ねられていた。
+func TestRelatedTitleHeadExpr_StripsCompoundModifiers(t *testing.T) {
+	for _, modifier := range []string{"新劇場版", "劇場版総集編", "劇場総集編", "総集編", "劇場版アニメ", "特別編", "続", "真"} {
+		assert.Regexp(t, `[(|]`+modifier+`[|)]`, relatedTitleHeadExpr,
+			"修飾語 %s を除去対象にすること", modifier)
+	}
+
+	// 「劇場版」が先に一致すると「劇場版総集編」が「総集編 呪術廻戦」までしか
+	// 削られないため、長い修飾語ほど前に並べる
+	assert.Less(t, strings.Index(relatedTitleHeadExpr, "劇場版総集編"), strings.Index(relatedTitleHeadExpr, "劇場版|"))
+	assert.Less(t, strings.Index(relatedTitleHeadExpr, "新劇場版"), strings.Index(relatedTitleHeadExpr, "劇場版|"))
+}
+
 // 2文字の日本語タイトルでも、手がかりなしとして早期returnしないこと。
 // ここで弾くと SQL に到達せず、先頭語一致の閾値を下げた意味がなくなる。
 func TestGetRelatedSeasons_ShortJapaneseTitleStillQueries(t *testing.T) {
