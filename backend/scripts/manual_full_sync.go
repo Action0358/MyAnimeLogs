@@ -170,6 +170,14 @@ func run(logger *common.Logger, env string) error {
 			"failure", annictFailure)
 	}
 
+	// Step 1.1: Annictの所属シリーズ（関連作品の判定に使う。未取得の作品のみ）
+	logger.Info("Step 1.1: Syncing Annict series for animes without series info...")
+	if seriesSaved, err := annictClient.SyncSeriesNames(context.Background()); err != nil {
+		logger.Warn("Failed to sync Annict series", "error", err)
+	} else {
+		logger.Info("Annict series sync completed", "saved", seriesSaved)
+	}
+
 	// Step 2: Sync descriptions from TMDB (only for animes without description)
 	logger.Info("Step 2/4: Syncing descriptions from TMDB (differential mode)...")
 	tmdbAPIKey := os.Getenv("TMDB_API_KEY")
