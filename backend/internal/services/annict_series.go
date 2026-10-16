@@ -49,22 +49,78 @@ func isFranchiseSeries(name string) bool {
 	return !nonFranchiseSeriesNames[name] && !nonFranchiseSeriesPattern.MatchString(name)
 }
 
-type annictSeriesResponse struct {
-	Data struct {
-		SearchWorks struct {
-			Nodes []struct {
-				AnnictID   int `json:"annictId"`
-				SeriesList struct {
-					Nodes []struct {
-						Name string `json:"name"`
-					} `json:"nodes"`
-				} `json:"seriesList"`
-			} `json:"nodes"`
-		} `json:"searchWorks"`
-	} `json:"data"`
-	Errors []struct {
-		Message string `json:"message"`
-	} `json:"errors"`
+type annictSeriesData struct {
+	SearchWorks struct {
+		Nodes []struct {
+			AnnictID   int `json:"annictId"`
+			SeriesList struct {
+				Nodes []struct {
+					Name string `json:"name"`
+				} `json:"nodes"`
+			} `json:"seriesList"`
+		} `json:"nodes"`
+	} `json:"searchWorks"`
+}
+
+// postGraphQL はAnnict GraphQL APIへクエリを送り、レスポンスのdataをoutへ展開する
+func (c *AnnictClient) postGraphQL(query string, out interface{}) error {
+	if c.Token == "" {
+		return fmt.Errorf("annict API token is not set")
+	}
+	body, err := json.Marshal(map[string]string{"query": query})
+	if err != nil {
+		return fmt.Errorf("failed to marshal graphql query: %w", err)
+	}
+
+	c.applyRateLimit()
+
+	req, err := http.NewRequest(http.MethodPost, annictGraphQLEndpoint, bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("failed to create http request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+c.Token)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("User-Agent", "MyAnimeLogs/1.0")
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to execute http request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body)
+		if resp.StatusCode == http.StatusTooManyRequests {
+			return fmt.Errorf("status %d: %w", resp.StatusCode, ErrRateLimitExceeded)
+		}
+		return fmt.Errorf("annict graphql returned status %d, body: %s", resp.StatusCode, string(respBody))
+	}
+
+	var parsed struct {
+		Data   json.RawMessage `json:"data"`
+		Errors []struct {
+			Message string `json:"message"`
+		} `json:"errors"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&parsed); err != nil {
+		return fmt.Errorf("failed to unmarshal annict graphql response: %w", err)
+	}
+	if len(parsed.Errors) > 0 {
+		return fmt.Errorf("annict graphql error: %s", parsed.Errors[0].Message)
+	}
+	if err := json.Unmarshal(parsed.Data, out); err != nil {
+		return fmt.Errorf("failed to unmarshal annict graphql data: %w", err)
+	}
+	return nil
+}
+
+// joinIntIDs はGraphQLクエリへ埋め込むID一覧（"1,2,3"）を作る
+func joinIntIDs(ids []int) string {
+	strs := make([]string, len(ids))
+	for i, id := range ids {
+		strs[i] = strconv.Itoa(id)
+	}
+	return strings.Join(strs, ",")
 }
 
 // FetchSeriesNames は指定したAnnict作品IDの所属シリーズ名を取得する。
@@ -77,52 +133,16 @@ func (c *AnnictClient) FetchSeriesNames(annictIDs []int) (map[int][]string, erro
 		return map[int][]string{}, nil
 	}
 
-	ids := make([]string, len(annictIDs))
-	for i, id := range annictIDs {
-		ids[i] = strconv.Itoa(id)
-	}
 	query := fmt.Sprintf(
 		`{ searchWorks(annictIds: [%s], first: %d) { nodes { annictId seriesList { nodes { name } } } } }`,
-		strings.Join(ids, ","), len(annictIDs))
-	body, err := json.Marshal(map[string]string{"query": query})
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal graphql query: %w", err)
+		joinIntIDs(annictIDs), len(annictIDs))
+	var data annictSeriesData
+	if err := c.postGraphQL(query, &data); err != nil {
+		return nil, err
 	}
 
-	c.applyRateLimit()
-
-	req, err := http.NewRequest(http.MethodPost, annictGraphQLEndpoint, bytes.NewReader(body))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create http request: %w", err)
-	}
-	req.Header.Set("Authorization", "Bearer "+c.Token)
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", "MyAnimeLogs/1.0")
-
-	resp, err := c.HTTPClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to execute http request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		respBody, _ := io.ReadAll(resp.Body)
-		if resp.StatusCode == http.StatusTooManyRequests {
-			return nil, fmt.Errorf("status %d: %w", resp.StatusCode, ErrRateLimitExceeded)
-		}
-		return nil, fmt.Errorf("annict graphql returned status %d, body: %s", resp.StatusCode, string(respBody))
-	}
-
-	var parsed annictSeriesResponse
-	if err := json.NewDecoder(resp.Body).Decode(&parsed); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal annict graphql response: %w", err)
-	}
-	if len(parsed.Errors) > 0 {
-		return nil, fmt.Errorf("annict graphql error: %s", parsed.Errors[0].Message)
-	}
-
-	result := make(map[int][]string, len(parsed.Data.SearchWorks.Nodes))
-	for _, node := range parsed.Data.SearchWorks.Nodes {
+	result := make(map[int][]string, len(data.SearchWorks.Nodes))
+	for _, node := range data.SearchWorks.Nodes {
 		names := make([]string, 0, len(node.SeriesList.Nodes))
 		for _, s := range node.SeriesList.Nodes {
 			if name := strings.TrimSpace(s.Name); name != "" && isFranchiseSeries(name) {
