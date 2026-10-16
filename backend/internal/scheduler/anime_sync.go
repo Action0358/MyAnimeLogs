@@ -187,6 +187,7 @@ type AnimeService interface {
 	SyncGenresForAllAnimes() (int, int, []string, error)
 	SyncCoverImagesForAllAnimes() (int, int, []string, error)
 	SyncReleasedOnForCurrentSeason(ctx context.Context, currentSeason, previousSeason string) (int, int, error)
+	BackfillReleasedOn(ctx context.Context) (int, error)
 	SyncAllAnimeStatuses(ctx context.Context) (int, int, error)
 	// SyncTMDBMetadata resolves tmdb_id and Japanese descriptions from TMDB for up to
 	// `limit` animes that need them (limit <= 0 means unlimited). Returns success,
@@ -404,6 +405,9 @@ func (s *AnimeSyncScheduler) syncAllSeasons(nextSyncTime time.Time) {
 			"failure_count", releasedOnFailure)
 	}
 
+	// 全シーズンのreleased_on補完（Annict放送枠・AniList）
+	syncErrors = s.backfillReleasedOn(ctx, syncErrors)
+
 	// タイムアウト確認
 	if s.checkSyncTimeout(ctx, "released_on sync", startTime, totalAnimeCount, syncErrors) {
 		return
@@ -580,6 +584,10 @@ func (s *AnimeSyncScheduler) syncCurrentSeasonAnimes() {
 			"failure_count", releasedOnFailure)
 	}
 
+	// Step 1.51: 全シーズンのreleased_on補完（Annict放送枠・AniList）
+	// 今期・前期以外の空欄を補う。問い合わせ済みの作品は30日間対象外のため、通常は数件で終わる
+	syncErrors = s.backfillReleasedOn(ctx, syncErrors)
+
 	// タイムアウト確認
 	if s.checkSyncTimeout(ctx, "Step 1.5", startTime, totalAnimeCount, syncErrors) {
 		return
@@ -667,6 +675,19 @@ func (s *AnimeSyncScheduler) syncAnnictSeries(ctx context.Context, syncErrors []
 	}
 	if saved > 0 {
 		s.logger.Info("Annict series sync completed", "saved_count", saved)
+	}
+	return syncErrors
+}
+
+// backfillReleasedOn は全シーズンのreleased_onが空の作品について、放送開始日を補完する。
+// 失敗しても後続の同期は止めず、エラーをsyncErrorsに追加する
+func (s *AnimeSyncScheduler) backfillReleasedOn(ctx context.Context, syncErrors []string) []string {
+	saved, err := s.animeService.BackfillReleasedOn(ctx)
+	if err != nil {
+		return append(syncErrors, fmt.Sprintf("Released_on backfill: %s", err.Error()))
+	}
+	if saved > 0 {
+		s.logger.Info("Released_on backfill completed", "saved_count", saved)
 	}
 	return syncErrors
 }

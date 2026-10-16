@@ -39,8 +39,9 @@ const EMPTY_STATE_CONFIG: Record<
     icon: <CirclePlay className="w-7 h-7 md:w-8 md:h-8" strokeWidth={1.75} aria-hidden="true" />,
     title: '視聴中のアニメはありません',
     description: '見ている作品を視聴中に追加しましょう',
-    ctaLabel: '今期アニメを見る',
-    ctaHref: '/anime/current',
+    // 他タブ（視聴予定・視聴済）とCTAの文言・遷移先を統一する
+    ctaLabel: 'アニメを探す',
+    ctaHref: '/search',
   },
   completed: {
     icon: <CircleCheck className="w-7 h-7 md:w-8 md:h-8" strokeWidth={1.75} aria-hidden="true" />,
