@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import { SearchX } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AnimeCard } from './AnimeCard'
 import { SkeletonCard } from './SkeletonCard'
@@ -62,7 +63,12 @@ export const AnimeGrid: React.FC<AnimeGridProps> = ({
   }
 
   if (!isLoading && animes.length === 0) {
-    return <EmptyState title={emptyMessage} icon={<span className="text-6xl">🔍</span>} />
+    return (
+      <EmptyState
+        title={emptyMessage}
+        icon={<SearchX className="w-7 h-7 md:w-8 md:h-8" strokeWidth={1.75} aria-hidden="true" />}
+      />
+    )
   }
 
   return (
