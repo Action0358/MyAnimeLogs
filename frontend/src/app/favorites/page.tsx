@@ -1,11 +1,13 @@
 'use client'
 
 import React, { useMemo } from 'react'
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import type { Route } from 'next'
+import { Heart } from 'lucide-react'
 import { Container } from '@/components/layout'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { Button } from '@/components/ui/Button'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { FavoriteCard } from '@/components/favorites'
 import { SkeletonCard } from '@/components/anime'
 import { useFavorites, FavoriteAnime } from '@/hooks/useFavorites'
@@ -18,6 +20,7 @@ const filterValidFavorites = (favorites: FavoriteAnime[]): (FavoriteAnime & { id
 }
 
 const FavoritesContent: React.FC = () => {
+  const router = useRouter()
   // 解除は視聴ステータスと同様に詳細ページで行うため、一覧では取得のみ
   const { favorites, isLoading, error } = useFavorites()
 
@@ -71,19 +74,16 @@ const FavoritesContent: React.FC = () => {
           ))}
         </div>
       ) : validFavorites.length === 0 ? (
-        <div className="text-center py-16">
-          <div className="text-6xl mb-4" aria-hidden="true">⭐</div>
-          <h2 className="text-xl font-semibold text-foreground mb-2">
-            お気に入りがまだありません
-          </h2>
-          <p className="text-muted-foreground mb-6">
-            気になるアニメを見つけたら、お気に入りに追加してみましょう
-          </p>
-          <Link href={"/" as Route}>
-            <Button variant="primary" size="md">
-              アニメを探す
-            </Button>
-          </Link>
+        <div className="md:min-h-[420px] md:flex md:items-center md:justify-center">
+          <EmptyState
+            icon={<Heart className="w-7 h-7 md:w-8 md:h-8" strokeWidth={1.75} aria-hidden="true" />}
+            title="お気に入りはまだありません"
+            description="好きな作品をお気に入りに追加しましょう"
+            action={{
+              label: 'アニメを探す',
+              onClick: () => router.push('/search' as Route),
+            }}
+          />
         </div>
       ) : (
         <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-x-2.5 gap-y-3.5 md:gap-x-[18px] md:gap-y-5">
