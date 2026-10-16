@@ -4,15 +4,15 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { Route } from 'next'
-import { Settings } from 'lucide-react'
+import { Settings, Bookmark, CirclePlay, CircleCheck } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { Container } from '@/components/layout'
 import { Button } from '@/components/ui/Button'
+import { EmptyState } from '@/components/ui/EmptyState'
 import {
   WatchStatusTabs,
   WatchStatusCard,
   WatchStatusTabKey,
-  WATCH_STATUS_TAB_LABELS,
 } from '@/components/favorites'
 import { useWatchStatus, WatchStatusAnime } from '@/hooks/useWatchStatus'
 import { WatchStatusStatus } from '@/lib/api/generated/myanimelogs'
@@ -21,6 +21,35 @@ import { readMyPageTabFromUrl, myPageHref, myPageSettingsHref } from './myPageTa
 
 // マイページに表示する視聴ステータスの最大件数
 const MAX_WATCH_STATUSES = 20
+
+// タブごとの空状態。アイコンはステータスボタンと同じものを使い、
+// 次の行動を案内する文言にする（空状態UI刷新）
+const EMPTY_STATE_CONFIG: Record<
+  WatchStatusTabKey,
+  { icon: React.ReactNode; title: string; description: string; ctaLabel: string; ctaHref: string }
+> = {
+  planned: {
+    icon: <Bookmark className="w-7 h-7 md:w-8 md:h-8" strokeWidth={1.75} aria-hidden="true" />,
+    title: '視聴予定のアニメはありません',
+    description: '気になる作品を視聴予定に追加しましょう',
+    ctaLabel: 'アニメを探す',
+    ctaHref: '/search',
+  },
+  watching: {
+    icon: <CirclePlay className="w-7 h-7 md:w-8 md:h-8" strokeWidth={1.75} aria-hidden="true" />,
+    title: '視聴中のアニメはありません',
+    description: '見ている作品を視聴中に追加しましょう',
+    ctaLabel: '今期アニメを見る',
+    ctaHref: '/anime/current',
+  },
+  completed: {
+    icon: <CircleCheck className="w-7 h-7 md:w-8 md:h-8" strokeWidth={1.75} aria-hidden="true" />,
+    title: '視聴済のアニメはありません',
+    description: '見終えた作品を視聴済に追加しましょう',
+    ctaLabel: 'アニメを探す',
+    ctaHref: '/search',
+  },
+}
 
 // id が number の作品のみを抽出（WatchStatusCard は id 必須）
 const filterValidItems = (
@@ -238,16 +267,16 @@ export const MyPageContent: React.FC = () => {
           ))}
         </div>
       ) : (
-        <div className="text-center py-12">
-          <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-muted-foreground text-3xl">📺</span>
-          </div>
-          <p className="text-muted-foreground mb-4">
-            {`「${WATCH_STATUS_TAB_LABELS[activeTab]}」のアニメがありません`}
-          </p>
-          <Button variant="primary" size="md" onClick={() => router.push('/')}>
-            アニメを探す
-          </Button>
+        <div className="md:min-h-[420px] md:flex md:items-center md:justify-center">
+          <EmptyState
+            icon={EMPTY_STATE_CONFIG[activeTab].icon}
+            title={EMPTY_STATE_CONFIG[activeTab].title}
+            description={EMPTY_STATE_CONFIG[activeTab].description}
+            action={{
+              label: EMPTY_STATE_CONFIG[activeTab].ctaLabel,
+              onClick: () => router.push(EMPTY_STATE_CONFIG[activeTab].ctaHref as Route),
+            }}
+          />
         </div>
       )}
     </Container>
