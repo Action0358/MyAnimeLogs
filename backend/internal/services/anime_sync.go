@@ -11,6 +11,8 @@ import (
 
 	"myanimelogs/internal/constants"
 	"myanimelogs/internal/models"
+
+	"github.com/lib/pq"
 )
 
 // SyncAnimeStatus - TMDBからステータスを取得して更新
@@ -809,37 +811,21 @@ func (s *AnimeService) SyncReleasedOnForCurrentSeason(ctx context.Context, curre
 
 	// save はreleased_onを保存してステータスを再判定する。保存できたらtrue
 	save := func(a releaseDateTarget, releasedOn, source string) bool {
-		if !isPlausibleReleaseDate(a.Season, releasedOn) {
-			s.logger.Debug("Skipped implausible released_on",
-				"anime_id", a.ID, "season", a.Season, "released_on", releasedOn, "source", source)
-			return false
-		}
-		// 同期中にAnnict側の値が入った場合は上書きしない
-		_, err := s.db.ExecContext(ctx, `
-			UPDATE animes SET released_on = $1
-			WHERE id = $2 AND (released_on IS NULL OR released_on = '')
-		`, releasedOn, a.ID)
+		saved, err := s.saveFetchedReleasedOn(ctx, a, releasedOn, source)
 		if err != nil {
-			s.logger.Warn("Failed to save released_on for current season anime",
-				"anime_id", a.ID, "error", err)
 			failureCount++
-			return false
 		}
-		s.logger.Debug("Saved released_on for current season anime",
-			"anime_id", a.ID, "title", a.Title, "released_on", releasedOn, "source", source)
-		if syncErr := s.SyncAnimeStatus(ctx, a.ID, false); syncErr != nil {
-			s.logger.Warn("Failed to re-evaluate status after released_on update",
-				"anime_id", a.ID, "error", syncErr)
+		if saved {
+			successCount++
 		}
-		successCount++
-		return true
+		return saved
 	}
 
 	// 1. Annictの放送枠（日本の初回放送日）
-	targets = s.fillReleasedOnFromAnnict(targets, save)
+	targets, _ = s.fillReleasedOnFromAnnict(targets, save)
 	// 2. AniListの開始日（映画の公開日を含む）
 	if err := ctx.Err(); err == nil {
-		targets = s.fillReleasedOnFromAniList(ctx, targets, save)
+		targets, _ = s.fillReleasedOnFromAniList(ctx, targets, save)
 	}
 
 	// 3. Jikan（AniListでも取れなかった作品のみ）
@@ -885,11 +871,122 @@ func (s *AnimeService) SyncReleasedOnForCurrentSeason(ctx context.Context, curre
 	return successCount, failureCount, nil
 }
 
-// fillReleasedOnFromAnnict はAnnictの放送枠から初回放送日を補い、補えなかった作品を返す
-func (s *AnimeService) fillReleasedOnFromAnnict(targets []releaseDateTarget, save func(releaseDateTarget, string, string) bool) []releaseDateTarget {
-	if s.annictClient == nil {
-		return targets
+// saveFetchedReleasedOn は外部から取得した放送開始日を、空のreleased_onへ保存してステータスを再判定する。
+// シーズンとかけ離れた日付は保存しない。保存できたらtrueを返す
+func (s *AnimeService) saveFetchedReleasedOn(ctx context.Context, a releaseDateTarget, releasedOn, source string) (bool, error) {
+	if !isPlausibleReleaseDate(a.Season, releasedOn) {
+		s.logger.Debug("Skipped implausible released_on",
+			"anime_id", a.ID, "season", a.Season, "released_on", releasedOn, "source", source)
+		return false, nil
 	}
+	// 同期中にAnnict側の値が入った場合は上書きしない
+	_, err := s.db.ExecContext(ctx, `
+		UPDATE animes SET released_on = $1
+		WHERE id = $2 AND (released_on IS NULL OR released_on = '')
+	`, releasedOn, a.ID)
+	if err != nil {
+		s.logger.Warn("Failed to save released_on",
+			"anime_id", a.ID, "error", err)
+		return false, err
+	}
+	s.logger.Debug("Saved released_on",
+		"anime_id", a.ID, "title", a.Title, "released_on", releasedOn, "source", source)
+	if syncErr := s.SyncAnimeStatus(ctx, a.ID, false); syncErr != nil {
+		s.logger.Warn("Failed to re-evaluate status after released_on update",
+			"anime_id", a.ID, "error", syncErr)
+	}
+	return true, nil
+}
+
+// releasedOnRecheckDays - どの情報源にも日付が無かった作品へ再度問い合わせるまでの日数
+const releasedOnRecheckDays = 30
+
+// BackfillReleasedOn は全シーズンのreleased_onが空の作品について、Annictの放送枠・AniListから
+// 放送開始日を補う。今期・前期はSyncReleasedOnForCurrentSeasonが毎日Jikanも含めて補うが、
+// それ以外のシーズンは対象外で、過去作の多くが空のままだったため。
+//
+// 問い合わせた作品はreleased_on_checked_atを記録し、日付が見つからなくても
+// releasedOnRecheckDays日は再度問い合わせない。Jikanは応答が遅く件数も多いため使わない。
+// 戻り値は保存した作品数。
+func (s *AnimeService) BackfillReleasedOn(ctx context.Context) (int, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT id, title, COALESCE(mal_anime_id, ''), COALESCE(annict_id, 0), COALESCE(season, '')
+		FROM animes
+		WHERE (released_on IS NULL OR released_on = '')
+		AND (
+			released_on_checked_at IS NULL
+			OR released_on_checked_at < NOW() - make_interval(days => $1)
+		)
+		ORDER BY id
+	`, releasedOnRecheckDays)
+	if err != nil {
+		return 0, fmt.Errorf("failed to query animes for released_on backfill: %w", err)
+	}
+	var targets []releaseDateTarget
+	for rows.Next() {
+		var a releaseDateTarget
+		if err := rows.Scan(&a.ID, &a.Title, &a.MalID, &a.AnnictID, &a.Season); err != nil {
+			rows.Close()
+			return 0, fmt.Errorf("failed to scan anime for released_on backfill: %w", err)
+		}
+		targets = append(targets, a)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return 0, fmt.Errorf("failed to iterate animes for released_on backfill: %w", err)
+	}
+	if len(targets) == 0 {
+		return 0, nil
+	}
+	s.logger.Info("Starting released_on backfill", "target_count", len(targets))
+
+	saved := 0
+	save := func(a releaseDateTarget, releasedOn, source string) bool {
+		ok, _ := s.saveFetchedReleasedOn(ctx, a, releasedOn, source)
+		if ok {
+			saved++
+		}
+		return ok
+	}
+
+	for start := 0; start < len(targets); start += releaseDateBatchSize {
+		if err := ctx.Err(); err != nil {
+			return saved, err
+		}
+		chunk := targets[start:min(start+releaseDateBatchSize, len(targets))]
+
+		remaining, annictErr := s.fillReleasedOnFromAnnict(chunk, save)
+		_, anilistErr := s.fillReleasedOnFromAniList(ctx, remaining, save)
+		if annictErr != nil || anilistErr != nil {
+			// 問い合わせに失敗した作品は確認済みにせず、次回の同期で再び対象にする
+			continue
+		}
+
+		ids := make([]int64, len(chunk))
+		for i, a := range chunk {
+			ids[i] = int64(a.ID)
+		}
+		if _, err := s.db.ExecContext(ctx, `
+			UPDATE animes SET released_on_checked_at = NOW() WHERE id = ANY($1)
+		`, pq.Array(ids)); err != nil {
+			s.logger.Warn("Failed to mark released_on as checked", "error", err)
+		}
+	}
+
+	if saved > 0 {
+		s.ClearAnimeCache()
+	}
+	s.logger.Info("Released_on backfill completed", "saved_count", saved, "target_count", len(targets))
+	return saved, nil
+}
+
+// fillReleasedOnFromAnnict はAnnictの放送枠から初回放送日を補い、補えなかった作品を返す。
+// 取得に失敗したバッチがあれば、最後のエラーも返す（そのバッチの作品はremainingに含まれる）
+func (s *AnimeService) fillReleasedOnFromAnnict(targets []releaseDateTarget, save func(releaseDateTarget, string, string) bool) ([]releaseDateTarget, error) {
+	if s.annictClient == nil {
+		return targets, nil
+	}
+	var fetchErr error
 	var remaining, withID []releaseDateTarget
 	for _, a := range targets {
 		if a.AnnictID == 0 {
@@ -909,6 +1006,7 @@ func (s *AnimeService) fillReleasedOnFromAnnict(targets []releaseDateTarget, sav
 		if err != nil {
 			// 取得できなかったバッチは次の補完元へ回す
 			s.logger.Warn("Failed to fetch Annict broadcast dates", "error", err)
+			fetchErr = err
 			remaining = append(remaining, batch...)
 			continue
 		}
@@ -918,14 +1016,16 @@ func (s *AnimeService) fillReleasedOnFromAnnict(targets []releaseDateTarget, sav
 			}
 		}
 	}
-	return remaining
+	return remaining, fetchErr
 }
 
-// fillReleasedOnFromAniList はAniListの開始日を補い、補えなかった作品を返す
-func (s *AnimeService) fillReleasedOnFromAniList(ctx context.Context, targets []releaseDateTarget, save func(releaseDateTarget, string, string) bool) []releaseDateTarget {
+// fillReleasedOnFromAniList はAniListの開始日を補い、補えなかった作品を返す。
+// 取得に失敗したバッチがあれば、最後のエラーも返す（そのバッチの作品はremainingに含まれる）
+func (s *AnimeService) fillReleasedOnFromAniList(ctx context.Context, targets []releaseDateTarget, save func(releaseDateTarget, string, string) bool) ([]releaseDateTarget, error) {
 	if s.anilistClient == nil {
-		return targets
+		return targets, nil
 	}
+	var fetchErr error
 	var remaining, withID []releaseDateTarget
 	var malIDs []int
 	for _, a := range targets {
@@ -944,6 +1044,7 @@ func (s *AnimeService) fillReleasedOnFromAniList(ctx context.Context, targets []
 		dates, err := s.anilistClient.GetStartDatesByMALIds(ctx, malIDs[start:end])
 		if err != nil {
 			s.logger.Warn("Failed to fetch AniList start dates", "error", err)
+			fetchErr = err
 			remaining = append(remaining, batch...)
 			continue
 		}
@@ -953,7 +1054,7 @@ func (s *AnimeService) fillReleasedOnFromAniList(ctx context.Context, targets []
 			}
 		}
 	}
-	return remaining
+	return remaining, fetchErr
 }
 
 // SyncPriorityAnimeData syncs episodes, descriptions, and released_on for specific anime IDs.
