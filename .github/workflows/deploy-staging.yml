@@ -6,28 +6,8 @@ on:
   # プルリクエストでは実行しない（mainブランチへのPRでステージングデプロイを防ぐ）
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: "1.26"
-          # ランナーのプリインストール版(古いパッチ)ではなく最新パッチを取得する。
-          # 未指定だと govulncheck が修正済みの標準ライブラリ脆弱性を検出してCIが落ちる
-          check-latest: true
-
-      - name: Run backend tests
-        working-directory: ./backend
-        run: |
-          go mod download
-          go test -v ./...
-
+  # テストはPRマージ前にtest-and-build.ymlで実施済みのため、ここでは再実行しない
   deploy-backend-staging:
-    needs: test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -87,7 +67,6 @@ jobs:
       # デプロイ後のデータ同期は手動で実行してください
 
   deploy-frontend-staging:
-    needs: test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
