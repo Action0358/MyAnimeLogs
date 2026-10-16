@@ -178,6 +178,14 @@ func run(logger *common.Logger, env string) error {
 		logger.Info("Annict series sync completed", "saved", seriesSaved)
 	}
 
+	// Step 1.2: 放送開始日が空の作品を、Annictの放送枠・AniListから補う（未確認の作品のみ）
+	logger.Info("Step 1.2: Backfilling released_on from Annict programs and AniList...")
+	if backfilled, err := animeService.BackfillReleasedOn(context.Background()); err != nil {
+		logger.Warn("Failed to backfill released_on", "error", err)
+	} else {
+		logger.Info("Released_on backfill completed", "saved", backfilled)
+	}
+
 	// Step 2: Sync descriptions from TMDB (only for animes without description)
 	logger.Info("Step 2/4: Syncing descriptions from TMDB (differential mode)...")
 	tmdbAPIKey := os.Getenv("TMDB_API_KEY")

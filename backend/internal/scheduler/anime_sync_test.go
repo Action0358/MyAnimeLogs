@@ -46,6 +46,10 @@ func (m *mockAnimeService) SyncReleasedOnForCurrentSeason(ctx context.Context, c
 	return 0, 0, nil
 }
 
+func (m *mockAnimeService) BackfillReleasedOn(ctx context.Context) (int, error) {
+	return 0, nil
+}
+
 func (m *mockAnimeService) SyncAllAnimeStatuses(ctx context.Context) (int, int, error) {
 	return 0, 0, nil
 }
@@ -273,6 +277,10 @@ func (m *mockAnimeServiceWithDelay) SyncCoverImagesForAllAnimes() (int, int, []s
 
 func (m *mockAnimeServiceWithDelay) SyncReleasedOnForCurrentSeason(ctx context.Context, currentSeason, previousSeason string) (int, int, error) {
 	return 0, 0, nil
+}
+
+func (m *mockAnimeServiceWithDelay) BackfillReleasedOn(ctx context.Context) (int, error) {
+	return 0, nil
 }
 
 func (m *mockAnimeServiceWithDelay) SyncAllAnimeStatuses(ctx context.Context) (int, int, error) {
