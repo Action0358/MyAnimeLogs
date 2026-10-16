@@ -12,6 +12,7 @@ import (
 	"myanimelogs/internal/database"
 
 	"github.com/DATA-DOG/go-sqlmock"
+	"github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -65,6 +66,9 @@ func TestIsPlausibleReleaseDate(t *testing.T) {
 		{"2026-autumn", "2026-09-01", true},  // 先行放送（シーズン開始の1か月前まで）
 		{"2026-autumn", "2026-12-11", true},  // シーズン後半公開の映画
 		{"2026-autumn", "2027-02-01", true},  // 公開延期
+		{"2026-autumn", "2027-10-01", true},  // シーズン開始から1年以内
+		{"2026-autumn", "2027-10-02", false}, // 1年超（海外での後年の放送など）
+		{"1988-spring", "2017-01-27", false},
 		{"2026-autumn", "2025-12-03", false}, // 海外での先行配信
 		{"2026-autumn", "2026-08-15", false},
 		{"2026-winter", "2025-12-05", true},
@@ -132,4 +136,77 @@ func TestSyncReleasedOnForCurrentSeason_FallsBackAcrossSources(t *testing.T) {
 	assert.Equal(t, 0, failure)
 	assert.Equal(t, 1, jikanCalls, "AniListでも採用できなかった作品だけJikanへ問い合わせる")
 	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+// 全シーズンの補完: 問い合わせた作品は日付が見つからなくても確認済みにすること
+func TestBackfillReleasedOn_SavesAndMarksChecked(t *testing.T) {
+	sqlDB, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer sqlDB.Close()
+	db := &database.DB{DB: sqlDB}
+
+	annict := newSeriesTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"data":{"searchWorks":{"nodes":[
+			{"annictId":16456,"programs":{"nodes":[]}},
+			{"annictId":2,"programs":{"nodes":[]}}
+		]}}}`))
+	}, db)
+	anilist := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"data":{"Page":{"media":[
+			{"idMal":62277,"startDate":{"year":2026,"month":2,"day":13}}
+		]}}}`))
+	}))
+	defer anilist.Close()
+
+	svc := NewAnimeService(db, newTestServiceLogger())
+	defer svc.Close()
+	svc.SetAnnictClient(annict)
+	svc.anilistClient = NewAniListClientWithEndpoint(anilist.URL)
+
+	mock.ExpectQuery(`released_on_checked_at IS NULL`).
+		WithArgs(releasedOnRecheckDays).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "title", "mal_anime_id", "annict_id", "season"}).
+			AddRow(9768, "新劇場版 銀魂 -吉原大炎上-", "62277", 16456, "2026-winter").
+			AddRow(5, "日付の無い作品", "500", 2, "2010-spring"))
+	mock.ExpectExec(`UPDATE animes SET released_on = \$1`).
+		WithArgs("2026-02-13", 9768).WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectQuery(`SELECT season, released_on, status`).WithArgs(9768).
+		WillReturnError(errors.New("skip status in test"))
+	mock.ExpectExec(`UPDATE animes SET released_on_checked_at = NOW\(\) WHERE id = ANY\(\$1\)`).
+		WithArgs(pq.Array([]int64{9768, 5})).WillReturnResult(sqlmock.NewResult(0, 2))
+
+	saved, err := svc.BackfillReleasedOn(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, 1, saved)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+// 問い合わせに失敗したバッチは確認済みにせず、次回再び対象にすること
+func TestBackfillReleasedOn_FetchFailureLeavesUnchecked(t *testing.T) {
+	sqlDB, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer sqlDB.Close()
+	db := &database.DB{DB: sqlDB}
+
+	annict := newSeriesTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}, db)
+	anilist := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"data":{"Page":{"media":[]}}}`))
+	}))
+	defer anilist.Close()
+
+	svc := NewAnimeService(db, newTestServiceLogger())
+	defer svc.Close()
+	svc.SetAnnictClient(annict)
+	svc.anilistClient = NewAniListClientWithEndpoint(anilist.URL)
+
+	mock.ExpectQuery(`released_on_checked_at IS NULL`).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "title", "mal_anime_id", "annict_id", "season"}).
+			AddRow(1, "作品", "100", 10, "2020-spring"))
+
+	saved, err := svc.BackfillReleasedOn(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, 0, saved)
+	assert.NoError(t, mock.ExpectationsWereMet(), "確認済みのUPDATEが発行されないこと")
 }

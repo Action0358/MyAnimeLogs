@@ -18,6 +18,11 @@ const (
 	// releaseDateSeasonLeadDays - シーズン開始日より何日前までの開始日を採用するか。
 	// 海外での先行配信日（例: 中国配信が前年12月）を日本の放送開始日として取り込まないため
 	releaseDateSeasonLeadDays = 31
+
+	// releaseDateSeasonLagDays - シーズン開始日から何日後までの開始日を採用するか。
+	// 海外での後年の放送・配信日や、MAL IDの対応違いで別作品の日付を取り込まないため。
+	// 全シーズンの補完で、1年を超える差は大半が誤り（例: 1988年のTV作品に2017年の日付）だった
+	releaseDateSeasonLagDays = 365
 )
 
 var jst = time.FixedZone("Asia/Tokyo", 9*60*60)
@@ -144,7 +149,7 @@ func seasonStartDate(season string) (time.Time, bool) {
 
 // isPlausibleReleaseDate は外部から取得した開始日を、その作品のシーズンの放送開始日として
 // 採用してよいかを返す。シーズン開始より大きく前の日付（海外先行・旧作の初出など）は採用しない。
-// シーズン後の日付は採用する（秋アニメ扱いの映画が12月公開、など実在するため）。
+// シーズン後の日付は1年以内なら採用する（秋アニメ扱いの映画が12月公開、OVAの後発売など実在するため）。
 func isPlausibleReleaseDate(season, date string) bool {
 	d, err := time.Parse("2006-01-02", date)
 	if err != nil {
@@ -154,5 +159,6 @@ func isPlausibleReleaseDate(season, date string) bool {
 	if !ok {
 		return false
 	}
-	return !d.Before(start.AddDate(0, 0, -releaseDateSeasonLeadDays))
+	return !d.Before(start.AddDate(0, 0, -releaseDateSeasonLeadDays)) &&
+		!d.After(start.AddDate(0, 0, releaseDateSeasonLagDays))
 }
