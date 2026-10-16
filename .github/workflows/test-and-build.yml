@@ -25,6 +25,20 @@ jobs:
           go mod download
           go test -v ./...
 
+      # main/stagingへのマージはデプロイに直結するため、デプロイ前提の検証を
+      # ここでまとめて行う（旧test-pr.ymlの統合。developへのPRでは不要）
+      - name: Build application
+        if: github.base_ref != 'develop'
+        working-directory: ./backend
+        run: go build -o /tmp/test-build ./cmd/server
+
+      - name: Verify Docker build
+        if: github.base_ref != 'develop'
+        working-directory: ./backend
+        run: |
+          docker build -f Dockerfile.prod -t test-pr-build .
+          echo "Docker build successful"
+
   frontend-test:
     runs-on: ubuntu-latest
     steps:
