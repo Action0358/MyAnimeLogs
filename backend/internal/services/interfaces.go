@@ -19,7 +19,6 @@ type AuthServiceInterface interface {
 	DeleteAccount(userID int, authUserID string) error
 	// avatarURL はSupabase JWTから取得したGoogleアカウントのプロフィール画像URL（#779）
 	GetUserByID(userID int, avatarURL string) (*models.UserResponse, error)
-	ExportUserData(userID int, format string) (interface{}, error)
 }
 
 // Ensure AuthService implements AuthServiceInterface

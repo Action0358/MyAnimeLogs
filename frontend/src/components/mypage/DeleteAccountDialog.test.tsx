@@ -32,13 +32,6 @@ describe('DeleteAccountDialog', () => {
     expect(screen.getByText(/視聴予定・視聴中・視聴完了の記録/)).toBeInTheDocument()
   })
 
-  it('削除前にデータエクスポートへの導線を出す', () => {
-    render(<DeleteAccountDialog {...baseProps} />)
-
-    const link = screen.getByRole('link', { name: 'データをエクスポート' })
-    expect(link).toHaveAttribute('href', expect.stringContaining('/api/users/me/export'))
-  })
-
   // アプリ側の削除だけではGoogle側の連携が残るため、案内が必要
   it('Googleアカウント側の連携解除について案内する', () => {
     render(<DeleteAccountDialog {...baseProps} />)
