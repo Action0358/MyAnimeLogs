@@ -172,9 +172,10 @@ export const AnimeListPage: React.FC<AnimeListPageProps> = ({
               )}
             </div>
 
-            {/* メディアタイプタブ + フィルター。デスクトップではヘッダー右側に置く */}
+            {/* メディアタイプタブ + フィルター。デスクトップではヘッダー右側に置く。
+                SPはタブとフィルターの間を空け、フィルターを右端に揃える（検索ページと同じ配置） */}
             {(showMediaTabs || showGenreSort) && (
-              <div className="flex items-center gap-2.5 md:flex-shrink-0">
+              <div className="flex items-center justify-between gap-2.5 md:flex-shrink-0">
                 {showMediaTabs && (
                   <MediaTabs
                     tabs={MEDIA_TABS}
