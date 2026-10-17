@@ -146,7 +146,7 @@ export const AnimeListPage: React.FC<AnimeListPageProps> = ({
             下端の区切り線でグリッドと分離する。
             件数はタイトルと同じ行にベースライン揃えで併記し、視線の流れを一本化する。 */}
         <div className="pb-4 md:pb-[18px] border-b border-border mb-5 md:mb-6">
-          <div className="flex flex-col gap-3 md:flex-row md:items-baseline md:justify-between md:gap-6">
+          <div className="flex flex-col gap-3 md:gap-4">
             <div className="flex items-baseline gap-2 md:gap-3 min-w-0">
               <h1 className="text-xl md:text-[26px] font-bold text-foreground tracking-tight truncate">
                 {title}
@@ -172,10 +172,10 @@ export const AnimeListPage: React.FC<AnimeListPageProps> = ({
               )}
             </div>
 
-            {/* メディアタイプタブ + フィルター。デスクトップではヘッダー右側に置く。
-                SPはタブとフィルターの間を空け、フィルターを右端に揃える（検索ページと同じ配置） */}
+            {/* メディアタイプタブ + フィルター。全画面幅で見出しの下に置き、
+                タブを左・フィルターを右端に揃える（検索ページと同じ配置） */}
             {(showMediaTabs || showGenreSort) && (
-              <div className="flex items-center justify-between gap-2.5 md:flex-shrink-0">
+              <div className="flex items-center justify-between gap-2.5">
                 {showMediaTabs && (
                   <MediaTabs
                     tabs={MEDIA_TABS}
