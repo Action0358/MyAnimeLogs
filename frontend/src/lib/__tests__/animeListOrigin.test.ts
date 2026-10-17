@@ -1,4 +1,4 @@
-import { resolveBackTarget, withBackParam } from '../animeListOrigin'
+import { MAX_DETAIL_BACK_DEPTH, resolveBackTarget, withBackParam } from '../animeListOrigin'
 
 describe('resolveBackTarget', () => {
   it('既知の一覧パスをラベル付きで解決する', () => {
@@ -91,5 +91,63 @@ describe('withBackParam', () => {
   it('ホームなど一覧以外からは付けない', () => {
     expect(withBackParam('/anime/1', '/')).toBe('/anime/1')
     expect(withBackParam('/anime/1', undefined)).toBe('/anime/1')
+  })
+})
+
+describe('関連作品からの遷移（前の作品に戻る）', () => {
+  // 今期アニメ → 作品A → 作品B と進んだときの、作品Bの URL に載る from を作る
+  const fromOfA = '/anime/10?from=%2Fanime%2Fcurrent'
+  const hrefOfB = withBackParam('/anime/20', fromOfA)
+  const fromParamOfB = (href: string) => new URLSearchParams(href.split('?')[1]).get('from')
+
+  it('作品詳細からの遷移には、その作品自身の戻り先ごと from に載せる', () => {
+    expect(fromParamOfB(hrefOfB)).toBe(fromOfA)
+  })
+
+  it('作品詳細の戻り先は「前の作品」として、作品自身の戻り先を保ったまま解決する', () => {
+    expect(resolveBackTarget(fromParamOfB(hrefOfB))).toEqual({ href: fromOfA, label: '前の作品' })
+    // 作品Aに戻ったあと、さらに今期アニメへ戻れる
+    expect(resolveBackTarget(new URLSearchParams(fromOfA.split('?')[1]).get('from')).label).toBe(
+      '今期アニメ'
+    )
+  })
+
+  it('作品自身の戻り先に含まれる & や ? を壊さない', () => {
+    const fromOfSearchA = withBackParam('/anime/10', '/search?keyword=a&genre=b')
+    const target = resolveBackTarget(fromParamOfB(withBackParam('/anime/20', fromOfSearchA)))
+    expect(target.href).toBe(fromOfSearchA)
+    expect(new URLSearchParams(target.href.split('?')[1]).get('from')).toBe(
+      '/search?keyword=a&genre=b'
+    )
+  })
+
+  it('末尾スラッシュ付きの作品詳細パスも解決できる', () => {
+    expect(resolveBackTarget('/anime/10/').label).toBe('前の作品')
+    expect(withBackParam('/anime/20', '/anime/10/')).toBe('/anime/20?from=%2Fanime%2F10%2F')
+  })
+
+  it('作品詳細以外のアニメ配下のパスは前の作品として扱わない', () => {
+    expect(resolveBackTarget('/anime/abc').label).toBe('ホーム')
+  })
+
+  it(`さかのぼれる作品は ${MAX_DETAIL_BACK_DEPTH} 段までで、古い戻り先から捨てる`, () => {
+    // 今期アニメ → 作品1 → 作品2 → … と関連作品をたどる
+    let from = '/anime/current'
+    for (let id = 1; id <= MAX_DETAIL_BACK_DEPTH + 2; id++) {
+      const href = withBackParam(`/anime/${id}`, from)
+      from = href
+    }
+    // 最後の作品の詳細から、戻り先を順にたどる
+    const chain: string[] = []
+    let current: string | null = new URLSearchParams(
+      withBackParam('/anime/999', from).split('?')[1]
+    ).get('from')
+    while (current) {
+      const target = resolveBackTarget(current)
+      chain.push(target.label)
+      if (target.label !== '前の作品') break
+      current = new URLSearchParams(target.href.split('?')[1] ?? '').get('from')
+    }
+    expect(chain).toEqual(Array(MAX_DETAIL_BACK_DEPTH).fill('前の作品'))
   })
 })
