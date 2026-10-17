@@ -27,7 +27,6 @@
 | 🎬 | **作品詳細** | あらすじ・ジャンル・配信サービス・関連作品（シリーズ作品）を 1 ページに集約 |
 | 📝 | **視聴ステータス** | 作品ごとに「視聴予定」「視聴中」「視聴済」を記録 |
 | ❤️ | **お気に入り** | 気に入った作品をまとめて管理 |
-| 📤 | **データエクスポート** | 自分の記録を JSON / CSV でダウンロード |
 | 🔐 | **Google ログイン** | 認証は Google ソーシャルログインのみ。アカウントはいつでも完全削除可能 |
 
 > [!NOTE]
@@ -306,9 +305,8 @@ cd frontend && npm run generate:api   # OpenAPI からクライアントを生�
 <tr><td><code>GET /api/search/suggestions</code></td><td>入力サジェスト</td><td>—</td></tr>
 <tr><td><code>GET /api/search/popular</code></td><td>人気の検索語</td><td>—</td></tr>
 <tr><td><code>GET · DELETE /api/search/history</code></td><td>検索履歴の取得・削除</td><td>必須</td></tr>
-<tr><td rowspan="3">ユーザー</td><td><code>GET /api/users/me</code></td><td>プロフィール取得</td><td>必須</td></tr>
+<tr><td rowspan="2">ユーザー</td><td><code>GET /api/users/me</code></td><td>プロフィール取得</td><td>必須</td></tr>
 <tr><td><code>DELETE /api/users/me</code></td><td>アカウントの完全削除</td><td>必須</td></tr>
-<tr><td><code>GET /api/users/me/export</code></td><td>データエクスポート（<code>?format=json|csv</code>）</td><td>必須</td></tr>
 <tr><td rowspan="2">記録</td><td><code>GET /api/users/me/favorites</code><br><code>PUT · DELETE /api/users/me/favorites/{anime_id}</code></td><td>お気に入り</td><td>必須</td></tr>
 <tr><td><code>GET /api/users/me/watch-status</code><br><code>PUT · DELETE /api/users/me/watch-status/{anime_id}</code></td><td>視聴ステータス</td><td>必須</td></tr>
 </table>
