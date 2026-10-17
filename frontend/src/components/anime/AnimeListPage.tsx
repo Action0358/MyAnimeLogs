@@ -1,6 +1,8 @@
 'use client'
 
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { Suspense, useEffect, useMemo, useRef, useState } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import type { Route } from 'next'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronDown, Filter as FilterIcon } from 'lucide-react'
 import { Container } from '@/components/layout'
@@ -36,6 +38,45 @@ const mediaTabLabelMap = Object.fromEntries(
 // 1ページあたりの表示件数
 const PAGE_SIZE = 24
 
+const MEDIA_TYPES = MEDIA_TABS.map((tab) => tab.id as MediaType)
+
+/** 絞り込み条件。詳細ページから戻ったときに復元できるよう、URLのクエリに持たせる */
+interface ListFilters {
+  media: MediaType
+  genres: string[]
+  sort: string
+  page: number
+}
+
+/**
+ * URLのクエリを絞り込み条件に戻す。手書きURLなどで不正な値が来ても既定値に落とす。
+ * パラメータ名と形式（genre はカンマ区切り）は作品検索（useSearch）と揃える。
+ */
+export const parseListFilters = (params: URLSearchParams): ListFilters => {
+  const media = params.get('media') as MediaType | null
+  const sort = params.get('sort')
+  const page = Number(params.get('page'))
+  return {
+    media: media && MEDIA_TYPES.includes(media) ? media : 'all',
+    genres: (params.get('genre') ?? '')
+      .split(',')
+      .map((genre) => genre.trim())
+      .filter(Boolean),
+    sort: sort && sortOptions.some((option) => option.value === sort) ? sort : DEFAULT_SORT,
+    page: Number.isInteger(page) && page > 0 ? page : 1,
+  }
+}
+
+/** 絞り込み条件をクエリ文字列にする。既定値のものは省き、URLを短く保つ */
+export const buildListQuery = ({ media, genres, sort, page }: ListFilters): string => {
+  const params = new URLSearchParams()
+  if (media !== 'all') params.set('media', media)
+  if (genres.length > 0) params.set('genre', genres.join(','))
+  if (sort !== DEFAULT_SORT) params.set('sort', sort)
+  if (page > 1) params.set('page', String(page))
+  return params.toString()
+}
+
 interface AnimeListPageProps {
   title: string
   queryKey: string[]
@@ -53,7 +94,7 @@ interface AnimeListPageProps {
   }
 }
 
-export const AnimeListPage: React.FC<AnimeListPageProps> = ({
+const AnimeListContent: React.FC<AnimeListPageProps> = ({
   title,
   queryKey,
   queryFn,
@@ -63,10 +104,15 @@ export const AnimeListPage: React.FC<AnimeListPageProps> = ({
   showGenreSort = false,
   columns,
 }) => {
-  const [currentPage, setCurrentPage] = useState(1)
-  const [activeMediaTab, setActiveMediaTab] = useState<MediaType>('all')
-  const [selectedGenres, setSelectedGenres] = useState<string[]>([])
-  const [sort, setSort] = useState(DEFAULT_SORT)
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const queryString = searchParams.toString()
+  const filters = useMemo(
+    () => parseListFilters(new URLSearchParams(queryString)),
+    [queryString]
+  )
+  const { media: activeMediaTab, genres: selectedGenres, sort, page: currentPage } = filters
   const [showFilters, setShowFilters] = useState(false)
   const isInitialRender = useRef(true)
 
@@ -109,21 +155,17 @@ export const AnimeListPage: React.FC<AnimeListPageProps> = ({
     return { paginatedAnimes, totalPages, total }
   }, [filteredAnimes, currentPage])
 
-  // タブ変更時にページをリセット
-  const handleMediaTabChange = (tab: MediaType) => {
-    setActiveMediaTab(tab)
-    setCurrentPage(1)
+  // 条件をURLへ反映する。スクロールは上の useEffect で扱うため、ルーター側では行わない
+  const updateFilters = (next: Partial<ListFilters>) => {
+    const query = buildListQuery({ ...filters, ...next })
+    router.push((query ? `${pathname}?${query}` : pathname) as Route, { scroll: false })
   }
 
-  const handleGenresChange = (genres: string[]) => {
-    setSelectedGenres(genres)
-    setCurrentPage(1)
-  }
-
-  const handleSortChange = (nextSort: string) => {
-    setSort(nextSort)
-    setCurrentPage(1)
-  }
+  // 条件を変えたら1ページ目に戻す
+  const handleMediaTabChange = (tab: MediaType) => updateFilters({ media: tab, page: 1 })
+  const handleGenresChange = (genres: string[]) => updateFilters({ genres, page: 1 })
+  const handleSortChange = (nextSort: string) => updateFilters({ sort: nextSort, page: 1 })
+  const setCurrentPage = (page: number) => updateFilters({ page })
 
   const isSortDefault = sort === DEFAULT_SORT
   const activeFilterCount = selectedGenres.length + (isSortDefault ? 0 : 1)
@@ -267,6 +309,8 @@ export const AnimeListPage: React.FC<AnimeListPageProps> = ({
               : emptyMessage
           }
           columns={columns}
+          // 詳細から戻ったときに絞り込み条件を失わないよう、クエリごと遷移元として渡す
+          from={queryString ? `${pathname}?${queryString}` : pathname}
         />
 
         {/* ページネーション */}
@@ -283,5 +327,12 @@ export const AnimeListPage: React.FC<AnimeListPageProps> = ({
     </Container>
   )
 }
+
+/** useSearchParams を使うため、静的エクスポートでは Suspense の内側に置く必要がある */
+export const AnimeListPage: React.FC<AnimeListPageProps> = (props) => (
+  <Suspense fallback={null}>
+    <AnimeListContent {...props} />
+  </Suspense>
+)
 
 export default AnimeListPage
