@@ -38,8 +38,11 @@ const Header: React.FC = () => {
 
   return (
     <header
+      // ホーム画面追加時のステータスバー透過(layout.tsxのappleWebApp設定)に合わせ、
+      // safe-area分の余白を足してハンバーガーメニュー等が時計・バッテリー表示と重ならないようにする。
+      // 通常のブラウザ/Androidではenv()が0になるため見た目に影響しない。
+      style={{ paddingTop: 'env(safe-area-inset-top)' }}
       className={cn(
-        'h-20 sm:h-24',
         isHomePage
           ? 'bg-transparent absolute top-0 left-0 right-0 z-10'
           : 'bg-background border-b border-border'

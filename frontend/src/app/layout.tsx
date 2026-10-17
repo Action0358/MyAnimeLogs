@@ -1,5 +1,5 @@
 import './globals.css'
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Noto_Sans_JP } from 'next/font/google'
 import { Header, Footer } from '@/components/layout'
 import { QueryProvider } from '@/components/providers'
@@ -24,6 +24,22 @@ export const metadata: Metadata = {
     ],
     apple: '/apple-touch-icon.png',
   },
+  appleWebApp: {
+    capable: true,
+    // ホーム画面追加時、ステータスバー領域を透過してページ背景を見せる
+    // (黒文字/白文字どちらにも対応する唯一の設定値)。トップのヒーロー背景が
+    // ステータスバー裏まで続くようにするのが目的で、Header側にsafe-area分の
+    // paddingを足して時計・バッテリー表示とUIの衝突を防いでいる。
+    statusBarStyle: 'black-translucent',
+    title: 'MyAnimeLogs',
+  },
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  themeColor: '#6366f1',
 }
 
 export default function RootLayout({
