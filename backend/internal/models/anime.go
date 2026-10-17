@@ -48,6 +48,9 @@ type Anime struct {
 	MetadataSyncedAt *time.Time `json:"metadata_synced_at,omitempty" db:"metadata_synced_at"` // メタデータの最終同期日時
 	SyncStatus       string     `json:"sync_status" db:"sync_status"`                         // pending/synced/failed
 	SyncError        *string    `json:"sync_error,omitempty" db:"sync_error"`                 // エラー内容
+
+	// 今期・人気アニメ一覧のジャンル絞り込み用（バルク取得して付与する。DBカラムではない）
+	Genres []string `json:"genres,omitempty" db:"-"`
 }
 
 type AnimeWithUserData struct {

@@ -11,6 +11,8 @@ import (
 	"myanimelogs/internal/constants"
 	"myanimelogs/internal/models"
 	"myanimelogs/internal/utils"
+
+	"github.com/lib/pq"
 )
 
 // GetCurrentSeasonAnimes returns animes for the current season from the database。
@@ -57,6 +59,8 @@ func (s *AnimeService) GetCurrentSeasonAnimes(limit int, random bool) ([]models.
 	if err != nil {
 		return nil, err
 	}
+
+	s.attachGenresBulk(animes)
 
 	if !random {
 		// キャッシュに保存
@@ -124,6 +128,8 @@ func (s *AnimeService) GetPopularAnimes(limit int, random bool) ([]models.Anime,
 		return nil, err
 	}
 
+	s.attachGenresBulk(animes)
+
 	if !random {
 		// キャッシュに保存
 		if cacheErr := s.cache.SetWithTTL(cacheKey, animes, constants.PopularAnimeCacheTTL); cacheErr != nil {
@@ -132,6 +138,46 @@ func (s *AnimeService) GetPopularAnimes(limit int, random bool) ([]models.Anime,
 	}
 
 	return animes, nil
+}
+
+// attachGenresBulk は今期・人気アニメ一覧のジャンル絞り込み用に、複数作品のジャンルを
+// 1クエリでまとめて取得しAnime.Genresへ設定する。詳細ページ(getAnimeByID)のように
+// 1件ずつ問い合わせると件数分のクエリが発生するため、一覧専用に分けている。
+func (s *AnimeService) attachGenresBulk(animes []models.Anime) {
+	if len(animes) == 0 {
+		return
+	}
+
+	ids := make([]int64, len(animes))
+	indexByID := make(map[int]int, len(animes))
+	for i, a := range animes {
+		ids[i] = int64(a.ID)
+		indexByID[a.ID] = i
+	}
+
+	rows, err := s.db.Query(`
+		SELECT anime_id, genre FROM anime_genres WHERE anime_id = ANY($1) ORDER BY anime_id, genre
+	`, pq.Array(ids))
+	if err != nil {
+		s.logger.Warn("Failed to bulk fetch genres", "error", err)
+		return
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var animeID int
+		var genre string
+		if err := rows.Scan(&animeID, &genre); err != nil {
+			s.logger.Warn("Failed to scan genre row in bulk fetch", "error", err)
+			continue
+		}
+		if idx, ok := indexByID[animeID]; ok {
+			animes[idx].Genres = append(animes[idx].Genres, genre)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		s.logger.Warn("Failed to iterate genre rows in bulk fetch", "error", err)
+	}
 }
 
 // getAnimesByQuery is a helper function to execute anime queries with proper error handling
