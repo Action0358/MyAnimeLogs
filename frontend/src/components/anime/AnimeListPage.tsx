@@ -2,17 +2,23 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { ChevronDown, Filter as FilterIcon } from 'lucide-react'
 import { Container } from '@/components/layout'
 import { AnimeGrid } from '@/components/anime'
 import { MediaTabs, type MediaTabDefinition } from '@/components/anime/MediaTabs'
 import { Pagination } from '@/components/ui'
+import { FilterSheet, sortOptions } from '@/components/search'
 import type { DBAnime, DBAnimeResponse } from '@/lib/api/annict'
 import { toAnimeStatus } from '@/lib/constants'
 import { filterAnimesByMedia, type MediaType } from '@/utils/mediaFilter'
+import { filterAnimesByGenres } from '@/utils/genreFilter'
+import { sortAnimes } from '@/utils/sortAnimes'
 
 // キャッシュ時間の定数（バックエンドのCurrentSeasonAnimeCacheTTL/PopularAnimeCacheTTLと同期）
 const STALE_TIME = 1000 * 60 * 30 // 30分
 const GC_TIME = 1000 * 60 * 60 // 60分
+
+const DEFAULT_SORT = 'popularity'
 
 // メディアタイプタブの定義（タブ表示・空メッセージの両方で使用）
 const MEDIA_TABS: MediaTabDefinition[] = [
@@ -37,6 +43,8 @@ interface AnimeListPageProps {
   emptyMessage: string
   errorMessage: string
   showMediaTabs?: boolean
+  /** 並び替え・ジャンルの絞り込みを出す（今期・人気アニメ向け。放送時期は固定/無関係なため出さない） */
+  showGenreSort?: boolean
   columns?: {
     mobile?: number
     tablet?: number
@@ -52,13 +60,17 @@ export const AnimeListPage: React.FC<AnimeListPageProps> = ({
   emptyMessage,
   errorMessage,
   showMediaTabs = false,
+  showGenreSort = false,
   columns,
 }) => {
   const [currentPage, setCurrentPage] = useState(1)
   const [activeMediaTab, setActiveMediaTab] = useState<MediaType>('all')
+  const [selectedGenres, setSelectedGenres] = useState<string[]>([])
+  const [sort, setSort] = useState(DEFAULT_SORT)
+  const [showFilters, setShowFilters] = useState(false)
   const isInitialRender = useRef(true)
 
-  // タブ変更・ページ変更時のスクロール処理（副作用をuseEffectで管理）
+  // タブ・絞り込み変更時のスクロール処理（副作用をuseEffectで管理）
   useEffect(() => {
     // 初回レンダリング時はスクロールしない
     if (isInitialRender.current) {
@@ -75,12 +87,18 @@ export const AnimeListPage: React.FC<AnimeListPageProps> = ({
     gcTime: GC_TIME,
   })
 
-  // メディアタイプでフィルタリング
+  // メディアタイプ・ジャンルでフィルタリングし、並び替える
   const filteredAnimes = useMemo(() => {
-    const allAnimes = data?.animes ?? []
-    if (!showMediaTabs) return allAnimes
-    return filterAnimesByMedia(allAnimes, activeMediaTab)
-  }, [data?.animes, activeMediaTab, showMediaTabs])
+    let result = data?.animes ?? []
+    if (showMediaTabs) {
+      result = filterAnimesByMedia(result, activeMediaTab)
+    }
+    if (showGenreSort) {
+      result = filterAnimesByGenres(result, selectedGenres)
+      result = sortAnimes(result, sort)
+    }
+    return result
+  }, [data?.animes, activeMediaTab, showMediaTabs, selectedGenres, sort, showGenreSort])
 
   // クライアントサイドページネーション
   const { paginatedAnimes, totalPages, total } = useMemo(() => {
@@ -96,6 +114,20 @@ export const AnimeListPage: React.FC<AnimeListPageProps> = ({
     setActiveMediaTab(tab)
     setCurrentPage(1)
   }
+
+  const handleGenresChange = (genres: string[]) => {
+    setSelectedGenres(genres)
+    setCurrentPage(1)
+  }
+
+  const handleSortChange = (nextSort: string) => {
+    setSort(nextSort)
+    setCurrentPage(1)
+  }
+
+  const isSortDefault = sort === DEFAULT_SORT
+  const activeFilterCount = selectedGenres.length + (isSortDefault ? 0 : 1)
+  const sortLabel = sortOptions.find((option) => option.value === sort)?.label
 
   if (error) {
     return (
@@ -140,18 +172,80 @@ export const AnimeListPage: React.FC<AnimeListPageProps> = ({
               )}
             </div>
 
-            {/* メディアタイプタブ。デスクトップではヘッダー右側に置き、
-                並び替えなどを将来足せる余白として左右に情報を分散させる */}
-            {showMediaTabs && (
-              <MediaTabs
-                tabs={MEDIA_TABS}
-                activeTab={activeMediaTab}
-                onTabChange={handleMediaTabChange}
-                className="md:flex-shrink-0"
-              />
+            {/* メディアタイプタブ + フィルター。デスクトップではヘッダー右側に置く */}
+            {(showMediaTabs || showGenreSort) && (
+              <div className="flex items-center gap-2.5 md:flex-shrink-0">
+                {showMediaTabs && (
+                  <MediaTabs
+                    tabs={MEDIA_TABS}
+                    activeTab={activeMediaTab}
+                    onTabChange={handleMediaTabChange}
+                  />
+                )}
+                {showGenreSort && (
+                  <button
+                    onClick={() => setShowFilters(true)}
+                    className="flex flex-shrink-0 items-center justify-center gap-2 h-10 px-4 border border-input bg-background rounded-full text-sm font-medium text-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
+                  >
+                    <FilterIcon className="w-4 h-4" />
+                    <span className="max-sm:sr-only">フィルター</span>
+                    {activeFilterCount > 0 && (
+                      <span className="inline-flex min-w-[18px] h-[18px] items-center justify-center rounded-full bg-primary px-1 text-[11px] font-bold text-primary-foreground">
+                        {activeFilterCount}
+                      </span>
+                    )}
+                    <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
+                  </button>
+                )}
+              </div>
             )}
           </div>
+
+          {/* 絞り込み条件のチップ表示。ジャンルは複数選べるので1つずつ外せるようにする */}
+          {showGenreSort && (selectedGenres.length > 0 || !isSortDefault) && (
+            <div className="flex flex-wrap gap-2 mt-3">
+              {selectedGenres.map((genre) => (
+                <span
+                  key={genre}
+                  className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary rounded-full text-sm"
+                >
+                  {genre}
+                  <button
+                    onClick={() => handleGenresChange(selectedGenres.filter((g) => g !== genre))}
+                    className="ml-1 hover:text-primary/70"
+                    aria-label={`ジャンル「${genre}」の絞り込みを解除`}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+              {!isSortDefault && sortLabel && (
+                <span className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary rounded-full text-sm">
+                  {sortLabel}
+                  <button
+                    onClick={() => handleSortChange(DEFAULT_SORT)}
+                    className="ml-1 hover:text-primary/70"
+                    aria-label="並び替えを既定に戻す"
+                  >
+                    ×
+                  </button>
+                </span>
+              )}
+            </div>
+          )}
         </div>
+
+        {showGenreSort && (
+          <FilterSheet
+            isOpen={showFilters}
+            onClose={() => setShowFilters(false)}
+            showSeason={false}
+            selectedGenres={selectedGenres}
+            sort={sort}
+            onGenresChange={handleGenresChange}
+            onSortChange={handleSortChange}
+          />
+        )}
 
         {/* アニメグリッド */}
         <AnimeGrid

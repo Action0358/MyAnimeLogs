@@ -13,6 +13,7 @@ export default function CurrentSeasonPage() {
       emptyMessage="今期アニメが見つかりませんでした"
       errorMessage="今期アニメの取得に失敗しました"
       showMediaTabs
+      showGenreSort
       columns={{ mobile: 3, tablet: 3, desktop: 4, wide: 6 }}
     />
   )

@@ -64,6 +64,7 @@ export interface DBAnime {
   updated_at: string;
   cover_image_large?: string;
   cover_image_medium?: string;
+  genres?: string[];
 }
 
 export interface DBAnimeResponse {

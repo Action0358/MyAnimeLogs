@@ -20,7 +20,9 @@ export interface FilterPanelProps {
   /** 複数選択。未選択は空配列または undefined */
   selectedGenres?: string[]
   sort: string
-  onSeasonChange: (season: string | undefined) => void
+  /** falseのとき放送時期の選択を出さない（今期・人気アニメ一覧向け。放送時期が固定/無関係なため） */
+  showSeason?: boolean
+  onSeasonChange?: (season: string | undefined) => void
   onGenresChange: (genres: string[]) => void
   onSortChange: (sort: string) => void
   className?: string
@@ -114,6 +116,7 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
   selectedSeason,
   selectedGenres,
   sort,
+  showSeason = true,
   onSeasonChange,
   onGenresChange,
   onSortChange,
@@ -141,21 +144,23 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({
         </select>
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-foreground mb-2">放送時期</label>
-        <select
-          value={selectedSeason || ''}
-          onChange={(e) => onSeasonChange(e.target.value || undefined)}
-          className="w-full px-3 py-2 border border-input bg-background rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-        >
-          <option value="">すべて</option>
-          {SEASONS.map((season) => (
-            <option key={season} value={season}>
-              {season}
-            </option>
-          ))}
-        </select>
-      </div>
+      {showSeason && (
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-2">放送時期</label>
+          <select
+            value={selectedSeason || ''}
+            onChange={(e) => onSeasonChange?.(e.target.value || undefined)}
+            className="w-full px-3 py-2 border border-input bg-background rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            <option value="">すべて</option>
+            {SEASONS.map((season) => (
+              <option key={season} value={season}>
+                {season}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <div>
         <div className="mb-2 flex items-center justify-between">
