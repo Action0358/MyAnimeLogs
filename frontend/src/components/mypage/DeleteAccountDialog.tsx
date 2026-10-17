@@ -2,7 +2,6 @@
 
 import React, { useEffect, useId, useRef, useState } from 'react'
 import { AlertTriangle, Info } from 'lucide-react'
-import { API_BASE_URL } from '@/lib/api/client'
 
 interface DeleteAccountDialogProps {
   isOpen: boolean
@@ -132,24 +131,6 @@ export const DeleteAccountDialog: React.FC<DeleteAccountDialogProps> = ({
                 <span>{note}</span>
               </p>
             ))}
-            <p className="flex gap-2 text-xs leading-[1.75] text-muted-foreground md:gap-2.5 md:text-[12.5px]">
-              <Info
-                className="mt-[3px] h-[13px] w-[13px] flex-shrink-0 text-muted-foreground/70"
-                aria-hidden="true"
-              />
-              <span>
-                残したい記録は、削除前に
-                <a
-                  href={`${API_BASE_URL}/api/users/me/export?format=json`}
-                  className="font-semibold text-primary hover:underline"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  データをエクスポート
-                </a>
-                してください。
-              </span>
-            </p>
 
             {error && (
               <p className="rounded-md border border-destructive/20 bg-destructive/5 p-3 text-sm text-destructive">

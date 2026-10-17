@@ -112,7 +112,6 @@ func Setup(db *database.DB, cfg *config.Config, syncScheduler handlers.SyncSched
 			protected.GET("/users/me", authHandler.GetMe)
 			// アカウントの完全削除（復旧不可）
 			protected.DELETE("/users/me", authHandler.DeleteMe)
-			protected.GET("/users/me/export", authHandler.ExportData)
 
 			// ユーザーのお気に入り
 			protected.GET("/users/me/favorites", animeHandler.GetFavorites)

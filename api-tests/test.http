@@ -39,14 +39,6 @@ Authorization: Bearer {{supabaseToken}}
 # プロフィールの自由記述項目を撤去し、表示名・アイコンはGoogleアカウント由来で
 # 固定したため、ユーザーが更新できる項目が無くなった。
 
-### 5. データエクスポート（JSON）
-GET {{baseUrl}}/api/users/me/export?format=json
-Authorization: Bearer {{supabaseToken}}
-
-### 6. データエクスポート（CSV）
-GET {{baseUrl}}/api/users/me/export?format=csv
-Authorization: Bearer {{supabaseToken}}
-
 ### 6-1. アカウント削除
 # 警告: このリクエストはアカウントを完全に削除します。復旧はできません。
 # 実行するとトークンのユーザーが消えるため、以降のテストは実行できなくなります。

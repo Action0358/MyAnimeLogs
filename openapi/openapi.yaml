@@ -70,39 +70,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
-  /users/me/export:
-    get:
-      summary: ユーザーデータのエクスポート
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: format
-          in: query
-          schema:
-            type: string
-            enum: ["json", "csv"]
-            default: "json"
-      responses:
-        "200":
-          description: エクスポートデータ
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  user_info:
-                    $ref: "#/components/schemas/User"
-                  favorites:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/Favorite"
-                  watch_statuses:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/WatchStatus"
-            text/csv:
-              schema:
-                type: string
   /animes:
     get:
       summary: アニメ検索・一覧取得
