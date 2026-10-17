@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"errors"
-	"net/http"
 
 	"myanimelogs/internal/common"
 	"myanimelogs/internal/middleware"
@@ -80,36 +79,4 @@ func (h *AuthHandler) DeleteMe(c *gin.Context) {
 
 	h.logger.Info("Account deleted", "user_id", userID)
 	h.response.Success(c, gin.H{"message": "アカウントを削除しました"})
-}
-
-func (h *AuthHandler) ExportData(c *gin.Context) {
-	userID, err := h.validator.GetUserIDFromContext(c)
-	if err != nil {
-		h.response.UnauthorizedError(c, "認証が必要です")
-		return
-	}
-
-	format := c.DefaultQuery("format", "json")
-	if format != "json" && format != "csv" {
-		h.response.ValidationError(c, "フォーマットはjsonまたはcsvを指定してください")
-		return
-	}
-
-	data, err := h.authService.ExportUserData(userID, format)
-	if err != nil {
-		h.response.InternalServerError(c, "データエクスポートに失敗しました")
-		return
-	}
-
-	if format == "csv" {
-		c.Header("Content-Type", "text/csv")
-		c.Header("Content-Disposition", "attachment; filename=myanimelog_data.csv")
-		if csvData, ok := data.(string); ok {
-			c.String(http.StatusOK, csvData)
-		} else {
-			h.response.InternalServerError(c, "CSVデータの形式が正しくありません")
-		}
-	} else {
-		h.response.Success(c, data)
-	}
 }
