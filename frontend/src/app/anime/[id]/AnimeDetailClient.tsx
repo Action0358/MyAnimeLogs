@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import type { Route } from 'next'
 import { useQuery } from '@tanstack/react-query'
@@ -91,6 +91,9 @@ const AnimeDetailClient: React.FC = () => {
   // SPAフォールバックで描画されるこのページとは噛み合わないため、
   // animeId と同様にマウント後に window から解決する。
   const [backTarget, setBackTarget] = useState<BackTarget>(() => resolveBackTarget(null))
+  // 関連作品へ渡す戻り先（この作品の詳細ページ。この作品自身の戻り先を含む）
+  const [relatedFrom, setRelatedFrom] = useState<string | undefined>(undefined)
+  const pathname = usePathname()
   const { isAuthenticated } = useAuth()
   const { isFavorite, addFavorite, removeFavorite } = useFavorites({ enabled: isAuthenticated })
   const { getStatus, updateStatus, removeStatus } = useWatchStatus({ enabled: isAuthenticated })
@@ -112,11 +115,13 @@ const AnimeDetailClient: React.FC = () => {
     }
   }, [params.id])
 
-  // 戻り先も同様にURLから解決する
+  // 戻り先も同様にURLから解決する。関連作品から別の作品へ移ったときに
+  // 解決し直せるよう、パスの変化に追従する
   useEffect(() => {
     const from = new URLSearchParams(window.location.search).get('from')
     setBackTarget(resolveBackTarget(from))
-  }, [])
+    setRelatedFrom(window.location.pathname + window.location.search)
+  }, [pathname])
 
   const isValidAnimeId = !isNaN(animeId) && animeId > 0
 
@@ -391,13 +396,14 @@ const AnimeDetailClient: React.FC = () => {
         <h2 className="text-base lg:text-xl font-bold tracking-tight text-foreground">関連作品</h2>
         <span className="text-xs lg:text-sm text-muted-foreground">{anime.related_seasons.length}作品</span>
       </div>
-      <RelatedAnimeGrid related={anime.related_seasons} />
+      <RelatedAnimeGrid related={anime.related_seasons} from={relatedFrom} />
     </div>
   )
 
   return (
     <Container size="xl" className="py-8">
-      {/* 戻る導線。遷移元は from クエリで受け取り、既知の一覧でなければホームへ */}
+      {/* 戻る導線。遷移元は from クエリで受け取る（関連作品からの遷移は「前の作品」）。
+          既知の画面でなければホームへ */}
       <div className="mb-6">
         <Link
           href={backTarget.href as Route}

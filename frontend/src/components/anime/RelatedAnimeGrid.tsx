@@ -30,6 +30,8 @@ const toAnimeCardData = (related: RelatedAnime[]): (Anime & { id: number })[] =>
 export interface RelatedAnimeGridProps {
   related: RelatedAnime[]
   columns?: AnimeGridProps['columns']
+  /** 関連作品の詳細から戻る先（表示中の作品の詳細ページ） */
+  from?: string
 }
 
 /**
@@ -39,7 +41,7 @@ export interface RelatedAnimeGridProps {
  * 見た目は変わらない。名探偵コナン36作品・ルパン三世35作品のようなシリーズだけが
  * 折りたたまれる。
  */
-export const RelatedAnimeGrid: React.FC<RelatedAnimeGridProps> = ({ related, columns }) => {
+export const RelatedAnimeGrid: React.FC<RelatedAnimeGridProps> = ({ related, columns, from }) => {
   const [isExpanded, setIsExpanded] = useState(false)
 
   const rawHiddenCount = related.length - RELATED_INITIAL_COUNT
@@ -51,7 +53,7 @@ export const RelatedAnimeGrid: React.FC<RelatedAnimeGridProps> = ({ related, col
 
   return (
     <>
-      <AnimeGrid animes={toAnimeCardData(visible)} columns={columns} cardSize="small" />
+      <AnimeGrid animes={toAnimeCardData(visible)} columns={columns} cardSize="small" from={from} />
       {hiddenCount > 0 && (
         <button
           type="button"
