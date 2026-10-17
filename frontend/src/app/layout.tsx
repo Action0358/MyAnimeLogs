@@ -16,9 +16,13 @@ const notoSansJP = Noto_Sans_JP({
 export const metadata: Metadata = {
   title: 'MyAnimeLogs',
   description: 'アニメ視聴管理アプリ',
+  manifest: '/manifest.json',
   icons: {
-    icon: '/favicon.png',
-    apple: '/favicon.png',
+    icon: [
+      { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
+      { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
+    ],
+    apple: '/apple-touch-icon.png',
   },
 }
 
