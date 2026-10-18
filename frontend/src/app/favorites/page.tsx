@@ -13,9 +13,12 @@ import { FavoriteCard } from '@/components/favorites'
 import { SkeletonCard } from '@/components/anime'
 import { useFavorites, FavoriteAnime } from '@/hooks/useFavorites'
 import { useExpandableList } from '@/hooks/useExpandableList'
+import { useResponsiveInitialCount } from '@/hooks/useResponsiveInitialCount'
 
-// お気に入りの初期表示件数。超えた分は展開ボタンで表示する
-const FAVORITES_INITIAL_COUNT = 24
+// お気に入りの初期表示件数（超えた分は展開ボタンで表示する）。
+// グリッドはSP3列・PC6列のため、SPは詰まりすぎないよう少なめにする
+const FAVORITES_INITIAL_COUNT_SP = 18
+const FAVORITES_INITIAL_COUNT_PC = 24
 
 // id が number のお気に入りのみを抽出
 const filterValidFavorites = (favorites: FavoriteAnime[]): (FavoriteAnime & { id: number })[] => {
@@ -30,12 +33,16 @@ const FavoritesContent: React.FC = () => {
   const { favorites, isLoading, error } = useFavorites()
 
   const validFavorites = useMemo(() => filterValidFavorites(favorites), [favorites])
+  const { initialCount, oneRowAtWidest } = useResponsiveInitialCount(
+    FAVORITES_INITIAL_COUNT_SP,
+    FAVORITES_INITIAL_COUNT_PC
+  )
   const {
     visible: visibleFavorites,
     hiddenCount,
     isExpanded,
     toggle: toggleExpanded,
-  } = useExpandableList(validFavorites, FAVORITES_INITIAL_COUNT)
+  } = useExpandableList(validFavorites, initialCount, oneRowAtWidest)
 
   if (error) {
     return (
