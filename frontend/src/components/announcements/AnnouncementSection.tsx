@@ -61,8 +61,6 @@ export const AnnouncementSection: React.FC<{ className?: string }> = ({ classNam
               <ul className="overflow-hidden rounded-lg border border-border bg-card">
                 {announcements.map((announcement) => (
                   <li key={announcement.id} className="border-b border-border last:border-b-0">
-                    {/* 詳細ページは持たないため、一覧ページの該当項目へアンカーで飛ばす。
-                        一覧の先頭に着地させると、どのお知らせを押したのか分からなくなる */}
                     <Link
                       href={announcementHref(announcement.id) as Route}
                       className="flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring md:gap-[18px] md:px-5 md:py-4"

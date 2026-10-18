@@ -35,7 +35,7 @@ describe('トップページのお知らせセクション', () => {
     expect(screen.getByRole('heading', { name: 'お知らせ' })).toBeInTheDocument()
   })
 
-  it('日付・カテゴリ・タイトルを出し、一覧の該当項目へ送る', () => {
+  it('日付・カテゴリ・タイトルを出し、該当の詳細ページへ送る', () => {
     mockGetAnnouncements.mockReturnValue([build('a', '2026-09-06', 'ベータ版を公開しました')])
 
     render(<AnnouncementSection />)
@@ -46,11 +46,11 @@ describe('トップページのお知らせセクション', () => {
     // 先頭に着地すると、どのお知らせを押したのか分からなくなる
     expect(screen.getByRole('link', { name: /ベータ版を公開しました/ })).toHaveAttribute(
       'href',
-      '/news#a',
+      '/news/a',
     )
   })
 
-  it('項目ごとに別のアンカーへ送る', () => {
+  it('項目ごとに別の詳細ページへ送る', () => {
     mockGetAnnouncements.mockReturnValue([
       build('first', '2026-09-06', '1件目'),
       build('second', '2026-09-05', '2件目'),
@@ -58,8 +58,8 @@ describe('トップページのお知らせセクション', () => {
 
     render(<AnnouncementSection />)
 
-    expect(screen.getByRole('link', { name: /1件目/ })).toHaveAttribute('href', '/news#first')
-    expect(screen.getByRole('link', { name: /2件目/ })).toHaveAttribute('href', '/news#second')
+    expect(screen.getByRole('link', { name: /1件目/ })).toHaveAttribute('href', '/news/first')
+    expect(screen.getByRole('link', { name: /2件目/ })).toHaveAttribute('href', '/news/second')
   })
 
   it('本文はトップには出さない', () => {
