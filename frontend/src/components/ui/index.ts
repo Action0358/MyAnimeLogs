@@ -5,6 +5,7 @@ export { Toast, ToastContainer } from './Toast';
 export { Pagination } from './Pagination';
 export { Skeleton, SkeletonCard, SkeletonList } from './SkeletonLoader';
 export { EmptyState } from './EmptyState';
+export { ExpandToggleButton } from './ExpandToggleButton';
 export { SectionHeading } from './SectionHeading';
 export {
   Card,

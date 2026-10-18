@@ -8,9 +8,14 @@ import { Container } from '@/components/layout'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { ExpandToggleButton } from '@/components/ui/ExpandToggleButton'
 import { FavoriteCard } from '@/components/favorites'
 import { SkeletonCard } from '@/components/anime'
 import { useFavorites, FavoriteAnime } from '@/hooks/useFavorites'
+import { useExpandableList } from '@/hooks/useExpandableList'
+
+// お気に入りの初期表示件数。超えた分は展開ボタンで表示する
+const FAVORITES_INITIAL_COUNT = 24
 
 // id が number のお気に入りのみを抽出
 const filterValidFavorites = (favorites: FavoriteAnime[]): (FavoriteAnime & { id: number })[] => {
@@ -25,6 +30,12 @@ const FavoritesContent: React.FC = () => {
   const { favorites, isLoading, error } = useFavorites()
 
   const validFavorites = useMemo(() => filterValidFavorites(favorites), [favorites])
+  const {
+    visible: visibleFavorites,
+    hiddenCount,
+    isExpanded,
+    toggle: toggleExpanded,
+  } = useExpandableList(validFavorites, FAVORITES_INITIAL_COUNT)
 
   if (error) {
     return (
@@ -86,11 +97,16 @@ const FavoritesContent: React.FC = () => {
           />
         </div>
       ) : (
-        <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-x-2.5 gap-y-3.5 md:gap-x-[18px] md:gap-y-5">
-          {validFavorites.map((anime) => (
-            <FavoriteCard key={anime.id} anime={anime} />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-x-2.5 gap-y-3.5 md:gap-x-[18px] md:gap-y-5">
+            {visibleFavorites.map((anime) => (
+              <FavoriteCard key={anime.id} anime={anime} />
+            ))}
+          </div>
+          {hiddenCount > 0 && (
+            <ExpandToggleButton isExpanded={isExpanded} hiddenCount={hiddenCount} onClick={toggleExpanded} />
+          )}
+        </>
       )}
     </Container>
   )
