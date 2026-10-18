@@ -12,8 +12,9 @@ const HomePage: React.FC = () => {
       {/* Heroセクション */}
       <HeroSection />
 
-      {/* 既存のコンテンツ */}
-      <Container size="xl" className="py-10 md:py-14">
+      {/* 既存のコンテンツ。カルーセルの矢印など（z-10）がヒーローの検索履歴に重ならないよう、
+          z-0 のスタッキングコンテキストに閉じ込める */}
+      <Container size="xl" className="relative z-0 py-10 md:py-14">
         {/* 今期アニメセクション */}
         <div id="current-season" className="mb-12 md:mb-16 scroll-mt-24">
           <CurrentSeasonAnime />
