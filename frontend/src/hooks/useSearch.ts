@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useCallback } from 'react'
 import { useRouter, useSearchParams, usePathname } from 'next/navigation'
 import type { Route } from 'next'
+import { useSearchHistory } from './useSearchHistory'
 
 export interface SearchFilters {
   keyword?: string
@@ -21,9 +22,6 @@ export interface UseSearchResult {
   addToHistory: (query: string) => void
   clearHistory: () => void
 }
-
-const SEARCH_HISTORY_KEY = 'anime_search_history'
-const MAX_HISTORY_ITEMS = 10
 
 /**
  * カンマ区切りの genre パラメータを配列に戻す。
@@ -45,7 +43,7 @@ export const useSearch = (): UseSearchResult => {
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
-  const [searchHistory, setSearchHistory] = useState<string[]>([])
+  const { searchHistory, addToHistory, clearHistory } = useSearchHistory()
 
   // URLパラメータからフィルターを取得
   const filters: SearchFilters = {
@@ -56,20 +54,6 @@ export const useSearch = (): UseSearchResult => {
     sort: searchParams.get('sort') || undefined,
     media: searchParams.get('media') || undefined,
   }
-
-  // 検索履歴をlocalStorageから読み込み
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const stored = localStorage.getItem(SEARCH_HISTORY_KEY)
-        if (stored) {
-          setSearchHistory(JSON.parse(stored))
-        }
-      } catch {
-        // localStorageエラーは無視
-      }
-    }
-  }, [])
 
   // フィルターを更新してURLを変更
   const updateFilters = useCallback(
@@ -104,38 +88,6 @@ export const useSearch = (): UseSearchResult => {
     },
     [router, pathname, searchParams]
   )
-
-  // 検索履歴に追加
-  const addToHistory = useCallback((query: string) => {
-    if (!query.trim()) return
-
-    setSearchHistory((prev) => {
-      const filtered = prev.filter((item) => item !== query)
-      const newHistory = [query, ...filtered].slice(0, MAX_HISTORY_ITEMS)
-
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(newHistory))
-        } catch {
-          // localStorageエラーは無視
-        }
-      }
-
-      return newHistory
-    })
-  }, [])
-
-  // 検索履歴をクリア
-  const clearHistory = useCallback(() => {
-    setSearchHistory([])
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.removeItem(SEARCH_HISTORY_KEY)
-      } catch {
-        // localStorageエラーは無視
-      }
-    }
-  }, [])
 
   return {
     filters,
