@@ -1,17 +1,14 @@
 'use client'
 
-import React, { useState } from 'react'
-import { ChevronDown, ChevronUp } from 'lucide-react'
+import React from 'react'
 import { AnimeGrid, type AnimeGridProps } from './AnimeGrid'
+import { ExpandToggleButton } from '@/components/ui'
+import { useExpandableList } from '@/hooks/useExpandableList'
 import type { Anime, RelatedAnime } from '@/lib/api/generated/myanimelogs'
 
 /** 関連作品の初期表示件数。APIは最大48件返すが、全部並べると詳細ページが
  *  縦に伸びすぎるため、既定ではここまでに抑えて残りは展開で見せる */
 export const RELATED_INITIAL_COUNT = 12
-
-/** 最も列数が多いPC表示（6列）の1行ぶん。残りがこの件数以内なら、
- *  クリックさせるほどの量ではないため折りたたまずそのまま全件表示する */
-const ONE_ROW_AT_WIDEST = 6
 
 /** 関連作品は一覧・検索と同じ AnimeCard 規格で表示するため、
  *  APIが返す縮小フィールド（RelatedAnime）を AnimeGrid が要求する Anime 形に合わせる。
@@ -42,37 +39,13 @@ export interface RelatedAnimeGridProps {
  * 折りたたまれる。
  */
 export const RelatedAnimeGrid: React.FC<RelatedAnimeGridProps> = ({ related, columns, from }) => {
-  const [isExpanded, setIsExpanded] = useState(false)
-
-  const rawHiddenCount = related.length - RELATED_INITIAL_COUNT
-  // 残りが1行以内なら、ボタンを押させず最初から全件表示する
-  const fitsInOneMoreRow = rawHiddenCount > 0 && rawHiddenCount <= ONE_ROW_AT_WIDEST
-  const effectiveInitialCount = fitsInOneMoreRow ? related.length : RELATED_INITIAL_COUNT
-  const hiddenCount = related.length - effectiveInitialCount
-  const visible = isExpanded ? related : related.slice(0, effectiveInitialCount)
+  const { visible, hiddenCount, isExpanded, toggle } = useExpandableList(related, RELATED_INITIAL_COUNT)
 
   return (
     <>
       <AnimeGrid animes={toAnimeCardData(visible)} columns={columns} cardSize="small" from={from} />
       {hiddenCount > 0 && (
-        <button
-          type="button"
-          onClick={() => setIsExpanded((prev) => !prev)}
-          aria-expanded={isExpanded}
-          className="mt-4 inline-flex items-center gap-1 rounded text-sm font-medium text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-        >
-          {isExpanded ? (
-            <>
-              折りたたむ
-              <ChevronUp className="w-4 h-4" />
-            </>
-          ) : (
-            <>
-              他{hiddenCount}件を表示
-              <ChevronDown className="w-4 h-4" />
-            </>
-          )}
-        </button>
+        <ExpandToggleButton isExpanded={isExpanded} hiddenCount={hiddenCount} onClick={toggle} />
       )}
     </>
   )
