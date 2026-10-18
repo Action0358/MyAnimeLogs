@@ -14,13 +14,15 @@ import {
   WatchStatusCard,
   WatchStatusTabKey,
 } from '@/components/favorites'
+import { ExpandToggleButton } from '@/components/ui'
 import { useWatchStatus, WatchStatusAnime } from '@/hooks/useWatchStatus'
+import { useExpandableList } from '@/hooks/useExpandableList'
 import { WatchStatusStatus } from '@/lib/api/generated/myanimelogs'
 import { get, ApiClientError } from '@/lib/api/client'
 import { readMyPageTabFromUrl, myPageHref, myPageSettingsHref } from './myPageTab'
 
-// マイページに表示する視聴ステータスの最大件数
-const MAX_WATCH_STATUSES = 20
+// マイページの各タブで最初に表示する視聴ステータスの件数。超えた分は展開ボタンで表示する
+const WATCH_STATUS_INITIAL_COUNT = 20
 
 // タブごとの空状態。アイコンはステータスボタンと同じものを使い、
 // 次の行動を案内する文言にする（空状態UI刷新）
@@ -121,6 +123,8 @@ export const MyPageContent: React.FC = () => {
     setActiveTab(tab)
     // 履歴を積まずにURLだけ更新する。タブ切り替えのたびに戻る操作が増えないように
     router.replace(myPageHref(tab) as Route, { scroll: false })
+    // タブを切り替えたら、前のタブで展開していた状態を引き継がない
+    resetExpanded()
   }
 
   const allItems = useMemo(() => filterValidItems(watchStatuses), [watchStatuses])
@@ -142,12 +146,18 @@ export const MyPageContent: React.FC = () => {
     return result
   }, [allItems])
 
-  // グリッドの表示は上限を維持する
-  const filteredItems = useMemo(() => {
-    return allItems
-      .filter((anime) => anime.user_watch_status?.status === activeTab)
-      .slice(0, MAX_WATCH_STATUSES)
+  const tabItems = useMemo(() => {
+    return allItems.filter((anime) => anime.user_watch_status?.status === activeTab)
   }, [allItems, activeTab])
+
+  // 件数が多いタブは初期表示を絞り、ボタンで残りを表示する（関連作品と同じパターン）
+  const {
+    visible: filteredItems,
+    hiddenCount,
+    isExpanded,
+    toggle: toggleExpanded,
+    reset: resetExpanded,
+  } = useExpandableList(tabItems, WATCH_STATUS_INITIAL_COUNT)
 
   if (isLoading || watchStatusesLoading) {
     return (
@@ -262,11 +272,16 @@ export const MyPageContent: React.FC = () => {
 
       {/* タブコンテンツ */}
       {filteredItems.length > 0 ? (
-        <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-x-2.5 gap-y-3.5 md:gap-x-[18px] md:gap-y-5">
-          {filteredItems.map((anime) => (
-            <WatchStatusCard key={anime.id} anime={anime} from={myPageHref(activeTab)} />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-x-2.5 gap-y-3.5 md:gap-x-[18px] md:gap-y-5">
+            {filteredItems.map((anime) => (
+              <WatchStatusCard key={anime.id} anime={anime} from={myPageHref(activeTab)} />
+            ))}
+          </div>
+          {hiddenCount > 0 && (
+            <ExpandToggleButton isExpanded={isExpanded} hiddenCount={hiddenCount} onClick={toggleExpanded} />
+          )}
+        </>
       ) : (
         <div className="md:min-h-[420px] md:flex md:items-center md:justify-center">
           <EmptyState
