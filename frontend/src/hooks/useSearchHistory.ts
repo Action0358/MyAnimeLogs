@@ -5,9 +5,19 @@ import { useState, useCallback, useEffect } from 'react'
 const SEARCH_HISTORY_KEY = 'anime_search_history'
 const MAX_HISTORY_ITEMS = 10
 
+const persist = (history: string[]) => {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(history))
+  } catch {
+    // localStorageエラーは無視
+  }
+}
+
 export interface UseSearchHistoryResult {
   searchHistory: string[]
   addToHistory: (query: string) => void
+  removeFromHistory: (query: string) => void
   clearHistory: () => void
 }
 
@@ -39,15 +49,16 @@ export const useSearchHistory = (): UseSearchHistoryResult => {
     setSearchHistory((prev) => {
       const filtered = prev.filter((item) => item !== query)
       const newHistory = [query, ...filtered].slice(0, MAX_HISTORY_ITEMS)
+      persist(newHistory)
+      return newHistory
+    })
+  }, [])
 
-      if (typeof window !== 'undefined') {
-        try {
-          localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(newHistory))
-        } catch {
-          // localStorageエラーは無視
-        }
-      }
-
+  // 検索履歴から1件削除
+  const removeFromHistory = useCallback((query: string) => {
+    setSearchHistory((prev) => {
+      const newHistory = prev.filter((item) => item !== query)
+      persist(newHistory)
       return newHistory
     })
   }, [])
@@ -64,7 +75,7 @@ export const useSearchHistory = (): UseSearchHistoryResult => {
     }
   }, [])
 
-  return { searchHistory, addToHistory, clearHistory }
+  return { searchHistory, addToHistory, removeFromHistory, clearHistory }
 }
 
 export default useSearchHistory
