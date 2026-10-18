@@ -17,12 +17,15 @@ import {
 import { ExpandToggleButton } from '@/components/ui'
 import { useWatchStatus, WatchStatusAnime } from '@/hooks/useWatchStatus'
 import { useExpandableList } from '@/hooks/useExpandableList'
+import { useResponsiveInitialCount } from '@/hooks/useResponsiveInitialCount'
 import { WatchStatusStatus } from '@/lib/api/generated/myanimelogs'
 import { get, ApiClientError } from '@/lib/api/client'
 import { readMyPageTabFromUrl, myPageHref, myPageSettingsHref } from './myPageTab'
 
-// マイページの各タブで最初に表示する視聴ステータスの件数。超えた分は展開ボタンで表示する
-const WATCH_STATUS_INITIAL_COUNT = 20
+// マイページの各タブで最初に表示する視聴ステータスの件数（超えた分は展開ボタンで表示する）。
+// グリッドはSP3列・PC6列のため、SPは詰まりすぎないよう少なめにする
+const WATCH_STATUS_INITIAL_COUNT_SP = 18
+const WATCH_STATUS_INITIAL_COUNT_PC = 24
 
 // タブごとの空状態。アイコンはステータスボタンと同じものを使い、
 // 次の行動を案内する文言にする（空状態UI刷新）
@@ -151,13 +154,17 @@ export const MyPageContent: React.FC = () => {
   }, [allItems, activeTab])
 
   // 件数が多いタブは初期表示を絞り、ボタンで残りを表示する（関連作品と同じパターン）
+  const { initialCount, oneRowAtWidest } = useResponsiveInitialCount(
+    WATCH_STATUS_INITIAL_COUNT_SP,
+    WATCH_STATUS_INITIAL_COUNT_PC
+  )
   const {
     visible: filteredItems,
     hiddenCount,
     isExpanded,
     toggle: toggleExpanded,
     reset: resetExpanded,
-  } = useExpandableList(tabItems, WATCH_STATUS_INITIAL_COUNT)
+  } = useExpandableList(tabItems, initialCount, oneRowAtWidest)
 
   if (isLoading || watchStatusesLoading) {
     return (
