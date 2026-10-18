@@ -1,9 +1,9 @@
 import React from 'react'
 import Link from 'next/link'
 import type { Route } from 'next'
+import { ChevronRight } from 'lucide-react'
 import { CategoryBadge } from './CategoryBadge'
-import { cn } from '@/lib/utils'
-import type { Announcement } from '@/constants/announcements'
+import { announcementHref, type Announcement } from '@/constants/announcements'
 
 /** YYYY-MM-DD を「2026年9月6日」に整形する。日付は文字列で持っているためパースしない */
 export const formatAnnouncementDate = (date: string): string => {
@@ -12,79 +12,52 @@ export const formatAnnouncementDate = (date: string): string => {
   return `${year}年${Number(month)}月${Number(day)}日`
 }
 
-/** 外部リンクかどうか。スキーム付きなら別タブで開く */
-const isExternal = (href: string) => /^https?:\/\//.test(href)
-
 /**
- * お知らせ一覧。本文までその場に出す。
+ * お知らせ一覧。各行が詳細ページ（/news/[id]）へのリンクになる。
  *
- * 1件ごとの詳細ページは持たない。お知らせは短文中心で、
- * 遷移させるより読み切れたほうが速いため（#848）。
- * 代わりに各項目へ id を振り、/news#<id> で個別に指せるようにしている。
- *
- * モックアップ（News Page Redesign）は行全体をクリック可能にしホバー＋
- * シェブロンで反応させているが、これは各項目に遷移先（詳細ページ）が
- * ある一般的なお知らせページの前提であり、詳細ページを持たないこの
- * プロジェクトでは行を押しても何も起きない「空振り」になってしまう。
- * 枠・階層構造（メタ行→タイトル→本文）などの視覚デザインは採用しつつ、
- * 行全体のリンク化・ホバー・シェブロンは見送った。`link` を指定した項目は
- * 従来どおり本文の下に明示的なテキストリンクとして出す。
+ * 本文は導入として2行で省略する。全文は詳細で読ませるため、一覧は
+ * 「日付・カテゴリ → タイトル → 導入」の3段で見渡せる密度に保つ（#1111）。
+ * 以前は詳細ページを持たず本文まで一覧に出していたが（#848）、見出しや
+ * リストを含む長い告知が増えると一覧が読みにくくなるため見直した。
  */
-export const AnnouncementList: React.FC<{
-  announcements: Announcement[]
-  /** アンカーで指された項目。ページ切り替え後に描画された項目にも強調を効かせるため */
-  highlightedId?: string | null
-}> = ({ announcements, highlightedId }) => (
+export const AnnouncementList: React.FC<{ announcements: Announcement[] }> = ({
+  announcements,
+}) => (
   <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border bg-card">
     {announcements.map((announcement) => (
-      <li
-        key={announcement.id}
-        // /news#<id> で個別のお知らせを直接指せるようにする。
-        // 詳細ページを持たない代わりの導線で、トップのお知らせ行や
-        // 外部からの共有リンクがここへ着地する。
-        id={announcement.id}
-        className={cn(
-          'px-4 py-4 md:px-6 md:py-[22px]',
-          // ヘッダーは固定ではないが、上端ぴったりに着地すると窮屈に見えるため少し余白を残す
-          'scroll-mt-6',
-          // アンカーで来たときに「どれが指された項目か」が分かるようにする。
-          // 枠線ではなく背景にするのは、行の高さが変わって他が動かないようにするため
-          'target:bg-primary/5',
-          announcement.id === highlightedId && 'bg-primary/5',
-        )}
-      >
-        <div className="mb-2 flex items-center gap-2.5">
-          <time
-            dateTime={announcement.date}
-            className="text-xs tabular-nums text-muted-foreground"
-          >
-            {formatAnnouncementDate(announcement.date)}
-          </time>
-          <CategoryBadge category={announcement.category} size="sm" />
-        </div>
+      <li key={announcement.id}>
+        {/* 行全体をリンクにする。リンクの中にリンクは置けないため、本文末尾の
+            任意リンク（link）は詳細ページ側に出す */}
+        <Link
+          href={announcementHref(announcement.id) as Route}
+          className="flex items-start gap-3 px-4 py-4 transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring md:gap-4 md:px-6 md:py-[22px]"
+        >
+          <span className="min-w-0 flex-1">
+            <span className="mb-1.5 flex items-center gap-2 md:mb-2 md:gap-2.5">
+              <time
+                dateTime={announcement.date}
+                className="text-[11px] tabular-nums text-muted-foreground md:text-xs"
+              >
+                {formatAnnouncementDate(announcement.date)}
+              </time>
+              <CategoryBadge category={announcement.category} size="sm" />
+            </span>
 
-        <h3 className="mb-2 text-sm font-bold leading-[1.5] text-foreground md:text-base">
-          {announcement.title}
-        </h3>
+            <h3 className="mb-1.5 text-sm font-bold leading-[1.55] text-foreground md:mb-2 md:text-base md:leading-[1.5]">
+              {announcement.title}
+            </h3>
 
-        {/* 本文の改行はそのまま反映する（段落を分けたいとき用。Markdownは導入していない）。
-            text-wrap: pretty は付けない。Safari は段落全体の行長を揃えようとして各行を
-            早めに折り返すため、日本語では右側に余白が残り本文が左に寄って見える */}
-        <p className="whitespace-pre-wrap text-[12.5px] leading-[1.8] text-foreground/80 md:text-[13.5px] md:leading-[1.85]">
-          {announcement.body}
-        </p>
-
-        {announcement.link && (
-          <Link
-            href={announcement.link.href as Route}
-            className="mt-3 inline-block text-sm font-medium text-primary hover:underline"
-            {...(isExternal(announcement.link.href)
-              ? { target: '_blank', rel: 'noopener noreferrer' }
-              : {})}
-          >
-            {announcement.link.label}
-          </Link>
-        )}
+            {/* text-wrap: pretty は付けない。Safari は段落全体の行長を揃えようとして
+                各行を早めに折り返すため、日本語では右側に余白が残り左に寄って見える */}
+            <p className="line-clamp-2 whitespace-pre-line text-[12.5px] leading-[1.8] text-foreground/80 md:text-[13.5px] md:leading-[1.85]">
+              {announcement.body}
+            </p>
+          </span>
+          <ChevronRight
+            aria-hidden="true"
+            className="mt-0.5 h-[15px] w-[15px] flex-shrink-0 text-muted-foreground md:mt-[3px] md:h-[17px] md:w-[17px]"
+          />
+        </Link>
       </li>
     ))}
   </ul>
