@@ -7,6 +7,8 @@ import { ChevronRight } from 'lucide-react';
 import type { SearchTab } from './SearchContainer';
 import { GENRES, HERO_SEASON_OPTIONS } from '@/constants/search';
 import { cn } from '@/lib/utils';
+import { useSearchHistory } from '@/hooks/useSearchHistory';
+import { RecentSearchesDropdown, useRecentSearches } from '@/components/search/RecentSearches';
 
 interface SearchInputAreaProps {
   activeTab: SearchTab;
@@ -16,6 +18,18 @@ const SearchInputArea: React.FC<SearchInputAreaProps> = ({ activeTab }) => {
   const router = useRouter();
   const [keyword, setKeyword] = useState('');
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
+  // 作品検索画面と同じ検索履歴を使い、入力欄のフォーカスで「最近の検索」を出す
+  const { searchHistory, addToHistory, clearHistory } = useSearchHistory();
+
+  const searchByKeyword = (query: string) => {
+    addToHistory(query);
+    router.push(`/search?keyword=${encodeURIComponent(query)}` as Route);
+  };
+
+  const recent = useRecentSearches(searchHistory, (item) => {
+    setKeyword(item);
+    searchByKeyword(item);
+  });
 
   const handleGenreToggle = (genre: string) => {
     setSelectedGenres((prev) =>
@@ -26,11 +40,13 @@ const SearchInputArea: React.FC<SearchInputAreaProps> = ({ activeTab }) => {
   };
 
   const handleSearch = () => {
-    let searchQuery = '';
+    if (activeTab === 'keyword') {
+      if (keyword.trim()) searchByKeyword(keyword.trim());
+      return;
+    }
 
-    if (activeTab === 'keyword' && keyword.trim()) {
-      searchQuery = `?keyword=${encodeURIComponent(keyword.trim())}`;
-    } else if (activeTab === 'genre' && selectedGenres.length > 0) {
+    let searchQuery = '';
+    if (activeTab === 'genre' && selectedGenres.length > 0) {
       searchQuery = `?genre=${selectedGenres.map(g => encodeURIComponent(g)).join(',')}`;
     }
 
@@ -44,6 +60,9 @@ const SearchInputArea: React.FC<SearchInputAreaProps> = ({ activeTab }) => {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    // 履歴を開いている間は ↑↓・Enter・Esc を履歴の操作に使う
+    recent.inputProps.onKeyDown(e);
+    if (e.defaultPrevented) return;
     if (e.key === 'Enter') {
       handleSearch();
     }
@@ -66,33 +85,45 @@ const SearchInputArea: React.FC<SearchInputAreaProps> = ({ activeTab }) => {
     <div className="relative mt-3 backdrop-blur-md bg-primary-foreground/10 border border-primary-foreground/20 rounded-2xl p-4 md:p-5 shadow-xl shadow-black/20">
       {/* キーワード検索 */}
       {activeTab === 'keyword' && (
-        <div className="flex overflow-hidden rounded-xl shadow-sm">
-          <div className="relative flex-1">
-            <svg
-              className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+        <div ref={recent.containerRef} className="relative">
+          <div className="flex overflow-hidden rounded-xl shadow-sm">
+            <div className="relative flex-1">
+              <svg
+                className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
+              </svg>
+              <input
+                type="text"
+                value={keyword}
+                onChange={(e) => setKeyword(e.target.value)}
+                {...recent.inputProps}
+                onKeyDown={handleKeyDown}
+                placeholder="作品を探す"
+                className="w-full pl-12 pr-4 py-4 bg-card text-foreground
+                  placeholder:text-muted-foreground placeholder:font-bold focus:outline-none text-base font-bold"
               />
-            </svg>
-            <input
-              type="text"
-              value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="作品を探す"
-              className="w-full pl-12 pr-4 py-4 bg-card text-foreground
-                placeholder:text-muted-foreground placeholder:font-bold focus:outline-none text-base font-bold"
-            />
+            </div>
+            {searchButton(!keyword.trim())}
           </div>
-          {searchButton(!keyword.trim())}
+          {recent.isOpen && (
+            <RecentSearchesDropdown
+              items={searchHistory}
+              selectedIndex={recent.selectedIndex}
+              onSelect={recent.select}
+              onClear={clearHistory}
+              className="text-left"
+            />
+          )}
         </div>
       )}
 
