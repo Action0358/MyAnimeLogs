@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react'
 import { cn } from '@/lib/utils'
-import { useOnClickOutside } from '@/hooks/useOnClickOutside'
+import { RecentSearchesDropdown, useRecentSearches } from './RecentSearches'
 
 export interface SearchFormProps {
   onSearch: (query: string) => void
@@ -24,57 +24,22 @@ export const SearchForm: React.FC<SearchFormProps> = ({
   className,
 }) => {
   const [query, setQuery] = useState(initialValue)
-  const [isFocused, setIsFocused] = useState(false)
-  const [selectedIndex, setSelectedIndex] = useState(-1)
-  const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  useOnClickOutside(containerRef, () => setIsFocused(false))
-
-  useEffect(() => {
-    setQuery(initialValue)
-  }, [initialValue])
-
-  const showDropdown = isFocused && showSuggestions && recentSearches.length > 0
+  const recent = useRecentSearches(
+    recentSearches,
+    (suggestion) => {
+      setQuery(suggestion)
+      onSearch(suggestion)
+    },
+    showSuggestions
+  )
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (query.trim()) {
       onSearch(query.trim())
-      setIsFocused(false)
-    }
-  }
-
-  const handleSelectSuggestion = (suggestion: string) => {
-    setQuery(suggestion)
-    onSearch(suggestion)
-    setIsFocused(false)
-  }
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (!showDropdown) return
-
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault()
-        setSelectedIndex((prev) =>
-          prev < recentSearches.length - 1 ? prev + 1 : prev
-        )
-        break
-      case 'ArrowUp':
-        e.preventDefault()
-        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : -1))
-        break
-      case 'Enter':
-        if (selectedIndex >= 0 && selectedIndex < recentSearches.length) {
-          e.preventDefault()
-          handleSelectSuggestion(recentSearches[selectedIndex])
-        }
-        break
-      case 'Escape':
-        setIsFocused(false)
-        setSelectedIndex(-1)
-        break
+      recent.close()
     }
   }
 
@@ -84,7 +49,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
   }
 
   return (
-    <div ref={containerRef} className={cn('relative', className)}>
+    <div ref={recent.containerRef} className={cn('relative', className)}>
       <form onSubmit={handleSubmit}>
         <div className="relative">
           <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
@@ -107,8 +72,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            onFocus={() => setIsFocused(true)}
-            onKeyDown={handleKeyDown}
+            {...recent.inputProps}
             placeholder={placeholder}
             className={cn(
               'block w-full h-10 pl-10 pr-10 border border-input rounded-full',
@@ -117,11 +81,6 @@ export const SearchForm: React.FC<SearchFormProps> = ({
               'transition-shadow'
             )}
             aria-label="検索"
-            aria-autocomplete="list"
-            aria-controls={showDropdown ? 'search-suggestions' : undefined}
-            aria-activedescendant={
-              selectedIndex >= 0 ? `suggestion-${selectedIndex}` : undefined
-            }
           />
           {query && (
             <button
@@ -157,55 +116,13 @@ export const SearchForm: React.FC<SearchFormProps> = ({
         </div>
       </form>
 
-      {showDropdown && (
-        <div
-          id="search-suggestions"
-          className="absolute z-10 w-full mt-1 bg-popover border border-border rounded-lg shadow-lg"
-          role="listbox"
-        >
-          <div className="flex items-center justify-between px-3 py-2 border-b border-border">
-            <span className="text-xs text-muted-foreground font-medium">最近の検索</span>
-            {onClearHistory && (
-              <button
-                type="button"
-                onClick={onClearHistory}
-                className="text-xs text-primary hover:text-primary/80"
-              >
-                履歴をクリア
-              </button>
-            )}
-          </div>
-          <ul className="py-1">
-            {recentSearches.map((item, index) => (
-              <li
-                key={item}
-                id={`suggestion-${index}`}
-                role="option"
-                aria-selected={index === selectedIndex}
-                className={cn(
-                  'px-3 py-2 cursor-pointer flex items-center gap-2',
-                  index === selectedIndex ? 'bg-primary/10' : 'hover:bg-muted'
-                )}
-                onClick={() => handleSelectSuggestion(item)}
-              >
-                <svg
-                  className="h-4 w-4 text-muted-foreground"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                <span className="text-sm text-foreground">{item}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
+      {recent.isOpen && (
+        <RecentSearchesDropdown
+          items={recentSearches}
+          selectedIndex={recent.selectedIndex}
+          onSelect={recent.select}
+          onClear={onClearHistory}
+        />
       )}
     </div>
   )

@@ -7,12 +7,14 @@ import HeroBackdrop from './HeroBackdrop';
 import { HERO_LOGO_PATH } from '@/lib/constants';
 
 const HeroSection: React.FC = () => {
-  // z-0を使用する理由:
-  // モバイルメニュー（z-40, z-50）より低い階層に配置するため、新しいスタッキングコンテキストを作成。
+  // z-[1]を使用する理由:
+  // モバイルメニュー（z-40, z-50）やヘッダー（z-10）より低い階層に配置するため、新しいスタッキングコンテキストを作成。
   // これにより、子要素のz-index（タブのz-10など）がモバイルメニューに影響を与えなくなります。
+  // 一方、検索欄の「最近の検索」はヒーローの下端からはみ出して後続の一覧に重なるため、
+  // 後続の一覧（page.tsx で z-0 のスタッキングコンテキスト）より1段上にする。
 
   return (
-    <section className="relative flex flex-col items-center text-primary-foreground px-4 pt-36 pb-20 md:pt-44 md:pb-28 z-0">
+    <section className="relative flex flex-col items-center text-primary-foreground px-4 pt-36 pb-20 md:pt-44 md:pb-28 z-[1]">
       <HeroBackdrop />
 
       {/* 前景コンテンツ（背景の上に重ねる） */}
