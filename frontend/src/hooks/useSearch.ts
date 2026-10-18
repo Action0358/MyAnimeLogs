@@ -20,6 +20,7 @@ export interface UseSearchResult {
   updateFilters: (newFilters: Partial<SearchFilters>) => void
   searchHistory: string[]
   addToHistory: (query: string) => void
+  removeFromHistory: (query: string) => void
   clearHistory: () => void
 }
 
@@ -43,7 +44,7 @@ export const useSearch = (): UseSearchResult => {
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
-  const { searchHistory, addToHistory, clearHistory } = useSearchHistory()
+  const { searchHistory, addToHistory, removeFromHistory, clearHistory } = useSearchHistory()
 
   // URLパラメータからフィルターを取得
   const filters: SearchFilters = {
@@ -94,6 +95,7 @@ export const useSearch = (): UseSearchResult => {
     updateFilters,
     searchHistory,
     addToHistory,
+    removeFromHistory,
     clearHistory,
   }
 }

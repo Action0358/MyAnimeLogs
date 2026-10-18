@@ -9,6 +9,7 @@ export interface SearchFormProps {
   placeholder?: string
   showSuggestions?: boolean
   recentSearches?: string[]
+  onRemoveHistory?: (query: string) => void
   onClearHistory?: () => void
   initialValue?: string
   className?: string
@@ -19,6 +20,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
   placeholder = 'アニメを検索...',
   showSuggestions = true,
   recentSearches = [],
+  onRemoveHistory,
   onClearHistory,
   initialValue = '',
   className,
@@ -116,11 +118,13 @@ export const SearchForm: React.FC<SearchFormProps> = ({
         </div>
       </form>
 
-      {recent.isOpen && (
+      {showSuggestions && (
         <RecentSearchesDropdown
-          items={recentSearches}
+          items={recent.items}
+          isOpen={recent.isOpen}
           selectedIndex={recent.selectedIndex}
           onSelect={recent.select}
+          onRemove={onRemoveHistory}
           onClear={onClearHistory}
         />
       )}
