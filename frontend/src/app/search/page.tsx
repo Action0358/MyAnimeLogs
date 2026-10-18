@@ -27,7 +27,8 @@ function SearchContent() {
   const router = useRouter()
   const [showFilters, setShowFilters] = useState(false)
 
-  const { filters, updateFilters, searchHistory, addToHistory, clearHistory } = useSearch()
+  const { filters, updateFilters, searchHistory, addToHistory, removeFromHistory, clearHistory } =
+    useSearch()
 
   const currentPage = Number(searchParams.get('page')) || 1
 
@@ -141,6 +142,7 @@ function SearchContent() {
           onSearch={handleSearch}
           placeholder="タイトルで検索..."
           recentSearches={searchHistory}
+          onRemoveHistory={removeFromHistory}
           onClearHistory={clearHistory}
           initialValue={filters.keyword || ''}
           className="w-full"

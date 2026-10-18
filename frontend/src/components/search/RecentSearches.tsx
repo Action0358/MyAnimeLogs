@@ -1,10 +1,14 @@
 'use client'
 
 import React, { useRef, useState } from 'react'
+import { Clock, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useOnClickOutside } from '@/hooks/useOnClickOutside'
 
 const LISTBOX_ID = 'search-suggestions'
+
+/** ドロップダウンに出す履歴の件数。履歴自体は最大10件まで保存している */
+export const MAX_VISIBLE_RECENT_SEARCHES = 5
 
 /**
  * 検索欄の「最近の検索」ドロップダウンの開閉とキーボード操作。
@@ -22,7 +26,8 @@ export const useRecentSearches = (
 
   useOnClickOutside(containerRef, () => setIsFocused(false))
 
-  const isOpen = isFocused && enabled && recentSearches.length > 0
+  const items = recentSearches.slice(0, MAX_VISIBLE_RECENT_SEARCHES)
+  const isOpen = isFocused && enabled && items.length > 0
 
   const close = () => {
     setIsFocused(false)
@@ -40,16 +45,16 @@ export const useRecentSearches = (
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault()
-        setSelectedIndex((prev) => (prev < recentSearches.length - 1 ? prev + 1 : prev))
+        setSelectedIndex((prev) => (prev < items.length - 1 ? prev + 1 : prev))
         break
       case 'ArrowUp':
         e.preventDefault()
         setSelectedIndex((prev) => (prev > 0 ? prev - 1 : -1))
         break
       case 'Enter':
-        if (selectedIndex >= 0 && selectedIndex < recentSearches.length) {
+        if (selectedIndex >= 0 && selectedIndex < items.length) {
           e.preventDefault()
-          select(recentSearches[selectedIndex])
+          select(items[selectedIndex])
         }
         break
       case 'Escape':
@@ -60,6 +65,8 @@ export const useRecentSearches = (
 
   return {
     containerRef,
+    /** ドロップダウンに出す履歴（新しい順に最大5件） */
+    items,
     isOpen,
     selectedIndex,
     close,
@@ -77,69 +84,88 @@ export const useRecentSearches = (
 
 export interface RecentSearchesDropdownProps {
   items: string[]
+  isOpen: boolean
   selectedIndex: number
   onSelect: (item: string) => void
+  /** 指定すると各行に×を出し、1件ずつ削除できるようにする */
+  onRemove?: (item: string) => void
   onClear?: () => void
   className?: string
 }
 
-/** 「最近の検索」の候補リスト。入力欄の直下に重ねて表示する */
+/**
+ * 「最近の検索」の候補リスト。検索欄から少し離して浮かせ、ユーザーメニューと同じ
+ * 角丸・枠線・影・背景で表示する。
+ * 開閉をフェード＋スライドで見せるため、履歴がある間は常時マウントし
+ * opacity/transform で切り替える（UserMenu と同じパターン）。
+ */
 export const RecentSearchesDropdown: React.FC<RecentSearchesDropdownProps> = ({
   items,
+  isOpen,
   selectedIndex,
   onSelect,
+  onRemove,
   onClear,
   className,
-}) => (
-  <div
-    id={LISTBOX_ID}
-    className={cn(
-      'absolute z-10 w-full mt-1 bg-popover border border-border rounded-lg shadow-lg',
-      className
-    )}
-    role="listbox"
-  >
-    <div className="flex items-center justify-between px-3 py-2 border-b border-border">
-      <span className="text-xs text-muted-foreground font-medium">最近の検索</span>
-      {onClear && (
-        <button
-          type="button"
-          onClick={onClear}
-          className="text-xs text-primary hover:text-primary/80"
-        >
-          履歴をクリア
-        </button>
+}) => {
+  if (items.length === 0) return null
+
+  return (
+    <div
+      aria-hidden={!isOpen}
+      className={cn(
+        'absolute left-0 top-full z-10 mt-1.5 w-full rounded-lg border border-border bg-popover p-1.5 text-left text-popover-foreground shadow-lg',
+        'transition-[opacity,transform] duration-150 ease-out',
+        isOpen ? 'translate-y-0 opacity-100' : 'pointer-events-none -translate-y-1.5 opacity-0',
+        className
       )}
-    </div>
-    <ul className="py-1">
-      {items.map((item, index) => (
-        <li
-          key={item}
-          id={`suggestion-${index}`}
-          role="option"
-          aria-selected={index === selectedIndex}
-          className={cn(
-            'px-3 py-2 cursor-pointer flex items-center gap-2',
-            index === selectedIndex ? 'bg-primary/10' : 'hover:bg-muted'
-          )}
-          onClick={() => onSelect(item)}
-        >
-          <svg
-            className="h-4 w-4 text-muted-foreground"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+    >
+      <div className="flex items-center justify-between px-3 pb-1 pt-1.5">
+        <span className="text-xs font-semibold text-muted-foreground">最近の検索</span>
+        {onClear && (
+          <button
+            type="button"
+            onClick={onClear}
+            tabIndex={isOpen ? undefined : -1}
+            className="text-xs text-muted-foreground transition-colors hover:text-foreground"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
-          <span className="text-sm text-foreground">{item}</span>
-        </li>
-      ))}
-    </ul>
-  </div>
-)
+            すべて削除
+          </button>
+        )}
+      </div>
+      <ul id={LISTBOX_ID} role="listbox" aria-label="最近の検索">
+        {items.map((item, index) => (
+          <li
+            key={item}
+            id={`suggestion-${index}`}
+            role="option"
+            aria-selected={index === selectedIndex}
+            className={cn(
+              'flex h-10 cursor-pointer items-center gap-2.5 rounded-md px-3 transition-colors max-sm:h-11',
+              index === selectedIndex ? 'bg-muted' : 'hover:bg-muted'
+            )}
+            onClick={() => onSelect(item)}
+          >
+            <Clock className="h-4 w-4 flex-shrink-0 text-muted-foreground/70" aria-hidden="true" />
+            <span className="min-w-0 flex-1 truncate text-sm text-foreground">{item}</span>
+            {onRemove && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  // 行のクリック（その語で検索）にしない
+                  e.stopPropagation()
+                  onRemove(item)
+                }}
+                tabIndex={isOpen ? undefined : -1}
+                className="-mr-1.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground/70 transition-colors hover:bg-background hover:text-foreground max-sm:-mr-2 max-sm:h-9 max-sm:w-9"
+                aria-label={`「${item}」を履歴から削除`}
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}

@@ -19,7 +19,7 @@ const SearchInputArea: React.FC<SearchInputAreaProps> = ({ activeTab }) => {
   const [keyword, setKeyword] = useState('');
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   // 作品検索画面と同じ検索履歴を使い、入力欄のフォーカスで「最近の検索」を出す
-  const { searchHistory, addToHistory, clearHistory } = useSearchHistory();
+  const { searchHistory, addToHistory, removeFromHistory, clearHistory } = useSearchHistory();
 
   const searchByKeyword = (query: string) => {
     addToHistory(query);
@@ -82,10 +82,11 @@ const SearchInputArea: React.FC<SearchInputAreaProps> = ({ activeTab }) => {
   );
 
   return (
-    <div className="relative mt-3 backdrop-blur-md bg-primary-foreground/10 border border-primary-foreground/20 rounded-2xl p-4 md:p-5 shadow-xl shadow-black/20">
+    // 「最近の検索」はパネル全体の幅で、パネルの直下に出すため、パネルを基準にする
+    <div ref={recent.containerRef} className="relative mt-3 backdrop-blur-md bg-primary-foreground/10 border border-primary-foreground/20 rounded-2xl p-4 md:p-5 shadow-xl shadow-black/20">
       {/* キーワード検索 */}
       {activeTab === 'keyword' && (
-        <div ref={recent.containerRef} className="relative">
+        <>
           <div className="flex overflow-hidden rounded-xl shadow-sm">
             <div className="relative flex-1">
               <svg
@@ -115,16 +116,16 @@ const SearchInputArea: React.FC<SearchInputAreaProps> = ({ activeTab }) => {
             </div>
             {searchButton(!keyword.trim())}
           </div>
-          {recent.isOpen && (
-            <RecentSearchesDropdown
-              items={searchHistory}
-              selectedIndex={recent.selectedIndex}
-              onSelect={recent.select}
-              onClear={clearHistory}
-              className="text-left"
-            />
-          )}
-        </div>
+          <RecentSearchesDropdown
+            items={recent.items}
+            isOpen={recent.isOpen}
+            selectedIndex={recent.selectedIndex}
+            onSelect={recent.select}
+            onRemove={removeFromHistory}
+            onClear={clearHistory}
+            className="mt-2"
+          />
+        </>
       )}
 
       {/* ジャンル検索 */}
