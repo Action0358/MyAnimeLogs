@@ -14,6 +14,15 @@
 
 export type AnnouncementCategory = 'release' | 'feature' | 'maintenance' | 'important'
 
+/** 段落・リスト項目の中身。文字列か、リンクつきの文字列 */
+export type AnnouncementInline = string | { text: string; href: string }
+
+/** 詳細ページの本文を組むブロック */
+export type AnnouncementBlock =
+  | { type: 'p'; children: AnnouncementInline[] }
+  | { type: 'heading'; text: string }
+  | { type: 'ul'; items: AnnouncementInline[][] }
+
 export interface Announcement {
   /** 一意なID。日付 + 短い識別子（例: 2026-09-06-beta） */
   id: string
@@ -22,12 +31,19 @@ export interface Announcement {
   category: AnnouncementCategory
   title: string
   /**
-   * 本文。改行はそのまま表示に反映されるが、段落を分けるときだけに使う。
+   * 本文（プレーン文字列）。一覧では2行に省略して出す導入文になる。
+   * 改行はそのまま表示に反映されるが、段落を分けるときだけに使う。
    * 見た目の行の長さを整えるための改行は入れない（画面幅によって自動の
    * 折り返しと重なり、「す。」のように1文字だけの行ができるため）
    */
   body: string
-  /** 任意。本文の後に置く導線 */
+  /**
+   * 任意。詳細ページの本文を見出し・リスト・リンクつきで組みたいときに指定する。
+   * 無いときは `body` を段落として詳細ページに出す。Markdown は導入せず、
+   * 表せる要素を型で絞っている（依存を増やさず、管理画面も要らないため）
+   */
+  content?: AnnouncementBlock[]
+  /** 任意。詳細ページの本文の後に置く導線 */
   link?: {
     href: string
     label: string
@@ -68,18 +84,17 @@ export const sortAnnouncements = (items: Announcement[]): Announcement[] =>
 /** 新しい順に並べ替えたお知らせを返す */
 export const getAnnouncements = (): Announcement[] => sortAnnouncements(ANNOUNCEMENTS)
 
+/** IDからお知らせを探す。無ければ undefined */
+export const getAnnouncementById = (id: string): Announcement | undefined =>
+  ANNOUNCEMENTS.find((a) => a.id === id)
+
 /**
- * 一覧ページ内の該当お知らせを指すURL。
+ * 該当お知らせの詳細ページのURL。
  *
- * 1件ごとの詳細ページは持たない（#848）ため、遷移先は一覧ページ + アンカー。
- * リンクを張る側と id を出力する側でずれないよう、組み立てはここに集約する。
- *
- * id は日付始まりで数字から始まるが、HTML の id 属性としては有効で
- * getElementById・アンカー遷移・:target のいずれも動く。
- * ただし CSS や querySelector の id セレクタ（#2026-...）は不正になるため、
- * 要素を取るときは getElementById を使うこと。
+ * 一覧・トップ・旧アンカー互換の転送が同じURLを指すよう、組み立てはここに集約する。
+ * 詳細ページは #1111 で追加した（それ以前は #848 の決定で一覧 + アンカーだった）。
  */
-export const announcementHref = (id: string): string => `/news#${id}`
+export const announcementHref = (id: string): string => `/news/${id}`
 
 /** トップページに出す件数。アニメカードが主役のため控えめにする */
 export const HOME_ANNOUNCEMENT_COUNT = 3
