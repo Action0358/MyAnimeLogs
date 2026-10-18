@@ -1,4 +1,5 @@
 export { AnnouncementBrowser } from './AnnouncementBrowser'
 export { AnnouncementList, formatAnnouncementDate } from './AnnouncementList'
 export { AnnouncementSection } from './AnnouncementSection'
+export { AnnouncementDetail } from './AnnouncementDetail'
 export { CategoryBadge } from './CategoryBadge'

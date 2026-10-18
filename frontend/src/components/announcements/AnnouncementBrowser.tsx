@@ -1,10 +1,13 @@
 'use client'
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
+import type { Route } from 'next'
+import { useRouter } from 'next/navigation'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { AnnouncementList } from './AnnouncementList'
 import { cn } from '@/lib/utils'
 import {
+  announcementHref,
   ANNOUNCEMENT_CATEGORY_LABELS,
   type Announcement,
   type AnnouncementCategory,
@@ -54,18 +57,15 @@ const readHashId = (): string | null => {
  * 変わるためクライアントコンポーネントにしている。初回描画は「すべて・
  * 1ページ目」で静的生成と一致するため、ハイドレーション不整合は起きない。
  *
- * /news#<id> で2ページ目以降の項目や絞り込みで隠れた項目が指されたときは、
- * その項目が見えるページへ切り替えてからスクロールする。トップのお知らせ行や
- * 共有リンクが、表示されていない項目を指して空振りしないようにするため。
+ * 詳細ページ（/news/[id]）を追加する前は /news#<id> が個別の着地点だった（#848）。
+ * すでに共有されたリンクが空振りしないよう、該当するIDなら詳細ページへ転送する。
  */
 export const AnnouncementBrowser: React.FC<{ announcements: Announcement[] }> = ({
   announcements,
 }) => {
+  const router = useRouter()
   const [category, setCategory] = useState<CategoryFilter>('all')
   const [page, setPage] = useState(1)
-  // アンカーで指された項目。ページを切り替えて表示した場合は :target が
-  // 効かないことがあるため、自前でも強調する
-  const [targetId, setTargetId] = useState<string | null>(null)
   const listTopRef = useRef<HTMLDivElement>(null)
 
   const showFilter = announcements.length >= NEWS_FILTER_MIN_COUNT
@@ -94,39 +94,26 @@ export const AnnouncementBrowser: React.FC<{ announcements: Announcement[] }> = 
     ? groupByYear(pageItems)
     : [{ year: '', items: pageItems }]
 
-  // ハッシュで指された項目が見えるよう、絞り込みを外して該当ページへ移る
-  const revealHashTarget = useCallback(() => {
-    const id = readHashId()
-    if (!id) return
-    const index = announcements.findIndex((a) => a.id === id)
-    if (index < 0) return
-    setCategory('all')
-    setPage(Math.floor(index / NEWS_PAGE_SIZE) + 1)
-    setTargetId(id)
-  }, [announcements])
-
+  // 旧アンカー /news#<id> を詳細ページへ転送する。履歴に旧URLを残さないよう replace
   useEffect(() => {
-    revealHashTarget()
-    window.addEventListener('hashchange', revealHashTarget)
-    return () => window.removeEventListener('hashchange', revealHashTarget)
-  }, [revealHashTarget])
-
-  // ページ切り替えで後から描画された項目へは、ブラウザのアンカー遷移が
-  // 届かないため自分でスクロールする
-  useEffect(() => {
-    if (!targetId) return
-    document.getElementById(targetId)?.scrollIntoView({ block: 'start' })
-  }, [targetId, currentPage])
+    const redirect = () => {
+      const id = readHashId()
+      if (id && announcements.some((a) => a.id === id)) {
+        router.replace(announcementHref(id) as Route)
+      }
+    }
+    redirect()
+    window.addEventListener('hashchange', redirect)
+    return () => window.removeEventListener('hashchange', redirect)
+  }, [announcements, router])
 
   const changeCategory = (next: CategoryFilter) => {
     setCategory(next)
     setPage(1)
-    setTargetId(null)
   }
 
   const changePage = (next: number) => {
     setPage(next)
-    setTargetId(null)
     listTopRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' })
   }
 
@@ -178,7 +165,7 @@ export const AnnouncementBrowser: React.FC<{ announcements: Announcement[] }> = 
                   {group.year}年
                 </h2>
               )}
-              <AnnouncementList announcements={group.items} highlightedId={targetId} />
+              <AnnouncementList announcements={group.items} />
             </section>
           ))}
         </div>
