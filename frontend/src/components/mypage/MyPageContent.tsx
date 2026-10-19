@@ -14,7 +14,7 @@ import {
   WatchStatusCard,
   WatchStatusTabKey,
 } from '@/components/favorites'
-import { ExpandToggleButton } from '@/components/ui'
+import { ErrorState, ExpandToggleButton, getErrorStateType } from '@/components/ui'
 import { useWatchStatus, WatchStatusAnime } from '@/hooks/useWatchStatus'
 import { useExpandableList } from '@/hooks/useExpandableList'
 import { useResponsiveInitialCount } from '@/hooks/useResponsiveInitialCount'
@@ -77,7 +77,7 @@ export const MyPageContent: React.FC = () => {
   const router = useRouter()
   const [user, setUser] = useState(authUser)
   const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<unknown>(null)
   const [activeTab, setActiveTab] = useState<WatchStatusTabKey>(readMyPageTabFromUrl)
   const [imageError, setImageError] = useState(false)
 
@@ -102,10 +102,8 @@ export const MyPageContent: React.FC = () => {
         return
       }
 
-      // その他のエラーはユーザーに通知
-      const errorMessage =
-        err instanceof Error ? err.message : 'データの取得に失敗しました'
-      setError(errorMessage)
+      // その他のエラーはユーザーに通知（画面には生メッセージを出さず、種類だけで表示を決める）
+      setError(err ?? new Error('データの取得に失敗しました'))
       console.error('Failed to fetch data:', err)
     } finally {
       setIsLoading(false)
@@ -182,17 +180,11 @@ export const MyPageContent: React.FC = () => {
   if (error || watchStatusesError) {
     return (
       <Container className="py-12">
-        <div className="bg-white rounded-lg border border-gray-200 p-12 shadow-sm text-center">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-red-600 text-3xl">⚠️</span>
-          </div>
-          <p className="text-red-600 mb-4">
-            {error || watchStatusesError?.message || 'データの取得に失敗しました'}
-          </p>
-          <Button variant="primary" size="md" onClick={fetchData}>
-            再読み込み
-          </Button>
-        </div>
+        <h1 className="text-xl md:text-2xl font-bold text-foreground">マイページ</h1>
+        <ErrorState
+          type={getErrorStateType(error || watchStatusesError)}
+          onRetry={error ? fetchData : () => window.location.reload()}
+        />
       </Container>
     )
   }

@@ -184,9 +184,11 @@ describe('MyPage', () => {
       render(<MyPage />)
 
       await waitFor(() => {
+        expect(screen.getByText('読み込めませんでした')).toBeInTheDocument()
+        // APIの生メッセージは画面に出さない
         expect(
-          screen.getByText('視聴ステータスの取得に失敗しました')
-        ).toBeInTheDocument()
+          screen.queryByText('視聴ステータスの取得に失敗しました')
+        ).not.toBeInTheDocument()
       })
     })
 
@@ -203,8 +205,8 @@ describe('MyPage', () => {
       render(<MyPage />)
 
       await waitFor(() => {
-        // APIクライアントがエラーレスポンスのmessageをそのまま表示する
-        expect(screen.getByText('Server error')).toBeInTheDocument()
+        expect(screen.getByText('読み込めませんでした')).toBeInTheDocument()
+        expect(screen.queryByText('Server error')).not.toBeInTheDocument()
       })
     })
 
@@ -215,8 +217,8 @@ describe('MyPage', () => {
       render(<MyPage />)
 
       await waitFor(() => {
-        // APIクライアントがTypeErrorを"ネットワークエラーが発生しました"に変換する
-        expect(screen.getByText('ネットワークエラーが発生しました')).toBeInTheDocument()
+        // APIクライアントがTypeErrorをstatus 0のエラーに変換し、通信エラー表示になる
+        expect(screen.getByText('接続できませんでした')).toBeInTheDocument()
       })
     })
   })

@@ -16,7 +16,6 @@ const PopularAnime: React.FC<PopularAnimeProps> = ({ className = '' }) => {
       queryFn={() => animeApi.getPopularAnimes(20, true)}
       linkHref="/anime/popular"
       emptyMessage="人気アニメが見つかりませんでした"
-      errorMessage="人気アニメの取得に失敗しました"
       displayMode="carousel"
       className={className}
     />

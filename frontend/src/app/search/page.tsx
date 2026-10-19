@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { ChevronDown, Filter as FilterIcon } from 'lucide-react'
 import { Container } from '@/components/layout'
 import { AnimeGrid } from '@/components/anime'
-import { Pagination } from '@/components/ui'
+import { ErrorState, Pagination, getErrorStateType } from '@/components/ui'
 import { SearchForm, FilterSheet, sortOptions } from '@/components/search'
 import { MediaTabs, type MediaTabDefinition } from '@/components/anime/MediaTabs'
 import type { MediaType } from '@/utils/mediaFilter'
@@ -32,7 +32,7 @@ function SearchContent() {
 
   const currentPage = Number(searchParams.get('page')) || 1
 
-  const { animes, isLoading, totalPages, total, setPage, isFetching } = useAnimes({
+  const { animes, isLoading, error, refetch, totalPages, total, setPage, isFetching } = useAnimes({
     filters: {
       keyword: filters.keyword,
       season: filters.season,
@@ -119,7 +119,7 @@ function SearchContent() {
           <span className="flex flex-shrink-0 items-baseline gap-1 text-sm text-muted-foreground">
             {isLoading ? (
               '読み込み中...'
-            ) : (
+            ) : error ? null : (
               <>
                 <span className="text-base font-bold text-foreground">
                   {total.toLocaleString()}
@@ -235,32 +235,40 @@ function SearchContent() {
         </button>
       </div>
 
-      {/* アニメグリッド（一覧ページと統一の全幅グリッド） */}
-      <AnimeGrid
-        animes={animes}
-        isLoading={isLoading}
-        // 詳細から戻ったときに検索条件を失わないよう、クエリごと遷移元として渡す
-        from={
-          searchParams.toString()
-            ? `/search?${searchParams.toString()}`
-            : '/search'
-        }
-        emptyMessage={
-          hasActiveFilters
-            ? '条件に一致するアニメが見つかりませんでした'
-            : 'アニメを検索してください'
-        }
-      />
-
-      {/* ページネーション */}
-      {totalPages > 1 && (
-        <div className="mt-8">
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPageChange={handlePageChange}
+      {/* 取得に失敗したときは0件表示にせず、操作部を残したまま結果エリアだけを差し替える。
+          再読み込みはページ全体ではなく同じ条件での再検索 */}
+      {error ? (
+        <ErrorState shortHeight type={getErrorStateType(error)} onRetry={() => refetch()} />
+      ) : (
+        <>
+          {/* アニメグリッド（一覧ページと統一の全幅グリッド） */}
+          <AnimeGrid
+            animes={animes}
+            isLoading={isLoading}
+            // 詳細から戻ったときに検索条件を失わないよう、クエリごと遷移元として渡す
+            from={
+              searchParams.toString()
+                ? `/search?${searchParams.toString()}`
+                : '/search'
+            }
+            emptyMessage={
+              hasActiveFilters
+                ? '条件に一致するアニメが見つかりませんでした'
+                : 'アニメを検索してください'
+            }
           />
-        </div>
+
+          {/* ページネーション */}
+          {totalPages > 1 && (
+            <div className="mt-8">
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={handlePageChange}
+              />
+            </div>
+          )}
+        </>
       )}
     </Container>
   )

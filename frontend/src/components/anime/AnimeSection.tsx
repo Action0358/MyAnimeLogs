@@ -4,7 +4,7 @@ import type React from 'react'
 import Link from 'next/link'
 import type { Route } from 'next'
 import { useQuery } from '@tanstack/react-query'
-import { Button, SectionHeading } from '@/components/ui'
+import { Button, ErrorState, SectionHeading, getErrorStateType } from '@/components/ui'
 import { AnimeCard, type AnimeCardData } from './AnimeCard'
 import { AnimeCarousel, CarouselSkeleton } from './AnimeCarousel'
 import { SkeletonCard } from './SkeletonCard'
@@ -21,7 +21,6 @@ interface AnimeSectionProps {
   linkHref: string
   linkText?: string
   emptyMessage: string
-  errorMessage: string
   displayMode?: 'grid' | 'carousel'
   className?: string
 }
@@ -53,7 +52,6 @@ const AnimeSection: React.FC<AnimeSectionProps> = ({
   linkHref,
   linkText = 'もっと見る',
   emptyMessage,
-  errorMessage,
   displayMode = 'grid',
   className = '',
 }) => {
@@ -101,17 +99,12 @@ const AnimeSection: React.FC<AnimeSectionProps> = ({
   }
 
   if (error) {
+    // 失敗した一覧への「もっと見る」は同じエラーになるため出さない。
+    // 再読み込みはこのセクションのAPIだけを再取得する
     return (
       <div className={className}>
-        {SectionHeader}
-        <div className="text-center py-12">
-          <p className="text-destructive mb-4">
-            {error instanceof Error ? error.message : errorMessage}
-          </p>
-          <Button variant="outline" onClick={() => refetch()}>
-            再試行
-          </Button>
-        </div>
+        <SectionHeading>{title}</SectionHeading>
+        <ErrorState variant="compact" type={getErrorStateType(error)} onRetry={() => refetch()} />
       </div>
     )
   }
