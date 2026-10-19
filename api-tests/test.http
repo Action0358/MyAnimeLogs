@@ -26,9 +26,6 @@
 ### 1. 基本ヘルスチェック
 GET {{baseUrl}}/health
 
-### 2. 詳細ヘルスチェック
-GET {{baseUrl}}/health/detailed
-
 ### ===== ユーザー情報API =====
 
 ### 3. ユーザー情報取得

@@ -94,30 +94,3 @@ func (h *MonitoringHandler) HealthCheck(c *gin.Context) {
 		"version": "1.0.0",
 	})
 }
-
-// DetailedHealthCheck 詳細なヘルス情報を返す
-func (h *MonitoringHandler) DetailedHealthCheck(c *gin.Context) {
-	statistics := h.errorMonitor.GetErrorStatistics()
-
-	// 型安全な構造体から直接値を取得
-	totalErrors := statistics.TotalErrors
-	errorTypeCount := statistics.ErrorTypeCount
-
-	healthScore := "healthy"
-	if totalErrors > 100 {
-		healthScore = "degraded"
-	}
-	if totalErrors > 500 {
-		healthScore = "unhealthy"
-	}
-
-	c.JSON(http.StatusOK, gin.H{
-		"status":       "ok",
-		"service":      "MyAnimeLogs API",
-		"version":      "1.0.0",
-		"health_score": healthScore,
-		"total_errors": totalErrors,
-		"error_types":  errorTypeCount,
-		"uptime":       "calculated_uptime", // TODO: 稼働時間の追跡を実装
-	})
-}
