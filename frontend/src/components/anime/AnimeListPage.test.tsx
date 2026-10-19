@@ -41,7 +41,6 @@ const renderPage = () => {
         queryKey={['test', mockQuery]}
         queryFn={async () => ({ animes, total: animes.length }) as never}
         emptyMessage="なし"
-        errorMessage="エラー"
         showMediaTabs
         showGenreSort
       />
@@ -110,5 +109,26 @@ describe('parseListFilters / buildListQuery', () => {
   it('往復で条件が変わらない', () => {
     const filters = { media: 'web' as const, genres: ['SF', 'ドラマ'], sort: 'year', page: 3 }
     expect(parseListFilters(new URLSearchParams(buildListQuery(filters)))).toEqual(filters)
+  })
+})
+
+describe('一覧の取得エラー', () => {
+  it('見出しを残してErrorStateを表示し、ページ固有の文言は出さない', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={client}>
+        <AnimeListPage
+          title="今期アニメ"
+          queryKey={['err-test']}
+          queryFn={async () => {
+            throw { status: 0 }
+          }}
+          emptyMessage="なし"
+        />
+      </QueryClientProvider>
+    )
+    expect(await screen.findByText('接続できませんでした')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '今期アニメ' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '再読み込み' })).toBeInTheDocument()
   })
 })

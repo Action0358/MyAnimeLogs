@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import SearchPage from './page'
 import { useSearch, type SearchFilters } from '@/hooks/useSearch'
@@ -159,5 +159,33 @@ describe('検索画面のヘッダー', () => {
     const filterButton = screen.getByRole('button', { name: /フィルター/ })
     // 放送時期1 + ジャンル2
     expect(filterButton).toHaveTextContent('3')
+  })
+})
+
+describe('検索画面の取得エラー', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+    setFilters({})
+  })
+
+  it('エラー時は0件表示にせず、操作部を残してErrorStateを表示する', () => {
+    const refetch = jest.fn()
+    mockAnimes({ error: new Error('boom'), refetch })
+    render(<SearchPage />)
+
+    expect(screen.getByRole('alert')).toBeInTheDocument()
+    expect(screen.getByText('読み込めませんでした')).toBeInTheDocument()
+    expect(screen.queryByText('件')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('anime-grid')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /フィルター/ })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '再読み込み' }))
+    expect(refetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('通信エラーは接続エラーの文言になる', () => {
+    mockAnimes({ error: { status: 0 }, refetch: jest.fn() })
+    render(<SearchPage />)
+    expect(screen.getByText('接続できませんでした')).toBeInTheDocument()
   })
 })
