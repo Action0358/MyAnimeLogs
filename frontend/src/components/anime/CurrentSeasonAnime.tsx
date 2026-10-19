@@ -18,7 +18,6 @@ const CurrentSeasonAnime: React.FC<CurrentSeasonAnimeProps> = ({
       queryFn={currentSeasonAnimeQuery.queryFn}
       linkHref="/anime/current"
       emptyMessage="今期アニメが見つかりませんでした"
-      errorMessage="今期アニメの取得に失敗しました"
       displayMode="carousel"
       className={className}
     />

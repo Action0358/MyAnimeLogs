@@ -6,8 +6,8 @@ import type { Route } from 'next'
 import { Heart } from 'lucide-react'
 import { Container } from '@/components/layout'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
-import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { ErrorState, getErrorStateType } from '@/components/ui/ErrorState'
 import { ExpandToggleButton } from '@/components/ui/ExpandToggleButton'
 import { FavoriteCard } from '@/components/favorites'
 import { SkeletonCard } from '@/components/anime'
@@ -47,16 +47,10 @@ const FavoritesContent: React.FC = () => {
   if (error) {
     return (
       <Container size="xl" className="py-8">
-        <div className="text-center py-16">
-          <div className="text-6xl mb-4" aria-hidden="true">⚠️</div>
-          <h2 className="text-xl font-semibold text-foreground mb-2">
-            エラーが発生しました
-          </h2>
-          <p className="text-muted-foreground mb-6">{error.message}</p>
-          <Button variant="primary" onClick={() => window.location.reload()}>
-            再読み込み
-          </Button>
-        </div>
+        <h1 className="text-xl md:text-[26px] font-bold text-foreground tracking-tight pb-4 md:pb-[18px] border-b border-border">
+          お気に入りアニメ
+        </h1>
+        <ErrorState type={getErrorStateType(error)} onRetry={() => window.location.reload()} />
       </Container>
     )
   }

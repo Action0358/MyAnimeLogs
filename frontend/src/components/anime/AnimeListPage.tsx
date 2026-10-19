@@ -8,7 +8,7 @@ import { ChevronDown, Filter as FilterIcon } from 'lucide-react'
 import { Container } from '@/components/layout'
 import { AnimeGrid } from '@/components/anime'
 import { MediaTabs, type MediaTabDefinition } from '@/components/anime/MediaTabs'
-import { Pagination } from '@/components/ui'
+import { ErrorState, Pagination, getErrorStateType } from '@/components/ui'
 import { FilterSheet, sortOptions } from '@/components/search'
 import type { DBAnime, DBAnimeResponse } from '@/lib/api/annict'
 import { toAnimeStatus } from '@/lib/constants'
@@ -82,7 +82,6 @@ interface AnimeListPageProps {
   queryKey: string[]
   queryFn: () => Promise<DBAnimeResponse>
   emptyMessage: string
-  errorMessage: string
   showMediaTabs?: boolean
   /** 並び替え・ジャンルの絞り込みを出す（今期・人気アニメ向け。放送時期は固定/無関係なため出さない） */
   showGenreSort?: boolean
@@ -99,7 +98,6 @@ const AnimeListContent: React.FC<AnimeListPageProps> = ({
   queryKey,
   queryFn,
   emptyMessage,
-  errorMessage,
   showMediaTabs = false,
   showGenreSort = false,
   columns,
@@ -126,7 +124,7 @@ const AnimeListContent: React.FC<AnimeListPageProps> = ({
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [activeMediaTab, currentPage])
 
-  const { data, isLoading, error, isFetching } = useQuery({
+  const { data, isLoading, error, isFetching, refetch } = useQuery({
     queryKey,
     queryFn,
     staleTime: STALE_TIME,
@@ -174,9 +172,10 @@ const AnimeListContent: React.FC<AnimeListPageProps> = ({
   if (error) {
     return (
       <Container size="xl" className="py-8">
-        <div className="text-center py-12">
-          <p className="text-destructive mb-4">{errorMessage}</p>
-        </div>
+        <h1 className="text-xl md:text-[26px] font-bold text-foreground tracking-tight">
+          {title}
+        </h1>
+        <ErrorState type={getErrorStateType(error)} onRetry={() => refetch()} />
       </Container>
     )
   }
