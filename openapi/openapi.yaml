@@ -1111,40 +1111,6 @@ paths:
                   timestamp:
                     type: string
                     format: date-time
-  /health/detailed:
-    get:
-      summary: 詳細ヘルスチェック
-      responses:
-        "200":
-          description: 詳細なヘルスチェック情報
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  status:
-                    type: string
-                    example: "healthy"
-                  checks:
-                    type: object
-                    properties:
-                      database:
-                        type: object
-                        properties:
-                          status:
-                            type: string
-                          latency:
-                            type: number
-                      external_api:
-                        type: object
-                        properties:
-                          status:
-                            type: string
-                          latency:
-                            type: number
-                  timestamp:
-                    type: string
-                    format: date-time
 components:
   securitySchemes:
     bearerAuth:

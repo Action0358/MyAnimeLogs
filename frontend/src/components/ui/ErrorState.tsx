@@ -2,15 +2,15 @@
 
 import React from 'react'
 import Link from 'next/link'
-import { CircleAlert, RotateCw, Search, SearchX, WifiOff } from 'lucide-react'
+import { CircleAlert, FileQuestion, RotateCw, Search, SearchX, WifiOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from './Button'
 
-export type ErrorStateType = 'network' | 'unknown' | 'notFound'
+export type ErrorStateType = 'network' | 'unknown' | 'notFound' | 'pageNotFound'
 
 export interface ErrorStateProps {
   type: ErrorStateType
-  /** 再読み込み。notFound は再読み込みで直らないため不要（ボタンは「作品を検索」になる） */
+  /** 再読み込み。notFound / pageNotFound は再読み込みで直らないため不要（ボタンは「作品を検索」になる） */
   onRetry?: () => void
   /** page: ページ本文用 / compact: トップページの各セクション用（小さめ・outlineボタン・サブリンクなし） */
   variant?: 'page' | 'compact'
@@ -38,6 +38,14 @@ const CONTENT = {
     Icon: SearchX,
     title: '作品が見つかりません',
     description: '削除されたか、URLが間違っている可能性があります。',
+    subLabel: 'トップへ戻る',
+    subHref: '/',
+  },
+  // 作品以外の存在しないURL（打ち間違い・削除されたページ）
+  pageNotFound: {
+    Icon: FileQuestion,
+    title: 'ページが見つかりません',
+    description: 'URLが間違っているか、ページが移動・削除された可能性があります。',
     subLabel: 'トップへ戻る',
     subHref: '/',
   },
@@ -79,6 +87,7 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
   className,
 }) => {
   const { Icon, title, description, subLabel, subHref } = CONTENT[type]
+  const isNotFound = type === 'notFound' || type === 'pageNotFound'
 
   if (variant === 'compact') {
     return (
@@ -114,7 +123,7 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
       role="alert"
       className={cn(
         // notFound は見出しを持たないページ全体の中央に置くため一段高くする
-        type === 'notFound'
+        isNotFound
           ? 'min-h-[440px] md:min-h-[480px]'
           : shortHeight
             ? 'min-h-[320px] md:min-h-[360px]'
@@ -127,7 +136,7 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
         <Icon className="w-7 h-7 md:w-8 md:h-8" strokeWidth={1.75} aria-hidden="true" />
       </div>
       {/* notFound はページ見出しが無いため、これがページの h1 になる */}
-      {type === 'notFound' ? (
+      {isNotFound ? (
         <h1 className="text-[17px] md:text-lg font-bold text-foreground mb-2">{title}</h1>
       ) : (
         <h2 className="text-[17px] md:text-lg font-bold text-foreground mb-2">{title}</h2>
@@ -135,7 +144,7 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
       <p className="text-[13.5px] md:text-sm leading-[1.7] text-muted-foreground mb-[22px] md:mb-6 max-w-[280px] md:max-w-[360px] [text-wrap:pretty] [word-break:auto-phrase]">
         {description}
       </p>
-      {type === 'notFound' ? (
+      {isNotFound ? (
         <Button variant="primary" size="md" asChild className="gap-2 h-11 md:h-10">
           <Link href="/search">
             <Search className="w-4 h-4" aria-hidden="true" />

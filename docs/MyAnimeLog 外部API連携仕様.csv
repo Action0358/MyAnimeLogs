@@ -36,4 +36,4 @@ APIエンドポイント,https://api.jikan.moe/v4,Jikan REST API
 データ更新頻度,手動または定期実行,管理者が必要に応じて同期を実行
 検索機能,全文検索インデックス（PostgreSQL GIN）,タイトル・タイトルかな・英語タイトルでの高速検索を実現
 ログ出力,構造化ログ（JSON形式）,API呼び出し・エラー・同期結果を詳細に記録
-ヘルスチェック,/health および /health/detailed,API稼働状態とデータベース接続状態の監視
+ヘルスチェック,/health,API稼働状態の監視（エラー統計は管理者用 /api/admin/errors/metrics）

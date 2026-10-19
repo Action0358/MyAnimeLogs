@@ -107,21 +107,30 @@ const AnimeDetailClient: React.FC = () => {
   const { getStatus, updateStatus, removeStatus } = useWatchStatus({ enabled: isAuthenticated })
   const [imageError, setImageError] = useState(false)
   const [animeId, setAnimeId] = useState<number>(NaN)
+  // このページは 404.html としても配信される（scripts/copy-headers.js）。
+  // /anime/<id> 以外のURLで描画されたら、作品ではなくページ自体が存在しない
+  const [isOutsideAnimePath, setIsOutsideAnimePath] = useState(false)
   // ハイドレーションミスマッチを回避するため、クライアントサイドでのみ放送状況を計算
   const [statusInfo, setStatusInfo] = useState<BroadcastStatusLabel>({ label: null, className: '' })
   
   // URLから実際のIDを取得（Cloudflare Pages Functionsによるリライト対応）
   useEffect(() => {
+    // 数値でないIDは NaN のままだとスケルトンから進まないため、不正なID（0）として扱う
+    const toAnimeId = (raw: string) => {
+      const parsed = parseInt(raw, 10)
+      return Number.isNaN(parsed) ? 0 : parsed
+    }
+
     if (params.id === '_') {
       const pathParts = window.location.pathname.split('/')
-      const idFromUrl = pathParts[pathParts.indexOf('anime') + 1]
-      if (idFromUrl && idFromUrl !== '_') {
-        setAnimeId(parseInt(idFromUrl, 10))
+      const animeIndex = pathParts.indexOf('anime')
+      if (animeIndex === -1) {
+        setIsOutsideAnimePath(true)
+        return
       }
+      setAnimeId(toAnimeId(pathParts[animeIndex + 1] ?? ''))
     } else if (typeof params.id === 'string') {
-      const parsed = parseInt(params.id, 10)
-      // 数値でないIDは NaN のままだとスケルトンから進まないため、不正なID（0）として扱う
-      setAnimeId(Number.isNaN(parsed) ? 0 : parsed)
+      setAnimeId(toAnimeId(params.id))
     }
   }, [params.id])
 
@@ -159,6 +168,15 @@ const AnimeDetailClient: React.FC = () => {
       setStatusInfo(getAnimeStatusLabel(animeData.status, animeData.released_on))
     }
   }, [animeData])
+
+  // 作品以外の存在しないURL
+  if (isOutsideAnimePath) {
+    return (
+      <Container size="xl" className="py-8">
+        <ErrorState type="pageNotFound" />
+      </Container>
+    )
+  }
 
   // ローディング表示
   if (isNaN(animeId) || isLoadingAnime) {

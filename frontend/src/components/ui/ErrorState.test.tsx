@@ -59,6 +59,16 @@ describe('ErrorState type=notFound', () => {
   })
 })
 
+describe('ErrorState type=pageNotFound', () => {
+  it('作品ではなくページが無い文言を出し、操作は notFound と揃える', () => {
+    render(<ErrorState type="pageNotFound" />)
+    expect(screen.getByRole('heading', { level: 1, name: 'ページが見つかりません' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '作品を検索' })).toHaveAttribute('href', '/search')
+    expect(screen.getByRole('link', { name: 'トップへ戻る' })).toHaveAttribute('href', '/')
+    expect(screen.queryByRole('button', { name: '再読み込み' })).not.toBeInTheDocument()
+  })
+})
+
 describe('isNotFoundError', () => {
   it('axios / apiClient どちらの404も判定する', () => {
     expect(isNotFoundError({ isAxiosError: true, response: { status: 404 } })).toBe(true)
