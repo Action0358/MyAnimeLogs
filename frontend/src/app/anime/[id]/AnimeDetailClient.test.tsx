@@ -97,3 +97,44 @@ describe('作品詳細の取得エラー', () => {
     expect(mockGetAnimesId).toHaveBeenCalledTimes(1)
   })
 })
+
+// 静的エクスポートでは詳細ページのシェル（params.id = '_'）が /anime/<id> のリライト先と
+// 404.html を兼ねるため、実際のURLから作品IDか「ページ自体が無い」かを判断する
+describe('シェル（404.html兼用）として描画されたとき', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+    mockParams = { id: '_' }
+  })
+
+  afterEach(() => {
+    window.history.pushState({}, '', '/')
+  })
+
+  it('作品以外のURLでは「ページが見つかりません」を出し、作品を取得しない', async () => {
+    window.history.pushState({}, '', '/this-page-does-not-exist')
+
+    renderDetail()
+
+    expect(await screen.findByRole('heading', { name: 'ページが見つかりません' })).toBeInTheDocument()
+    expect(mockGetAnimesId).not.toHaveBeenCalled()
+  })
+
+  it('/anime/ 配下で数値でないIDは、ローディングで止まらず「作品が見つかりません」を出す', async () => {
+    window.history.pushState({}, '', '/anime/abc/')
+
+    renderDetail()
+
+    expect(await screen.findByRole('heading', { name: '作品が見つかりません' })).toBeInTheDocument()
+    expect(mockGetAnimesId).not.toHaveBeenCalled()
+  })
+
+  it('/anime/<id> ではURLのIDで作品を取得する', async () => {
+    window.history.pushState({}, '', '/anime/456/')
+    mockGetAnimesId.mockRejectedValue({ isAxiosError: true, response: { status: 404 } })
+
+    renderDetail()
+
+    await screen.findByRole('heading', { name: '作品が見つかりません' })
+    expect(mockGetAnimesId).toHaveBeenCalledWith(456)
+  })
+})
