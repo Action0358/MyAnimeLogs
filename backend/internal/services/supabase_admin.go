@@ -38,7 +38,7 @@ func (c *SupabaseAdminClient) IsConfigured() bool {
 //
 // public.users は fk_users_auth_user_id の ON DELETE CASCADE により連鎖削除され、
 // さらに user_favorites / user_watch_status も連鎖する。
-// search_logs は ON DELETE SET NULL のため、匿名化された状態で残る。
+// search_logs も ON DELETE CASCADE により連鎖削除される（migration 054）。
 func (c *SupabaseAdminClient) DeleteUser(authUserID string) error {
 	if !c.IsConfigured() {
 		return fmt.Errorf("supabase admin client is not configured")
