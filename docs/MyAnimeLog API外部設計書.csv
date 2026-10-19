@@ -42,4 +42,3 @@ No,リソース,メソッド,URLパス,機能概要,リクエスト例,レスポ
 43,トップエラー取得,GET,/api/admin/errors/top,頻発エラーのトップリストを取得,/api/admin/errors/top?limit=10,"""json { ""errors"": [...] } """,要認証（管理者）,✅
 44,エラーメトリクスリセット,POST,/api/admin/errors/reset,エラー統計をリセット,POST /api/admin/errors/reset,"""json { ""message"": ""エラーメトリクスをリセットしました"" } """,要認証（管理者）,✅
 45,ヘルスチェック,GET,/health,APIの稼働状態を確認,/health,"""json { ""status"": ""ok"" } """,認証不要,✅
-46,詳細ヘルスチェック,GET,/health/detailed,APIの詳細な稼働状態を確認,/health/detailed,"""json { ""status"": ""ok"", ""database"": ""connected"", ""uptime"": 12345 } """,認証不要,✅

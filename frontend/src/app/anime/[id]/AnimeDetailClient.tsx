@@ -8,7 +8,15 @@ import { useQuery } from '@tanstack/react-query'
 import { decode as heDecodeEntities } from 'he'
 import { Container } from '@/components/layout'
 import { ChevronDown, ChevronUp } from 'lucide-react'
-import { Button, Card, CardContent, SectionHeading } from '@/components/ui'
+import {
+  Button,
+  Card,
+  CardContent,
+  ErrorState,
+  SectionHeading,
+  getErrorStateType,
+  isNotFoundError,
+} from '@/components/ui'
 import { WatchProviders, RelatedAnimeGrid, PosterFallback } from '@/components/anime'
 import type { Anime } from '@/lib/api/generated/myanimelogs'
 import { FavoriteButton, StatusSelector } from '@/components/favorites'
@@ -99,19 +107,30 @@ const AnimeDetailClient: React.FC = () => {
   const { getStatus, updateStatus, removeStatus } = useWatchStatus({ enabled: isAuthenticated })
   const [imageError, setImageError] = useState(false)
   const [animeId, setAnimeId] = useState<number>(NaN)
+  // このページは 404.html としても配信される（scripts/copy-headers.js）。
+  // /anime/<id> 以外のURLで描画されたら、作品ではなくページ自体が存在しない
+  const [isOutsideAnimePath, setIsOutsideAnimePath] = useState(false)
   // ハイドレーションミスマッチを回避するため、クライアントサイドでのみ放送状況を計算
   const [statusInfo, setStatusInfo] = useState<BroadcastStatusLabel>({ label: null, className: '' })
   
   // URLから実際のIDを取得（Cloudflare Pages Functionsによるリライト対応）
   useEffect(() => {
+    // 数値でないIDは NaN のままだとスケルトンから進まないため、不正なID（0）として扱う
+    const toAnimeId = (raw: string) => {
+      const parsed = parseInt(raw, 10)
+      return Number.isNaN(parsed) ? 0 : parsed
+    }
+
     if (params.id === '_') {
       const pathParts = window.location.pathname.split('/')
-      const idFromUrl = pathParts[pathParts.indexOf('anime') + 1]
-      if (idFromUrl && idFromUrl !== '_') {
-        setAnimeId(parseInt(idFromUrl, 10))
+      const animeIndex = pathParts.indexOf('anime')
+      if (animeIndex === -1) {
+        setIsOutsideAnimePath(true)
+        return
       }
+      setAnimeId(toAnimeId(pathParts[animeIndex + 1] ?? ''))
     } else if (typeof params.id === 'string') {
-      setAnimeId(parseInt(params.id, 10))
+      setAnimeId(toAnimeId(params.id))
     }
   }, [params.id])
 
@@ -129,6 +148,7 @@ const AnimeDetailClient: React.FC = () => {
     data: animeData,
     isLoading: isLoadingAnime,
     error: animeError,
+    refetch: refetchAnime,
   } = useQuery({
     queryKey: ['anime', animeId],
     queryFn: async () => {
@@ -136,6 +156,8 @@ const AnimeDetailClient: React.FC = () => {
       return response.data
     },
     enabled: isValidAnimeId,
+    // 存在しない作品（404）は再試行しても変わらないため、すぐにエラー画面を出す
+    retry: (failureCount, error) => !isNotFoundError(error) && failureCount < 3,
   })
 
 
@@ -146,6 +168,15 @@ const AnimeDetailClient: React.FC = () => {
       setStatusInfo(getAnimeStatusLabel(animeData.status, animeData.released_on))
     }
   }, [animeData])
+
+  // 作品以外の存在しないURL
+  if (isOutsideAnimePath) {
+    return (
+      <Container size="xl" className="py-8">
+        <ErrorState type="pageNotFound" />
+      </Container>
+    )
+  }
 
   // ローディング表示
   if (isNaN(animeId) || isLoadingAnime) {
@@ -172,32 +203,20 @@ const AnimeDetailClient: React.FC = () => {
     )
   }
 
-  if (!isValidAnimeId) {
+  // 不正なIDと、APIが404を返した場合は「作品が見つかりません」。再読み込みでは直らない
+  if (!isValidAnimeId || isNotFoundError(animeError) || (!animeError && !animeData)) {
     return (
-      <Container className="py-12">
-        <div className="text-center">
-          <span className="text-6xl mb-4 block">😢</span>
-          <h1 className="text-2xl font-bold text-foreground mb-2">無効なアニメIDです</h1>
-          <p className="text-muted-foreground mb-6">正しいURLでアクセスしてください。</p>
-          <Link href="/search">
-            <Button>アニメを検索する</Button>
-          </Link>
-        </div>
+      <Container size="xl" className="py-8">
+        <ErrorState type="notFound" />
       </Container>
     )
   }
 
+  // 404以外の取得失敗（通信エラー等）。存在しない作品と取り違えないよう、種類で文言を分ける
   if (animeError || !animeData) {
     return (
-      <Container className="py-12">
-        <div className="text-center">
-          <span className="text-6xl mb-4 block">😢</span>
-          <h1 className="text-2xl font-bold text-foreground mb-2">アニメが見つかりません</h1>
-          <p className="text-muted-foreground mb-6">お探しのアニメは存在しないか、削除された可能性があります。</p>
-          <Link href="/search">
-            <Button>アニメを検索する</Button>
-          </Link>
-        </div>
+      <Container size="xl" className="py-8">
+        <ErrorState type={getErrorStateType(animeError)} onRetry={() => refetchAnime()} />
       </Container>
     )
   }

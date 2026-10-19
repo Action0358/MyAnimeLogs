@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react'
-import { ErrorState, getErrorStateType } from './ErrorState'
+import { ErrorState, getErrorStateType, isNotFoundError } from './ErrorState'
 
 describe('ErrorState', () => {
   it('network: 接続エラーの文言とトップへのリンクを表示する', () => {
@@ -43,5 +43,43 @@ describe('ErrorState variant=compact', () => {
     expect(screen.queryByRole('link')).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: '再読み込み' }))
     expect(onRetry).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('ErrorState type=notFound', () => {
+  it('作品が見つからない文言を出し、ボタンは検索、サブリンクはトップへ向ける', () => {
+    render(<ErrorState type="notFound" />)
+    expect(screen.getByRole('alert')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: '作品が見つかりません' })).toBeInTheDocument()
+    expect(screen.getByText('削除されたか、URLが間違っている可能性があります。')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '作品を検索' })).toHaveAttribute('href', '/search')
+    expect(screen.getByRole('link', { name: 'トップへ戻る' })).toHaveAttribute('href', '/')
+    // 再読み込みでは直らないので出さない
+    expect(screen.queryByRole('button', { name: '再読み込み' })).not.toBeInTheDocument()
+  })
+})
+
+describe('ErrorState type=pageNotFound', () => {
+  it('作品ではなくページが無い文言を出し、操作は notFound と揃える', () => {
+    render(<ErrorState type="pageNotFound" />)
+    expect(screen.getByRole('heading', { level: 1, name: 'ページが見つかりません' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '作品を検索' })).toHaveAttribute('href', '/search')
+    expect(screen.getByRole('link', { name: 'トップへ戻る' })).toHaveAttribute('href', '/')
+    expect(screen.queryByRole('button', { name: '再読み込み' })).not.toBeInTheDocument()
+  })
+})
+
+describe('isNotFoundError', () => {
+  it('axios / apiClient どちらの404も判定する', () => {
+    expect(isNotFoundError({ isAxiosError: true, response: { status: 404 } })).toBe(true)
+    expect(isNotFoundError({ status: 404 })).toBe(true)
+  })
+  it('404以外・エラーでない値は false', () => {
+    expect(isNotFoundError({ isAxiosError: true, response: { status: 500 } })).toBe(false)
+    expect(isNotFoundError({ status: 0 })).toBe(false)
+    expect(isNotFoundError(null)).toBe(false)
+  })
+  it('getErrorStateType は404を notFound にしない（作品詳細以外では再読み込みを出すため）', () => {
+    expect(getErrorStateType({ isAxiosError: true, response: { status: 404 } })).toBe('unknown')
   })
 })

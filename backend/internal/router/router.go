@@ -49,7 +49,6 @@ func Setup(db *database.DB, cfg *config.Config, syncScheduler handlers.SyncSched
 	monitoringHandler := handlers.NewMonitoringHandler(logger, errorMonitor)
 
 	r.GET("/health", monitoringHandler.HealthCheck)
-	r.GET("/health/detailed", monitoringHandler.DetailedHealthCheck)
 
 	if gin.IsDebugging() {
 		r.GET("/test-hot-reload", func(c *gin.Context) {

@@ -2,15 +2,16 @@
 
 import React from 'react'
 import Link from 'next/link'
-import { CircleAlert, RotateCw, WifiOff } from 'lucide-react'
+import { CircleAlert, FileQuestion, RotateCw, Search, SearchX, WifiOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from './Button'
 
-export type ErrorStateType = 'network' | 'unknown'
+export type ErrorStateType = 'network' | 'unknown' | 'notFound' | 'pageNotFound'
 
 export interface ErrorStateProps {
   type: ErrorStateType
-  onRetry: () => void
+  /** 再読み込み。notFound / pageNotFound は再読み込みで直らないため不要（ボタンは「作品を検索」になる） */
+  onRetry?: () => void
   /** page: ページ本文用 / compact: トップページの各セクション用（小さめ・outlineボタン・サブリンクなし） */
   variant?: 'page' | 'compact'
   /** variant=page で、検索のように上に操作部が残るページ向けに最小高さを抑える（PC 360px / SP 320px） */
@@ -33,7 +34,29 @@ const CONTENT = {
     subLabel: '解決しない場合はお問い合わせ',
     subHref: '/contact',
   },
+  notFound: {
+    Icon: SearchX,
+    title: '作品が見つかりません',
+    description: '削除されたか、URLが間違っている可能性があります。',
+    subLabel: 'トップへ戻る',
+    subHref: '/',
+  },
+  // 作品以外の存在しないURL（打ち間違い・削除されたページ）
+  pageNotFound: {
+    Icon: FileQuestion,
+    title: 'ページが見つかりません',
+    description: 'URLが間違っているか、ページが移動・削除された可能性があります。',
+    subLabel: 'トップへ戻る',
+    subHref: '/',
+  },
 } as const
+
+/** APIが404を返したか（axios / apiClient のどちらの形も見る） */
+export const isNotFoundError = (error: unknown): boolean => {
+  if (typeof error !== 'object' || error === null) return false
+  const e = error as { status?: unknown; response?: { status?: unknown } }
+  return e.status === 404 || e.response?.status === 404
+}
 
 /**
  * エラーの種類を判定する。レスポンスなし（axios: error.response なし / fetch: TypeError・status 0）
@@ -64,6 +87,7 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
   className,
 }) => {
   const { Icon, title, description, subLabel, subHref } = CONTENT[type]
+  const isNotFound = type === 'notFound' || type === 'pageNotFound'
 
   if (variant === 'compact') {
     return (
@@ -98,7 +122,12 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
     <div
       role="alert"
       className={cn(
-        shortHeight ? 'min-h-[320px] md:min-h-[360px]' : 'min-h-[400px] md:min-h-[420px]',
+        // notFound は見出しを持たないページ全体の中央に置くため一段高くする
+        isNotFound
+          ? 'min-h-[440px] md:min-h-[480px]'
+          : shortHeight
+            ? 'min-h-[320px] md:min-h-[360px]'
+            : 'min-h-[400px] md:min-h-[420px]',
         'flex flex-col items-center justify-center py-8 text-center',
         className
       )}
@@ -106,14 +135,28 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
       <div className="w-16 h-16 md:w-[72px] md:h-[72px] rounded-full bg-slate-100 flex items-center justify-center mb-[18px] md:mb-5 text-slate-500">
         <Icon className="w-7 h-7 md:w-8 md:h-8" strokeWidth={1.75} aria-hidden="true" />
       </div>
-      <h2 className="text-[17px] md:text-lg font-bold text-foreground mb-2">{title}</h2>
+      {/* notFound はページ見出しが無いため、これがページの h1 になる */}
+      {isNotFound ? (
+        <h1 className="text-[17px] md:text-lg font-bold text-foreground mb-2">{title}</h1>
+      ) : (
+        <h2 className="text-[17px] md:text-lg font-bold text-foreground mb-2">{title}</h2>
+      )}
       <p className="text-[13.5px] md:text-sm leading-[1.7] text-muted-foreground mb-[22px] md:mb-6 max-w-[280px] md:max-w-[360px] [text-wrap:pretty] [word-break:auto-phrase]">
         {description}
       </p>
-      <Button variant="primary" size="md" onClick={onRetry} className="gap-2 h-11 md:h-10">
-        <RotateCw className="w-4 h-4" aria-hidden="true" />
-        再読み込み
-      </Button>
+      {isNotFound ? (
+        <Button variant="primary" size="md" asChild className="gap-2 h-11 md:h-10">
+          <Link href="/search">
+            <Search className="w-4 h-4" aria-hidden="true" />
+            作品を検索
+          </Link>
+        </Button>
+      ) : (
+        <Button variant="primary" size="md" onClick={onRetry} className="gap-2 h-11 md:h-10">
+          <RotateCw className="w-4 h-4" aria-hidden="true" />
+          再読み込み
+        </Button>
+      )}
       <Link
         href={subHref}
         className="mt-2 md:mt-4 min-h-[44px] md:min-h-0 flex items-center text-[13px] font-medium text-muted-foreground underline underline-offset-[3px] hover:text-foreground"

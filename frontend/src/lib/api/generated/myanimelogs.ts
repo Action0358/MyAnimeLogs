@@ -347,25 +347,6 @@ export type DeleteUsersMe200 = {
   message?: string;
 };
 
-export type GetUsersMeExportParams = {
-format?: GetUsersMeExportFormat;
-};
-
-export type GetUsersMeExportFormat = typeof GetUsersMeExportFormat[keyof typeof GetUsersMeExportFormat];
-
-
-// eslint-disable-next-line @typescript-eslint/no-redeclare
-export const GetUsersMeExportFormat = {
-  json: 'json',
-  csv: 'csv',
-} as const;
-
-export type GetUsersMeExport200One = {
-  user_info?: User;
-  favorites?: Favorite[];
-  watch_statuses?: WatchStatus[];
-};
-
 export type GetAnimesParams = {
 /**
  * タイトル・説明で部分一致
@@ -834,27 +815,6 @@ export type GetHealth200 = {
   timestamp?: string;
 };
 
-export type GetHealthDetailed200ChecksDatabase = {
-  status?: string;
-  latency?: number;
-};
-
-export type GetHealthDetailed200ChecksExternalApi = {
-  status?: string;
-  latency?: number;
-};
-
-export type GetHealthDetailed200Checks = {
-  database?: GetHealthDetailed200ChecksDatabase;
-  external_api?: GetHealthDetailed200ChecksExternalApi;
-};
-
-export type GetHealthDetailed200 = {
-  status?: string;
-  checks?: GetHealthDetailed200Checks;
-  timestamp?: string;
-};
-
 /**
  * @summary マイページ情報を取得
  */
@@ -1010,94 +970,6 @@ export const useDeleteUsersMe = <TError = AxiosError<Error | Error>,
       return useMutation(mutationOptions , queryClient);
     }
     
-/**
- * @summary ユーザーデータのエクスポート
- */
-export const getUsersMeExport = (
-    params?: GetUsersMeExportParams, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<GetUsersMeExport200One | string>> => {
-    
-    
-    return axios.get(
-      `/users/me/export`,{
-    ...options,
-        params: {...params, ...options?.params},}
-    );
-  }
-
-
-export const getGetUsersMeExportQueryKey = (params?: GetUsersMeExportParams,) => {
-    return [`/users/me/export`, ...(params ? [params]: [])] as const;
-    }
-
-    
-export const getGetUsersMeExportQueryOptions = <TData = Awaited<ReturnType<typeof getUsersMeExport>>, TError = AxiosError<unknown>>(params?: GetUsersMeExportParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeExport>>, TError, TData>>, axios?: AxiosRequestConfig}
-) => {
-
-const {query: queryOptions, axios: axiosOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getGetUsersMeExportQueryKey(params);
-
-  
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getUsersMeExport>>> = ({ signal }) => getUsersMeExport(params, { signal, ...axiosOptions });
-
-      
-
-      
-
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getUsersMeExport>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
-}
-
-export type GetUsersMeExportQueryResult = NonNullable<Awaited<ReturnType<typeof getUsersMeExport>>>
-export type GetUsersMeExportQueryError = AxiosError<unknown>
-
-
-export function useGetUsersMeExport<TData = Awaited<ReturnType<typeof getUsersMeExport>>, TError = AxiosError<unknown>>(
- params: undefined |  GetUsersMeExportParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeExport>>, TError, TData>> & Pick<
-        DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getUsersMeExport>>,
-          TError,
-          Awaited<ReturnType<typeof getUsersMeExport>>
-        > , 'initialData'
-      >, axios?: AxiosRequestConfig}
- , queryClient?: QueryClient
-  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-export function useGetUsersMeExport<TData = Awaited<ReturnType<typeof getUsersMeExport>>, TError = AxiosError<unknown>>(
- params?: GetUsersMeExportParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeExport>>, TError, TData>> & Pick<
-        UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getUsersMeExport>>,
-          TError,
-          Awaited<ReturnType<typeof getUsersMeExport>>
-        > , 'initialData'
-      >, axios?: AxiosRequestConfig}
- , queryClient?: QueryClient
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-export function useGetUsersMeExport<TData = Awaited<ReturnType<typeof getUsersMeExport>>, TError = AxiosError<unknown>>(
- params?: GetUsersMeExportParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeExport>>, TError, TData>>, axios?: AxiosRequestConfig}
- , queryClient?: QueryClient
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-/**
- * @summary ユーザーデータのエクスポート
- */
-
-export function useGetUsersMeExport<TData = Awaited<ReturnType<typeof getUsersMeExport>>, TError = AxiosError<unknown>>(
- params?: GetUsersMeExportParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getUsersMeExport>>, TError, TData>>, axios?: AxiosRequestConfig}
- , queryClient?: QueryClient 
- ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
-
-  const queryOptions = getGetUsersMeExportQueryOptions(params,options)
-
-  const query = useQuery(queryOptions , queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
-
-  query.queryKey = queryOptions.queryKey ;
-
-  return query;
-}
-
-
-
-
 /**
  * @summary アニメ検索・一覧取得
  */
@@ -3552,92 +3424,6 @@ export function useGetHealth<TData = Awaited<ReturnType<typeof getHealth>>, TErr
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
 
   const queryOptions = getGetHealthQueryOptions(options)
-
-  const query = useQuery(queryOptions , queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
-
-  query.queryKey = queryOptions.queryKey ;
-
-  return query;
-}
-
-
-
-
-/**
- * @summary 詳細ヘルスチェック
- */
-export const getHealthDetailed = (
-     options?: AxiosRequestConfig
- ): Promise<AxiosResponse<GetHealthDetailed200>> => {
-    
-    
-    return axios.get(
-      `/health/detailed`,options
-    );
-  }
-
-
-export const getGetHealthDetailedQueryKey = () => {
-    return [`/health/detailed`] as const;
-    }
-
-    
-export const getGetHealthDetailedQueryOptions = <TData = Awaited<ReturnType<typeof getHealthDetailed>>, TError = AxiosError<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHealthDetailed>>, TError, TData>>, axios?: AxiosRequestConfig}
-) => {
-
-const {query: queryOptions, axios: axiosOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getGetHealthDetailedQueryKey();
-
-  
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getHealthDetailed>>> = ({ signal }) => getHealthDetailed({ signal, ...axiosOptions });
-
-      
-
-      
-
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getHealthDetailed>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
-}
-
-export type GetHealthDetailedQueryResult = NonNullable<Awaited<ReturnType<typeof getHealthDetailed>>>
-export type GetHealthDetailedQueryError = AxiosError<unknown>
-
-
-export function useGetHealthDetailed<TData = Awaited<ReturnType<typeof getHealthDetailed>>, TError = AxiosError<unknown>>(
-  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHealthDetailed>>, TError, TData>> & Pick<
-        DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getHealthDetailed>>,
-          TError,
-          Awaited<ReturnType<typeof getHealthDetailed>>
-        > , 'initialData'
-      >, axios?: AxiosRequestConfig}
- , queryClient?: QueryClient
-  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-export function useGetHealthDetailed<TData = Awaited<ReturnType<typeof getHealthDetailed>>, TError = AxiosError<unknown>>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHealthDetailed>>, TError, TData>> & Pick<
-        UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getHealthDetailed>>,
-          TError,
-          Awaited<ReturnType<typeof getHealthDetailed>>
-        > , 'initialData'
-      >, axios?: AxiosRequestConfig}
- , queryClient?: QueryClient
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-export function useGetHealthDetailed<TData = Awaited<ReturnType<typeof getHealthDetailed>>, TError = AxiosError<unknown>>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHealthDetailed>>, TError, TData>>, axios?: AxiosRequestConfig}
- , queryClient?: QueryClient
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-/**
- * @summary 詳細ヘルスチェック
- */
-
-export function useGetHealthDetailed<TData = Awaited<ReturnType<typeof getHealthDetailed>>, TError = AxiosError<unknown>>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getHealthDetailed>>, TError, TData>>, axios?: AxiosRequestConfig}
- , queryClient?: QueryClient 
- ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
-
-  const queryOptions = getGetHealthDetailedQueryOptions(options)
 
   const query = useQuery(queryOptions , queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
 
