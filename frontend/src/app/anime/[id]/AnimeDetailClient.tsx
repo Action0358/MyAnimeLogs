@@ -8,7 +8,15 @@ import { useQuery } from '@tanstack/react-query'
 import { decode as heDecodeEntities } from 'he'
 import { Container } from '@/components/layout'
 import { ChevronDown, ChevronUp } from 'lucide-react'
-import { Button, Card, CardContent, SectionHeading } from '@/components/ui'
+import {
+  Button,
+  Card,
+  CardContent,
+  ErrorState,
+  SectionHeading,
+  getErrorStateType,
+  isNotFoundError,
+} from '@/components/ui'
 import { WatchProviders, RelatedAnimeGrid, PosterFallback } from '@/components/anime'
 import type { Anime } from '@/lib/api/generated/myanimelogs'
 import { FavoriteButton, StatusSelector } from '@/components/favorites'
@@ -111,7 +119,9 @@ const AnimeDetailClient: React.FC = () => {
         setAnimeId(parseInt(idFromUrl, 10))
       }
     } else if (typeof params.id === 'string') {
-      setAnimeId(parseInt(params.id, 10))
+      const parsed = parseInt(params.id, 10)
+      // 数値でないIDは NaN のままだとスケルトンから進まないため、不正なID（0）として扱う
+      setAnimeId(Number.isNaN(parsed) ? 0 : parsed)
     }
   }, [params.id])
 
@@ -129,6 +139,7 @@ const AnimeDetailClient: React.FC = () => {
     data: animeData,
     isLoading: isLoadingAnime,
     error: animeError,
+    refetch: refetchAnime,
   } = useQuery({
     queryKey: ['anime', animeId],
     queryFn: async () => {
@@ -136,6 +147,8 @@ const AnimeDetailClient: React.FC = () => {
       return response.data
     },
     enabled: isValidAnimeId,
+    // 存在しない作品（404）は再試行しても変わらないため、すぐにエラー画面を出す
+    retry: (failureCount, error) => !isNotFoundError(error) && failureCount < 3,
   })
 
 
@@ -172,32 +185,20 @@ const AnimeDetailClient: React.FC = () => {
     )
   }
 
-  if (!isValidAnimeId) {
+  // 不正なIDと、APIが404を返した場合は「作品が見つかりません」。再読み込みでは直らない
+  if (!isValidAnimeId || isNotFoundError(animeError) || (!animeError && !animeData)) {
     return (
-      <Container className="py-12">
-        <div className="text-center">
-          <span className="text-6xl mb-4 block">😢</span>
-          <h1 className="text-2xl font-bold text-foreground mb-2">無効なアニメIDです</h1>
-          <p className="text-muted-foreground mb-6">正しいURLでアクセスしてください。</p>
-          <Link href="/search">
-            <Button>アニメを検索する</Button>
-          </Link>
-        </div>
+      <Container size="xl" className="py-8">
+        <ErrorState type="notFound" />
       </Container>
     )
   }
 
+  // 404以外の取得失敗（通信エラー等）。存在しない作品と取り違えないよう、種類で文言を分ける
   if (animeError || !animeData) {
     return (
-      <Container className="py-12">
-        <div className="text-center">
-          <span className="text-6xl mb-4 block">😢</span>
-          <h1 className="text-2xl font-bold text-foreground mb-2">アニメが見つかりません</h1>
-          <p className="text-muted-foreground mb-6">お探しのアニメは存在しないか、削除された可能性があります。</p>
-          <Link href="/search">
-            <Button>アニメを検索する</Button>
-          </Link>
-        </div>
+      <Container size="xl" className="py-8">
+        <ErrorState type={getErrorStateType(animeError)} onRetry={() => refetchAnime()} />
       </Container>
     )
   }

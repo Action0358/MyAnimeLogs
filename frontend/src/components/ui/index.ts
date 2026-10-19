@@ -5,7 +5,7 @@ export { Toast, ToastContainer } from './Toast';
 export { Pagination } from './Pagination';
 export { Skeleton, SkeletonCard, SkeletonList } from './SkeletonLoader';
 export { EmptyState } from './EmptyState';
-export { ErrorState, getErrorStateType } from './ErrorState';
+export { ErrorState, getErrorStateType, isNotFoundError } from './ErrorState';
 export type { ErrorStateType } from './ErrorState';
 export { ExpandToggleButton } from './ExpandToggleButton';
 export { SectionHeading } from './SectionHeading';
