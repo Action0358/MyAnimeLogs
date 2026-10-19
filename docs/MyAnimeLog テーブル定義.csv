@@ -76,7 +76,7 @@ genre,VARCHAR(100),ジャンル名,,NOT NULL,"INDEX(genre), UNIQUE(anime_id, gen
 ,,,,,
 search_logs,,,,,
 id,SERIAL (PK),検索ログID,AUTO_INCREMENT,NOT NULL,
-user_id,INT (FK→users.id),ユーザーID（NULL可）,NULL,REFERENCES users(id) ON DELETE SET NULL,INDEX(user_id)
+user_id,INT (FK→users.id),ユーザーID（NULL可。未ログイン時の検索はNULL）,NULL,REFERENCES users(id) ON DELETE CASCADE,INDEX(user_id)
 query,VARCHAR(500),検索クエリ,,NOT NULL,INDEX(query)
 filters,JSONB,検索フィルター（JSON形式）,NULL,,INDEX(GIN)
 result_count,INTEGER,検索結果数,DEFAULT 0,NOT NULL,

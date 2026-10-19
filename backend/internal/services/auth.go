@@ -52,7 +52,7 @@ func (s *AuthService) getRepository() UserRepositoryInterface {
 //
 // auth.users を消すと fk_users_auth_user_id の ON DELETE CASCADE により
 // public.users が消え、user_favorites / user_watch_status も連鎖削除される。
-// search_logs は ON DELETE SET NULL のため匿名化されて残る。
+// search_logs も ON DELETE CASCADE により連鎖削除される（migration 054）。
 // したがってアプリ側で個別に DELETE を発行する必要はない。
 //
 // アイコンはプリセットIDを users.icon に持つだけでファイル実体がないため、

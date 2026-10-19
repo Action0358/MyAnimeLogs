@@ -29,7 +29,8 @@ describe('DeleteAccountDialog', () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     expect(screen.getByText('復元はできません')).toBeInTheDocument()
     expect(screen.getByText(/お気に入りに登録した作品/)).toBeInTheDocument()
-    expect(screen.getByText(/視聴予定・視聴中・視聴完了の記録/)).toBeInTheDocument()
+    expect(screen.getByText(/視聴予定・視聴中・視聴済の記録/)).toBeInTheDocument()
+    expect(screen.getByText('検索の記録')).toBeInTheDocument()
   })
 
   // アプリ側の削除だけではGoogle側の連携が残るため、案内が必要

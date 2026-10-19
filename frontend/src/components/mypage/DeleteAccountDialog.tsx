@@ -14,7 +14,8 @@ interface DeleteAccountDialogProps {
 const DELETED_ITEMS = [
   'プロフィール',
   'お気に入りに登録した作品',
-  '視聴予定・視聴中・視聴完了の記録',
+  '視聴予定・視聴中・視聴済の記録',
+  '検索の記録',
 ]
 
 const NOTES = [
