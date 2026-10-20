@@ -32,7 +32,7 @@ cp .env.example .env.production
 #### オプション設定
 
 - `DB_MAX_OPEN_CONNS`: 最大接続数（デフォルト: 25）
-- `RATE_LIMIT`: レート制限（デフォルト: 100req/min）
+- `RATE_LIMIT_PER_MINUTE`: 1つのIPアドレスから1分間に受け付けるリクエスト数の上限（デフォルト: 600）。旧 `RATE_LIMIT` は単位が曖昧だったため廃止した（読み込まれない）。外部API（Annict・AniList・Jikan・TMDB）の上限は、この設定ではなく各クライアントで守る
 
 ### 3. データベースセットアップ
 
@@ -290,7 +290,7 @@ curl -s "https://myanimelogs-production.fly.dev/api/animes" | jq '.meta.total'
 確認事項:
 
 1. エラーログを確認: `flyctl logs -a myanimelogs-production -n | grep -E "(Failed|failed)"`
-2. Annict API からデータ取得を確認: `curl -s "https://myanimelogs-production.fly.dev/api/annict/works" | jq '.works | length'`
+2. 今期アニメがDBから返ることを確認: `curl -s "https://myanimelogs-production.fly.dev/api/animes/current" | jq '.animes | length'`
 
 解決方法:
 

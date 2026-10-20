@@ -24,6 +24,25 @@ const (
 	AniListAPIRateLimitDelay = 700 * time.Millisecond
 )
 
+// TMDB APIレート制限関連の定数
+const (
+	// TMDBAPIRateLimit - TMDB APIのレート制限（TMDBAPIRateWindow あたりのリクエスト数）
+	// プロジェクトでは 40 リクエスト/10秒 として扱う（TMDBMetadataBatchLimit の前提と同じ）
+	TMDBAPIRateLimit = 40
+
+	// TMDBAPIRateWindow - TMDBAPIRateLimit を数える時間幅
+	TMDBAPIRateWindow = 10 * time.Second
+
+	// TMDBAPIRateLimitSafetyMargin - レート制限の安全マージン（0.9 = 90%）
+	// 40リクエスト/10秒の90%（3.6リクエスト/秒）に抑え、バーストや遅延による超過を防ぐ
+	TMDBAPIRateLimitSafetyMargin = 0.9
+
+	// TMDBAPIBurst - 瞬間的に許すリクエスト数
+	// 作品詳細の初回表示では「検索→配信サービス」と続けて1〜3回呼ぶため、
+	// 1作品ぶんを待たせずに通せる大きさにする
+	TMDBAPIBurst = 5
+)
+
 // AniList APIリトライ関連の定数
 const (
 	// AniListMaxRetries - executeGraphQLQuery のリトライ上限

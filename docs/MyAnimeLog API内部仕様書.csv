@@ -28,8 +28,6 @@ No,内部エンドポイント,メソッド,機能概要,認証,フィールド,
 ,,,,,limit,query,int,⛔（任意）,デフォルト: 10,
 8,/api/search/popular,GET,人気検索キーワードを取得,不要,limit,query,int,⛔（任意）,デフォルト: 10,
 9,/api/filters,GET,検索フィルターの選択肢を取得,不要,,,,,,利用可能なシーズン・ジャンル・年のリストを返す
-10,/api/annict/works,GET,Annictから指定シーズンの作品を取得,不要,season,query,string,⛔（任意）,"例: ""2025-autumn""（省略時は現在シーズン）",
-11,/api/annict/popular-works,GET,Annictから人気作品を取得,不要,,,,,,
 12,/api/users/me,GET,マイページ情報を取得,必須（Supabase JWT）,,,,,,
 13,/api/users/me,PUT,マイページ情報を更新,必須（Supabase JWT）,name,body,string,⛔（任意）,1〜50文字,
 ,,,,,description,body,string,⛔（任意）,500文字以下,

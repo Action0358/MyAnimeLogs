@@ -16,6 +16,9 @@ import (
 	"unicode/utf8"
 
 	"myanimelogs/internal/common"
+	"myanimelogs/internal/constants"
+
+	"golang.org/x/time/rate"
 )
 
 const (
@@ -157,10 +160,42 @@ func NewTMDBClient(logger *common.Logger) *TMDBClient {
 	return &TMDBClient{
 		apiKey: apiKey,
 		httpClient: &http.Client{
-			Timeout: tmdbTimeout,
+			Timeout:   tmdbTimeout,
+			Transport: newTMDBRateLimitedTransport(http.DefaultTransport),
 		},
 		logger: logger,
 	}
+}
+
+// rateLimitedTransport は TMDB への全リクエストをレートリミッター経由にする。
+//
+// 作品詳細の初回表示は配信サービスのために TMDB へ同期で問い合わせる（#851 参照）。
+// 呼び出し側に上限がないと、作品IDを次々に開かれただけで TMDB の上限を超え、
+// 夜間同期が使えるはずの枠まで食われる。AniList・Jikan と同じく、クライアント側で
+// 上限を守る。待ち時間が呼び出し元の ctx の期限を超えるときは、待たずにエラーを返す。
+type rateLimitedTransport struct {
+	base    http.RoundTripper
+	limiter *rate.Limiter
+}
+
+func newTMDBRateLimitedTransport(base http.RoundTripper) *rateLimitedTransport {
+	perSecond := float64(constants.TMDBAPIRateLimit) * constants.TMDBAPIRateLimitSafetyMargin /
+		constants.TMDBAPIRateWindow.Seconds()
+	return &rateLimitedTransport{
+		base:    base,
+		limiter: rate.NewLimiter(rate.Limit(perSecond), constants.TMDBAPIBurst),
+	}
+}
+
+func (t *rateLimitedTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if err := t.limiter.Wait(req.Context()); err != nil {
+		// RoundTripper は失敗時もリクエストボディを閉じる決まり
+		if req.Body != nil {
+			req.Body.Close()
+		}
+		return nil, fmt.Errorf("tmdb rate limit: %w", err)
+	}
+	return t.base.RoundTrip(req)
 }
 
 // IsEnabled returns true if TMDB API is configured
