@@ -11,7 +11,8 @@ type Config struct {
 	DatabaseURL  string
 	Port         string
 	Environment  string
-	RateLimit    int
+	// RateLimitPerMinute は1つのIPアドレスから1分間に受け付けるリクエスト数の上限
+	RateLimitPerMinute int
 	// Supabase Auth設定
 	SupabaseJWTSecret string
 	// SupabaseURL / SupabaseServiceRoleKey はアカウント削除で Admin API を
@@ -54,8 +55,15 @@ func New() (*Config, error) {
 	// Server
 	port := getEnv("PORT", "8080")
 
-	// Rate Limiter
-	rateLimit := getEnvAsInt("RATE_LIMIT", 60) // 60 requests per minute
+	// Rate Limiter（IPアドレスごと・1分間あたり）
+	//
+	// 旧 RATE_LIMIT は単位が曖昧だった。コードは「1秒あたり」として扱っていたが、
+	// コメントとREADMEは「1分あたり」と書いており、60倍ずれていた。
+	// 同じ名前のまま意味を変えると、設定済みの値（60など）が突然厳しくなるため、
+	// 単位を名前に含めた新しい環境変数に切り替えた。旧 RATE_LIMIT は読まない。
+	//
+	// 外部API（Annict・AniList・Jikan・TMDB）の上限は、この制限ではなく各クライアント側で守る。
+	rateLimitPerMinute := getEnvAsInt("RATE_LIMIT_PER_MINUTE", 600)
 
 	// Supabase Auth
 	supabaseJWTSecret := getEnv("SUPABASE_JWT_SECRET", "")
@@ -99,7 +107,7 @@ func New() (*Config, error) {
 		DatabaseURL:         databaseURL,
 		Port:                port,
 		Environment:         string(env),
-		RateLimit:           rateLimit,
+		RateLimitPerMinute:  rateLimitPerMinute,
 		SupabaseJWTSecret:      supabaseJWTSecret,
 		SupabaseURL:            supabaseURL,
 		SupabaseServiceRoleKey: supabaseServiceRoleKey,

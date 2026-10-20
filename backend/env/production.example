@@ -7,7 +7,8 @@ DATABASE_URL=postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/
 PORT=8080
 GIN_MODE=release
 ENVIRONMENT=production
-RATE_LIMIT=60
+# 1つのIPアドレスから1分間に受け付けるリクエスト数（未設定なら600）
+RATE_LIMIT_PER_MINUTE=600
 
 # ========================
 # Supabase Auth（本番）
