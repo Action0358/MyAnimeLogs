@@ -73,18 +73,18 @@ verify-all:
 	@echo "Verifying all environments..."
 	./scripts/verify-deployment.sh all
 
-# Annict API specific verification
+# 今期アニメ（同期済みDBから返る）の動作確認
 verify-annict-staging:
-	@echo "Testing Annict API on staging..."
-	curl -s https://myanimelogs-staging.fly.dev/api/annict/works | jq .
+	@echo "Testing current season animes on staging..."
+	curl -s "https://myanimelogs-staging.fly.dev/api/animes/current?limit=1" | jq .
 
 verify-annict-production:
-	@echo "Testing Annict API on production..."
-	curl -s https://myanimelogs-production.fly.dev/api/annict/works | jq .
+	@echo "Testing current season animes on production..."
+	curl -s "https://myanimelogs-production.fly.dev/api/animes/current?limit=1" | jq .
 
 test-annict-local:
-	@echo "Testing Annict API locally..."
-	curl -s http://localhost:8080/api/annict/works | jq .
+	@echo "Testing current season animes locally..."
+	curl -s "http://localhost:8080/api/animes/current?limit=1" | jq .
 
 # Fly.io deployment commands
 deploy-staging:

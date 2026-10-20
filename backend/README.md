@@ -290,7 +290,7 @@ curl -s "https://myanimelogs-production.fly.dev/api/animes" | jq '.meta.total'
 確認事項:
 
 1. エラーログを確認: `flyctl logs -a myanimelogs-production -n | grep -E "(Failed|failed)"`
-2. Annict API からデータ取得を確認: `curl -s "https://myanimelogs-production.fly.dev/api/annict/works" | jq '.works | length'`
+2. 今期アニメがDBから返ることを確認: `curl -s "https://myanimelogs-production.fly.dev/api/animes/current" | jq '.animes | length'`
 
 解決方法:
 

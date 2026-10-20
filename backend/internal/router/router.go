@@ -83,10 +83,6 @@ func Setup(db *database.DB, cfg *config.Config, syncScheduler handlers.SyncSched
 		api.GET("/animes/current", animeHandler.GetCurrentSeasonAnimes)
 		api.GET("/animes/popular", animeHandler.GetPopularAnimes)
 
-		// Annictルート
-		api.GET("/annict/works", annictHandler.GetWorksBySeason)
-		api.GET("/annict/popular-works", annictHandler.GetPopularWorks)
-
 		// 管理者ルート（認証 + 管理者ロール必須）
 		admin := api.Group("/admin")
 		admin.Use(authRequired, middleware.RequireAdmin())
