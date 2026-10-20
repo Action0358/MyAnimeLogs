@@ -28,8 +28,6 @@ No,リソース,メソッド,URLパス,機能概要,リクエスト例,レスポ
 29,検索サジェスト,GET,/api/search/suggestions,検索候補を取得,/api/search/suggestions?q=進撃,"""json { ""suggestions"": [""進撃の巨人"", ...] } """,認証不要,✅
 30,人気検索ワード,GET,/api/search/popular,人気の検索ワードを取得,/api/search/popular?limit=10,"""json { ""popular_searches"": [...] } """,認証不要,✅
 31,フィルターオプション取得,GET,/api/filters,検索フィルターの選択肢を取得,/api/filters,"""json { ""seasons"": [...], ""genres"": [...], ""years"": [...] } """,認証不要,✅
-32,Annict作品取得（シーズン別）,GET,/api/annict/works,Annictから指定シーズンの作品を取得,/api/annict/works?season=2025-winter&year=2025,"""json { ""data"": [...], ""meta"": {...} } """,認証不要,✅
-33,Annict人気作品取得,GET,/api/annict/popular-works,Annictから人気作品を取得,/api/annict/popular-works?limit=20,"""json { ""data"": [...] } """,認証不要,✅
 34,シーズン別作品同期,POST,/api/admin/sync/season,指定シーズンの作品をAnnictから同期,"""POST /api/admin/sync/season { ""season"": ""2025-winter"", ""year"": 2025 } ""","""json { ""message"": ""同期が完了しました"", ""synced_count"": 45 } """,要認証（管理者）,✅
 35,人気作品同期,POST,/api/admin/sync/popular,人気作品をAnnictから同期,POST /api/admin/sync/popular,"""json { ""message"": ""同期が完了しました"", ""synced_count"": 20 } """,要認証（管理者）,✅
 36,エピソード再生時間同期,POST,/api/admin/sync/episode-durations,エピソードの再生時間をJikan APIから同期,POST /api/admin/sync/episode-durations,"""json { ""message"": ""同期が完了しました"" } """,要認証（管理者）,✅

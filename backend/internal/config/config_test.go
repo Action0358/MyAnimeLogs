@@ -40,3 +40,38 @@ func TestGetEnv(t *testing.T) {
 	result = getEnv("NON_EXISTING_VAR_FOR_TEST", "default_value")
 	assert.Equal(t, "default_value", result)
 }
+
+func TestNew_RateLimitPerMinute(t *testing.T) {
+	t.Setenv("SUPABASE_JWT_SECRET", "test-secret")
+
+	t.Run("未設定なら既定値(1分あたり600)", func(t *testing.T) {
+		os.Unsetenv("RATE_LIMIT_PER_MINUTE")
+		os.Unsetenv("RATE_LIMIT")
+
+		cfg, err := New()
+
+		assert.NoError(t, err)
+		assert.Equal(t, 600, cfg.RateLimitPerMinute)
+	})
+
+	t.Run("RATE_LIMIT_PER_MINUTE で上書きできる", func(t *testing.T) {
+		t.Setenv("RATE_LIMIT_PER_MINUTE", "120")
+
+		cfg, err := New()
+
+		assert.NoError(t, err)
+		assert.Equal(t, 120, cfg.RateLimitPerMinute)
+	})
+
+	// 旧 RATE_LIMIT は単位が曖昧（コードは毎秒、文書は毎分）だったため読まない。
+	// 設定済みの値（例: 60）が毎分60回として突然効き、通常の利用でも429になるのを防ぐ
+	t.Run("旧 RATE_LIMIT は無視する", func(t *testing.T) {
+		os.Unsetenv("RATE_LIMIT_PER_MINUTE")
+		t.Setenv("RATE_LIMIT", "5")
+
+		cfg, err := New()
+
+		assert.NoError(t, err)
+		assert.Equal(t, 600, cfg.RateLimitPerMinute)
+	})
+}

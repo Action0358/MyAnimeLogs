@@ -25,12 +25,13 @@ func Setup(db *database.DB, cfg *config.Config, syncScheduler handlers.SyncSched
 	)
 
 	r := gin.New()
+	configureClientIP(r, cfg.Environment)
 
 	r.Use(middleware.RequestIDMiddleware())
 	r.Use(middleware.LoggingMiddleware(logger))
 	r.Use(middleware.CORSMiddleware())
 
-	rateLimiter := middleware.NewRateLimiter(cfg.RateLimit, time.Second)
+	rateLimiter := middleware.NewRateLimiter(cfg.RateLimitPerMinute, time.Minute)
 	r.Use(middleware.RateLimitMiddleware(rateLimiter))
 
 	animeService := services.NewAnimeService(db, logger)
@@ -82,10 +83,6 @@ func Setup(db *database.DB, cfg *config.Config, syncScheduler handlers.SyncSched
 		// 今期アニメ・人気アニメルート
 		api.GET("/animes/current", animeHandler.GetCurrentSeasonAnimes)
 		api.GET("/animes/popular", animeHandler.GetPopularAnimes)
-
-		// Annictルート
-		api.GET("/annict/works", annictHandler.GetWorksBySeason)
-		api.GET("/annict/popular-works", annictHandler.GetPopularWorks)
 
 		// 管理者ルート（認証 + 管理者ロール必須）
 		admin := api.Group("/admin")
