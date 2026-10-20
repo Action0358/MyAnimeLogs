@@ -25,12 +25,13 @@ func Setup(db *database.DB, cfg *config.Config, syncScheduler handlers.SyncSched
 	)
 
 	r := gin.New()
+	configureClientIP(r, cfg.Environment)
 
 	r.Use(middleware.RequestIDMiddleware())
 	r.Use(middleware.LoggingMiddleware(logger))
 	r.Use(middleware.CORSMiddleware())
 
-	rateLimiter := middleware.NewRateLimiter(cfg.RateLimit, time.Second)
+	rateLimiter := middleware.NewRateLimiter(cfg.RateLimitPerMinute, time.Minute)
 	r.Use(middleware.RateLimitMiddleware(rateLimiter))
 
 	animeService := services.NewAnimeService(db, logger)

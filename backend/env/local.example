@@ -16,7 +16,8 @@ PGADMIN_DEFAULT_PASSWORD=admin
 PORT=8080
 GIN_MODE=debug
 ENVIRONMENT=development
-RATE_LIMIT=100
+# 1つのIPアドレスから1分間に受け付けるリクエスト数
+RATE_LIMIT_PER_MINUTE=6000
 
 # ========================
 # Supabase Auth（ローカル固定値）
