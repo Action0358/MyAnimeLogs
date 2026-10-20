@@ -65,16 +65,7 @@ Authorization: Bearer invalid.jwt.token
 
 ### ===== Annict API エンドポイント =====
 
-### 9. 今期アニメ取得
-GET {{baseUrl}}/api/annict/works
-
-### 10. 人気アニメ取得
-GET {{baseUrl}}/api/annict/popular-works
-
-### 11. 特定シーズンのアニメ取得
-GET {{baseUrl}}/api/annict/works?season=2024-autumn
-
-### 12. Annict API接続テスト（開発環境のみ）
+### 9. Annict API接続テスト（開発環境のみ）
 GET {{baseUrl}}/annict/test
 
 ### ===== アニメ管理API =====

@@ -595,46 +595,6 @@ paths:
                     items:
                       type: string
                       enum: ["spring", "summer", "autumn", "winter"]
-  /annict/works:
-    get:
-      summary: Annict APIからアニメ作品を取得
-      parameters:
-        - name: season
-          in: query
-          schema:
-            type: string
-          description: シーズン（例：2025-autumn）
-      responses:
-        "200":
-          description: Annictアニメ作品一覧
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  works:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/AnnictWork"
-                  total_count:
-                    type: integer
-  /annict/popular-works:
-    get:
-      summary: Annict APIから人気アニメ作品を取得
-      responses:
-        "200":
-          description: 人気アニメ作品一覧
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  works:
-                    type: array
-                    items:
-                      $ref: "#/components/schemas/AnnictWork"
-                  total_count:
-                    type: integer
   /annict/test:
     get:
       summary: Annict API接続テスト（開発環境のみ）

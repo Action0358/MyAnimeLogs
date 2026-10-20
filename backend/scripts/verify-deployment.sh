@@ -55,31 +55,17 @@ verify_annict_api() {
     print_status "INFO" "🎬 Verifying Annict API Integration for $env_name"
     echo "=================================================="
     
-    # Test Annict API endpoints with various parameters
-    echo "Testing Annict API endpoints..."
-    
-    # Test current season
-    test_endpoint "$base_url/api/annict/works" "Annict: Current Season Works"
-    
-    # Test popular works
-    test_endpoint "$base_url/api/annict/popular-works" "Annict: Popular Works"
-    
-    # Test with specific season
-    test_endpoint "$base_url/api/annict/works?season=2024-winter" "Annict: Winter 2024 Season"
-    test_endpoint "$base_url/api/annict/works?season=2024-spring" "Annict: Spring 2024 Season"
-    
-    # Test with filters
-    test_endpoint "$base_url/api/annict/works?filter_ids=1,2,3" "Annict: Works with Filter IDs"
-    
+    # 利用者向けの一覧は同期済みのDBから返す（Annictの中継ルートは撤去済み）
+    test_endpoint "$base_url/api/animes/current?limit=5" "Current Season Animes (DB)"
+    test_endpoint "$base_url/api/animes/popular?limit=5" "Popular Animes (DB)"
+
     # Test API response structure
-    echo "Checking Annict API response structure..."
-    response=$(curl -s "$base_url/api/annict/works")
-    if echo "$response" | jq -e '.works' > /dev/null 2>&1; then
-        print_status "SUCCESS" "Annict API returns expected 'works' field"
-    elif echo "$response" | jq -e '.data' > /dev/null 2>&1; then
-        print_status "SUCCESS" "Annict API returns expected 'data' field"
+    echo "Checking response structure..."
+    response=$(curl -s "$base_url/api/animes/current?limit=5")
+    if echo "$response" | jq -e '.animes' > /dev/null 2>&1; then
+        print_status "SUCCESS" "Current season API returns expected 'animes' field"
     else
-        print_status "ERROR" "Annict API response structure unexpected"
+        print_status "ERROR" "Current season API response structure unexpected"
         echo "Response sample: $(echo $response | head -c 200)..."
     fi
     
@@ -104,15 +90,6 @@ verify_environment() {
     else
         test_endpoint "$base_url/annict/test" "Annict API Connection Test"
     fi
-    
-    # Get current season anime (from Annict)
-    test_endpoint "$base_url/api/annict/works" "Current Season Anime (Annict)"
-    
-    # Get popular anime (from Annict)
-    test_endpoint "$base_url/api/annict/popular-works" "Popular Anime (Annict)"
-    
-    # Test Annict API with specific parameters
-    test_endpoint "$base_url/api/annict/works?season=2024-winter" "Annict API with Season Parameter"
     
     # Get anime list (from local DB)
     test_endpoint "$base_url/api/animes?page=1&per_page=5" "Local Anime Database"
