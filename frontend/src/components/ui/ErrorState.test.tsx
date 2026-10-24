@@ -2,11 +2,13 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { ErrorState, getErrorStateType, isNotFoundError } from './ErrorState'
 
 describe('ErrorState', () => {
-  it('network: 接続エラーの文言とトップへのリンクを表示する', () => {
+  it('network: 接続エラーの文言とお知らせへのリンクを表示する', () => {
     render(<ErrorState type="network" onRetry={() => {}} />)
     expect(screen.getByRole('alert')).toBeInTheDocument()
     expect(screen.getByText('接続できませんでした')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'トップへ戻る' })).toHaveAttribute('href', '/')
+    // バックエンド停止中は通信エラーと区別できないため、メンテナンスの可能性とお知らせへの導線を出す
+    expect(screen.getByText(/メンテナンス中は、お知らせをご確認ください。/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'お知らせを見る' })).toHaveAttribute('href', '/news')
   })
 
   it('unknown: 読み込みエラーの文言とお問い合わせリンクを表示する', () => {

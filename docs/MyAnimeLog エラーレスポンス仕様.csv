@@ -7,4 +7,5 @@ HTTPステータス,エラーコード,エラーメッセージ,説明,発生条
 422,UNPROCESSABLE_ENTITY,処理できないデータです,データ形式は正しいが業務ロジック上処理不可,存在しないアニメへのお気に入り登録
 429,TOO_MANY_REQUESTS,リクエスト数が上限を超えました,レート制限に達した,短時間での大量リクエスト
 500,INTERNAL_SERVER_ERROR,サーバー内部エラーが発生しました,予期しないサーバーエラー,データベース接続エラーなど
-503,SERVICE_UNAVAILABLE,サービスが一時的に利用できません,外部API連携エラーやメンテナンス,Annict API接続エラー
+503,SERVICE_UNAVAILABLE,サービスが一時的に利用できません,外部API連携エラー,Annict API接続エラー
+503,MAINTENANCE,メンテナンス中です,メンテナンスモード中(ends_at と Retry-After を付与。/health と /api/admin/ は除く),環境変数 MAINTENANCE_MODE=true

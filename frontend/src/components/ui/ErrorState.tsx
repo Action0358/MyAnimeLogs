@@ -2,6 +2,7 @@
 
 import React from 'react'
 import Link from 'next/link'
+import type { Route } from 'next'
 import { CircleAlert, FileQuestion, RotateCw, Search, SearchX, WifiOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from './Button'
@@ -19,13 +20,26 @@ export interface ErrorStateProps {
   className?: string
 }
 
-const CONTENT = {
+const CONTENT: Record<
+  ErrorStateType,
+  {
+    Icon: React.ElementType
+    title: string
+    description: string
+    /** 説明の2文目。PCでは1文目の下に改行して表示する */
+    extraDescription?: string
+    subLabel: string
+    subHref: string
+  }
+> = {
   network: {
     Icon: WifiOff,
     title: '接続できませんでした',
     description: '通信環境を確認して、もう一度お試しください。',
-    subLabel: 'トップへ戻る',
-    subHref: '/',
+    // バックエンドが完全に止まっていると通信エラーと区別できないため、メンテナンスの可能性を添える
+    extraDescription: 'メンテナンス中は、お知らせをご確認ください。',
+    subLabel: 'お知らせを見る',
+    subHref: '/news',
   },
   unknown: {
     Icon: CircleAlert,
@@ -49,7 +63,7 @@ const CONTENT = {
     subLabel: 'トップへ戻る',
     subHref: '/',
   },
-} as const
+}
 
 /** APIが404を返したか（axios / apiClient のどちらの形も見る） */
 export const isNotFoundError = (error: unknown): boolean => {
@@ -86,7 +100,7 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
   shortHeight = false,
   className,
 }) => {
-  const { Icon, title, description, subLabel, subHref } = CONTENT[type]
+  const { Icon, title, description, extraDescription, subLabel, subHref } = CONTENT[type]
   const isNotFound = type === 'notFound' || type === 'pageNotFound'
 
   if (variant === 'compact') {
@@ -104,6 +118,8 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
         <h3 className="mt-3.5 text-[15px] font-bold text-foreground">{title}</h3>
         <p className="mt-1 max-w-[260px] md:max-w-none text-[13px] leading-[1.7] text-muted-foreground [text-wrap:pretty] [word-break:auto-phrase]">
           {description}
+          {extraDescription && ' '}
+          {extraDescription}
         </p>
         <Button
           variant="outline-gray"
@@ -143,6 +159,12 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
       )}
       <p className="text-[13.5px] md:text-sm leading-[1.7] text-muted-foreground mb-[22px] md:mb-6 max-w-[280px] md:max-w-[360px] [text-wrap:pretty] [word-break:auto-phrase]">
         {description}
+        {extraDescription && (
+          <>
+            <br className="hidden md:block" />
+            {extraDescription}
+          </>
+        )}
       </p>
       {isNotFound ? (
         <Button variant="primary" size="md" asChild className="gap-2 h-11 md:h-10">
@@ -158,7 +180,7 @@ export const ErrorState: React.FC<ErrorStateProps> = ({
         </Button>
       )}
       <Link
-        href={subHref}
+        href={subHref as Route}
         className="mt-2 md:mt-4 min-h-[44px] md:min-h-0 flex items-center text-[13px] font-medium text-muted-foreground underline underline-offset-[3px] hover:text-foreground"
       >
         {subLabel}
