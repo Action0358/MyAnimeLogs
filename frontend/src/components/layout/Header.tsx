@@ -14,6 +14,8 @@ import { UserMenu } from './UserMenu'
 import { GlobalNav } from './GlobalNav'
 import { MobileNav } from './MobileNav'
 import { SignInLink } from '../auth/SignInLink'
+import { MaintenanceHeader } from '../maintenance/MaintenanceChrome'
+import { useMaintenanceActive } from '@/lib/maintenance/useMaintenanceActive'
 
 
 const Header: React.FC = () => {
@@ -25,6 +27,7 @@ const Header: React.FC = () => {
   const mobileNavTriggerRef = useRef<HTMLButtonElement>(null)
   const userMenuTriggerRef = useRef<HTMLButtonElement>(null)
   const pathname = usePathname()
+  const isMaintenance = useMaintenanceActive()
 
   const isHomePage = pathname === '/'
 
@@ -35,6 +38,9 @@ const Header: React.FC = () => {
   const toggleMobileNav = () => {
     setIsMobileNavOpen(!isMobileNavOpen)
   }
+
+  // メンテナンス中に開ける /news では、動かないナビ・ログインを隠す
+  if (isMaintenance) return <MaintenanceHeader />
 
   return (
     <header

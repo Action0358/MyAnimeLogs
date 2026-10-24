@@ -1,3 +1,5 @@
+'use client'
+
 import React from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -5,6 +7,8 @@ import type { Route } from 'next'
 import { ChevronRight } from 'lucide-react'
 import Container from './Container'
 import { SUB_LOGO_PATH } from '@/lib/constants'
+import { MaintenanceFooter } from '../maintenance/MaintenanceChrome'
+import { useMaintenanceActive } from '@/lib/maintenance/useMaintenanceActive'
 
 // 規約・ポリシーは Google OAuth 同意画面からも参照されるため、全ページから到達できるフッターに常設する
 const FOOTER_LINKS: { href: Route; label: string }[] = [
@@ -14,7 +18,11 @@ const FOOTER_LINKS: { href: Route; label: string }[] = [
 ]
 
 const Footer: React.FC = () => {
+  const isMaintenance = useMaintenanceActive()
   const currentYear = new Date().getFullYear()
+
+  // メンテナンス中は、動かないリンクを出さずコピーライトだけにする
+  if (isMaintenance) return <MaintenanceFooter />
 
   return (
     // 直前のお知らせセクションが既に下余白を持つため、ここでは追加のmt-16を入れない

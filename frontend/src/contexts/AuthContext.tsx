@@ -1,5 +1,6 @@
 'use client'
 
+import { reportMaintenanceIfNeeded } from '@/lib/maintenance/detection'
 import React, {
   createContext,
   useContext,
@@ -129,6 +130,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             { headers: { Authorization: `Bearer ${accessToken}` } }
           )
           if (res.status === 401) return { status: 'unauthorized' }
+          // メンテナンス中ならメンテナンス画面へ。本文が読めなくても本処理には影響させない
+          if (res.status === 503) {
+            const body: unknown = await res.clone().json().catch(() => null)
+            reportMaintenanceIfNeeded(503, body)
+          }
           if (!res.ok) return { status: 'unavailable' }
           const data = await res.json()
           if (isUser(data)) return { status: 'ok', user: data }

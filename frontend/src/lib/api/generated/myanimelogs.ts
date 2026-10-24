@@ -47,6 +47,28 @@ export interface Error {
   details?: ErrorDetails;
 }
 
+export type MaintenanceErrorCode = typeof MaintenanceErrorCode[keyof typeof MaintenanceErrorCode];
+
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const MaintenanceErrorCode = {
+  MAINTENANCE: 'MAINTENANCE',
+} as const;
+
+/**
+ * メンテナンスモード中（環境変数 MAINTENANCE_MODE=true）に、/health と /api/admin/ 以外の
+すべてのリクエストへ返る 503 レスポンス。外部API障害などの SERVICE_UNAVAILABLE とは code で区別する。
+`Retry-After`（秒）と `Cache-Control: no-store` ヘッダーが付く。
+
+ */
+export interface MaintenanceError {
+  error: string;
+  message: string;
+  code: MaintenanceErrorCode;
+  /** 終了予定（MAINTENANCE_ENDS_AT 設定時のみ） */
+  ends_at?: string;
+}
+
 export interface User {
   id?: number;
   name?: string;

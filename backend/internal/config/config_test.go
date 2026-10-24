@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -73,5 +74,44 @@ func TestNew_RateLimitPerMinute(t *testing.T) {
 
 		assert.NoError(t, err)
 		assert.Equal(t, 600, cfg.RateLimitPerMinute)
+	})
+}
+
+func TestMaintenanceConfig(t *testing.T) {
+	t.Setenv("SUPABASE_JWT_SECRET", "test-secret")
+
+	t.Run("未設定ならメンテナンスモードはオフ", func(t *testing.T) {
+		os.Unsetenv("MAINTENANCE_MODE")
+		os.Unsetenv("MAINTENANCE_ENDS_AT")
+
+		cfg, err := New()
+
+		assert.NoError(t, err)
+		assert.False(t, cfg.MaintenanceMode)
+		assert.Nil(t, cfg.MaintenanceEndsAt)
+	})
+
+	t.Run("MAINTENANCE_MODE=true で有効、終了予定はRFC3339で読む", func(t *testing.T) {
+		t.Setenv("MAINTENANCE_MODE", "true")
+		t.Setenv("MAINTENANCE_ENDS_AT", "2026-10-25T15:00:00+09:00")
+
+		cfg, err := New()
+
+		assert.NoError(t, err)
+		assert.True(t, cfg.MaintenanceMode)
+		if assert.NotNil(t, cfg.MaintenanceEndsAt) {
+			assert.True(t, cfg.MaintenanceEndsAt.Equal(time.Date(2026, 10, 25, 6, 0, 0, 0, time.UTC)))
+		}
+	})
+
+	t.Run("終了予定が不正でも起動は止めない", func(t *testing.T) {
+		t.Setenv("MAINTENANCE_MODE", "true")
+		t.Setenv("MAINTENANCE_ENDS_AT", "tomorrow")
+
+		cfg, err := New()
+
+		assert.NoError(t, err)
+		assert.True(t, cfg.MaintenanceMode)
+		assert.Nil(t, cfg.MaintenanceEndsAt)
 	})
 }

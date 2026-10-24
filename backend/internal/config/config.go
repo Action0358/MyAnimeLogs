@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"time"
 )
 
 // Config holds the application configuration
@@ -39,6 +40,12 @@ type Config struct {
 	AnimeSyncEnabled   bool
 	SchedulerRunHour   int
 	SchedulerRunMinute int
+	// MaintenanceMode が true の間、/health と管理系を除く全リクエストに 503（MAINTENANCE）を返す。
+	// 環境変数 MAINTENANCE_MODE=true で有効化する（fly secrets set で切り替え）
+	MaintenanceMode bool
+	// MaintenanceEndsAt は終了予定（MAINTENANCE_ENDS_AT, RFC3339）。未設定・不正な値なら nil。
+	// 切り替え中に起動が止まらないよう、不正な値でも起動は妨げない
+	MaintenanceEndsAt *time.Time
 }
 
 // New creates a new Config struct from environment variables.
@@ -103,6 +110,9 @@ func New() (*Config, error) {
 	schedulerRunHour := getEnvAsInt("SCHEDULER_RUN_HOUR", 3)     // Default: 3 AM
 	schedulerRunMinute := getEnvAsInt("SCHEDULER_RUN_MINUTE", 0) // Default: 0 minutes
 
+	maintenanceMode := getEnv("MAINTENANCE_MODE", "false") == "true"
+	maintenanceEndsAt := parseMaintenanceEndsAt(getEnv("MAINTENANCE_ENDS_AT", ""))
+
 	return &Config{
 		DatabaseURL:         databaseURL,
 		Port:                port,
@@ -125,7 +135,21 @@ func New() (*Config, error) {
 		AnimeSyncEnabled:    animeSyncEnabled,
 		SchedulerRunHour:    schedulerRunHour,
 		SchedulerRunMinute:  schedulerRunMinute,
+		MaintenanceMode:     maintenanceMode,
+		MaintenanceEndsAt:   maintenanceEndsAt,
 	}, nil
+}
+
+// parseMaintenanceEndsAt は RFC3339 の終了予定を解釈する。空・不正な値は nil。
+func parseMaintenanceEndsAt(raw string) *time.Time {
+	if raw == "" {
+		return nil
+	}
+	t, err := time.Parse(time.RFC3339, raw)
+	if err != nil {
+		return nil
+	}
+	return &t
 }
 
 // buildDatabaseURL constructs database URL from individual components
