@@ -13,11 +13,12 @@ import {
  *
  * 「重要」だけは他を上回って目を引く必要があるため赤系にする。
  * リリース・機能は「新しくなった」知らせなのでどちらもプライマリ系で揃え、
- * メンテナンスは注意喚起として琥珀系にする。
+ * メンテナンスは予定された作業の案内なので、
+ * 赤・琥珀のような警告色は使わず、落ち着いたスレートにする。
  */
 const CATEGORY_CLASSES: Record<AnnouncementCategory, string> = {
   important: 'bg-destructive/10 text-destructive',
-  maintenance: 'bg-warning/15 text-warning-foreground',
+  maintenance: 'bg-slate-100 text-slate-700',
   release: 'bg-primary/10 text-primary',
   feature: 'bg-primary/10 text-primary',
 }

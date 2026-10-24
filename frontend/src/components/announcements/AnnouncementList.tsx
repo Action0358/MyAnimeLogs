@@ -48,8 +48,10 @@ export const AnnouncementList: React.FC<{ announcements: Announcement[] }> = ({
             </h3>
 
             {/* text-wrap: pretty は付けない。Safari は段落全体の行長を揃えようとして
-                各行を早めに折り返すため、日本語では右側に余白が残り左に寄って見える */}
-            <p className="line-clamp-2 whitespace-pre-line text-[12.5px] leading-[1.8] text-foreground/80 md:text-[13.5px] md:leading-[1.85]">
+                各行を早めに折り返すため、日本語では右側に余白が残り左に寄って見える。
+                代わりに auto-phrase で文節単位に折り返し、「お伝えしま／す。」のような
+                1文字だけの行を防ぐ（<html lang="ja"> が前提） */}
+            <p className="line-clamp-2 whitespace-pre-line [word-break:auto-phrase] text-[12.5px] leading-[1.8] text-foreground/80 md:text-[13.5px] md:leading-[1.85]">
               {announcement.body}
             </p>
           </span>

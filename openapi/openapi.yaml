@@ -1100,6 +1100,31 @@ components:
       required:
         - error_code
         - message
+    MaintenanceError:
+      type: object
+      description: |
+        メンテナンスモード中（環境変数 MAINTENANCE_MODE=true）に、/health と /api/admin/ 以外の
+        すべてのリクエストへ返る 503 レスポンス。外部API障害などの SERVICE_UNAVAILABLE とは code で区別する。
+        `Retry-After`（秒）と `Cache-Control: no-store` ヘッダーが付く。
+      properties:
+        error:
+          type: string
+          example: "メンテナンス中です"
+        message:
+          type: string
+          example: "メンテナンス中です"
+        code:
+          type: string
+          enum: [MAINTENANCE]
+        ends_at:
+          type: string
+          format: date-time
+          description: 終了予定（MAINTENANCE_ENDS_AT 設定時のみ）
+          example: "2026-10-25T15:00:00+09:00"
+      required:
+        - error
+        - message
+        - code
     User:
       type: object
       properties:

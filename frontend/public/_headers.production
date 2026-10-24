@@ -7,3 +7,6 @@
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: geolocation=(), microphone=(), camera=()
   Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.anilist.co https://cdn.myanimelist.net https://*.twimg.com https://i.imgur.com https://imgur.com https://avatars.githubusercontent.com https://github.com https://raw.githubusercontent.com https://*.gravatar.com https://*.cloudinary.com https://image.tmdb.org https://lh3.googleusercontent.com https://myanimelogs-production.fly.dev; font-src 'self'; connect-src 'self' https://myanimelogs-production.fly.dev https://cloudflareinsights.com https://uvzlwyxclzrpnzioaspr.supabase.co; frame-ancestors 'none'; base-uri 'self'; form-action 'self';
+
+/maintenance.json
+  Cache-Control: no-store
