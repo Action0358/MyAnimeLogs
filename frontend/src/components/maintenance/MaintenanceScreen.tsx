@@ -3,8 +3,7 @@
 import React from 'react'
 import Link from 'next/link'
 import type { Route } from 'next'
-import { Clock, RotateCw, Wrench } from 'lucide-react'
-import { Button } from '@/components/ui/Button'
+import { Clock, Wrench } from 'lucide-react'
 import { MaintenanceFooter, MaintenanceHeader } from './MaintenanceChrome'
 
 export interface MaintenanceScreenProps {
@@ -38,7 +37,9 @@ export const formatEndsAt = (endsAt?: string): string | null => {
  * メンテナンス画面。ヘッダーはロゴのみ・フッターはコピーライトのみの独立した画面で、
  * ナビ・ログイン・お問い合わせは出さない（メンテナンス中はどれも動かないため）。
  * 予定された作業の案内なので role="status" とし、障害のような緊急性は伝えない。
- * ErrorState と同じ型（円アイコン → 見出し → 説明 → 再読み込み → サブリンク）で揃える。
+ * ErrorState と同じ型（円アイコン → 見出し → 説明）で揃える。
+ * 再読み込みボタンは置かない（他サービスにもなく、押すと一瞬通常画面が見えてちらつくため）。
+ * 終了の確認は、ブラウザの再読み込みか、お知らせで行う。
  */
 export const MaintenanceScreen: React.FC<MaintenanceScreenProps> = ({
   endsAt,
@@ -69,18 +70,9 @@ export const MaintenanceScreen: React.FC<MaintenanceScreenProps> = ({
             終了予定：{endsAtLabel}
           </div>
         )}
-        <Button
-          variant="primary"
-          size="md"
-          onClick={() => window.location.reload()}
-          className="mt-[22px] md:mt-6 gap-2 h-11 md:h-10"
-        >
-          <RotateCw className="w-4 h-4" aria-hidden="true" />
-          再読み込み
-        </Button>
         <Link
           href={newsHref as Route}
-          className="mt-2 md:mt-4 min-h-[44px] md:min-h-0 flex items-center text-[13px] font-medium text-slate-600 underline underline-offset-[3px] hover:text-foreground"
+          className="mt-4 md:mt-6 min-h-[44px] md:min-h-0 flex items-center text-[13px] font-medium text-slate-600 underline underline-offset-[3px] hover:text-foreground"
         >
           お知らせを見る
         </Link>
