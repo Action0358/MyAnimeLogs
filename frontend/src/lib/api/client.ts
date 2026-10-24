@@ -3,6 +3,8 @@
  * 全てのAPI呼び出しで使用する共通クライアント
  */
 
+import { reportMaintenanceIfNeeded } from '@/lib/maintenance/detection'
+
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
 
 interface ApiError {
@@ -106,6 +108,8 @@ const apiClientInternal = async <T = any>(
   const data = await response.json().catch(() => null)
   
   if (!response.ok) {
+    // メンテナンス中（503 + MAINTENANCE）なら、全画面のメンテナンス表示へ切り替える
+    reportMaintenanceIfNeeded(response.status, data)
     const errorMessage = data?.message || data?.error || `HTTPエラー: ${response.status}`
     const error = new ApiClientError(errorMessage, response.status)
     throw error

@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import { Noto_Sans_JP } from 'next/font/google'
 import { Header, Footer } from '@/components/layout'
 import { QueryProvider } from '@/components/providers'
+import { MaintenanceGate } from '@/components/maintenance'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { TokenDebug } from '@/components/debug/TokenDebug'
 
@@ -34,16 +35,18 @@ export default function RootLayout({
   return (
     <html lang="ja" className={notoSansJP.variable}>
       <body className="min-h-screen bg-background flex flex-col">
-        <AuthProvider>
-          <QueryProvider>
-            <Header />
-            <main className="flex-1">
-              {children}
-            </main>
-            <Footer />
-            {process.env.NODE_ENV === 'development' && <TokenDebug />}
-          </QueryProvider>
-        </AuthProvider>
+        <MaintenanceGate>
+          <AuthProvider>
+            <QueryProvider>
+              <Header />
+              <main className="flex-1">
+                {children}
+              </main>
+              <Footer />
+              {process.env.NODE_ENV === 'development' && <TokenDebug />}
+            </QueryProvider>
+          </AuthProvider>
+        </MaintenanceGate>
       </body>
     </html>
   )
