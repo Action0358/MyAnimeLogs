@@ -3,7 +3,7 @@
  * MaintenanceGate が useSyncExternalStore で購読する。
  *
  * 一度メンテナンスと判定したら、ページを再読み込みするまで解除しない。
- * 解除の確認は画面の「再読み込み」で行い、状態がちらつくのを避ける。
+ * 解除の確認はブラウザの再読み込みで行い、状態がちらつくのを避ける。
  */
 export interface MaintenanceState {
   active: boolean
