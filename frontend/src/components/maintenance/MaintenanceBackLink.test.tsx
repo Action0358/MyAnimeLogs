@@ -6,14 +6,19 @@ import { resetMaintenance, setMaintenance } from '@/lib/maintenance/maintenanceS
 describe('MaintenanceBackLink', () => {
   afterEach(() => resetMaintenance())
 
-  it('通常時は何も出さない', () => {
+  it('通常時は、エッジの目印があるときだけ表示される印を付けて出す（CSS で隠れる）', () => {
     render(<MaintenanceBackLink />)
-    expect(screen.queryByRole('link', { name: '戻る' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '戻る' })).toHaveAttribute(
+      'data-show-when',
+      'maintenance'
+    )
   })
 
-  it('メンテナンス中だけ「戻る」を出し、トップ（メンテナンス画面）へ向ける', () => {
+  it('メンテナンス中は印なしで「戻る」を出し、トップ（メンテナンス画面）へ向ける', () => {
     render(<MaintenanceBackLink />)
     act(() => setMaintenance({}))
-    expect(screen.getByRole('link', { name: '戻る' })).toHaveAttribute('href', '/')
+    const link = screen.getByRole('link', { name: '戻る' })
+    expect(link).toHaveAttribute('href', '/')
+    expect(link).not.toHaveAttribute('data-show-when')
   })
 })
