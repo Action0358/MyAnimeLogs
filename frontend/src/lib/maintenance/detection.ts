@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { setMaintenance } from './maintenanceStore'
+import { MAINTENANCE_META_NAME } from './shared'
 
 /** バックエンドの MAINTENANCE エラーコード（backend/internal/common/errors.go と合わせる） */
 export const MAINTENANCE_CODE = 'MAINTENANCE'
@@ -62,4 +63,16 @@ export const checkStaticMaintenance = async (): Promise<void> => {
   } catch {
     // 取得失敗は無視する
   }
+}
+
+/**
+ * エッジがメンテナンス中の開放ページ（/news）に差し込んだ meta を読む。
+ * あればメンテナンス状態にする（content は終了予定。空なら終了予定なし）。
+ * API を呼ばなくても /news のヘッダー・フッターをメンテナンス用にできる。
+ */
+export const readEdgeMaintenanceMarker = (): void => {
+  if (typeof document === 'undefined') return
+  const meta = document.querySelector<HTMLMetaElement>(`meta[name="${MAINTENANCE_META_NAME}"]`)
+  if (!meta) return
+  setMaintenance({ endsAt: meta.content || undefined })
 }

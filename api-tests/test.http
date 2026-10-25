@@ -26,6 +26,9 @@
 ### 1. 基本ヘルスチェック
 GET {{baseUrl}}/health
 
+### 2. メンテナンス状態（メンテナンス中も 200。enabled と、あれば ends_at）
+GET {{baseUrl}}/api/maintenance
+
 ### ===== ユーザー情報API =====
 
 ### 3. ユーザー情報取得

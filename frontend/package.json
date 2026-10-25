@@ -31,8 +31,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "build:staging": "next build && node scripts/copy-headers.js staging",
-    "build:production": "next build && node scripts/copy-headers.js production",
+    "build:staging": "next build && node scripts/copy-headers.js staging && node scripts/write-edge-config.js",
+    "build:production": "next build && node scripts/copy-headers.js production && node scripts/write-edge-config.js",
     "check:env": "echo 'NEXT_PUBLIC_API_URL:' $NEXT_PUBLIC_API_URL",
     "start": "next start",
     "lint": "next lint",
