@@ -74,6 +74,8 @@ fly secrets unset MAINTENANCE_MODE MAINTENANCE_ENDS_AT -a myanimelogs-production
 
 メンテナンス中の `/news` は、ヘッダーがロゴのみ、フッターがコピーライトのみになり、タイトルの上に「‹ 戻る」（メンテナンス画面へ）が出る。
 
+リロード時に通常のナビ・ログインが一瞬見えないよう、静的 HTML には通常版とメンテナンス版の両方を `data-show-when` 付きで入れてある。エッジがメンテナンス中の `/news` で `<html data-maintenance>` を付け、JS が動く前から CSS（`src/app/globals.css`）で出し分ける。
+
 ## 動作確認（STG）
 
 1. STG で A または B を有効にする

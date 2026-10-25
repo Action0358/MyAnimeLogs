@@ -31,6 +31,26 @@ describe('メンテナンス中の Header / Footer', () => {
     expect(screen.getAllByText('お問い合わせ').length).toBeGreaterThan(0)
   })
 
+  it('通常時の HTML には、エッジの目印で CSS が出し分けるメンテナンス版も並べる', () => {
+    const { container } = render(
+      <>
+        <Header />
+        <Footer />
+      </>
+    )
+    const tagsOf = (when: string) =>
+      Array.from(container.querySelectorAll(`[data-show-when="${when}"]`)).map((el) => el.tagName)
+
+    expect(tagsOf('normal')).toEqual(['HEADER', 'FOOTER'])
+    expect(tagsOf('maintenance')).toEqual(['HEADER', 'FOOTER'])
+    // 通常版のナビ・ログインは、normal 側にだけある
+    const normalHeader = container.querySelector('header[data-show-when="normal"]')
+    expect(normalHeader).toHaveTextContent('ログイン')
+    expect(container.querySelector('header[data-show-when="maintenance"]')).not.toHaveTextContent(
+      'ログイン'
+    )
+  })
+
   it('メンテナンス中はナビ・ログイン・フッターリンクを隠す', () => {
     render(
       <>
@@ -44,5 +64,7 @@ describe('メンテナンス中の Header / Footer', () => {
     expect(screen.queryByText('お問い合わせ')).not.toBeInTheDocument()
     expect(screen.queryByText('利用規約')).not.toBeInTheDocument()
     expect(screen.getByText(/All rights reserved/)).toBeInTheDocument()
+    // 検出後はメンテナンス版だけを、CSS の出し分けなしで描画する
+    expect(document.querySelector('[data-show-when]')).toBeNull()
   })
 })

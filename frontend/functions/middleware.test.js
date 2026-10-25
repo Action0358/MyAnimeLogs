@@ -258,7 +258,7 @@ describe('onRequest', () => {
     expect(el.setInnerContent).toHaveBeenCalledWith('終了予定：2026年10月25日 15:00ごろ')
   })
 
-  it('/news はメンテナンス中も開き、メンテナンス中であることを meta で伝える', async () => {
+  it('/news はメンテナンス中も開き、<html> の属性と meta でメンテナンス中を伝える', async () => {
     mockBackend(async () => json({ enabled: true, ends_at: '2026-10-25T06:00:00Z' }))
     const ctx = makeContext(pageRequest('/news/'))
 
@@ -266,10 +266,16 @@ describe('onRequest', () => {
 
     expect(ctx.next).toHaveBeenCalled()
     expect(res.status).toBe(200)
-    const { selector, handler } = FakeHTMLRewriter.instances[0].handlers[0]
-    expect(selector).toBe('head')
+    const [rewriter] = FakeHTMLRewriter.instances
+    expect(rewriter.selectors).toEqual(['html', 'head'])
+
+    // JS が動く前に CSS でヘッダー・フッターを出し分けるための属性
+    const html = { setAttribute: jest.fn() }
+    rewriter.handlers[0].handler.element(html)
+    expect(html.setAttribute).toHaveBeenCalledWith('data-maintenance', '')
+
     const el = { append: jest.fn() }
-    handler.element(el)
+    rewriter.handlers[1].handler.element(el)
     expect(el.append).toHaveBeenCalledWith(
       '<meta name="myanimelogs-maintenance" content="2026-10-25T06:00:00.000Z">',
       { html: true }
