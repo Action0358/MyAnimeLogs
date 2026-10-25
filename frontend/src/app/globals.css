@@ -30,6 +30,17 @@
     --radius: 0.5rem;
   }
   /* .dark { ... } ← 将来ダークテーマを同じキーで上書きして追加 */
+
+  /*
+    メンテナンス中に開ける /news では、エッジが <html data-maintenance> を付ける
+    （functions/_middleware.js）。JS が動く前から通常版とメンテナンス版の
+    ヘッダー・フッターを出し分け、リロード時に通常のナビ・ログインが一瞬見えないようにする。
+    クライアントがメンテナンスを検出した後は、React がメンテナンス版だけを描画する。
+  */
+  html:not([data-maintenance]) [data-show-when='maintenance'],
+  html[data-maintenance] [data-show-when='normal'] {
+    display: none !important;
+  }
 }
 
 @layer utilities {
