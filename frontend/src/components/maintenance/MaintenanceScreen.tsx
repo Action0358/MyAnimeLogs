@@ -41,7 +41,9 @@ export const MaintenanceScreen: React.FC<MaintenanceScreenProps> = ({
         <div className="w-16 h-16 md:w-[72px] md:h-[72px] rounded-full bg-slate-100 flex items-center justify-center mb-[18px] md:mb-5 text-slate-500">
           <Wrench className="w-7 h-7 md:w-8 md:h-8" strokeWidth={1.75} aria-hidden="true" />
         </div>
-        <h1 className="text-[17px] md:text-lg font-bold text-foreground mb-2">メンテナンス中です</h1>
+        <h1 className="text-[17px] md:text-lg font-bold text-foreground mb-2">
+          メンテナンス中です
+        </h1>
         <p className="text-[13.5px] md:text-sm leading-[1.7] text-slate-600 max-w-[300px] md:max-w-[360px] [text-wrap:pretty] [word-break:auto-phrase]">
           サービス向上のため、現在作業を行っています。
           <br className="hidden md:block" />

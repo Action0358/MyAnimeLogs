@@ -92,8 +92,12 @@ describe('isPageRequest', () => {
   it('HTML を求める GET / HEAD だけを対象にする', () => {
     expect(isPageRequest(pageRequest('/'))).toBe(true)
     expect(isPageRequest(pageRequest('/mypage/'))).toBe(true)
-    expect(isPageRequest(new Request(`${ORIGIN}/`, { method: 'HEAD', headers: { Accept: 'text/html' } }))).toBe(true)
-    expect(isPageRequest(new Request(`${ORIGIN}/`, { method: 'POST', headers: { Accept: 'text/html' } }))).toBe(false)
+    expect(
+      isPageRequest(new Request(`${ORIGIN}/`, { method: 'HEAD', headers: { Accept: 'text/html' } }))
+    ).toBe(true)
+    expect(
+      isPageRequest(new Request(`${ORIGIN}/`, { method: 'POST', headers: { Accept: 'text/html' } }))
+    ).toBe(false)
     expect(isPageRequest(pageRequest('/', 'application/json'))).toBe(false)
   })
 
@@ -107,7 +111,10 @@ describe('isPageRequest', () => {
 describe('resolveMaintenanceStatus', () => {
   it('maintenance.json が有効ならバックエンドに問い合わせずメンテナンス', async () => {
     const fetchSpy = mockBackend(async () => json({ enabled: false }))
-    const ctx = makeContext(pageRequest('/'), defaultFiles({ staticEnabled: true, endsAt: '2026-10-25T06:00:00Z' }))
+    const ctx = makeContext(
+      pageRequest('/'),
+      defaultFiles({ staticEnabled: true, endsAt: '2026-10-25T06:00:00Z' })
+    )
 
     await expect(resolveMaintenanceStatus(ctx)).resolves.toEqual({
       enabled: true,
@@ -117,7 +124,9 @@ describe('resolveMaintenanceStatus', () => {
   })
 
   it('バックエンドが enabled=true ならメンテナンス（終了予定つき）', async () => {
-    const fetchSpy = mockBackend(async () => json({ enabled: true, ends_at: '2026-10-25T06:00:00Z' }))
+    const fetchSpy = mockBackend(async () =>
+      json({ enabled: true, ends_at: '2026-10-25T06:00:00Z' })
+    )
 
     await expect(resolveMaintenanceStatus(makeContext(pageRequest('/')))).resolves.toEqual({
       enabled: true,
@@ -130,12 +139,16 @@ describe('resolveMaintenanceStatus', () => {
     mockBackend(async () => {
       throw new TypeError('fetch failed')
     })
-    await expect(resolveMaintenanceStatus(makeContext(pageRequest('/')))).resolves.toEqual({ enabled: false })
+    await expect(resolveMaintenanceStatus(makeContext(pageRequest('/')))).resolves.toEqual({
+      enabled: false,
+    })
 
     resetStatusCache()
     jest.restoreAllMocks()
     mockBackend(async () => json({ unexpected: true }))
-    await expect(resolveMaintenanceStatus(makeContext(pageRequest('/')))).resolves.toEqual({ enabled: false })
+    await expect(resolveMaintenanceStatus(makeContext(pageRequest('/')))).resolves.toEqual({
+      enabled: false,
+    })
   })
 
   it('_edge-config.json がなければバックエンドには問い合わせない', async () => {

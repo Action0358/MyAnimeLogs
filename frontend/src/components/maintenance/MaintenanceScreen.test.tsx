@@ -52,7 +52,10 @@ describe('MaintenanceScreen', () => {
     const { rerender } = render(<MaintenanceScreen />)
     expect(screen.getByRole('link', { name: 'お知らせを見る' })).toHaveAttribute('href', '/news')
     rerender(<MaintenanceScreen newsHref="/status.html" />)
-    expect(screen.getByRole('link', { name: 'お知らせを見る' })).toHaveAttribute('href', '/status.html')
+    expect(screen.getByRole('link', { name: 'お知らせを見る' })).toHaveAttribute(
+      'href',
+      '/status.html'
+    )
   })
 
   it('ナビ・ログイン・お問い合わせは出さない', () => {
