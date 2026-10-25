@@ -26,7 +26,7 @@ describe('MaintenanceScreen', () => {
     expect(screen.getByRole('status')).toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'メンテナンス中です' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '再読み込み' })).toBeInTheDocument()
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 
   it('endsAt があるときだけ終了予定を出す', () => {
@@ -38,11 +38,24 @@ describe('MaintenanceScreen', () => {
     expect(screen.queryByText(/終了予定/)).not.toBeInTheDocument()
   })
 
+  it('終了予定の行はエッジが差し込めるよう常に置き、ないときは hidden にする', () => {
+    const { container, rerender } = render(<MaintenanceScreen />)
+    const row = () => container.querySelector('[data-maintenance-ends-at-row]')
+    expect(row()).toHaveAttribute('hidden')
+    expect(container.querySelector('[data-maintenance-ends-at]')).toBeEmptyDOMElement()
+
+    rerender(<MaintenanceScreen endsAt="2026-10-25T06:00:00Z" />)
+    expect(row()).not.toHaveAttribute('hidden')
+  })
+
   it('お知らせへのリンクは既定で /news、指定で差し替えられる', () => {
     const { rerender } = render(<MaintenanceScreen />)
     expect(screen.getByRole('link', { name: 'お知らせを見る' })).toHaveAttribute('href', '/news')
     rerender(<MaintenanceScreen newsHref="/status.html" />)
-    expect(screen.getByRole('link', { name: 'お知らせを見る' })).toHaveAttribute('href', '/status.html')
+    expect(screen.getByRole('link', { name: 'お知らせを見る' })).toHaveAttribute(
+      'href',
+      '/status.html'
+    )
   })
 
   it('ナビ・ログイン・お問い合わせは出さない', () => {
