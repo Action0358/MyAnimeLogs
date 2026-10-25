@@ -47,6 +47,35 @@ export interface Error {
   details?: ErrorDetails;
 }
 
+export interface MaintenanceStatus {
+  /** メンテナンス中か（環境変数 MAINTENANCE_MODE） */
+  enabled: boolean;
+  /** 終了予定（MAINTENANCE_ENDS_AT）。メンテナンス中で、設定があるときだけ含む */
+  ends_at?: string;
+}
+
+export type MaintenanceErrorCode = typeof MaintenanceErrorCode[keyof typeof MaintenanceErrorCode];
+
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const MaintenanceErrorCode = {
+  MAINTENANCE: 'MAINTENANCE',
+} as const;
+
+/**
+ * メンテナンスモード中（環境変数 MAINTENANCE_MODE=true）に、/health・/api/maintenance・/api/admin/ 以外の
+すべてのリクエストへ返る 503 レスポンス。外部API障害などの SERVICE_UNAVAILABLE とは code で区別する。
+`Retry-After`（秒）と `Cache-Control: no-store` ヘッダーが付く。
+
+ */
+export interface MaintenanceError {
+  error: string;
+  message: string;
+  code: MaintenanceErrorCode;
+  /** 終了予定（MAINTENANCE_ENDS_AT 設定時のみ） */
+  ends_at?: string;
+}
+
 export interface User {
   id?: number;
   name?: string;
@@ -3233,6 +3262,96 @@ export function useGetHealth<TData = Awaited<ReturnType<typeof getHealth>>, TErr
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
 
   const queryOptions = getGetHealthQueryOptions(options)
+
+  const query = useQuery(queryOptions , queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
+
+  query.queryKey = queryOptions.queryKey ;
+
+  return query;
+}
+
+
+
+
+/**
+ * メンテナンスモードの状態を返す。メンテナンス中も 503 にならず 200 で応答する。
+フロントのエッジ（Cloudflare Pages Functions）が、ページを返す前にメンテナンス画面へ
+差し替えるかの判定に使う。`Cache-Control: no-store`。
+
+ * @summary メンテナンス状態の取得
+ */
+export const getApiMaintenance = (
+     options?: AxiosRequestConfig
+ ): Promise<AxiosResponse<MaintenanceStatus>> => {
+    
+    
+    return axios.get(
+      `/api/maintenance`,options
+    );
+  }
+
+
+export const getGetApiMaintenanceQueryKey = () => {
+    return [`/api/maintenance`] as const;
+    }
+
+    
+export const getGetApiMaintenanceQueryOptions = <TData = Awaited<ReturnType<typeof getApiMaintenance>>, TError = AxiosError<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiMaintenance>>, TError, TData>>, axios?: AxiosRequestConfig}
+) => {
+
+const {query: queryOptions, axios: axiosOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetApiMaintenanceQueryKey();
+
+  
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getApiMaintenance>>> = ({ signal }) => getApiMaintenance({ signal, ...axiosOptions });
+
+      
+
+      
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getApiMaintenance>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
+}
+
+export type GetApiMaintenanceQueryResult = NonNullable<Awaited<ReturnType<typeof getApiMaintenance>>>
+export type GetApiMaintenanceQueryError = AxiosError<unknown>
+
+
+export function useGetApiMaintenance<TData = Awaited<ReturnType<typeof getApiMaintenance>>, TError = AxiosError<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiMaintenance>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getApiMaintenance>>,
+          TError,
+          Awaited<ReturnType<typeof getApiMaintenance>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetApiMaintenance<TData = Awaited<ReturnType<typeof getApiMaintenance>>, TError = AxiosError<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiMaintenance>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getApiMaintenance>>,
+          TError,
+          Awaited<ReturnType<typeof getApiMaintenance>>
+        > , 'initialData'
+      >, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+export function useGetApiMaintenance<TData = Awaited<ReturnType<typeof getApiMaintenance>>, TError = AxiosError<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiMaintenance>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
+/**
+ * @summary メンテナンス状態の取得
+ */
+
+export function useGetApiMaintenance<TData = Awaited<ReturnType<typeof getApiMaintenance>>, TError = AxiosError<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getApiMaintenance>>, TError, TData>>, axios?: AxiosRequestConfig}
+ , queryClient?: QueryClient 
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
+
+  const queryOptions = getGetApiMaintenanceQueryOptions(options)
 
   const query = useQuery(queryOptions , queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
 

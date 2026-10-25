@@ -32,6 +32,9 @@ const (
 	ErrCodeInternalServer      = "INTERNAL_SERVER_ERROR"
 	ErrCodeServiceUnavailable  = "SERVICE_UNAVAILABLE"
 	ErrCodeAccountLocked       = "ACCOUNT_LOCKED"
+	// ErrCodeMaintenance はメンテナンスモード中の 503。外部API障害などの SERVICE_UNAVAILABLE と
+	// フロントで区別し、メンテナンス画面を出すために別コードにしている
+	ErrCodeMaintenance = "MAINTENANCE"
 )
 
 // Standard error messages based on CSV specification
@@ -45,6 +48,7 @@ const (
 	ErrMsgTooManyRequests     = "リクエスト数が上限を超えました。しばらく待ってから再試行してください。"
 	ErrMsgInternalServer      = "サーバー内部エラーが発生しました"
 	ErrMsgServiceUnavailable  = "サービスが一時的に利用できません"
+	ErrMsgMaintenance         = "メンテナンス中です"
 )
 
 // Common application errors

@@ -5,6 +5,7 @@ import type { Route } from 'next'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { AnnouncementList } from './AnnouncementList'
+import { MaintenanceBackLink } from '@/components/maintenance/MaintenanceBackLink'
 import { cn } from '@/lib/utils'
 import {
   announcementHref,
@@ -119,6 +120,8 @@ export const AnnouncementBrowser: React.FC<{ announcements: Announcement[] }> = 
 
   return (
     <>
+      {/* メンテナンス中だけ、タイトルの上に出る */}
+      <MaintenanceBackLink />
       <div ref={listTopRef} className="mb-5 flex scroll-mt-6 items-baseline gap-2 md:mb-6 md:gap-3">
         <h1 className="text-xl font-bold tracking-tight text-foreground md:text-[26px]">
           お知らせ

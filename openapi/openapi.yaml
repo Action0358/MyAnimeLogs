@@ -1071,6 +1071,20 @@ paths:
                   timestamp:
                     type: string
                     format: date-time
+  /api/maintenance:
+    get:
+      summary: メンテナンス状態の取得
+      description: |
+        メンテナンスモードの状態を返す。メンテナンス中も 503 にならず 200 で応答する。
+        フロントのエッジ（Cloudflare Pages Functions）が、ページを返す前にメンテナンス画面へ
+        差し替えるかの判定に使う。`Cache-Control: no-store`。
+      responses:
+        "200":
+          description: メンテナンス状態
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MaintenanceStatus"
 components:
   securitySchemes:
     bearerAuth:
@@ -1100,6 +1114,44 @@ components:
       required:
         - error_code
         - message
+    MaintenanceStatus:
+      type: object
+      required: [enabled]
+      properties:
+        enabled:
+          type: boolean
+          description: メンテナンス中か（環境変数 MAINTENANCE_MODE）
+          example: true
+        ends_at:
+          type: string
+          format: date-time
+          description: 終了予定（MAINTENANCE_ENDS_AT）。メンテナンス中で、設定があるときだけ含む
+          example: "2026-10-25T15:00:00+09:00"
+    MaintenanceError:
+      type: object
+      description: |
+        メンテナンスモード中（環境変数 MAINTENANCE_MODE=true）に、/health・/api/maintenance・/api/admin/ 以外の
+        すべてのリクエストへ返る 503 レスポンス。外部API障害などの SERVICE_UNAVAILABLE とは code で区別する。
+        `Retry-After`（秒）と `Cache-Control: no-store` ヘッダーが付く。
+      properties:
+        error:
+          type: string
+          example: "メンテナンス中です"
+        message:
+          type: string
+          example: "メンテナンス中です"
+        code:
+          type: string
+          enum: [MAINTENANCE]
+        ends_at:
+          type: string
+          format: date-time
+          description: 終了予定（MAINTENANCE_ENDS_AT 設定時のみ）
+          example: "2026-10-25T15:00:00+09:00"
+      required:
+        - error
+        - message
+        - code
     User:
       type: object
       properties:
