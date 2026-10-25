@@ -4,6 +4,11 @@ import '@testing-library/jest-dom'
 import { AuthProvider, useAuth } from './AuthContext'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import {
+  getMaintenanceState,
+  resetMaintenance,
+  setMaintenance,
+} from '@/lib/maintenance/maintenanceStore'
 
 jest.mock('next/navigation')
 jest.mock('@/lib/supabase', () => ({
@@ -135,6 +140,52 @@ describe('AuthProvider のプロフィール取得', () => {
 
     await waitFor(() => {
       expect(mockPush).toHaveBeenCalledWith('/signin?reason=profile-unavailable')
+    })
+  })
+
+  describe('メンテナンス中', () => {
+    afterEach(() => resetMaintenance())
+
+    it('503 + MAINTENANCE ならセッションを残し、/signin へ送らない', async () => {
+      const body = { code: 'MAINTENANCE', ends_at: '2026-10-25T06:00:00Z' }
+      const res = { ok: false, status: 503, json: async () => body }
+      global.fetch = jest.fn().mockResolvedValue({ ...res, clone: () => res })
+
+      await renderWithSession()
+
+      await waitFor(() => expect(getMaintenanceState().active).toBe(true))
+      expect(screen.getByText('anonymous')).toBeInTheDocument()
+      // /news を見ている人をログアウトさせ、メンテナンス画面へ戻さない
+      expect(mockSupabase.auth.signOut).not.toHaveBeenCalled()
+      expect(mockPush).not.toHaveBeenCalled()
+      expect(localStorage.getItem('auth_token')).toBe(JSON.stringify(ACCESS_TOKEN))
+      // 再試行しても結果は変わらない
+      expect(global.fetch).toHaveBeenCalledTimes(1)
+    })
+
+    it('maintenance.json で宣言済みなら、通信障害でもセッションを残す', async () => {
+      act(() => setMaintenance({}))
+      global.fetch = jest.fn().mockRejectedValue(new TypeError('Failed to fetch'))
+
+      await renderWithSession()
+
+      await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2))
+      await act(async () => {})
+      expect(mockSupabase.auth.signOut).not.toHaveBeenCalled()
+      expect(mockPush).not.toHaveBeenCalled()
+    })
+
+    it('メンテナンス以外の 503 は従来どおり取得失敗として扱う', async () => {
+      const body = { code: 'SERVICE_UNAVAILABLE' }
+      const res = { ok: false, status: 503, json: async () => body }
+      global.fetch = jest.fn().mockResolvedValue({ ...res, clone: () => res })
+
+      await renderWithSession()
+
+      await waitFor(() => {
+        expect(mockPush).toHaveBeenCalledWith('/signin?reason=profile-unavailable')
+      })
+      expect(getMaintenanceState().active).toBe(false)
     })
   })
 
