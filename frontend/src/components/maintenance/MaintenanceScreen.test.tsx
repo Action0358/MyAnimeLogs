@@ -26,7 +26,7 @@ describe('MaintenanceScreen', () => {
     expect(screen.getByRole('status')).toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'メンテナンス中です' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '再読み込み' })).toBeInTheDocument()
+    expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
 
   it('endsAt があるときだけ終了予定を出す', () => {
