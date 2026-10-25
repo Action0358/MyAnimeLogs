@@ -24,6 +24,12 @@ export const isMaintenanceExemptPath = (pathname: string | null): boolean =>
  */
 export const MAINTENANCE_META_NAME = 'myanimelogs-maintenance'
 
+/**
+ * エッジがメンテナンス中の開放ページ（/news）で <html> に付ける属性。
+ * JS が動く前から、CSS（globals.css）でヘッダー・フッターをメンテナンス用の見た目にする。
+ */
+export const MAINTENANCE_HTML_ATTR = 'data-maintenance'
+
 /** 終了予定の行。エッジは終了予定があるとき、この要素の hidden を外す */
 export const ENDS_AT_ROW_ATTR = 'data-maintenance-ends-at-row'
 /** 終了予定の文言を入れる要素。エッジは「終了予定：…」を差し込む */

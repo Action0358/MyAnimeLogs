@@ -13,6 +13,7 @@
 import {
   ENDS_AT_ROW_ATTR,
   ENDS_AT_TEXT_ATTR,
+  MAINTENANCE_HTML_ATTR,
   MAINTENANCE_META_NAME,
   MAINTENANCE_PAGE_PATH,
   endsAtText,
@@ -147,14 +148,17 @@ export const renderMaintenancePage = async (context, status) => {
 }
 
 /**
- * メンテナンス中に開放しているページ（/news）に、メンテナンス中であることを伝える meta を足す。
- * クライアントはこれを読み、ヘッダー・フッターをメンテナンス用にする。
+ * メンテナンス中に開放しているページ（/news）に、メンテナンス中であることを伝える目印を足す。
+ *   - <html data-maintenance>: JS が動く前から CSS でヘッダー・フッターをメンテナンス用の
+ *     見た目にする（リロード時に通常のナビ・ログインが一瞬見えないように）
+ *   - meta: クライアントがこれを読み、メンテナンス状態として描画し直す
  */
 export const addMaintenanceMarker = (response, status) => {
   // HTML に埋め込むため、日時として解釈し直した値だけを使う（入力をそのまま入れない）
   const time = status.endsAt ? new Date(status.endsAt).getTime() : NaN
   const endsAt = Number.isNaN(time) ? '' : new Date(time).toISOString()
   return new HTMLRewriter()
+    .on('html', { element: (el) => el.setAttribute(MAINTENANCE_HTML_ATTR, '') })
     .on('head', {
       element: (el) =>
         el.append(`<meta name="${MAINTENANCE_META_NAME}" content="${endsAt}">`, { html: true }),

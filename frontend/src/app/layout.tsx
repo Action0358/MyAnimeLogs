@@ -33,7 +33,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="ja" className={notoSansJP.variable}>
+    // メンテナンス中の /news では、エッジが data-maintenance を付ける（React の描画には無い属性）
+    <html lang="ja" className={notoSansJP.variable} suppressHydrationWarning>
       <body className="min-h-screen bg-background flex flex-col">
         <MaintenanceGate>
           <AuthProvider>
