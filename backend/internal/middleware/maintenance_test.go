@@ -78,3 +78,40 @@ func TestMaintenanceMiddleware_Enabled(t *testing.T) {
 		assert.Equal(t, http.StatusOK, doRequest(r, http.MethodOptions, "/api/animes").Code)
 	})
 }
+
+func TestMaintenanceStatusHandler(t *testing.T) {
+	newRouter := func(enabled bool, endsAt *time.Time) *gin.Engine {
+		gin.SetMode(gin.TestMode)
+		r := gin.New()
+		r.Use(MaintenanceMiddleware(enabled, endsAt))
+		r.GET(MaintenanceStatusPath, MaintenanceStatusHandler(enabled, endsAt))
+		return r
+	}
+	decode := func(t *testing.T, w *httptest.ResponseRecorder) map[string]any {
+		var body map[string]any
+		assert.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
+		return body
+	}
+
+	t.Run("通常時は enabled=false", func(t *testing.T) {
+		w := doRequest(newRouter(false, nil), http.MethodGet, MaintenanceStatusPath)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		assert.Equal(t, "no-store", w.Header().Get("Cache-Control"))
+		assert.Equal(t, map[string]any{"enabled": false}, decode(t, w))
+	})
+
+	t.Run("メンテナンス中も 503 にならず enabled=true と ends_at を返す", func(t *testing.T) {
+		endsAt := time.Date(2026, 10, 25, 6, 0, 0, 0, time.UTC)
+		w := doRequest(newRouter(true, &endsAt), http.MethodGet, MaintenanceStatusPath)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		assert.Equal(t, map[string]any{"enabled": true, "ends_at": "2026-10-25T06:00:00Z"}, decode(t, w))
+	})
+
+	t.Run("終了予定なしなら ends_at を含めない", func(t *testing.T) {
+		w := doRequest(newRouter(true, nil), http.MethodGet, MaintenanceStatusPath)
+
+		assert.Equal(t, map[string]any{"enabled": true}, decode(t, w))
+	})
+}

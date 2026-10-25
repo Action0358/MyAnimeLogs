@@ -14,8 +14,14 @@ import (
 // 通常時に Retry-After を返せない（終了予定なし）ときの目安秒数
 const defaultMaintenanceRetryAfterSeconds = 300
 
+// MaintenanceStatusPath はメンテナンス状態を返すエンドポイント。
+// フロントのエッジ（Cloudflare Pages Functions）が、HTML を返す前にここを見て
+// メンテナンス画面に差し替えるかを決める。
+const MaintenanceStatusPath = "/api/maintenance"
+
 // isMaintenanceExempt はメンテナンス中も応答するリクエストか。
 //   - /health: Fly.io のヘルスチェックと監視。503 を返すと機械が再起動を繰り返す
+//   - /api/maintenance: メンテナンス状態そのものを返すため
 //   - /api/admin/: 管理者（認証必須）が同期などの作業を続けられるように
 //   - OPTIONS: CORS のプリフライト（CORSMiddleware が応答する）
 func isMaintenanceExempt(c *gin.Context) bool {
@@ -23,7 +29,21 @@ func isMaintenanceExempt(c *gin.Context) bool {
 		return true
 	}
 	path := c.Request.URL.Path
-	return path == "/health" || strings.HasPrefix(path, "/api/admin/")
+	return path == "/health" || path == MaintenanceStatusPath || strings.HasPrefix(path, "/api/admin/")
+}
+
+// MaintenanceStatusHandler はメンテナンス状態を 200 で返す（メンテナンス中も応答する）。
+// 状態は起動時の設定で決まるため、切り替えは fly secrets（再起動を伴う）で行う。
+func MaintenanceStatusHandler(enabled bool, endsAt *time.Time) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		body := gin.H{"enabled": enabled}
+		if enabled && endsAt != nil {
+			body["ends_at"] = endsAt.Format(time.RFC3339)
+		}
+		// キャッシュの長さはエッジ側で決める。経路上で古い状態が残らないようにする
+		c.Header("Cache-Control", "no-store")
+		c.JSON(http.StatusOK, body)
+	}
 }
 
 // MaintenanceMiddleware はメンテナンスモード中、免除対象以外に 503 + code=MAINTENANCE を返す。
