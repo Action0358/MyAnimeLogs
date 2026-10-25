@@ -1,6 +1,7 @@
 'use client'
 
 import { reportMaintenanceIfNeeded } from '@/lib/maintenance/detection'
+import { getMaintenanceState } from '@/lib/maintenance/maintenanceStore'
 import React, {
   createContext,
   useContext,
@@ -51,12 +52,14 @@ export const translateAuthError = (
 
 /**
  * プロフィール取得の結果。
- * unauthorized はトークンが無効、unavailable はバックエンド側の障害を表す。
+ * unauthorized はトークンが無効、unavailable はバックエンド側の障害、
+ * maintenance はメンテナンス中（503 + MAINTENANCE）を表す。
  */
 type ProfileFetchResult =
   | { status: 'ok'; user: User }
   | { status: 'unauthorized' }
   | { status: 'unavailable' }
+  | { status: 'maintenance' }
 
 /** 一時的な失敗を1度だけやり直すまでの待ち時間 */
 const PROFILE_RETRY_DELAY_MS = 700
@@ -133,7 +136,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // メンテナンス中ならメンテナンス画面へ。本文が読めなくても本処理には影響させない
           if (res.status === 503) {
             const body: unknown = await res.clone().json().catch(() => null)
-            reportMaintenanceIfNeeded(503, body)
+            if (reportMaintenanceIfNeeded(503, body)) return { status: 'maintenance' }
           }
           if (!res.ok) return { status: 'unavailable' }
           const data = await res.json()
@@ -172,6 +175,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(result.user)
       return
     }
+
+    // メンテナンス中はプロフィールを取れないのが正常。ここでセッションを破棄して
+    // /signin へ送ると、メンテナンス中に開ける /news を見ていた人がログアウトされ、
+    // メンテナンス画面へ戻される。セッションは残し、明けてから再読み込みで取り直す。
+    // maintenance.json による宣言（バックエンド停止中で通信障害になる）も同じ扱い
+    if (result.status === 'maintenance' || getMaintenanceState().active) return
 
     // プロフィールを取れないまま進むと、トークンだけあってユーザーが無い状態が
     // 残り、画面上は未ログインと区別がつかなくなる。Supabase側のセッションごと
