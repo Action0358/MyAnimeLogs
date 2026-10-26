@@ -27,9 +27,30 @@ jest.mock('@/components/anime', () => ({
 }))
 
 const animes = [
-  { id: 1, title: 'TVのアクション', media: 'tv', genres: ['アクション'], season: '2026-autumn', status: 'airing' },
-  { id: 2, title: 'TVのドラマ', media: 'tv', genres: ['ドラマ'], season: '2026-autumn', status: 'airing' },
-  { id: 3, title: '映画のアクション', media: 'movie', genres: ['アクション'], season: '2026-autumn', status: 'airing' },
+  {
+    id: 1,
+    title: 'TVのアクション',
+    media: 'tv',
+    genres: ['アクション'],
+    season: '2026-autumn',
+    status: 'airing',
+  },
+  {
+    id: 2,
+    title: 'TVのドラマ',
+    media: 'tv',
+    genres: ['ドラマ'],
+    season: '2026-autumn',
+    status: 'airing',
+  },
+  {
+    id: 3,
+    title: '映画のアクション',
+    media: 'movie',
+    genres: ['アクション'],
+    season: '2026-autumn',
+    status: 'airing',
+  },
 ]
 
 const renderPage = () => {

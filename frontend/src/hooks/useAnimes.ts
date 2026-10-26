@@ -47,12 +47,12 @@ const STALE_TIME = 1000 * 60 * 15 // 15分間キャッシュ
 const GC_TIME = 1000 * 60 * 30 // 30分間ガベージコレクション猶予
 
 export const useAnimes = (options: UseAnimesOptions = {}): UseAnimesResult => {
-  const { 
-    filters = {}, 
-    pageSize = 20, 
-    enabled = true, 
+  const {
+    filters = {},
+    pageSize = 20,
+    enabled = true,
     initialPage = 1,
-    prefetchNextPage = true 
+    prefetchNextPage = true,
   } = options
   const [currentPage, setCurrentPage] = useState(initialPage)
   const queryClient = useQueryClient()
@@ -80,7 +80,15 @@ export const useAnimes = (options: UseAnimesOptions = {}): UseAnimesResult => {
       page: currentPage,
       per_page: pageSize,
     }),
-    [filters.keyword, filters.season, genreParam, filters.media, filters.sort, currentPage, pageSize]
+    [
+      filters.keyword,
+      filters.season,
+      genreParam,
+      filters.media,
+      filters.sort,
+      currentPage,
+      pageSize,
+    ]
   )
 
   const { data, isLoading, error, refetch, isFetching } = useQuery({
@@ -100,7 +108,9 @@ export const useAnimes = (options: UseAnimesOptions = {}): UseAnimesResult => {
   })
 
   const animes = useMemo(() => {
-    return (data?.data || []).filter((anime): anime is Anime & { id: number } => anime.id !== undefined)
+    return (data?.data || []).filter(
+      (anime): anime is Anime & { id: number } => anime.id !== undefined
+    )
   }, [data?.data])
 
   const totalPages = data?.meta?.total_pages || 1
@@ -114,7 +124,7 @@ export const useAnimes = (options: UseAnimesOptions = {}): UseAnimesResult => {
         ...queryParams,
         page: currentPage + 1,
       }
-      
+
       queryClient.prefetchQuery({
         queryKey: ['animes', nextPageParams],
         queryFn: async () => {
@@ -126,11 +136,14 @@ export const useAnimes = (options: UseAnimesOptions = {}): UseAnimesResult => {
     }
   }, [queryClient, queryParams, currentPage, hasMore, isLoading, prefetchNextPage])
 
-  const setPage = useCallback((page: number) => {
-    if (page >= 1 && page <= totalPages) {
-      setCurrentPage(page)
-    }
-  }, [totalPages])
+  const setPage = useCallback(
+    (page: number) => {
+      if (page >= 1 && page <= totalPages) {
+        setCurrentPage(page)
+      }
+    },
+    [totalPages]
+  )
 
   const nextPage = useCallback(() => {
     if (hasMore) {

@@ -3,11 +3,11 @@
  */
 
 const SEASON_MAP: Record<string, string> = {
-  'winter': '冬',
-  'spring': '春',
-  'summer': '夏',
-  'autumn': '秋',
-  'fall': '秋',
+  winter: '冬',
+  spring: '春',
+  summer: '夏',
+  autumn: '秋',
+  fall: '秋',
 }
 
 /**

@@ -1,2 +1,2 @@
-export { ProtectedRoute } from './ProtectedRoute';
-export { SignInLink } from './SignInLink';
+export { ProtectedRoute } from './ProtectedRoute'
+export { SignInLink } from './SignInLink'

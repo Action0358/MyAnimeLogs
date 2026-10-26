@@ -31,14 +31,14 @@ export const Pagination: React.FC<PaginationProps> = ({
     const getVisiblePages = (maxPages: number): number[] => {
       // 表示するページ数を実際のページ数に制限
       const visibleCount = Math.min(maxPages, totalPages)
-      
+
       // 現在ページを中央に配置するための開始位置を計算
       const half = Math.floor(visibleCount / 2)
       const idealStart = currentPage - half
-      
+
       // 開始位置を1〜(totalPages - visibleCount + 1)の範囲に収める
       const start = Math.max(1, Math.min(idealStart, totalPages - visibleCount + 1))
-      
+
       return Array.from({ length: visibleCount }, (_, i) => start + i)
     }
 
@@ -92,8 +92,18 @@ export const Pagination: React.FC<PaginationProps> = ({
           )}
           aria-label="最初のページ"
         >
-          <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7M18 19l-7-7 7-7" />
+          <svg
+            className="w-4 h-4 sm:w-5 sm:h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M11 19l-7-7 7-7M18 19l-7-7 7-7"
+            />
           </svg>
         </button>
         <button
@@ -108,8 +118,18 @@ export const Pagination: React.FC<PaginationProps> = ({
           )}
           aria-label="前のページ"
         >
-          <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          <svg
+            className="w-4 h-4 sm:w-5 sm:h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 19l-7-7 7-7"
+            />
           </svg>
         </button>
       </div>
@@ -142,7 +162,12 @@ export const Pagination: React.FC<PaginationProps> = ({
           )}
           aria-label="次のページ"
         >
-          <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg
+            className="w-4 h-4 sm:w-5 sm:h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
         </button>
@@ -158,8 +183,18 @@ export const Pagination: React.FC<PaginationProps> = ({
           )}
           aria-label="最後のページ"
         >
-          <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M6 5l7 7-7 7" />
+          <svg
+            className="w-4 h-4 sm:w-5 sm:h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M13 5l7 7-7 7M6 5l7 7-7 7"
+            />
           </svg>
         </button>
       </div>

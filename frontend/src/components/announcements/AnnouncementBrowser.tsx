@@ -75,25 +75,20 @@ export const AnnouncementBrowser: React.FC<{ announcements: Announcement[] }> = 
   const categories = useMemo(() => {
     const present = new Set(announcements.map((a) => a.category))
     return (Object.keys(ANNOUNCEMENT_CATEGORY_LABELS) as AnnouncementCategory[]).filter((c) =>
-      present.has(c),
+      present.has(c)
     )
   }, [announcements])
 
   const filtered = useMemo(
     () =>
       category === 'all' ? announcements : announcements.filter((a) => a.category === category),
-    [announcements, category],
+    [announcements, category]
   )
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / NEWS_PAGE_SIZE))
   const currentPage = Math.min(page, totalPages)
-  const pageItems = filtered.slice(
-    (currentPage - 1) * NEWS_PAGE_SIZE,
-    currentPage * NEWS_PAGE_SIZE,
-  )
-  const groups = showFilter
-    ? groupByYear(pageItems)
-    : [{ year: '', items: pageItems }]
+  const pageItems = filtered.slice((currentPage - 1) * NEWS_PAGE_SIZE, currentPage * NEWS_PAGE_SIZE)
+  const groups = showFilter ? groupByYear(pageItems) : [{ year: '', items: pageItems }]
 
   // 旧アンカー /news#<id> を詳細ページへ転送する。履歴に旧URLを残さないよう replace
   useEffect(() => {
@@ -150,7 +145,7 @@ export const AnnouncementBrowser: React.FC<{ announcements: Announcement[] }> = 
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                 category === c
                   ? 'bg-primary/10 text-primary'
-                  : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
               )}
             >
               {c === 'all' ? 'すべて' : ANNOUNCEMENT_CATEGORY_LABELS[c]}
@@ -162,7 +157,10 @@ export const AnnouncementBrowser: React.FC<{ announcements: Announcement[] }> = 
       {filtered.length > 0 ? (
         <div className="space-y-7">
           {groups.map((group) => (
-            <section key={group.year || 'all'} aria-label={group.year ? `${group.year}年` : undefined}>
+            <section
+              key={group.year || 'all'}
+              aria-label={group.year ? `${group.year}年` : undefined}
+            >
               {group.year && (
                 <h2 className="mb-2 text-[11px] font-bold tracking-[0.08em] text-muted-foreground md:mb-2.5 md:text-xs">
                   {group.year}年
@@ -201,7 +199,10 @@ const NewsPagination: React.FC<{
   const disabled = 'border-border bg-background text-muted-foreground/60 cursor-not-allowed'
 
   return (
-    <nav aria-label="ページネーション" className="mt-6 flex justify-center gap-[5px] md:mt-8 md:gap-1.5">
+    <nav
+      aria-label="ページネーション"
+      className="mt-6 flex justify-center gap-[5px] md:mt-8 md:gap-1.5"
+    >
       <button
         type="button"
         onClick={() => onChange(currentPage - 1)}
@@ -219,7 +220,7 @@ const NewsPagination: React.FC<{
           aria-current={p === currentPage ? 'page' : undefined}
           className={cn(
             base,
-            p === currentPage ? 'border-primary bg-primary text-primary-foreground' : idle,
+            p === currentPage ? 'border-primary bg-primary text-primary-foreground' : idle
           )}
         >
           {p}

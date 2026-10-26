@@ -32,7 +32,7 @@ describe('AnnouncementDetail', () => {
             { type: 'p', children: [{ text: 'マイページ', href: '/mypage' }, 'から選びます。'] },
           ],
         })}
-      />,
+      />
     )
 
     expect(screen.getByRole('heading', { level: 2, name: '使い方' })).toBeInTheDocument()
@@ -44,7 +44,7 @@ describe('AnnouncementDetail', () => {
     render(
       <AnnouncementDetail
         announcement={build({ link: { href: 'https://example.com', label: '詳しくはこちら' } })}
-      />,
+      />
     )
 
     const link = screen.getByRole('link', { name: '詳しくはこちら' })

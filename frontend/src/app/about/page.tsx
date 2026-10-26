@@ -97,16 +97,28 @@ const AboutHero: React.FC = () => {
     .filter((url): url is string => Boolean(url))
     .slice(0, HERO_POSTER_COUNT)
 
-  const tiles = posters.length > 0 ? posters : Array.from<string | null>({ length: HERO_POSTER_COUNT }).fill(null)
+  const tiles =
+    posters.length > 0
+      ? posters
+      : Array.from<string | null>({ length: HERO_POSTER_COUNT }).fill(null)
 
   return (
     <div className="relative h-[220px] overflow-hidden bg-foreground sm:h-[300px] lg:h-[340px]">
       <div className="absolute inset-0 grid grid-cols-4 gap-2 p-3 sm:grid-cols-6 sm:gap-2.5 sm:p-5 lg:grid-cols-8">
         {tiles.map((url, i) => (
-          <div key={i} className="aspect-[2/3] overflow-hidden rounded-md bg-background/10 sm:rounded-lg">
+          <div
+            key={i}
+            className="aspect-[2/3] overflow-hidden rounded-md bg-background/10 sm:rounded-lg"
+          >
             {url && (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={url} alt="" className="h-full w-full object-cover" loading="lazy" decoding="async" />
+              <img
+                src={url}
+                alt=""
+                className="h-full w-full object-cover"
+                loading="lazy"
+                decoding="async"
+              />
             )}
           </div>
         ))}
@@ -163,8 +175,12 @@ const AboutPage: React.FC = () => {
                   <feature.icon className="h-[19px] w-[19px]" />
                 </div>
                 <div className="min-w-0">
-                  <div className="mb-1 text-sm font-bold sm:mb-1.5 sm:text-[14.5px]">{feature.title}</div>
-                  <p className="text-xs leading-relaxed text-muted-foreground sm:text-[13px]">{feature.desc}</p>
+                  <div className="mb-1 text-sm font-bold sm:mb-1.5 sm:text-[14.5px]">
+                    {feature.title}
+                  </div>
+                  <p className="text-xs leading-relaxed text-muted-foreground sm:text-[13px]">
+                    {feature.desc}
+                  </p>
                 </div>
               </div>
             ))}
@@ -183,7 +199,9 @@ const AboutPage: React.FC = () => {
                   {step.n}
                 </div>
                 <div className="min-w-0">
-                  <div className="mb-1 text-sm font-bold leading-snug sm:mb-1.5 sm:text-sm">{step.title}</div>
+                  <div className="mb-1 text-sm font-bold leading-snug sm:mb-1.5 sm:text-sm">
+                    {step.title}
+                  </div>
                   <p className="text-xs leading-relaxed text-muted-foreground">{step.desc}</p>
                 </div>
               </div>
@@ -202,12 +220,16 @@ const AboutPage: React.FC = () => {
                 rel="noopener noreferrer"
                 className="rounded-lg border border-border bg-card p-3.5 transition-colors hover:border-primary/40 sm:p-4"
               >
-                <div className="text-[10.5px] text-muted-foreground sm:text-[11.5px]">{source.kind}</div>
+                <div className="text-[10.5px] text-muted-foreground sm:text-[11.5px]">
+                  {source.kind}
+                </div>
                 <div className="mt-1.5 text-[13px] font-bold leading-snug text-primary sm:text-sm">
                   {source.name}
                 </div>
                 {source.note && (
-                  <div className="mt-1 text-[10.5px] text-muted-foreground sm:text-[11.5px]">{source.note}</div>
+                  <div className="mt-1 text-[10.5px] text-muted-foreground sm:text-[11.5px]">
+                    {source.note}
+                  </div>
                 )}
               </a>
             ))}
@@ -227,9 +249,7 @@ const AboutPage: React.FC = () => {
                 Googleアカウントですぐに使いはじめられます。
               </p>
             </div>
-            <SignInLink
-              className="mt-4 flex h-12 w-full items-center justify-center rounded-md bg-primary px-7 text-sm font-semibold text-primary-foreground transition-colors hover:opacity-90 sm:mt-0 sm:h-[52px] sm:w-auto sm:flex-shrink-0 sm:text-[15px]"
-            >
+            <SignInLink className="mt-4 flex h-12 w-full items-center justify-center rounded-md bg-primary px-7 text-sm font-semibold text-primary-foreground transition-colors hover:opacity-90 sm:mt-0 sm:h-[52px] sm:w-auto sm:flex-shrink-0 sm:text-[15px]">
               はじめる
             </SignInLink>
           </section>

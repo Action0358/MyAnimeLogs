@@ -39,7 +39,10 @@ export interface RelatedAnimeGridProps {
  * 折りたたまれる。
  */
 export const RelatedAnimeGrid: React.FC<RelatedAnimeGridProps> = ({ related, columns, from }) => {
-  const { visible, hiddenCount, isExpanded, toggle } = useExpandableList(related, RELATED_INITIAL_COUNT)
+  const { visible, hiddenCount, isExpanded, toggle } = useExpandableList(
+    related,
+    RELATED_INITIAL_COUNT
+  )
 
   return (
     <>

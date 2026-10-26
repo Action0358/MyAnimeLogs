@@ -7,9 +7,7 @@ describe('AccountDeletedPage', () => {
   it('削除完了を明示する', () => {
     render(<AccountDeletedPage />)
 
-    expect(
-      screen.getByRole('heading', { name: 'アカウントを削除しました' })
-    ).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'アカウントを削除しました' })).toBeInTheDocument()
   })
 
   // 再ログインで新規アカウントが作られることを事前に伝えないと

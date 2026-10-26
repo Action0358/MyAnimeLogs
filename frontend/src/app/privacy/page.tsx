@@ -41,10 +41,16 @@ const TOC_ITEMS: LegalTocItem[] = [
 ]
 
 const PrivacyPage: React.FC = () => (
-  <LegalTocPage title="プライバシーポリシー" tocItems={TOC_ITEMS} extraTocLabel="お問い合わせ" extraTocHref="#contact">
+  <LegalTocPage
+    title="プライバシーポリシー"
+    tocItems={TOC_ITEMS}
+    extraTocLabel="お問い合わせ"
+    extraTocHref="#contact"
+  >
     <LegalArticle id={SECTION_IDS[0]} num="第1節" title="はじめに">
       <p>
-        本ポリシーは、{OPERATOR_NAME}（以下「運営者」）が提供する MyAnimeLogs（以下「本サービス」）における利用者の情報の取り扱いについて定めるものです。
+        本ポリシーは、{OPERATOR_NAME}（以下「運営者」）が提供する
+        MyAnimeLogs（以下「本サービス」）における利用者の情報の取り扱いについて定めるものです。
       </p>
     </LegalArticle>
 

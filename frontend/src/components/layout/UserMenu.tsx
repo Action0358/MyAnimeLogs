@@ -77,9 +77,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({ isOpen, onClose, triggerRef 
         aria-hidden={!isOpen}
         className={cn(
           'absolute right-0 top-full z-50 mt-2 w-[248px] origin-top-right rounded-lg border border-border bg-popover p-1.5 text-popover-foreground shadow-lg transition-[opacity,transform] duration-150 ease-out',
-          isOpen
-            ? 'translate-y-0 opacity-100'
-            : 'pointer-events-none -translate-y-1.5 opacity-0'
+          isOpen ? 'translate-y-0 opacity-100' : 'pointer-events-none -translate-y-1.5 opacity-0'
         )}
       >
         {/* ユーザー情報セクション。アバター＋名前をヘッダーアイコンと同じ見た目にして、
@@ -98,9 +96,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({ isOpen, onClose, triggerRef 
               user?.name.charAt(0).toUpperCase()
             )}
           </span>
-          <span className="min-w-0 truncate text-sm font-bold text-foreground">
-            {user?.name}
-          </span>
+          <span className="min-w-0 truncate text-sm font-bold text-foreground">{user?.name}</span>
         </div>
 
         <div className="mx-1 mb-1.5 h-px bg-border" />
@@ -117,7 +113,9 @@ export const UserMenu: React.FC<UserMenuProps> = ({ isOpen, onClose, triggerRef 
                 role="menuitem"
                 className="flex h-10 items-center gap-2.5 rounded-md px-2.5 text-sm font-medium text-foreground/90 transition-colors hover:bg-muted"
               >
-                {Icon && <Icon className="h-[17px] w-[17px] text-muted-foreground" aria-hidden="true" />}
+                {Icon && (
+                  <Icon className="h-[17px] w-[17px] text-muted-foreground" aria-hidden="true" />
+                )}
                 {item.label}
               </Link>
             )

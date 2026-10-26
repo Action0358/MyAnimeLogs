@@ -8,9 +8,7 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 // 消費後に false へクリアできるよう mutable オブジェクトでエクスポートし、
 // React Strict Mode のダブルマウントや useEffect 再実行時に値が残り続けるのを防ぐ。
 export const initialUrlHadCode = {
-  value:
-    typeof window !== 'undefined' &&
-    new URLSearchParams(window.location.search).has('code'),
+  value: typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('code'),
 }
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)

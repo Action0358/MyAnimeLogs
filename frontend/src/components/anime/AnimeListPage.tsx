@@ -31,9 +31,10 @@ const MEDIA_TABS: MediaTabDefinition[] = [
 ]
 
 // タブIDからラベルを取得するマップ
-const mediaTabLabelMap = Object.fromEntries(
-  MEDIA_TABS.map((tab) => [tab.id, tab.label])
-) as Record<MediaType, string>
+const mediaTabLabelMap = Object.fromEntries(MEDIA_TABS.map((tab) => [tab.id, tab.label])) as Record<
+  MediaType,
+  string
+>
 
 // 1ページあたりの表示件数
 const PAGE_SIZE = 24
@@ -106,10 +107,7 @@ const AnimeListContent: React.FC<AnimeListPageProps> = ({
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const queryString = searchParams.toString()
-  const filters = useMemo(
-    () => parseListFilters(new URLSearchParams(queryString)),
-    [queryString]
-  )
+  const filters = useMemo(() => parseListFilters(new URLSearchParams(queryString)), [queryString])
   const { media: activeMediaTab, genres: selectedGenres, sort, page: currentPage } = filters
   const [showFilters, setShowFilters] = useState(false)
   const isInitialRender = useRef(true)
@@ -172,9 +170,7 @@ const AnimeListContent: React.FC<AnimeListPageProps> = ({
   if (error) {
     return (
       <Container size="xl" className="py-8">
-        <h1 className="text-xl md:text-[26px] font-bold text-foreground tracking-tight">
-          {title}
-        </h1>
+        <h1 className="text-xl md:text-[26px] font-bold text-foreground tracking-tight">{title}</h1>
         <ErrorState type={getErrorStateType(error)} onRetry={() => refetch()} />
       </Container>
     )

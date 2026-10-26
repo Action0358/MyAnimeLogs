@@ -46,7 +46,7 @@ describe('トップページのお知らせセクション', () => {
     // 先頭に着地すると、どのお知らせを押したのか分からなくなる
     expect(screen.getByRole('link', { name: /ベータ版を公開しました/ })).toHaveAttribute(
       'href',
-      '/news/a',
+      '/news/a'
     )
   })
 

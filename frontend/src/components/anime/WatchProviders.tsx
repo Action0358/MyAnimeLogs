@@ -65,7 +65,9 @@ export const WatchProviders: React.FC<WatchProvidersProps> = ({ providers }) => 
   return (
     <Card>
       <CardContent className="p-5 md:px-6 md:py-5">
-        <SectionHeading as="h2" size="sm">配信サービス</SectionHeading>
+        <SectionHeading as="h2" size="sm">
+          配信サービス
+        </SectionHeading>
         {/* ロゴは元画像の縦横比・余白がまちまちなため、均一なタイルに収めて揃える。
             48px（SP）はタイル5つが横一列に収まるサイズ */}
         <div className="flex flex-wrap gap-2 md:gap-2.5">

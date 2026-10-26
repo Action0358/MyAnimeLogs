@@ -27,11 +27,7 @@ export const metadata: Metadata = {
   },
 }
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     // メンテナンス中の /news では、エッジが data-maintenance を付ける（React の描画には無い属性）
     <html lang="ja" className={notoSansJP.variable} suppressHydrationWarning>
@@ -40,9 +36,7 @@ export default function RootLayout({
           <AuthProvider>
             <QueryProvider>
               <Header />
-              <main className="flex-1">
-                {children}
-              </main>
+              <main className="flex-1">{children}</main>
               <Footer />
               {process.env.NODE_ENV === 'development' && <TokenDebug />}
             </QueryProvider>

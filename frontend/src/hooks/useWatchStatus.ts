@@ -49,20 +49,32 @@ export const useWatchStatus = (options: { enabled?: boolean } = {}): UseWatchSta
   })
 
   // ?? [] は毎レンダー新しい配列を作り、下の useCallback を毎回作り直させるためメモ化する
-  const watchStatuses: WatchStatusAnime[] = useMemo(() => (data?.data as WatchStatusAnime[]) ?? [], [data])
+  const watchStatuses: WatchStatusAnime[] = useMemo(
+    () => (data?.data as WatchStatusAnime[]) ?? [],
+    [data]
+  )
 
-  const updateStatus = useCallback(async (animeId: number, status: WatchStatusStatus) => {
-    await putMutation.mutateAsync({ animeId, data: { status } })
-  }, [putMutation])
+  const updateStatus = useCallback(
+    async (animeId: number, status: WatchStatusStatus) => {
+      await putMutation.mutateAsync({ animeId, data: { status } })
+    },
+    [putMutation]
+  )
 
-  const removeStatus = useCallback(async (animeId: number) => {
-    await deleteMutation.mutateAsync({ animeId })
-  }, [deleteMutation])
+  const removeStatus = useCallback(
+    async (animeId: number) => {
+      await deleteMutation.mutateAsync({ animeId })
+    },
+    [deleteMutation]
+  )
 
-  const getStatus = useCallback((animeId: number): WatchStatusStatus | null => {
-    const anime = watchStatuses.find(a => a.id === animeId)
-    return anime?.user_watch_status?.status ?? null
-  }, [watchStatuses])
+  const getStatus = useCallback(
+    (animeId: number): WatchStatusStatus | null => {
+      const anime = watchStatuses.find((a) => a.id === animeId)
+      return anime?.user_watch_status?.status ?? null
+    },
+    [watchStatuses]
+  )
 
   return {
     watchStatuses,

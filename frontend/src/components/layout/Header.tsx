@@ -17,7 +17,6 @@ import { SignInLink } from '../auth/SignInLink'
 import { MaintenanceHeader } from '../maintenance/MaintenanceChrome'
 import { useMaintenanceActive } from '@/lib/maintenance/useMaintenanceActive'
 
-
 const Header: React.FC = () => {
   const { user, isLoading } = useAuth()
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
@@ -81,7 +80,7 @@ const Header: React.FC = () => {
             </button>
 
             {/* ロゴ・ブランド（デスクトップのみ表示） */}
-            <Link href={"/" as Route} className="hidden md:flex items-center group flex-shrink-0">
+            <Link href={'/' as Route} className="hidden md:flex items-center group flex-shrink-0">
               <Image
                 src={SUB_LOGO_PATH}
                 alt="MyAnimeLogs"

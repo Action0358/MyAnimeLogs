@@ -8,7 +8,8 @@ import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 
 jest.mock('@/contexts/AuthContext', () => ({
   useAuth: jest.fn(),
-  DEFAULT_LOGIN_ERROR: 'ログイン処理中にエラーが発生しました。しばらく時間をおいて再度お試しください',
+  DEFAULT_LOGIN_ERROR:
+    'ログイン処理中にエラーが発生しました。しばらく時間をおいて再度お試しください',
 }))
 jest.mock('next/navigation')
 jest.mock('@/components/auth/AuthPosterPanel', () => ({
@@ -40,9 +41,7 @@ describe('SignInPage', () => {
   it('ログインと新規作成の両方を担うことを見出しで示す', async () => {
     render(<SignInPage />)
 
-    expect(
-      await screen.findByRole('heading', { name: 'はじめる' })
-    ).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'はじめる' })).toBeInTheDocument()
     expect(screen.getByText(/初めての方はそのまま登録が完了します。/)).toBeInTheDocument()
   })
 

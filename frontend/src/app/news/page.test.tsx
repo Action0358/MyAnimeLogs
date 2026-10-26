@@ -4,7 +4,10 @@ import '@testing-library/jest-dom'
 import NewsPage from './page'
 import { announcementHref, getAnnouncements } from '@/constants/announcements'
 import type { Announcement } from '@/constants/announcements'
-import { NEWS_FILTER_MIN_COUNT, NEWS_PAGE_SIZE } from '@/components/announcements/AnnouncementBrowser'
+import {
+  NEWS_FILTER_MIN_COUNT,
+  NEWS_PAGE_SIZE,
+} from '@/components/announcements/AnnouncementBrowser'
 
 jest.mock('@/constants/announcements', () => {
   const actual = jest.requireActual('@/constants/announcements')
@@ -112,11 +115,11 @@ describe('お知らせ一覧ページ', () => {
 
     expect(screen.getByRole('link', { name: /ベータ版を公開しました/ })).toHaveAttribute(
       'href',
-      '/news/2026-09-06-beta',
+      '/news/2026-09-06-beta'
     )
     expect(screen.getByRole('link', { name: /メンテナンス/ })).toHaveAttribute(
       'href',
-      '/news/2026-08-20-maintenance',
+      '/news/2026-08-20-maintenance'
     )
     expect(announcementHref('custom-id')).toBe('/news/custom-id')
   })
@@ -130,7 +133,7 @@ const buildMany = (count: number, overrides: (i: number) => Partial<Announcement
       date: `2026-09-${String(28 - i).padStart(2, '0')}`,
       title: `お知らせ${i + 1}`,
       ...overrides(i),
-    }),
+    })
   )
 
 /**
@@ -155,7 +158,7 @@ describe('絞り込みとページ送り', () => {
 
   it('6件以上でタブと年の区切りを出す。タブはデータにあるカテゴリだけ', () => {
     mockGetAnnouncements.mockReturnValue(
-      buildMany(NEWS_FILTER_MIN_COUNT, (i) => ({ category: i % 2 ? 'maintenance' : 'feature' })),
+      buildMany(NEWS_FILTER_MIN_COUNT, (i) => ({ category: i % 2 ? 'maintenance' : 'feature' }))
     )
 
     render(<NewsPage />)
@@ -172,7 +175,7 @@ describe('絞り込みとページ送り', () => {
 
   it('カテゴリで絞り込むと、項目と件数が絞られる', () => {
     mockGetAnnouncements.mockReturnValue(
-      buildMany(8, (i) => ({ category: i < 3 ? 'maintenance' : 'feature' })),
+      buildMany(8, (i) => ({ category: i < 3 ? 'maintenance' : 'feature' }))
     )
 
     render(<NewsPage />)

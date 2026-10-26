@@ -78,7 +78,7 @@ export const ANNOUNCEMENTS: Announcement[] = [
  */
 export const sortAnnouncements = (items: Announcement[]): Announcement[] =>
   [...items].sort((a, b) =>
-    a.date === b.date ? b.id.localeCompare(a.id) : b.date.localeCompare(a.date),
+    a.date === b.date ? b.id.localeCompare(a.id) : b.date.localeCompare(a.date)
   )
 
 /** 新しい順に並べ替えたお知らせを返す */

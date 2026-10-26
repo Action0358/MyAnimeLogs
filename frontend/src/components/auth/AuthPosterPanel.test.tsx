@@ -93,10 +93,7 @@ describe('AuthPosterPanel', () => {
 
   it('画像URLを一つも持たないアニメは描画しない', async () => {
     mockGetPopularAnimes.mockResolvedValue({
-      animes: [
-        createAnime(1, { cover_image_large: undefined }),
-        createAnime(2),
-      ],
+      animes: [createAnime(1, { cover_image_large: undefined }), createAnime(2)],
       total: 2,
     })
 

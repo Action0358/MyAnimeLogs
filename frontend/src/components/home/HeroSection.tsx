@@ -1,10 +1,10 @@
-'use client';
+'use client'
 
-import React from 'react';
-import Image from 'next/image';
-import SearchContainer from './SearchContainer';
-import HeroBackdrop from './HeroBackdrop';
-import { HERO_LOGO_PATH } from '@/lib/constants';
+import React from 'react'
+import Image from 'next/image'
+import SearchContainer from './SearchContainer'
+import HeroBackdrop from './HeroBackdrop'
+import { HERO_LOGO_PATH } from '@/lib/constants'
 
 const HeroSection: React.FC = () => {
   // z-[1]を使用する理由:
@@ -40,7 +40,7 @@ const HeroSection: React.FC = () => {
         <SearchContainer />
       </div>
     </section>
-  );
-};
+  )
+}
 
-export default HeroSection;
+export default HeroSection
