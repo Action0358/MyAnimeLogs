@@ -18,7 +18,7 @@ const badgeVariants = cva(
     defaultVariants: {
       variant: 'default',
     },
-  },
+  }
 )
 
 export interface BadgeProps
@@ -28,7 +28,7 @@ export interface BadgeProps
 const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
   ({ className, variant, ...props }, ref) => {
     return <span ref={ref} className={cn(badgeVariants({ variant }), className)} {...props} />
-  },
+  }
 )
 Badge.displayName = 'Badge'
 

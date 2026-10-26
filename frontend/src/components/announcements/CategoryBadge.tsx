@@ -1,9 +1,6 @@
 import React from 'react'
 import { cn } from '@/lib/utils'
-import {
-  ANNOUNCEMENT_CATEGORY_LABELS,
-  type AnnouncementCategory,
-} from '@/constants/announcements'
+import { ANNOUNCEMENT_CATEGORY_LABELS, type AnnouncementCategory } from '@/constants/announcements'
 
 /**
  * カテゴリのタグ意匠。
@@ -40,7 +37,7 @@ export const CategoryBadge: React.FC<CategoryBadgeProps> = ({
       'inline-flex flex-shrink-0 items-center rounded font-bold',
       size === 'sm' ? 'px-2 py-0.5 text-[10px] md:text-[11px]' : 'px-2.5 py-0.5 text-xs',
       CATEGORY_CLASSES[category],
-      className,
+      className
     )}
   >
     {ANNOUNCEMENT_CATEGORY_LABELS[category]}

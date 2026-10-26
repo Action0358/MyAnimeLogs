@@ -1,0 +1,6 @@
+# git blame で無視する整形だけのコミット。
+# 有効にするには: git config blame.ignoreRevsFile .git-blame-ignore-revs
+# （GitHub の blame 表示はこのファイルを自動で読む）
+
+# style: Prettier（printWidth 100）でフロントエンド全体を整形する (#1147)
+7fe25cc458937989cfdd29758bbeee05430ddcf4

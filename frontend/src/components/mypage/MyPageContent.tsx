@@ -9,11 +9,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { Container } from '@/components/layout'
 import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
-import {
-  WatchStatusTabs,
-  WatchStatusCard,
-  WatchStatusTabKey,
-} from '@/components/favorites'
+import { WatchStatusTabs, WatchStatusCard, WatchStatusTabKey } from '@/components/favorites'
 import { ErrorState, ExpandToggleButton, getErrorStateType } from '@/components/ui'
 import { useWatchStatus, WatchStatusAnime } from '@/hooks/useWatchStatus'
 import { useExpandableList } from '@/hooks/useExpandableList'
@@ -58,22 +54,14 @@ const EMPTY_STATE_CONFIG: Record<
 }
 
 // id が number の作品のみを抽出（WatchStatusCard は id 必須）
-const filterValidItems = (
-  items: WatchStatusAnime[]
-): (WatchStatusAnime & { id: number })[] => {
+const filterValidItems = (items: WatchStatusAnime[]): (WatchStatusAnime & { id: number })[] => {
   return items.filter(
-    (anime): anime is WatchStatusAnime & { id: number } =>
-      typeof anime.id === 'number'
+    (anime): anime is WatchStatusAnime & { id: number } => typeof anime.id === 'number'
   )
 }
 
 export const MyPageContent: React.FC = () => {
-  const {
-    user: authUser,
-    token,
-    isLoading: authLoading,
-    isAuthenticated,
-  } = useAuth()
+  const { user: authUser, token, isLoading: authLoading, isAuthenticated } = useAuth()
   const router = useRouter()
   const [user, setUser] = useState(authUser)
   const [isLoading, setIsLoading] = useState(true)
@@ -262,11 +250,7 @@ export const MyPageContent: React.FC = () => {
       {/* 視聴ステータス別タブナビゲーション。件数はタブ内のピルに統合し、
           記録数カードとの二重表示をなくす（マイページUI刷新v2） */}
       <div className="mt-[22px] mb-[18px] md:mt-[30px] md:mb-7">
-        <WatchStatusTabs
-          activeTab={activeTab}
-          onTabChange={changeTab}
-          counts={counts}
-        />
+        <WatchStatusTabs activeTab={activeTab} onTabChange={changeTab} counts={counts} />
       </div>
 
       {/* タブコンテンツ */}
@@ -278,7 +262,11 @@ export const MyPageContent: React.FC = () => {
             ))}
           </div>
           {hiddenCount > 0 && (
-            <ExpandToggleButton isExpanded={isExpanded} hiddenCount={hiddenCount} onClick={toggleExpanded} />
+            <ExpandToggleButton
+              isExpanded={isExpanded}
+              hiddenCount={hiddenCount}
+              onClick={toggleExpanded}
+            />
           )}
         </>
       ) : (

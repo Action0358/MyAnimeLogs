@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import {
   useGetUsersMeFavorites,
@@ -46,19 +46,29 @@ export const useFavorites = (options: { enabled?: boolean } = {}): UseFavoritesR
     mutation: { onSuccess: invalidate },
   })
 
-  const favorites: FavoriteAnime[] = (data?.data as FavoriteAnime[]) ?? []
+  // ?? [] は毎レンダー新しい配列を作り、下の useCallback を毎回作り直させるためメモ化する
+  const favorites: FavoriteAnime[] = useMemo(() => (data?.data as FavoriteAnime[]) ?? [], [data])
 
-  const addFavorite = useCallback(async (animeId: number) => {
-    await putMutation.mutateAsync({ animeId })
-  }, [putMutation])
+  const addFavorite = useCallback(
+    async (animeId: number) => {
+      await putMutation.mutateAsync({ animeId })
+    },
+    [putMutation]
+  )
 
-  const removeFavorite = useCallback(async (animeId: number) => {
-    await deleteMutation.mutateAsync({ animeId })
-  }, [deleteMutation])
+  const removeFavorite = useCallback(
+    async (animeId: number) => {
+      await deleteMutation.mutateAsync({ animeId })
+    },
+    [deleteMutation]
+  )
 
-  const isFavorite = useCallback((animeId: number) => {
-    return favorites.some(anime => anime.id === animeId)
-  }, [favorites])
+  const isFavorite = useCallback(
+    (animeId: number) => {
+      return favorites.some((anime) => anime.id === animeId)
+    },
+    [favorites]
+  )
 
   return {
     favorites,

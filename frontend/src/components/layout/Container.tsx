@@ -1,12 +1,12 @@
-import React from 'react';
-import { cn } from '@/lib/utils';
+import React from 'react'
+import { cn } from '@/lib/utils'
 
 interface ContainerProps {
-  size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
-  padding?: boolean;
-  center?: boolean;
-  children: React.ReactNode;
-  className?: string;
+  size?: 'sm' | 'md' | 'lg' | 'xl' | 'full'
+  padding?: boolean
+  center?: boolean
+  children: React.ReactNode
+  className?: string
 }
 
 const Container: React.FC<ContainerProps> = ({
@@ -23,7 +23,7 @@ const Container: React.FC<ContainerProps> = ({
     // サイト共通のコンテナ幅（本文・フッター）。ヘッダーは列に収めず全幅に置く
     xl: 'max-w-[1180px]',
     full: 'max-w-full',
-  };
+  }
 
   return (
     <div
@@ -37,7 +37,7 @@ const Container: React.FC<ContainerProps> = ({
     >
       {children}
     </div>
-  );
-};
+  )
+}
 
-export default Container;
+export default Container

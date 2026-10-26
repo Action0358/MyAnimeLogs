@@ -16,7 +16,12 @@ jest.mock('@/lib/api/client', () => ({
   ApiClientError: class extends Error {},
 }))
 
-const user = { id: 1, name: 'テストユーザー', email: 'test@example.com', created_at: '2026-01-01T00:00:00Z' }
+const user = {
+  id: 1,
+  name: 'テストユーザー',
+  email: 'test@example.com',
+  created_at: '2026-01-01T00:00:00Z',
+}
 
 const anime = (id: number, status: string, title: string) => ({
   id,
@@ -94,7 +99,7 @@ describe('MyPageContent のタブ', () => {
     const link = await screen.findByRole('link', { name: /視聴中の作品/ })
     expect(link).toHaveAttribute(
       'href',
-      `/anime/2?from=${encodeURIComponent('/mypage?tab=watching')}`,
+      `/anime/2?from=${encodeURIComponent('/mypage?tab=watching')}`
     )
   })
 })

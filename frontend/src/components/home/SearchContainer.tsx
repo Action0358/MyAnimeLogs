@@ -1,20 +1,20 @@
-'use client';
+'use client'
 
-import React, { useState } from 'react';
-import SearchTabs from './SearchTabs';
-import SearchInputArea from './SearchInputArea';
+import React, { useState } from 'react'
+import SearchTabs from './SearchTabs'
+import SearchInputArea from './SearchInputArea'
 
-export type SearchTab = 'keyword' | 'genre' | 'season';
+export type SearchTab = 'keyword' | 'genre' | 'season'
 
 const SearchContainer: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<SearchTab>('keyword');
+  const [activeTab, setActiveTab] = useState<SearchTab>('keyword')
 
   return (
     <div className="w-full max-w-[800px]">
       <SearchTabs activeTab={activeTab} onTabChange={setActiveTab} />
       <SearchInputArea activeTab={activeTab} />
     </div>
-  );
-};
+  )
+}
 
-export default SearchContainer;
+export default SearchContainer

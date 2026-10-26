@@ -17,7 +17,7 @@ interface ApiError {
  */
 export class ApiClientError extends Error {
   status: number
-  
+
   constructor(message: string, status: number) {
     super(message)
     this.name = 'ApiClientError'
@@ -76,19 +76,19 @@ const apiClientInternal = async <T = any>(
   token?: string
 ): Promise<T> => {
   const authToken = token || getAuthToken()
-  
+
   const headers: Record<string, string> = {}
-  
+
   // FormDataの場合はContent-Typeを設定しない（ブラウザが自動設定）
   if (!(options.body instanceof FormData)) {
     headers['Content-Type'] = 'application/json'
   }
-  
+
   // 認証トークンがある場合は追加
   if (authToken) {
     headers['Authorization'] = `Bearer ${authToken}`
   }
-  
+
   // 既存のヘッダーをマージ
   if (options.headers) {
     const existingHeaders = new Headers(options.headers)
@@ -96,17 +96,17 @@ const apiClientInternal = async <T = any>(
       headers[key] = value
     })
   }
-  
+
   const config: RequestInit = {
     ...options,
     headers,
   }
-  
+
   const response = await fetch(`${API_BASE_URL}${endpoint}`, config)
-  
+
   // レスポンスボディを取得
   const data = await response.json().catch(() => null)
-  
+
   if (!response.ok) {
     // メンテナンス中（503 + MAINTENANCE）なら、全画面のメンテナンス表示へ切り替える
     reportMaintenanceIfNeeded(response.status, data)
@@ -114,7 +114,7 @@ const apiClientInternal = async <T = any>(
     const error = new ApiClientError(errorMessage, response.status)
     throw error
   }
-  
+
   return data as T
 }
 
@@ -132,19 +132,18 @@ export const apiClient = async <T = any>(
       // 401エラーの場合、トークンをリフレッシュして再試行
       if (refreshTokenHandler) {
         console.log('🔄 401 error - refreshing token and retrying...')
-        
+
         try {
           // 進行中のリフレッシュがあればそれを待つ（競合状態を防ぐ）
           if (!ongoingRefreshPromise) {
-            ongoingRefreshPromise = refreshTokenHandler()
-              .finally(() => {
-                // リフレッシュ完了後にPromiseをクリア
-                ongoingRefreshPromise = null
-              })
+            ongoingRefreshPromise = refreshTokenHandler().finally(() => {
+              // リフレッシュ完了後にPromiseをクリア
+              ongoingRefreshPromise = null
+            })
           }
-          
+
           const newToken = await ongoingRefreshPromise
-          
+
           if (newToken) {
             // 新しいトークンで再試行
             return await apiClientInternal<T>(endpoint, options, newToken)
@@ -159,23 +158,23 @@ export const apiClient = async <T = any>(
           throw error
         }
       }
-      
+
       // リフレッシュハンドラーがない場合はunauthorizedHandlerを呼び出す
       if (unauthorizedHandler) {
         unauthorizedHandler()
       }
     }
-    
+
     // その他のエラー
     if (error instanceof ApiClientError) {
       throw error
     }
-    
+
     // ネットワークエラーなど
     if (error instanceof TypeError) {
       throw new ApiClientError('ネットワークエラーが発生しました', 0)
     }
-    
+
     throw new ApiClientError('予期しないエラーが発生しました', 500)
   }
 }
@@ -190,11 +189,7 @@ export const get = <T = any>(endpoint: string, options?: RequestInit): Promise<T
 /**
  * POSTリクエスト
  */
-export const post = <T = any>(
-  endpoint: string,
-  body?: any,
-  options?: RequestInit
-): Promise<T> => {
+export const post = <T = any>(endpoint: string, body?: any, options?: RequestInit): Promise<T> => {
   return apiClient<T>(endpoint, {
     ...options,
     method: 'POST',
@@ -205,11 +200,7 @@ export const post = <T = any>(
 /**
  * PUTリクエスト
  */
-export const put = <T = any>(
-  endpoint: string,
-  body?: any,
-  options?: RequestInit
-): Promise<T> => {
+export const put = <T = any>(endpoint: string, body?: any, options?: RequestInit): Promise<T> => {
   return apiClient<T>(endpoint, {
     ...options,
     method: 'PUT',
@@ -227,10 +218,7 @@ export const del = <T = any>(endpoint: string, options?: RequestInit): Promise<T
 /**
  * ファイルアップロード用POSTリクエスト
  */
-export const uploadFile = <T = any>(
-  endpoint: string,
-  formData: FormData
-): Promise<T> => {
+export const uploadFile = <T = any>(endpoint: string, formData: FormData): Promise<T> => {
   return apiClient<T>(endpoint, {
     method: 'POST',
     body: formData,

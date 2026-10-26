@@ -44,7 +44,9 @@ describe('トップページの検索欄の「最近の検索」', () => {
 
     fireEvent.click(await screen.findByRole('option', { name: '葬送のフリーレン' }))
 
-    expect(mockPush).toHaveBeenCalledWith(`/search?keyword=${encodeURIComponent('葬送のフリーレン')}`)
+    expect(mockPush).toHaveBeenCalledWith(
+      `/search?keyword=${encodeURIComponent('葬送のフリーレン')}`
+    )
   })
 
   it('↓とEnterで履歴を選べる', async () => {
@@ -59,7 +61,9 @@ describe('トップページの検索欄の「最近の検索」', () => {
     fireEvent.keyDown(input, { key: 'Enter' })
 
     expect(mockPush).toHaveBeenCalledTimes(1)
-    expect(mockPush).toHaveBeenCalledWith(`/search?keyword=${encodeURIComponent('薬屋のひとりごと')}`)
+    expect(mockPush).toHaveBeenCalledWith(
+      `/search?keyword=${encodeURIComponent('薬屋のひとりごと')}`
+    )
   })
 
   it('入力して検索すると履歴の先頭に追加する', () => {
@@ -92,7 +96,13 @@ describe('トップページの検索欄の「最近の検索」', () => {
     fireEvent.focus(screen.getByPlaceholderText('作品を探す'))
 
     await screen.findByRole('listbox')
-    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['1', '2', '3', '4', '5'])
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual([
+      '1',
+      '2',
+      '3',
+      '4',
+      '5',
+    ])
   })
 
   it('×で1件だけ削除し、その語では検索しない', async () => {

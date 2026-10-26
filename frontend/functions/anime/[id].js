@@ -16,24 +16,24 @@
  * src/app/anime/ にページを追加したらここにも追加すること。
  * 追随漏れは functions/anime/id.test.js が検出する。
  */
-export const STATIC_ANIME_PATHS = ['popular', 'current'];
+export const STATIC_ANIME_PATHS = ['popular', 'current']
 
 /** 詳細ページのシェル（Next.js が出力する /anime/_/index.html） */
-const DETAIL_SHELL_SEGMENT = '_';
+const DETAIL_SHELL_SEGMENT = '_'
 
 export async function onRequest(context) {
-  const url = new URL(context.request.url);
+  const url = new URL(context.request.url)
 
   // 末尾スラッシュの有無を吸収して /anime/<segment> の <segment> を取り出す
-  const segment = url.pathname.replace(/^\/anime\//, '').replace(/\/$/, '');
+  const segment = url.pathname.replace(/^\/anime\//, '').replace(/\/$/, '')
 
   // 実体のあるページ（詳細シェル自身と静的ページ）はそのまま通す
   if (segment === DETAIL_SHELL_SEGMENT || STATIC_ANIME_PATHS.includes(segment)) {
-    return context.next();
+    return context.next()
   }
 
   // それ以外は作品IDとみなし、詳細ページのシェルへリライト
-  url.pathname = `/anime/${DETAIL_SHELL_SEGMENT}/`;
+  url.pathname = `/anime/${DETAIL_SHELL_SEGMENT}/`
 
-  return context.env.ASSETS.fetch(new Request(url, context.request));
+  return context.env.ASSETS.fetch(new Request(url, context.request))
 }

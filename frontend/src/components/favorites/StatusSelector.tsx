@@ -49,7 +49,10 @@ export const StatusSelector: React.FC<StatusSelectorProps> = ({
     lg: 'text-base px-4 py-2',
   }
 
-  const statuses = Object.entries(STATUS_CONFIG) as [WatchStatusStatus, typeof STATUS_CONFIG[WatchStatusStatus]][]
+  const statuses = Object.entries(STATUS_CONFIG) as [
+    WatchStatusStatus,
+    (typeof STATUS_CONFIG)[WatchStatusStatus],
+  ][]
   const TriggerIcon = currentStatus ? STATUS_CONFIG[currentStatus].icon : Plus
   // primaryバリアントは未選択=枠線、選択済み=インディゴ塗りに切り替わる。
   // 記録済みであることが一目で分かるようにする
@@ -92,9 +95,7 @@ export const StatusSelector: React.FC<StatusSelectorProps> = ({
         className={cn(
           'absolute z-50 mt-1.5 w-full min-w-[140px] origin-top rounded-lg border border-border bg-popover p-1.5 shadow-lg',
           'transition-[opacity,transform] duration-150 ease-out',
-          isOpen
-            ? 'translate-y-0 opacity-100'
-            : 'pointer-events-none -translate-y-1.5 opacity-0'
+          isOpen ? 'translate-y-0 opacity-100' : 'pointer-events-none -translate-y-1.5 opacity-0'
         )}
       >
         {statuses.map(([status, config]) => {
@@ -111,13 +112,18 @@ export const StatusSelector: React.FC<StatusSelectorProps> = ({
               className={cn(
                 'w-full flex items-center gap-2.5 h-10 px-2.5 rounded-md text-left text-sm transition-colors',
                 'hover:bg-muted',
-                isSelected ? 'font-bold text-foreground bg-primary/5' : 'font-medium text-foreground/90'
+                isSelected
+                  ? 'font-bold text-foreground bg-primary/5'
+                  : 'font-medium text-foreground/90'
               )}
               role="option"
               aria-selected={isSelected}
             >
               <Icon
-                className={cn('w-[17px] h-[17px]', isSelected ? 'text-primary' : 'text-muted-foreground')}
+                className={cn(
+                  'w-[17px] h-[17px]',
+                  isSelected ? 'text-primary' : 'text-muted-foreground'
+                )}
                 aria-hidden="true"
               />
               <span className="flex-1">{config.label}</span>

@@ -34,10 +34,7 @@ interface AnimeCarouselProps {
   className?: string
 }
 
-export const AnimeCarousel: React.FC<AnimeCarouselProps> = ({
-  animes,
-  className,
-}) => {
+export const AnimeCarousel: React.FC<AnimeCarouselProps> = ({ animes, className }) => {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [canScrollLeft, setCanScrollLeft] = useState(false)
   const [canScrollRight, setCanScrollRight] = useState(false)
@@ -120,11 +117,7 @@ export const AnimeCarousel: React.FC<AnimeCarouselProps> = ({
           className="flex gap-3 sm:gap-4 overflow-x-auto scrollbar-hide scroll-smooth pb-2 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded-lg"
         >
           {animes.map((anime) => (
-            <div
-              key={anime.id}
-              role="listitem"
-              className={CAROUSEL_ITEM_WIDTH_CLASSES}
-            >
+            <div key={anime.id} role="listitem" className={CAROUSEL_ITEM_WIDTH_CLASSES}>
               <AnimeCard anime={anime} size="medium" />
             </div>
           ))}

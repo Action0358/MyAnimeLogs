@@ -2,18 +2,17 @@
 
 import { reportMaintenanceIfNeeded } from '@/lib/maintenance/detection'
 import { getMaintenanceState } from '@/lib/maintenance/maintenanceStore'
-import React, {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  useCallback,
-} from 'react'
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase, initialUrlHadCode } from '@/lib/supabase'
 import { storage } from '@/lib/utils'
 import { ApiClientError, setUnauthorizedHandler, setRefreshTokenHandler } from '@/lib/api/client'
-import { INACTIVITY_TIMEOUT, STORAGE_KEYS, LOGOUT_REDIRECT_PATHS, type LogoutReason } from '@/lib/constants'
+import {
+  INACTIVITY_TIMEOUT,
+  STORAGE_KEYS,
+  LOGOUT_REDIRECT_PATHS,
+  type LogoutReason,
+} from '@/lib/constants'
 
 interface User {
   id: number
@@ -26,7 +25,8 @@ interface User {
 
 const RATE_LIMIT_MESSAGE = 'アクセスが集中しています。しばらく時間をおいてから再度お試しください'
 
-export const DEFAULT_LOGIN_ERROR = 'ログイン処理中にエラーが発生しました。しばらく時間をおいて再度お試しください'
+export const DEFAULT_LOGIN_ERROR =
+  'ログイン処理中にエラーが発生しました。しばらく時間をおいて再度お試しください'
 
 const AUTH_ERROR_MESSAGES: Record<string, string> = {
   user_not_found: 'アカウントが見つかりません',
@@ -67,11 +67,7 @@ const PROFILE_RETRY_DELAY_MS = 700
 const isUser = (value: unknown): value is User => {
   if (typeof value !== 'object' || value === null) return false
   const obj = value as Record<string, unknown>
-  return (
-    typeof obj.id === 'number' &&
-    typeof obj.name === 'string' &&
-    typeof obj.email === 'string'
-  )
+  return typeof obj.id === 'number' && typeof obj.name === 'string' && typeof obj.email === 'string'
 }
 
 interface AuthContextType {
@@ -124,84 +120,89 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // ユーザーが取るべき行動が違うため。以前は一律 null にしていた結果、
   // トークンだけあってユーザーが無い中途半端な状態が残り、画面上は
   // 「ログインしても何も起きない」としか見えなかった（#797）。
-  const fetchUserProfile = useCallback(
-    async (accessToken: string): Promise<ProfileFetchResult> => {
-      const attempt = async (): Promise<ProfileFetchResult> => {
-        try {
-          const res = await fetch(
-            `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/users/me`,
-            { headers: { Authorization: `Bearer ${accessToken}` } }
-          )
-          if (res.status === 401) return { status: 'unauthorized' }
-          // メンテナンス中ならメンテナンス画面へ。本文が読めなくても本処理には影響させない
-          if (res.status === 503) {
-            const body: unknown = await res.clone().json().catch(() => null)
-            if (reportMaintenanceIfNeeded(503, body)) return { status: 'maintenance' }
-          }
-          if (!res.ok) return { status: 'unavailable' }
-          const data = await res.json()
-          if (isUser(data)) return { status: 'ok', user: data }
-          // 200でも形が違うならバックエンドとの契約がずれている
-          return { status: 'unavailable' }
-        } catch {
-          // ネットワーク障害・CORS・JSONパース失敗
-          return { status: 'unavailable' }
+  const fetchUserProfile = useCallback(async (accessToken: string): Promise<ProfileFetchResult> => {
+    const attempt = async (): Promise<ProfileFetchResult> => {
+      try {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/users/me`,
+          { headers: { Authorization: `Bearer ${accessToken}` } }
+        )
+        if (res.status === 401) return { status: 'unauthorized' }
+        // メンテナンス中ならメンテナンス画面へ。本文が読めなくても本処理には影響させない
+        if (res.status === 503) {
+          const body: unknown = await res
+            .clone()
+            .json()
+            .catch(() => null)
+          if (reportMaintenanceIfNeeded(503, body)) return { status: 'maintenance' }
         }
+        if (!res.ok) return { status: 'unavailable' }
+        const data = await res.json()
+        if (isUser(data)) return { status: 'ok', user: data }
+        // 200でも形が違うならバックエンドとの契約がずれている
+        return { status: 'unavailable' }
+      } catch {
+        // ネットワーク障害・CORS・JSONパース失敗
+        return { status: 'unavailable' }
       }
+    }
 
-      const first = await attempt()
-      // 認証が無効なら再試行しても結果は変わらない。
-      // 一時的な失敗の可能性がある場合だけ、1度だけやり直す。
-      if (first.status !== 'unavailable') return first
-      await new Promise((resolve) => setTimeout(resolve, PROFILE_RETRY_DELAY_MS))
-      return attempt()
-    },
-    []
-  )
+    const first = await attempt()
+    // 認証が無効なら再試行しても結果は変わらない。
+    // 一時的な失敗の可能性がある場合だけ、1度だけやり直す。
+    if (first.status !== 'unavailable') return first
+    await new Promise((resolve) => setTimeout(resolve, PROFILE_RETRY_DELAY_MS))
+    return attempt()
+  }, [])
 
   /** Supabaseセッションからトークン・ユーザーを同期する共通処理 */
-  const syncSession = useCallback(async (accessToken: string | null) => {
-    if (!accessToken) {
-      setToken(null)
-      setUser(null)
+  const syncSession = useCallback(
+    async (accessToken: string | null) => {
+      if (!accessToken) {
+        setToken(null)
+        setUser(null)
+        clearToken()
+        return
+      }
+      storeToken(accessToken)
+      setToken(accessToken)
+
+      const result = await fetchUserProfile(accessToken)
+      if (result.status === 'ok') {
+        setUser(result.user)
+        return
+      }
+
+      // メンテナンス中はプロフィールを取れないのが正常。ここでセッションを破棄して
+      // /signin へ送ると、メンテナンス中に開ける /news を見ていた人がログアウトされ、
+      // メンテナンス画面へ戻される。セッションは残し、明けてから再読み込みで取り直す。
+      // maintenance.json による宣言（バックエンド停止中で通信障害になる）も同じ扱い
+      if (result.status === 'maintenance' || getMaintenanceState().active) return
+
+      // プロフィールを取れないまま進むと、トークンだけあってユーザーが無い状態が
+      // 残り、画面上は未ログインと区別がつかなくなる。Supabase側のセッションごと
+      // 破棄して状態を揃えたうえで、理由を添えて /signin へ送る（#797）。
+      // signOut により SIGNED_OUT が発火し syncSession(null) が走るため、
+      // ここで失敗を繰り返すループにはならない。
+      await supabase.auth.signOut()
       clearToken()
-      return
-    }
-    storeToken(accessToken)
-    setToken(accessToken)
-
-    const result = await fetchUserProfile(accessToken)
-    if (result.status === 'ok') {
-      setUser(result.user)
-      return
-    }
-
-    // メンテナンス中はプロフィールを取れないのが正常。ここでセッションを破棄して
-    // /signin へ送ると、メンテナンス中に開ける /news を見ていた人がログアウトされ、
-    // メンテナンス画面へ戻される。セッションは残し、明けてから再読み込みで取り直す。
-    // maintenance.json による宣言（バックエンド停止中で通信障害になる）も同じ扱い
-    if (result.status === 'maintenance' || getMaintenanceState().active) return
-
-    // プロフィールを取れないまま進むと、トークンだけあってユーザーが無い状態が
-    // 残り、画面上は未ログインと区別がつかなくなる。Supabase側のセッションごと
-    // 破棄して状態を揃えたうえで、理由を添えて /signin へ送る（#797）。
-    // signOut により SIGNED_OUT が発火し syncSession(null) が走るため、
-    // ここで失敗を繰り返すループにはならない。
-    await supabase.auth.signOut()
-    clearToken()
-    storage.remove(STORAGE_KEYS.LAST_ACTIVITY_TIMESTAMP)
-    setUser(null)
-    setToken(null)
-    router.push(
-      result.status === 'unauthorized'
-        ? '/signin?reason=unauthorized'
-        : '/signin?reason=profile-unavailable'
-    )
-  }, [fetchUserProfile, router])
+      storage.remove(STORAGE_KEYS.LAST_ACTIVITY_TIMESTAMP)
+      setUser(null)
+      setToken(null)
+      router.push(
+        result.status === 'unauthorized'
+          ? '/signin?reason=unauthorized'
+          : '/signin?reason=profile-unavailable'
+      )
+    },
+    [fetchUserProfile, router]
+  )
 
   /** トークンリフレッシュ（APIクライアントから呼ばれる） */
   const refreshAccessToken = useCallback(async (): Promise<string | null> => {
-    const { data: { session } } = await supabase.auth.getSession()
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
     if (session?.access_token) {
       storeToken(session.access_token)
       setToken(session.access_token)
@@ -210,16 +211,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return null
   }, [])
 
-  const clearAuthData = useCallback((redirectToLogin = true) => {
-    setUser(null)
-    setToken(null)
-    clearToken()
-    storage.remove(STORAGE_KEYS.LAST_ACTIVITY_TIMESTAMP)
+  const clearAuthData = useCallback(
+    (redirectToLogin = true) => {
+      setUser(null)
+      setToken(null)
+      clearToken()
+      storage.remove(STORAGE_KEYS.LAST_ACTIVITY_TIMESTAMP)
 
-    if (redirectToLogin) {
-      router.push('/signin?reason=unauthorized')
-    }
-  }, [router])
+      if (redirectToLogin) {
+        router.push('/signin?reason=unauthorized')
+      }
+    },
+    [router]
+  )
 
   // グローバルハンドラー登録
   useEffect(() => {
@@ -255,18 +259,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     })
 
     // 認証状態変化を購読
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (!mounted) return
-        // PKCEフロー初期時は /auth/callback がセッション確立を担うため、
-        // 先行して発火する INITIAL_SESSION では何もしない
-        if (event === 'INITIAL_SESSION' && hadCode) {
-          return
-        }
-        await syncSession(session?.access_token ?? null)
-        if (!session) setIsLoading(false)
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!mounted) return
+      // PKCEフロー初期時は /auth/callback がセッション確立を担うため、
+      // 先行して発火する INITIAL_SESSION では何もしない
+      if (event === 'INITIAL_SESSION' && hadCode) {
+        return
       }
-    )
+      await syncSession(session?.access_token ?? null)
+      if (!session) setIsLoading(false)
+    })
 
     return () => {
       mounted = false
@@ -292,14 +296,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [])
 
-  const logout = useCallback(async (reason: LogoutReason = 'manual') => {
-    await supabase.auth.signOut()
-    clearToken()
-    storage.remove(STORAGE_KEYS.LAST_ACTIVITY_TIMESTAMP)
-    setUser(null)
-    setToken(null)
-    router.push(LOGOUT_REDIRECT_PATHS[reason])
-  }, [router])
+  const logout = useCallback(
+    async (reason: LogoutReason = 'manual') => {
+      await supabase.auth.signOut()
+      clearToken()
+      storage.remove(STORAGE_KEYS.LAST_ACTIVITY_TIMESTAMP)
+      setUser(null)
+      setToken(null)
+      router.push(LOGOUT_REDIRECT_PATHS[reason])
+    },
+    [router]
+  )
 
   const updateUser = useCallback((userData: User) => {
     setUser(userData)
@@ -356,12 +363,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           } else {
             inactivityTimer = setTimeout(handleInactivity, INACTIVITY_TIMEOUT - elapsed)
           }
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       }
     }
 
     const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'touchend', 'touchmove']
-    events.forEach(event => {
+    events.forEach((event) => {
       const options = event === 'touchmove' ? { passive: true } : undefined
       document.addEventListener(event, resetTimer, options)
     })
@@ -374,7 +383,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => {
       clearTimeout(inactivityTimer)
-      events.forEach(event => document.removeEventListener(event, resetTimer))
+      events.forEach((event) => document.removeEventListener(event, resetTimer))
       document.removeEventListener('visibilitychange', handleVisibilityChange)
       window.removeEventListener('storage', handleStorageChange)
       window.removeEventListener('pageshow', handlePageShow)
@@ -383,17 +392,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [user, logout, getLastActivityFromStorage])
 
   return (
-    <AuthContext.Provider value={{
-      user,
-      token,
-      loginWithGoogle,
-      logout,
-      updateUser,
-      isLoading,
-      isAuthenticated: !!user && !!token,
-      refreshAccessToken,
-      lastActivityTime,
-    }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        token,
+        loginWithGoogle,
+        logout,
+        updateUser,
+        isLoading,
+        isAuthenticated: !!user && !!token,
+        refreshAccessToken,
+        lastActivityTime,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   )

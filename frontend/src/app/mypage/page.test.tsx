@@ -11,9 +11,7 @@ jest.mock('@/contexts/AuthContext')
 jest.mock('next/navigation')
 jest.mock('@/hooks/useWatchStatus')
 jest.mock('@/components/auth/ProtectedRoute', () => ({
-  ProtectedRoute: ({ children }: { children: React.ReactNode }) => (
-    <>{children}</>
-  ),
+  ProtectedRoute: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
 
 // Mock fetch（ユーザー情報取得用）
@@ -22,9 +20,7 @@ global.fetch = jest.fn()
 const mockUseWatchStatus = useWatchStatus as jest.Mock
 
 // useWatchStatus の戻り値を生成するヘルパー
-const createWatchStatusResult = (
-  overrides: Partial<ReturnType<typeof useWatchStatus>> = {}
-) => ({
+const createWatchStatusResult = (overrides: Partial<ReturnType<typeof useWatchStatus>> = {}) => ({
   watchStatuses: [],
   isLoading: false,
   error: null,
@@ -102,9 +98,7 @@ describe('MyPage', () => {
 
     // 表示名はGoogleアカウント由来。自由記述項目は #789 で廃止したため表示しない
     it('ユーザー情報を表示する', async () => {
-      ;(global.fetch as jest.Mock).mockImplementation(
-        createSuccessfulFetchMock()
-      )
+      ;(global.fetch as jest.Mock).mockImplementation(createSuccessfulFetchMock())
 
       render(<MyPage />)
 
@@ -114,9 +108,7 @@ describe('MyPage', () => {
     })
 
     it('視聴ステータス別タブを表示し、すべて・中断・視聴履歴タブは表示しない', async () => {
-      ;(global.fetch as jest.Mock).mockImplementation(
-        createSuccessfulFetchMock()
-      )
+      ;(global.fetch as jest.Mock).mockImplementation(createSuccessfulFetchMock())
 
       render(<MyPage />)
 
@@ -124,8 +116,7 @@ describe('MyPage', () => {
         expect(screen.getByText('テストユーザー')).toBeInTheDocument()
       })
 
-      const tab = (name: string) =>
-        screen.getByRole('button', { name: new RegExp(name) })
+      const tab = (name: string) => screen.getByRole('button', { name: new RegExp(name) })
       expect(tab('視聴中')).toBeInTheDocument()
       expect(tab('視聴予定')).toBeInTheDocument()
       expect(tab('視聴済')).toBeInTheDocument()
@@ -137,9 +128,7 @@ describe('MyPage', () => {
     })
 
     it('視聴ステータスをカードとして表示する', async () => {
-      ;(global.fetch as jest.Mock).mockImplementation(
-        createSuccessfulFetchMock()
-      )
+      ;(global.fetch as jest.Mock).mockImplementation(createSuccessfulFetchMock())
       mockUseWatchStatus.mockReturnValue(
         createWatchStatusResult({
           // デフォルトタブ（視聴予定）に表示されるよう status: 'planned'
@@ -172,9 +161,7 @@ describe('MyPage', () => {
     })
 
     it('視聴ステータス取得エラー時にエラーメッセージを表示する', async () => {
-      ;(global.fetch as jest.Mock).mockImplementation(
-        createSuccessfulFetchMock()
-      )
+      ;(global.fetch as jest.Mock).mockImplementation(createSuccessfulFetchMock())
       mockUseWatchStatus.mockReturnValue(
         createWatchStatusResult({
           error: new Error('視聴ステータスの取得に失敗しました'),
@@ -186,9 +173,7 @@ describe('MyPage', () => {
       await waitFor(() => {
         expect(screen.getByText('読み込めませんでした')).toBeInTheDocument()
         // APIの生メッセージは画面に出さない
-        expect(
-          screen.queryByText('視聴ステータスの取得に失敗しました')
-        ).not.toBeInTheDocument()
+        expect(screen.queryByText('視聴ステータスの取得に失敗しました')).not.toBeInTheDocument()
       })
     })
 

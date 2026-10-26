@@ -33,7 +33,7 @@ describe('お知らせ詳細ページ', () => {
 
   it('titleは「記事タイトル | お知らせ | MyAnimeLogs」', () => {
     expect(generateMetadata({ params: { id: known.id } }).title).toBe(
-      `${known.title} | お知らせ | MyAnimeLogs`,
+      `${known.title} | お知らせ | MyAnimeLogs`
     )
   })
 })

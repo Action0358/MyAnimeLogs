@@ -97,7 +97,12 @@ const GenreDropdown: React.FC<GenreDropdownProps> = ({ selectedGenres, onGenresC
         <span className={selectedGenres.length > 0 ? 'text-foreground' : 'text-muted-foreground'}>
           {selectedGenres.length === 0 ? 'すべて' : selectedGenres.join('、')}
         </span>
-        <ChevronDown className={cn('h-4 w-4 text-muted-foreground transition-transform', isOpen && 'rotate-180')} />
+        <ChevronDown
+          className={cn(
+            'h-4 w-4 text-muted-foreground transition-transform',
+            isOpen && 'rotate-180'
+          )}
+        />
       </button>
 
       {isOpen && (

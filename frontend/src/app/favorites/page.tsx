@@ -22,8 +22,8 @@ const FAVORITES_INITIAL_COUNT_PC = 24
 
 // id が number のお気に入りのみを抽出
 const filterValidFavorites = (favorites: FavoriteAnime[]): (FavoriteAnime & { id: number })[] => {
-  return favorites.filter((anime): anime is FavoriteAnime & { id: number } =>
-    typeof anime.id === 'number'
+  return favorites.filter(
+    (anime): anime is FavoriteAnime & { id: number } => typeof anime.id === 'number'
   )
 }
 
@@ -105,7 +105,11 @@ const FavoritesContent: React.FC = () => {
             ))}
           </div>
           {hiddenCount > 0 && (
-            <ExpandToggleButton isExpanded={isExpanded} hiddenCount={hiddenCount} onClick={toggleExpanded} />
+            <ExpandToggleButton
+              isExpanded={isExpanded}
+              hiddenCount={hiddenCount}
+              onClick={toggleExpanded}
+            />
           )}
         </>
       )}

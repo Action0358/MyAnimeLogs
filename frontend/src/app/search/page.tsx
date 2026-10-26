@@ -189,9 +189,7 @@ function SearchContent() {
             >
               {genre}
               <button
-                onClick={() =>
-                  updateFilters({ genre: selectedGenres.filter((g) => g !== genre) })
-                }
+                onClick={() => updateFilters({ genre: selectedGenres.filter((g) => g !== genre) })}
                 className="ml-1 hover:text-primary/70"
                 aria-label={`ジャンル「${genre}」の絞り込みを解除`}
               >
@@ -218,7 +216,11 @@ function SearchContent() {
           空いたこの位置にフィルターを置く。PC・SPで位置を揃えるため
           折り返さず1行に収める（タブ側が横スクロールで縮む） */}
       <div className="flex items-center justify-between gap-2.5 pb-4 border-b border-border mb-6">
-        <MediaTabs tabs={MEDIA_TABS} activeTab={activeMediaTab} onTabChange={handleMediaTabChange} />
+        <MediaTabs
+          tabs={MEDIA_TABS}
+          activeTab={activeMediaTab}
+          onTabChange={handleMediaTabChange}
+        />
         <button
           onClick={() => setShowFilters(true)}
           className="flex flex-shrink-0 items-center justify-center gap-2 h-10 px-4 border border-input bg-background rounded-full text-sm font-medium text-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring"
@@ -246,11 +248,7 @@ function SearchContent() {
             animes={animes}
             isLoading={isLoading}
             // 詳細から戻ったときに検索条件を失わないよう、クエリごと遷移元として渡す
-            from={
-              searchParams.toString()
-                ? `/search?${searchParams.toString()}`
-                : '/search'
-            }
+            from={searchParams.toString() ? `/search?${searchParams.toString()}` : '/search'}
             emptyMessage={
               hasActiveFilters
                 ? '条件に一致するアニメが見つかりませんでした'

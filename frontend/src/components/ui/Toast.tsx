@@ -64,10 +64,7 @@ interface ToastContainerProps {
   onClose: (id: string) => void
 }
 
-export const ToastContainer: React.FC<ToastContainerProps> = ({
-  toasts,
-  onClose,
-}) => {
+export const ToastContainer: React.FC<ToastContainerProps> = ({ toasts, onClose }) => {
   if (toasts.length === 0) return null
 
   return (

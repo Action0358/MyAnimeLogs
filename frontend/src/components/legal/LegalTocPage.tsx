@@ -86,8 +86,12 @@ interface LegalArticleProps {
 export const LegalArticle: React.FC<LegalArticleProps> = ({ id, num, title, children }) => (
   <section id={id} className="scroll-mt-20 border-b border-border/70 py-6 last:border-b-0 sm:py-8">
     <div className="mb-1.5 text-[11px] font-bold tracking-wide text-primary">{num}</div>
-    <h2 className="mb-3.5 text-base font-bold tracking-tight text-foreground sm:text-[19px]">{title}</h2>
-    <div className="space-y-3 text-[13.5px] leading-[1.95] text-muted-foreground sm:text-sm">{children}</div>
+    <h2 className="mb-3.5 text-base font-bold tracking-tight text-foreground sm:text-[19px]">
+      {title}
+    </h2>
+    <div className="space-y-3 text-[13.5px] leading-[1.95] text-muted-foreground sm:text-sm">
+      {children}
+    </div>
   </section>
 )
 
@@ -102,7 +106,9 @@ export const LegalDefinitionList: React.FC<{ items: LegalDefinition[] }> = ({ it
     {items.map((item) => (
       <div key={item.term} className="border-b border-border/70 p-3.5 last:border-b-0 sm:p-4">
         <div className="mb-1 text-[13px] font-bold text-foreground">{item.term}</div>
-        <div className="text-[12.5px] leading-relaxed text-muted-foreground sm:text-[13px]">{item.desc}</div>
+        <div className="text-[12.5px] leading-relaxed text-muted-foreground sm:text-[13px]">
+          {item.desc}
+        </div>
       </div>
     ))}
   </div>
@@ -112,7 +118,10 @@ export const LegalDefinitionList: React.FC<{ items: LegalDefinition[] }> = ({ it
 export const LegalDotList: React.FC<{ items: string[] }> = ({ items }) => (
   <div className="mt-1.5 flex flex-col gap-2">
     {items.map((item) => (
-      <div key={item} className="flex gap-2.5 text-[13px] leading-relaxed text-muted-foreground sm:text-[13.5px]">
+      <div
+        key={item}
+        className="flex gap-2.5 text-[13px] leading-relaxed text-muted-foreground sm:text-[13.5px]"
+      >
         <span className="mt-[9px] h-[5px] w-[5px] flex-shrink-0 rounded-full bg-primary/40" />
         <span>{item}</span>
       </div>
