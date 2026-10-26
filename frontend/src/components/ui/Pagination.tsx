@@ -24,9 +24,6 @@ export const Pagination: React.FC<PaginationProps> = ({
   desktopMaxPages = 10,
   className,
 }) => {
-  // 早期リターン（不要な計算を防ぐ）
-  if (totalPages <= 1) return null
-
   // ページ番号の計算をメモ化
   const { mobilePages, desktopPages } = useMemo(() => {
     if (!showPageNumbers) return { mobilePages: [], desktopPages: [] }
@@ -50,6 +47,10 @@ export const Pagination: React.FC<PaginationProps> = ({
       desktopPages: getVisiblePages(desktopMaxPages),
     }
   }, [currentPage, totalPages, showPageNumbers, mobileMaxPages, desktopMaxPages])
+
+  // フックより後で返す（rules-of-hooks）。先に返すと、総ページ数が 1 と 2 以上の間で
+  // 変わったときにフックの呼び出し数がレンダーごとに変わる
+  if (totalPages <= 1) return null
 
   const buttonBase =
     'inline-flex items-center justify-center min-w-[36px] sm:min-w-[44px] h-9 sm:h-11 px-2 sm:px-3 text-sm font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2'

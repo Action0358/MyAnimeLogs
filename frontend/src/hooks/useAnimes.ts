@@ -64,7 +64,6 @@ export const useAnimes = (options: UseAnimesOptions = {}): UseAnimesResult => {
   // 直前のページのまま」という乖離が起きていた。initialPageの変化を検知して同期する
   useEffect(() => {
     setCurrentPage(initialPage)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialPage])
 
   // 配列のままでは毎レンダー参照が変わり useMemo が効かないため、

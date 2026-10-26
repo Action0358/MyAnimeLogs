@@ -125,6 +125,8 @@ const Header: React.FC = () => {
                   aria-expanded={isUserMenuOpen}
                 >
                   {user.avatar_url && !imageError ? (
+                    // 外部ドメインのアバター画像のため next/image ではなく img を使う
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={user.avatar_url}
                       alt={user.name}
