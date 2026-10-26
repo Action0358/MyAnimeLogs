@@ -11,6 +11,7 @@ import (
 	"myanimelogs/internal/constants"
 	"myanimelogs/internal/database"
 	"myanimelogs/internal/models"
+	"myanimelogs/internal/utils"
 	"net/http"
 	"net/url"
 	"time"
@@ -371,6 +372,10 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork, existingAnime
 	// 既存値がある場合はUPDATEで上書きしない（COALESCE）。手動修正等の余地を残すため。
 	seriesTitle := NormalizeAnimeTitle(work.Title)
 
+	// 外部データ由来のURLは http/https に限る（javascript: 等によるXSSを防ぐ）
+	officialSiteURL := utils.SanitizeExternalURL(work.OfficialSiteURL)
+	wikipediaURL := utils.SanitizeExternalURL(work.WikipediaURL)
+
 	// Check if anime already exists
 	var existingID int
 	err := c.DB.QueryRow("SELECT id FROM animes WHERE annict_id = $1", work.ID).Scan(&existingID)
@@ -405,7 +410,7 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork, existingAnime
 			RETURNING id, title, image_url, season, status, annict_id, created_at, updated_at, last_synced_at, annict_updated_at
 		`,
 			work.Title, work.TitleKana, work.TitleEn, imageURL, season,
-			work.Media, work.OfficialSiteURL, work.WikipediaURL,
+			work.Media, officialSiteURL, wikipediaURL,
 			work.TwitterUsername, work.TwitterHashtag, work.MalAnimeID,
 			work.WatchersCount, work.ReviewsCount, releasedOn, work.ID,
 			annictUpdatedAt, string(constants.SyncStatusSynced), seriesTitle,
@@ -436,7 +441,7 @@ func (c *AnnictClient) SyncAnimeToDatabase(work models.AnnictWork, existingAnime
 			RETURNING id, title, image_url, season, status, annict_id, created_at, updated_at, last_synced_at, annict_updated_at
 		`,
 			work.Title, work.TitleKana, work.TitleEn, imageURL, season,
-			status, work.Media, work.OfficialSiteURL, work.WikipediaURL,
+			status, work.Media, officialSiteURL, wikipediaURL,
 			work.TwitterUsername, work.TwitterHashtag, work.MalAnimeID, work.ID,
 			work.WatchersCount, work.ReviewsCount, releasedOn,
 			annictUpdatedAt, string(constants.SyncStatusSynced), seriesTitle,
