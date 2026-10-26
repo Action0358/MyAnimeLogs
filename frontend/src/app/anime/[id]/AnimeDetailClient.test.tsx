@@ -9,6 +9,9 @@ let mockParams: { id: string } = { id: '123' }
 jest.mock('next/navigation', () => ({
   useParams: () => mockParams,
   usePathname: () => '/anime/123',
+  // 作品の取得に成功したときに描画される SignInLink 等が使う
+  useRouter: () => ({ push: jest.fn(), replace: jest.fn() }),
+  useSearchParams: () => new URLSearchParams(),
 }))
 jest.mock('@/lib/api/generated/myanimelogs', () => ({
   getAnimesId: jest.fn(),
@@ -104,6 +107,41 @@ describe('作品詳細の取得エラー', () => {
     await screen.findByRole('heading', { name: '作品が見つかりません' })
 
     expect(mockGetAnimesId).toHaveBeenCalledTimes(1)
+  })
+})
+
+// 公式サイトURLは外部データ（Annict）由来のため、javascript: 等を href に入れない（XSS対策）
+describe('公式サイトのリンク', () => {
+  const baseAnime = { id: 123, title: 'テスト作品', genres: [] }
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    mockParams = { id: '123' }
+  })
+
+  it('https のURLはホスト名を表示してリンクにする', async () => {
+    mockGetAnimesId.mockResolvedValue({
+      data: { ...baseAnime, official_site_url: 'https://example.com/anime' },
+    })
+
+    renderDetail()
+
+    // 作品情報はモバイル・デスクトップの両レイアウトに描画される
+    const links = await screen.findAllByRole('link', { name: 'example.com' })
+    links.forEach((link) => expect(link).toHaveAttribute('href', 'https://example.com/anime'))
+    expect(screen.getAllByText('公式サイト').length).toBeGreaterThan(0)
+  })
+
+  it('javascript: のURLはリンクも項目も出さない', async () => {
+    mockGetAnimesId.mockResolvedValue({
+      data: { ...baseAnime, official_site_url: 'javascript:alert(document.cookie)' },
+    })
+
+    renderDetail()
+
+    await screen.findAllByRole('heading', { name: 'テスト作品' })
+    expect(screen.queryAllByText('公式サイト')).toHaveLength(0)
+    expect(document.querySelector('a[href^="javascript:" i]')).toBeNull()
   })
 })
 

@@ -157,3 +157,33 @@ func TestValidateURL(t *testing.T) {
 		})
 	}
 }
+
+func TestSanitizeExternalURL(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  string
+		want string
+	}{
+		{name: "https はそのまま", raw: "https://example.com/anime", want: "https://example.com/anime"},
+		{name: "http はそのまま", raw: "http://example.com", want: "http://example.com"},
+		{name: "前後の空白は除く", raw: "  https://example.com  ", want: "https://example.com"},
+		{name: "大文字のスキームも許可", raw: "HTTPS://example.com", want: "HTTPS://example.com"},
+		{name: "空文字列", raw: "", want: ""},
+		{name: "javascript: は捨てる", raw: "javascript:alert(document.cookie)", want: ""},
+		{name: "大文字混じりの javascript: も捨てる", raw: "JavaScript:alert(1)", want: ""},
+		{name: "前置空白付きの javascript: も捨てる", raw: "  javascript:alert(1)", want: ""},
+		{name: "data: は捨てる", raw: "data:text/html,<script>alert(1)</script>", want: ""},
+		{name: "vbscript: は捨てる", raw: "vbscript:msgbox(1)", want: ""},
+		{name: "ホスト無しは捨てる", raw: "https://", want: ""},
+		{name: "プロトコル相対URLは捨てる", raw: "//evil.example", want: ""},
+		{name: "相対パスは捨てる", raw: "/anime/1", want: ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := SanitizeExternalURL(tt.raw); got != tt.want {
+				t.Errorf("SanitizeExternalURL(%q) = %q, want %q", tt.raw, got, tt.want)
+			}
+		})
+	}
+}

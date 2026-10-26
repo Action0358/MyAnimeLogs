@@ -29,6 +29,7 @@ import { cn } from '@/lib/utils'
 import { getAnimeStatusLabel, type BroadcastStatusLabel } from '@/utils/animeStatus'
 import { formatSeason } from '@/utils/formatSeason'
 import { resolveBackTarget, type BackTarget } from '@/lib/animeListOrigin'
+import { toSafeExternalUrl } from '@/lib/externalUrl'
 
 /** あらすじの既定表示行数。作品ごとの文字数差でカード高さが大きくぶれるため折りたたむ。
  *  Tailwind のJITは動的なクラス名を検出できないためリテラルで指定する */
@@ -360,8 +361,10 @@ const AnimeDetailClient: React.FC = () => {
 
   // 作品情報は放送開始・公式サイト・ジャンルに絞る（放送状況・メディア・放送時期は
   // 上のバッジへ移動済み。アニメ詳細UI刷新v2）
+  // 公式サイトURLは外部データ由来のため、http/https のときだけリンクにする（XSS対策）
+  const officialSiteUrl = toSafeExternalUrl(anime.official_site_url)
   const infoCard = (anime.released_on ||
-    anime.official_site_url ||
+    officialSiteUrl ||
     (anime.genres && anime.genres.length > 0)) && (
     <Card>
       <CardContent className={DETAIL_CARD_PADDING}>
@@ -375,23 +378,17 @@ const AnimeDetailClient: React.FC = () => {
               <dd className="text-foreground font-medium">{formatReleasedOn(anime.released_on)}</dd>
             </>
           )}
-          {anime.official_site_url && (
+          {officialSiteUrl && (
             <>
               <dt className="text-muted-foreground">公式サイト</dt>
               <dd className="min-w-0">
                 <a
-                  href={anime.official_site_url}
+                  href={officialSiteUrl.href}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-primary font-medium hover:underline truncate block"
                 >
-                  {(() => {
-                    try {
-                      return new URL(anime.official_site_url).hostname
-                    } catch {
-                      return anime.official_site_url
-                    }
-                  })()}
+                  {officialSiteUrl.hostname}
                 </a>
               </dd>
             </>
