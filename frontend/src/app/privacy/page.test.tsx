@@ -20,7 +20,9 @@ describe('プライバシーポリシー', () => {
   it('Cookieを使用しない解析であることを明記する', () => {
     render(<PrivacyPage />)
 
-    expect(screen.getByText(/アクセス解析（Cloudflare Web Analytics）はCookieを使用せず/)).toBeInTheDocument()
+    expect(
+      screen.getByText(/アクセス解析（Cloudflare Web Analytics）はCookieを使用せず/)
+    ).toBeInTheDocument()
   })
 
   it('ログイン維持用Cookieの記載は維持する', () => {

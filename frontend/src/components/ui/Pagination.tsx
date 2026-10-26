@@ -24,9 +24,6 @@ export const Pagination: React.FC<PaginationProps> = ({
   desktopMaxPages = 10,
   className,
 }) => {
-  // 早期リターン（不要な計算を防ぐ）
-  if (totalPages <= 1) return null
-
   // ページ番号の計算をメモ化
   const { mobilePages, desktopPages } = useMemo(() => {
     if (!showPageNumbers) return { mobilePages: [], desktopPages: [] }
@@ -34,14 +31,14 @@ export const Pagination: React.FC<PaginationProps> = ({
     const getVisiblePages = (maxPages: number): number[] => {
       // 表示するページ数を実際のページ数に制限
       const visibleCount = Math.min(maxPages, totalPages)
-      
+
       // 現在ページを中央に配置するための開始位置を計算
       const half = Math.floor(visibleCount / 2)
       const idealStart = currentPage - half
-      
+
       // 開始位置を1〜(totalPages - visibleCount + 1)の範囲に収める
       const start = Math.max(1, Math.min(idealStart, totalPages - visibleCount + 1))
-      
+
       return Array.from({ length: visibleCount }, (_, i) => start + i)
     }
 
@@ -50,6 +47,10 @@ export const Pagination: React.FC<PaginationProps> = ({
       desktopPages: getVisiblePages(desktopMaxPages),
     }
   }, [currentPage, totalPages, showPageNumbers, mobileMaxPages, desktopMaxPages])
+
+  // フックより後で返す（rules-of-hooks）。先に返すと、総ページ数が 1 と 2 以上の間で
+  // 変わったときにフックの呼び出し数がレンダーごとに変わる
+  if (totalPages <= 1) return null
 
   const buttonBase =
     'inline-flex items-center justify-center min-w-[36px] sm:min-w-[44px] h-9 sm:h-11 px-2 sm:px-3 text-sm font-medium rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2'
@@ -91,8 +92,18 @@ export const Pagination: React.FC<PaginationProps> = ({
           )}
           aria-label="最初のページ"
         >
-          <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7M18 19l-7-7 7-7" />
+          <svg
+            className="w-4 h-4 sm:w-5 sm:h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M11 19l-7-7 7-7M18 19l-7-7 7-7"
+            />
           </svg>
         </button>
         <button
@@ -107,8 +118,18 @@ export const Pagination: React.FC<PaginationProps> = ({
           )}
           aria-label="前のページ"
         >
-          <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          <svg
+            className="w-4 h-4 sm:w-5 sm:h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 19l-7-7 7-7"
+            />
           </svg>
         </button>
       </div>
@@ -141,7 +162,12 @@ export const Pagination: React.FC<PaginationProps> = ({
           )}
           aria-label="次のページ"
         >
-          <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg
+            className="w-4 h-4 sm:w-5 sm:h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
         </button>
@@ -157,8 +183,18 @@ export const Pagination: React.FC<PaginationProps> = ({
           )}
           aria-label="最後のページ"
         >
-          <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 5l7 7-7 7M6 5l7 7-7 7" />
+          <svg
+            className="w-4 h-4 sm:w-5 sm:h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M13 5l7 7-7 7M6 5l7 7-7 7"
+            />
           </svg>
         </button>
       </div>

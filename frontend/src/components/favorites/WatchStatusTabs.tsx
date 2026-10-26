@@ -62,9 +62,7 @@ export const WatchStatusTabs: React.FC<WatchStatusTabsProps> = ({
             <span
               className={cn(
                 'text-[13px] md:text-[14px]',
-                isActive
-                  ? 'font-bold text-foreground'
-                  : 'font-medium text-muted-foreground'
+                isActive ? 'font-bold text-foreground' : 'font-medium text-muted-foreground'
               )}
             >
               {tab.label}
@@ -74,9 +72,7 @@ export const WatchStatusTabs: React.FC<WatchStatusTabsProps> = ({
                 'flex h-[18px] min-w-[19px] items-center justify-center rounded-full px-1.5',
                 'md:h-5 md:min-w-[22px] md:px-[7px]',
                 'text-[10.5px] md:text-[11.5px] font-bold tabular-nums',
-                isActive
-                  ? 'bg-primary/10 text-primary'
-                  : 'bg-muted text-muted-foreground'
+                isActive ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
               )}
             >
               {counts[tab.key]}

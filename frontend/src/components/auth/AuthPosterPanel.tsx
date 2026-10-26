@@ -51,6 +51,7 @@ export const AuthPosterPanel: React.FC<AuthPosterPanelProps> = ({ headline, chil
               }`}
             >
               {/* 外部画像URLは様々なドメインから取得されるため、next/imageではなくimgタグを使用 */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={url} alt="" loading="lazy" className="h-full w-full object-cover" />
             </div>
           ))}

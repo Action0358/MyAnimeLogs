@@ -1,16 +1,16 @@
-export { default as AnimeSection } from './AnimeSection';
-export { default as CurrentSeasonAnime } from './CurrentSeasonAnime';
-export { default as PopularAnime } from './PopularAnime';
-export { default as AnimeListPage } from './AnimeListPage';
-export { AnimeCard } from './AnimeCard';
-export { PosterFallback } from './PosterFallback';
-export { AnimeCarousel, CarouselSkeleton } from './AnimeCarousel';
-export { AnimeGrid } from './AnimeGrid';
-export { RelatedAnimeGrid, RELATED_INITIAL_COUNT } from './RelatedAnimeGrid';
-export { SkeletonCard } from './SkeletonCard';
-export { WatchProviders } from './WatchProviders';
-export { MediaTabs } from './MediaTabs';
-export type { MediaTabDefinition } from './MediaTabs';
-export type { AnimeCardProps, AnimeCardData } from './AnimeCard';
-export type { AnimeGridProps } from './AnimeGrid';
-export type { RelatedAnimeGridProps } from './RelatedAnimeGrid';
+export { default as AnimeSection } from './AnimeSection'
+export { default as CurrentSeasonAnime } from './CurrentSeasonAnime'
+export { default as PopularAnime } from './PopularAnime'
+export { default as AnimeListPage } from './AnimeListPage'
+export { AnimeCard } from './AnimeCard'
+export { PosterFallback } from './PosterFallback'
+export { AnimeCarousel, CarouselSkeleton } from './AnimeCarousel'
+export { AnimeGrid } from './AnimeGrid'
+export { RelatedAnimeGrid, RELATED_INITIAL_COUNT } from './RelatedAnimeGrid'
+export { SkeletonCard } from './SkeletonCard'
+export { WatchProviders } from './WatchProviders'
+export { MediaTabs } from './MediaTabs'
+export type { MediaTabDefinition } from './MediaTabs'
+export type { AnimeCardProps, AnimeCardData } from './AnimeCard'
+export type { AnimeGridProps } from './AnimeGrid'
+export type { RelatedAnimeGridProps } from './RelatedAnimeGrid'

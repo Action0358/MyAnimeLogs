@@ -12,10 +12,7 @@ interface ProtectedRouteProps {
   redirectTo?: string
 }
 
-export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
-  children,
-  redirectTo,
-}) => {
+export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, redirectTo }) => {
   const { isAuthenticated, isLoading } = useAuth()
   const router = useRouter()
   const [shouldRender, setShouldRender] = useState(false)
@@ -26,8 +23,9 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
         // 認証されていない場合は即座にリダイレクト（履歴を残さない）
         // redirectTo は呼び出し側が渡す任意のパスで、typedRoutes の Route 型には収まらない
         const target =
-          redirectTo ?? buildSignInHref(
-            `${window.location.pathname}${window.location.search}${window.location.hash}`,
+          redirectTo ??
+          buildSignInHref(
+            `${window.location.pathname}${window.location.search}${window.location.hash}`
           )
         router.replace(target as Route)
       } else {

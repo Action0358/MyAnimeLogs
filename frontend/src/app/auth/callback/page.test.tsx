@@ -66,7 +66,7 @@ describe('AuthCallbackPage', () => {
     render(<AuthCallbackPage />)
 
     await waitFor(() =>
-      expect(mockReplace).toHaveBeenCalledWith('/signin?reason=auth-callback-failed'),
+      expect(mockReplace).toHaveBeenCalledWith('/signin?reason=auth-callback-failed')
     )
   })
 })

@@ -19,7 +19,7 @@ describe('SettingsContent のパンくず', () => {
 
     expect(screen.getByRole('link', { name: 'マイページ' })).toHaveAttribute(
       'href',
-      '/mypage?tab=watching',
+      '/mypage?tab=watching'
     )
   })
 
@@ -29,7 +29,7 @@ describe('SettingsContent のパンくず', () => {
 
     expect(screen.getByRole('link', { name: 'マイページ' })).toHaveAttribute(
       'href',
-      '/mypage?tab=planned',
+      '/mypage?tab=planned'
     )
   })
 })

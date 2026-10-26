@@ -10,8 +10,8 @@
  * 非アクティブタイムアウト（ミリ秒）
  * 環境変数で設定可能。デフォルトは30分（1800秒）
  */
-export const INACTIVITY_TIMEOUT = process.env.NEXT_PUBLIC_INACTIVITY_TIMEOUT 
-  ? parseInt(process.env.NEXT_PUBLIC_INACTIVITY_TIMEOUT, 10) * 1000 
+export const INACTIVITY_TIMEOUT = process.env.NEXT_PUBLIC_INACTIVITY_TIMEOUT
+  ? parseInt(process.env.NEXT_PUBLIC_INACTIVITY_TIMEOUT, 10) * 1000
   : 30 * 60 * 1000 // デフォルト30分
 
 /**

@@ -16,8 +16,7 @@ const EXTRA_MESSAGES: Record<string, string> = {
   'auth-callback-failed': 'Googleログインを完了できませんでした。お手数ですが再度お試しください。',
   // Googleの認証は通ったがアカウント情報を取得できなかった場合（#797）。
   // ユーザー側の操作では解決しないため、原因がこちらにあることを明示する。
-  'profile-unavailable':
-    'アカウント情報を読み込めませんでした。時間をおいて再度お試しください。',
+  'profile-unavailable': 'アカウント情報を読み込めませんでした。時間をおいて再度お試しください。',
 }
 
 const isValidLogoutReason = (reason: string): reason is keyof typeof LOGOUT_REASON_MESSAGES => {

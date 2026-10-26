@@ -77,7 +77,10 @@ const Footer: React.FC = () => {
                   className="flex h-11 items-center justify-between border-b border-border text-[13px] font-medium text-muted-foreground last:border-b-0"
                 >
                   <span>{link.label}</span>
-                  <ChevronRight className="h-[15px] w-[15px] text-muted-foreground" aria-hidden="true" />
+                  <ChevronRight
+                    className="h-[15px] w-[15px] text-muted-foreground"
+                    aria-hidden="true"
+                  />
                 </Link>
               ))}
             </nav>

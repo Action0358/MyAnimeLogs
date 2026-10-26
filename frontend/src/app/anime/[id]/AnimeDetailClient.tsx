@@ -67,7 +67,7 @@ const ExpandableSynopsis: React.FC<{ text: string }> = ({ text }) => {
           'text-foreground/80 leading-[1.75] whitespace-pre-wrap text-sm',
           // 折りたたみ時は既定行数ぶんの高さを確保し、作品ごとの高さのぶれを抑える
           // 14px(text-sm) × 1.75(leading) × 4行 = 98px
-          !isExpanded && `${SYNOPSIS_CLAMP_CLASS} min-h-[98px]`,
+          !isExpanded && `${SYNOPSIS_CLAMP_CLASS} min-h-[98px]`
         )}
       >
         {text}
@@ -80,9 +80,15 @@ const ExpandableSynopsis: React.FC<{ text: string }> = ({ text }) => {
           className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded"
         >
           {isExpanded ? (
-            <>折りたたむ<ChevronUp className="w-4 h-4" /></>
+            <>
+              折りたたむ
+              <ChevronUp className="w-4 h-4" />
+            </>
           ) : (
-            <>続きを読む<ChevronDown className="w-4 h-4" /></>
+            <>
+              続きを読む
+              <ChevronDown className="w-4 h-4" />
+            </>
           )}
         </button>
       )}
@@ -112,7 +118,7 @@ const AnimeDetailClient: React.FC = () => {
   const [isOutsideAnimePath, setIsOutsideAnimePath] = useState(false)
   // ハイドレーションミスマッチを回避するため、クライアントサイドでのみ放送状況を計算
   const [statusInfo, setStatusInfo] = useState<BroadcastStatusLabel>({ label: null, className: '' })
-  
+
   // URLから実際のIDを取得（Cloudflare Pages Functionsによるリライト対応）
   useEffect(() => {
     // 数値でないIDは NaN のままだとスケルトンから進まないため、不正なID（0）として扱う
@@ -159,7 +165,6 @@ const AnimeDetailClient: React.FC = () => {
     // 存在しない作品（404）は再試行しても変わらないため、すぐにエラー画面を出す
     retry: (failureCount, error) => !isNotFoundError(error) && failureCount < 3,
   })
-
 
   // クライアントサイドでのみ放送状況を計算（ハイドレーションミスマッチ回避）
   // 注意: フックは条件付きreturnの前に配置する必要がある（Reactのルール）
@@ -222,19 +227,22 @@ const AnimeDetailClient: React.FC = () => {
   }
 
   const anime = animeData
-  const imageUrl = anime.cover_image_extra_large || anime.cover_image_large || anime.cover_image_medium || anime.image_url
-
+  const imageUrl =
+    anime.cover_image_extra_large ||
+    anime.cover_image_large ||
+    anime.cover_image_medium ||
+    anime.image_url
 
   // メディアタイプの日本語変換
   const getMediaLabel = (media: string | undefined | null) => {
     if (!media) return null
     const mediaMap: Record<string, string> = {
-      'tv': 'TV',
-      'movie': '映画',
-      'ova': 'OVA',
-      'ona': 'ONA',
-      'special': 'スペシャル',
-      'music': 'ミュージック',
+      tv: 'TV',
+      movie: '映画',
+      ova: 'OVA',
+      ona: 'ONA',
+      special: 'スペシャル',
+      music: 'ミュージック',
     }
     return mediaMap[media.toLowerCase()] || media
   }
@@ -321,9 +329,7 @@ const AnimeDetailClient: React.FC = () => {
       </div>
       <FavoriteButton
         isFavorite={isFavorite(animeId)}
-        onToggle={() =>
-          isFavorite(animeId) ? removeFavorite(animeId) : addFavorite(animeId)
-        }
+        onToggle={() => (isFavorite(animeId) ? removeFavorite(animeId) : addFavorite(animeId))}
         variant="icon"
         size="lg"
         className="flex-shrink-0"
@@ -344,7 +350,9 @@ const AnimeDetailClient: React.FC = () => {
   const synopsisCard = anime.description && (
     <Card>
       <CardContent className={DETAIL_CARD_PADDING}>
-        <SectionHeading as="h2" size="sm">あらすじ</SectionHeading>
+        <SectionHeading as="h2" size="sm">
+          あらすじ
+        </SectionHeading>
         <ExpandableSynopsis text={stripHtmlTags(anime.description)} />
       </CardContent>
     </Card>
@@ -352,10 +360,14 @@ const AnimeDetailClient: React.FC = () => {
 
   // 作品情報は放送開始・公式サイト・ジャンルに絞る（放送状況・メディア・放送時期は
   // 上のバッジへ移動済み。アニメ詳細UI刷新v2）
-  const infoCard = (anime.released_on || anime.official_site_url || (anime.genres && anime.genres.length > 0)) && (
+  const infoCard = (anime.released_on ||
+    anime.official_site_url ||
+    (anime.genres && anime.genres.length > 0)) && (
     <Card>
       <CardContent className={DETAIL_CARD_PADDING}>
-        <SectionHeading as="h2" size="sm">作品情報</SectionHeading>
+        <SectionHeading as="h2" size="sm">
+          作品情報
+        </SectionHeading>
         <dl className="grid grid-cols-[76px_1fr] md:grid-cols-[84px_1fr] gap-x-4 gap-y-3 text-sm">
           {anime.released_on && (
             <>
@@ -413,7 +425,9 @@ const AnimeDetailClient: React.FC = () => {
     <div className="mt-7 pt-[22px] lg:mt-14 lg:pt-9 border-t border-border">
       <div className="mb-3.5 lg:mb-5 flex items-baseline gap-2.5 lg:gap-3">
         <h2 className="text-base lg:text-xl font-bold tracking-tight text-foreground">関連作品</h2>
-        <span className="text-xs lg:text-sm text-muted-foreground">{anime.related_seasons.length}作品</span>
+        <span className="text-xs lg:text-sm text-muted-foreground">
+          {anime.related_seasons.length}作品
+        </span>
       </div>
       <RelatedAnimeGrid related={anime.related_seasons} from={relatedFrom} />
     </div>
@@ -435,7 +449,12 @@ const AnimeDetailClient: React.FC = () => {
             viewBox="0 0 24 24"
             aria-hidden="true"
           >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M15 19l-7-7 7-7"
+            />
           </svg>
           <span>{backTarget.label}に戻る</span>
         </Link>

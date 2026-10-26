@@ -6,12 +6,15 @@ import {
 } from './authReturnPath'
 
 describe('sanitizeReturnPath', () => {
-  it.each(['/anime/123', '/anime/123?from=current', '/search?q=%E3%81%82', '/mypage', '/news#2026-10-01-release'])(
-    'サイト内のパス %s はそのまま通す',
-    (path) => {
-      expect(sanitizeReturnPath(path)).toBe(path)
-    },
-  )
+  it.each([
+    '/anime/123',
+    '/anime/123?from=current',
+    '/search?q=%E3%81%82',
+    '/mypage',
+    '/news#2026-10-01-release',
+  ])('サイト内のパス %s はそのまま通す', (path) => {
+    expect(sanitizeReturnPath(path)).toBe(path)
+  })
 
   // 外部サイトへ飛ばすオープンリダイレクトを防ぐ
   it.each([
@@ -26,12 +29,17 @@ describe('sanitizeReturnPath', () => {
   })
 
   // 戻っても意味がない、またはログイン画面へ戻ってループするパス
-  it.each(['/', '/signin', '/signin?reason=timeout', '/login', '/register', '/auth/callback', '/account-deleted'])(
-    '%s は戻り先にしない',
-    (path) => {
-      expect(sanitizeReturnPath(path)).toBeNull()
-    },
-  )
+  it.each([
+    '/',
+    '/signin',
+    '/signin?reason=timeout',
+    '/login',
+    '/register',
+    '/auth/callback',
+    '/account-deleted',
+  ])('%s は戻り先にしない', (path) => {
+    expect(sanitizeReturnPath(path)).toBeNull()
+  })
 
   it('除外パスと前方一致するだけの別ページは通す', () => {
     expect(sanitizeReturnPath('/authors')).toBe('/authors')
@@ -45,7 +53,7 @@ describe('sanitizeReturnPath', () => {
 describe('buildSignInHref', () => {
   it('戻り先をエンコードして next に載せる', () => {
     expect(buildSignInHref('/anime/123?from=current')).toBe(
-      '/signin?next=%2Fanime%2F123%3Ffrom%3Dcurrent',
+      '/signin?next=%2Fanime%2F123%3Ffrom%3Dcurrent'
     )
   })
 

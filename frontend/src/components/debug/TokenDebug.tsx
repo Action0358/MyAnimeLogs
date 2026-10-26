@@ -3,11 +3,11 @@
 import { useAuth } from '@/contexts/AuthContext'
 import { useEffect, useState } from 'react'
 import { storage } from '@/lib/utils'
-import { 
-  STORAGE_KEYS, 
-  TOKEN_EXPIRING_SOON_THRESHOLD, 
+import {
+  STORAGE_KEYS,
+  TOKEN_EXPIRING_SOON_THRESHOLD,
   INACTIVITY_TIMEOUT,
-  INACTIVITY_WARNING_THRESHOLD 
+  INACTIVITY_WARNING_THRESHOLD,
 } from '@/lib/constants'
 
 export function TokenDebug() {
@@ -81,7 +81,9 @@ export function TokenDebug() {
         {/* トークン有効期限 */}
         <div>
           <div className="text-gray-400 mb-1">Token expires in:</div>
-          <div className={`text-2xl font-bold ${isExpiringSoon ? 'text-yellow-400' : 'text-green-400'}`}>
+          <div
+            className={`text-2xl font-bold ${isExpiringSoon ? 'text-yellow-400' : 'text-green-400'}`}
+          >
             {minutes}:{seconds.toString().padStart(2, '0')}
           </div>
           {isExpiringSoon && timeLeft > 0 && (
@@ -101,7 +103,9 @@ export function TokenDebug() {
         {/* 非アクティブタイムアウト */}
         <div className="border-t border-gray-700 pt-3">
           <div className="text-gray-400 mb-1">Inactivity timeout:</div>
-          <div className={`text-xl font-bold ${isInactivityWarning ? 'text-red-400' : 'text-blue-400'}`}>
+          <div
+            className={`text-xl font-bold ${isInactivityWarning ? 'text-red-400' : 'text-blue-400'}`}
+          >
             {inactivityMinutes}:{inactivitySeconds.toString().padStart(2, '0')}
           </div>
           {isInactivityWarning && inactivityTimeLeft > 0 && (
@@ -119,9 +123,7 @@ export function TokenDebug() {
         </div>
 
         {/* ユーザー情報 */}
-        <div className="text-gray-500 text-xs border-t border-gray-700 pt-2">
-          User: {user.name}
-        </div>
+        <div className="text-gray-500 text-xs border-t border-gray-700 pt-2">User: {user.name}</div>
       </div>
     </div>
   )

@@ -26,8 +26,7 @@ const AuthCallbackInner: React.FC = () => {
     if (hasRunRef.current) return
     hasRunRef.current = true
 
-    const errorDescription =
-      searchParams.get('error_description') ?? searchParams.get('error')
+    const errorDescription = searchParams.get('error_description') ?? searchParams.get('error')
     if (errorDescription) {
       router.replace('/signin?reason=auth-callback-failed')
       return
@@ -49,7 +48,9 @@ const AuthCallbackInner: React.FC = () => {
         }
         // implicit フロー: URLハッシュ内のトークンをSupabaseクライアントが
         // 自動で読み取りセッションを張る。読み取り結果をここで確認する。
-        const { data: { session } } = await supabase.auth.getSession()
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
         router.replace(session ? successUrl() : failureUrl)
       } catch {
         // ネットワーク/クライアント例外時もローディングのまま固まらないようにする

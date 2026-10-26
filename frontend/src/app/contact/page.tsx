@@ -61,7 +61,11 @@ const ContactPage: React.FC = () => (
           個人情報に関するご請求
         </h2>
         <p className="mb-5 text-sm leading-[1.8] text-foreground/80">
-          登録情報の開示・訂正・削除・利用停止のご請求は、以下のメールアドレスへご連絡ください。詳しくは<a href="/privacy" className="text-primary hover:underline">プライバシーポリシー</a>をご確認ください。
+          登録情報の開示・訂正・削除・利用停止のご請求は、以下のメールアドレスへご連絡ください。詳しくは
+          <a href="/privacy" className="text-primary hover:underline">
+            プライバシーポリシー
+          </a>
+          をご確認ください。
         </p>
 
         <div className="flex items-center justify-between gap-4 rounded-md border border-border bg-muted/40 px-4 py-3">

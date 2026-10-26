@@ -28,7 +28,7 @@ export const SectionHeading: React.FC<SectionHeadingProps> = ({
         'relative pl-3 font-bold text-foreground tracking-tight',
         'before:absolute before:left-0 before:top-1 before:bottom-1 before:w-1 before:rounded-full before:bg-primary',
         size === 'md' ? 'text-xl md:text-2xl' : 'text-base md:text-lg',
-        className,
+        className
       )}
       {...props}
     >

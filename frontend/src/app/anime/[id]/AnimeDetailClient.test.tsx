@@ -17,25 +17,34 @@ jest.mock('@/contexts/AuthContext', () => ({
   useAuth: () => ({ isAuthenticated: false }),
 }))
 jest.mock('@/hooks/useFavorites', () => ({
-  useFavorites: () => ({ isFavorite: () => false, addFavorite: jest.fn(), removeFavorite: jest.fn() }),
+  useFavorites: () => ({
+    isFavorite: () => false,
+    addFavorite: jest.fn(),
+    removeFavorite: jest.fn(),
+  }),
 }))
 jest.mock('@/hooks/useWatchStatus', () => ({
-  useWatchStatus: () => ({ getStatus: () => null, updateStatus: jest.fn(), removeStatus: jest.fn() }),
+  useWatchStatus: () => ({
+    getStatus: () => null,
+    updateStatus: jest.fn(),
+    removeStatus: jest.fn(),
+  }),
 }))
 
 const mockGetAnimesId = getAnimesId as jest.Mock
 
 // @types/jest が advanceTimersByTimeAsync（Jest 29.5+）をまだ持たないため型だけ補う
 const advanceTimers = (ms: number) =>
-  (jest as unknown as { advanceTimersByTimeAsync: (ms: number) => Promise<void> })
-    .advanceTimersByTimeAsync(ms)
+  (
+    jest as unknown as { advanceTimersByTimeAsync: (ms: number) => Promise<void> }
+  ).advanceTimersByTimeAsync(ms)
 
 const renderDetail = () => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={client}>
       <AnimeDetailClient />
-    </QueryClientProvider>,
+    </QueryClientProvider>
   )
 }
 
@@ -115,7 +124,9 @@ describe('シェル（404.html兼用）として描画されたとき', () => {
 
     renderDetail()
 
-    expect(await screen.findByRole('heading', { name: 'ページが見つかりません' })).toBeInTheDocument()
+    expect(
+      await screen.findByRole('heading', { name: 'ページが見つかりません' })
+    ).toBeInTheDocument()
     expect(mockGetAnimesId).not.toHaveBeenCalled()
   })
 

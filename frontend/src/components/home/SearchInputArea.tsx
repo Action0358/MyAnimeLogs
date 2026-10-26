@@ -1,75 +1,73 @@
-'use client';
+'use client'
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import type { Route } from 'next';
-import { ChevronRight } from 'lucide-react';
-import type { SearchTab } from './SearchContainer';
-import { GENRES, HERO_SEASON_OPTIONS } from '@/constants/search';
-import { cn } from '@/lib/utils';
-import { useSearchHistory } from '@/hooks/useSearchHistory';
-import { RecentSearchesDropdown, useRecentSearches } from '@/components/search/RecentSearches';
+import React, { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import type { Route } from 'next'
+import { ChevronRight } from 'lucide-react'
+import type { SearchTab } from './SearchContainer'
+import { GENRES, HERO_SEASON_OPTIONS } from '@/constants/search'
+import { cn } from '@/lib/utils'
+import { useSearchHistory } from '@/hooks/useSearchHistory'
+import { RecentSearchesDropdown, useRecentSearches } from '@/components/search/RecentSearches'
 
 interface SearchInputAreaProps {
-  activeTab: SearchTab;
+  activeTab: SearchTab
 }
 
 const SearchInputArea: React.FC<SearchInputAreaProps> = ({ activeTab }) => {
-  const router = useRouter();
-  const [keyword, setKeyword] = useState('');
-  const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
+  const router = useRouter()
+  const [keyword, setKeyword] = useState('')
+  const [selectedGenres, setSelectedGenres] = useState<string[]>([])
   // 作品検索画面と同じ検索履歴を使い、入力欄のフォーカスで「最近の検索」を出す
-  const { searchHistory, addToHistory, removeFromHistory, clearHistory } = useSearchHistory();
+  const { searchHistory, addToHistory, removeFromHistory, clearHistory } = useSearchHistory()
 
   const searchByKeyword = (query: string) => {
-    addToHistory(query);
-    router.push(`/search?keyword=${encodeURIComponent(query)}` as Route);
-  };
+    addToHistory(query)
+    router.push(`/search?keyword=${encodeURIComponent(query)}` as Route)
+  }
 
   const recent = useRecentSearches(searchHistory, (item) => {
-    setKeyword(item);
-    searchByKeyword(item);
-  });
+    setKeyword(item)
+    searchByKeyword(item)
+  })
 
   const handleGenreToggle = (genre: string) => {
     setSelectedGenres((prev) =>
-      prev.includes(genre)
-        ? prev.filter((g) => g !== genre)
-        : [...prev, genre]
-    );
-  };
+      prev.includes(genre) ? prev.filter((g) => g !== genre) : [...prev, genre]
+    )
+  }
 
   const handleSearch = () => {
     if (activeTab === 'keyword') {
-      if (keyword.trim()) searchByKeyword(keyword.trim());
-      return;
+      if (keyword.trim()) searchByKeyword(keyword.trim())
+      return
     }
 
-    let searchQuery = '';
+    let searchQuery = ''
     if (activeTab === 'genre' && selectedGenres.length > 0) {
-      searchQuery = `?genre=${selectedGenres.map(g => encodeURIComponent(g)).join(',')}`;
+      searchQuery = `?genre=${selectedGenres.map((g) => encodeURIComponent(g)).join(',')}`
     }
 
     if (searchQuery) {
-      router.push(`/search${searchQuery}` as Route);
+      router.push(`/search${searchQuery}` as Route)
     }
-  };
+  }
 
   const handleSeasonSelect = (season: string) => {
-    router.push(`/search?season=${encodeURIComponent(season)}` as Route);
-  };
+    router.push(`/search?season=${encodeURIComponent(season)}` as Route)
+  }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     // 履歴を開いている間は ↑↓・Enter・Esc を履歴の操作に使う
-    recent.inputProps.onKeyDown(e);
-    if (e.defaultPrevented) return;
+    recent.inputProps.onKeyDown(e)
+    if (e.defaultPrevented) return
     if (e.key === 'Enter') {
-      handleSearch();
+      handleSearch()
     }
-  };
+  }
 
   const searchButtonBase =
-    'bg-primary text-primary-foreground font-bold text-base hover:bg-primary/90 active:bg-primary/80 transition-all duration-150 tracking-widest focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground/70 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-primary';
+    'bg-primary text-primary-foreground font-bold text-base hover:bg-primary/90 active:bg-primary/80 transition-all duration-150 tracking-widest focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-foreground/70 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-primary'
 
   const searchButton = (disabled = false) => (
     <button
@@ -79,11 +77,14 @@ const SearchInputArea: React.FC<SearchInputAreaProps> = ({ activeTab }) => {
     >
       検 索
     </button>
-  );
+  )
 
   return (
     // 「最近の検索」はパネル全体の幅で、パネルの直下に出すため、パネルを基準にする
-    <div ref={recent.containerRef} className="relative mt-3 backdrop-blur-md bg-primary-foreground/10 border border-primary-foreground/20 rounded-2xl p-4 md:p-5 shadow-xl shadow-black/20">
+    <div
+      ref={recent.containerRef}
+      className="relative mt-3 backdrop-blur-md bg-primary-foreground/10 border border-primary-foreground/20 rounded-2xl p-4 md:p-5 shadow-xl shadow-black/20"
+    >
       {/* キーワード検索 */}
       {activeTab === 'keyword' && (
         <>
@@ -166,7 +167,7 @@ const SearchInputArea: React.FC<SearchInputAreaProps> = ({ activeTab }) => {
       {activeTab === 'season' && (
         <div className="grid grid-cols-1 gap-2.5 md:grid-cols-3 md:gap-3">
           {HERO_SEASON_OPTIONS.map(({ tag, season }) => {
-            const isCurrent = tag === '今期';
+            const isCurrent = tag === '今期'
             return (
               <button
                 key={season}
@@ -204,12 +205,12 @@ const SearchInputArea: React.FC<SearchInputAreaProps> = ({ activeTab }) => {
                   aria-hidden="true"
                 />
               </button>
-            );
+            )
           })}
         </div>
       )}
     </div>
-  );
-};
+  )
+}
 
-export default SearchInputArea;
+export default SearchInputArea
