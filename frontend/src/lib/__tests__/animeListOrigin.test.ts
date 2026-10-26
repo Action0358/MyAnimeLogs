@@ -71,9 +71,7 @@ describe('resolveBackTarget', () => {
 
 describe('withBackParam', () => {
   it('既知の一覧からの遷移には from を付ける', () => {
-    expect(withBackParam('/anime/1', '/anime/current')).toBe(
-      '/anime/1?from=%2Fanime%2Fcurrent'
-    )
+    expect(withBackParam('/anime/1', '/anime/current')).toBe('/anime/1?from=%2Fanime%2Fcurrent')
   })
 
   it('クエリ付きの遷移元をエンコードして載せる', () => {
@@ -83,9 +81,7 @@ describe('withBackParam', () => {
   })
 
   it('末尾スラッシュ付きの遷移元にも付ける', () => {
-    expect(withBackParam('/anime/1', '/anime/current/')).toBe(
-      '/anime/1?from=%2Fanime%2Fcurrent%2F'
-    )
+    expect(withBackParam('/anime/1', '/anime/current/')).toBe('/anime/1?from=%2Fanime%2Fcurrent%2F')
   })
 
   it('ホームなど一覧以外からは付けない', () => {

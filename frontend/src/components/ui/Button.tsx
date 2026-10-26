@@ -3,7 +3,14 @@ import { Slot } from '@radix-ui/react-slot'
 import { cn } from '@/lib/utils'
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'outline' | 'outline-gray' | 'ghost' | 'ghost-on-dark' | 'primary-on-dark'
+  variant?:
+    | 'primary'
+    | 'secondary'
+    | 'outline'
+    | 'outline-gray'
+    | 'ghost'
+    | 'ghost-on-dark'
+    | 'primary-on-dark'
   size?: 'sm' | 'md' | 'lg'
   isLoading?: boolean
   asChild?: boolean
@@ -26,18 +33,14 @@ export const Button: React.FC<ButtonProps> = ({
   const variantStyles = {
     primary:
       'bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/80 focus:ring-ring',
-    secondary:
-      'bg-gray-600 text-white hover:bg-gray-700 active:bg-gray-800 focus:ring-gray-500',
+    secondary: 'bg-gray-600 text-white hover:bg-gray-700 active:bg-gray-800 focus:ring-gray-500',
     outline:
       'border-2 border-blue-600 text-blue-600 hover:bg-blue-50 active:bg-blue-100 focus:ring-blue-500',
     'outline-gray':
       'border border-gray-300 text-gray-700 bg-transparent hover:bg-gray-50 active:bg-gray-100 focus:ring-gray-500',
-    ghost:
-      'text-foreground hover:bg-muted active:bg-muted/70 focus:ring-ring',
-    'ghost-on-dark':
-      'text-white hover:bg-white/10 active:bg-white/20 focus:ring-white',
-    'primary-on-dark':
-      'bg-white text-primary hover:bg-muted active:bg-muted/70 focus:ring-white',
+    ghost: 'text-foreground hover:bg-muted active:bg-muted/70 focus:ring-ring',
+    'ghost-on-dark': 'text-white hover:bg-white/10 active:bg-white/20 focus:ring-white',
+    'primary-on-dark': 'bg-white text-primary hover:bg-muted active:bg-muted/70 focus:ring-white',
   }
 
   const sizeStyles = {

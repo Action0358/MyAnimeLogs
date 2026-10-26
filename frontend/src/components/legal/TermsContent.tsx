@@ -146,7 +146,9 @@ export const TermsContent: React.FC = () => {
       (entries) => {
         const visible = entries.filter((e) => e.isIntersecting)
         if (visible.length === 0) return
-        const topMost = visible.reduce((a, b) => (a.boundingClientRect.top < b.boundingClientRect.top ? a : b))
+        const topMost = visible.reduce((a, b) =>
+          a.boundingClientRect.top < b.boundingClientRect.top ? a : b
+        )
         const id = topMost.target.getAttribute('id')
         if (id) setActiveId(id)
       },
@@ -166,7 +168,10 @@ export const TermsContent: React.FC = () => {
       <Container size="xl" className="py-8 md:py-10">
         {/* パンくず */}
         <nav aria-label="パンくずリスト" className="mb-4 text-[12px] md:text-[12.5px]">
-          <Link href={'/' as Route} className="text-muted-foreground hover:text-primary transition-colors">
+          <Link
+            href={'/' as Route}
+            className="text-muted-foreground hover:text-primary transition-colors"
+          >
             ホーム
           </Link>
           <span className="text-muted-foreground mx-1.5" aria-hidden="true">
@@ -181,7 +186,9 @@ export const TermsContent: React.FC = () => {
             aria-label="目次"
             className="hidden md:block sticky top-6 rounded-lg border border-border bg-card py-[18px] pl-[18px] pr-2"
           >
-            <div className="mb-3 text-[11px] font-bold tracking-[0.08em] text-muted-foreground">目次</div>
+            <div className="mb-3 text-[11px] font-bold tracking-[0.08em] text-muted-foreground">
+              目次
+            </div>
             <div className="flex max-h-[520px] flex-col gap-px overflow-y-auto pr-2.5">
               {TOC_ITEMS.map((item) => {
                 const isActive = item.id === activeId
@@ -191,7 +198,9 @@ export const TermsContent: React.FC = () => {
                     href={`#${item.id}`}
                     className={cn(
                       'flex gap-2.5 rounded-md px-2.5 py-[7px] text-[12.5px] leading-[1.5] transition-colors',
-                      isActive ? 'bg-primary/10 text-primary font-bold' : 'text-foreground/70 hover:bg-muted'
+                      isActive
+                        ? 'bg-primary/10 text-primary font-bold'
+                        : 'text-foreground/70 hover:bg-muted'
                     )}
                   >
                     {item.num && (
@@ -236,14 +245,20 @@ export const TermsContent: React.FC = () => {
                       {article.title}
                     </h2>
                     {article.paras.map((p, pi) => (
-                      <p key={pi} className="mb-3 text-[13px] leading-[1.95] text-foreground/80 md:text-sm">
+                      <p
+                        key={pi}
+                        className="mb-3 text-[13px] leading-[1.95] text-foreground/80 md:text-sm"
+                      >
                         {p}
                       </p>
                     ))}
                     {article.items && article.items.length > 0 && (
                       <div className="mt-1.5 flex flex-col gap-2">
                         {article.items.map((li, li_i) => (
-                          <div key={li_i} className="flex gap-2.5 text-[12.5px] leading-[1.85] text-foreground/80 md:text-[13.5px]">
+                          <div
+                            key={li_i}
+                            className="flex gap-2.5 text-[12.5px] leading-[1.85] text-foreground/80 md:text-[13.5px]"
+                          >
                             <span className="mt-2.5 h-[5px] w-[5px] flex-shrink-0 rounded-full bg-primary/40" />
                             <span>{li}</span>
                           </div>
@@ -267,7 +282,9 @@ export const TermsContent: React.FC = () => {
                 }}
                 className="scroll-mt-24 mt-[34px] rounded-lg border border-border bg-muted/30 px-[22px] py-6 md:px-[26px]"
               >
-                <h2 className="mb-2.5 text-[15px] font-bold text-foreground md:text-base">お問い合わせ</h2>
+                <h2 className="mb-2.5 text-[15px] font-bold text-foreground md:text-base">
+                  お問い合わせ
+                </h2>
                 <p className="mb-4 text-[12.5px] leading-[1.9] text-foreground/80 md:text-[13.5px]">
                   不具合のご報告やご要望などのお問い合わせは、
                   <Link href={'/contact' as Route} className="mx-0.5 text-primary hover:underline">

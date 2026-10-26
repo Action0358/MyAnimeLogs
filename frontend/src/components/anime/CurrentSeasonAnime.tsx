@@ -8,9 +8,7 @@ interface CurrentSeasonAnimeProps {
   className?: string
 }
 
-const CurrentSeasonAnime: React.FC<CurrentSeasonAnimeProps> = ({
-  className = '',
-}) => {
+const CurrentSeasonAnime: React.FC<CurrentSeasonAnimeProps> = ({ className = '' }) => {
   return (
     <AnimeSection
       title="今期アニメ"

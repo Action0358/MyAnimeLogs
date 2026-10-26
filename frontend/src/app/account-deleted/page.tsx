@@ -31,7 +31,8 @@ const AccountDeletedPage: React.FC = () => (
       <div className="mt-8 rounded-lg border border-border bg-card p-5 text-left">
         <h2 className="text-sm font-bold text-foreground">再度ご利用になる場合</h2>
         <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
-          同じGoogleアカウントでログインすると、<strong className="text-foreground">新しいアカウントとして登録されます</strong>。
+          同じGoogleアカウントでログインすると、
+          <strong className="text-foreground">新しいアカウントとして登録されます</strong>。
           削除した視聴記録やお気に入りは復元されません。
         </p>
       </div>

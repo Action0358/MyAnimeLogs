@@ -1,7 +1,7 @@
 /**
  * アニメの放送状態（放送予定/放送中/完結）を判定してラベルとスタイルを返すユーティリティ
  * airing, finished などのアニメ放送状態を扱う
- * 
+ *
  * ユーザーの視聴ステータス（watching, completed, planned）のラベル・スタイルは
  * components/favorites/StatusSelector.tsx の STATUS_CONFIG を使用してください
  */
@@ -40,14 +40,14 @@ const determineBroadcastStatus = (
     try {
       // releasedOnをDateオブジェクトに変換
       const releaseDate = new Date(releasedOn)
-      
+
       // 今日の日付（時刻を00:00:00にリセット）
       const today = new Date()
       today.setHours(0, 0, 0, 0)
-      
+
       // 放送開始日も時刻を00:00:00にリセット
       releaseDate.setHours(0, 0, 0, 0)
-      
+
       // 日付を比較
       isUpcoming = releaseDate > today
     } catch (error) {

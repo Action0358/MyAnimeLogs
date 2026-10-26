@@ -21,8 +21,8 @@ const buildResponse = (page: number) => ({
 
 describe('useAnimes', () => {
   beforeEach(() => {
-    mockedGetAnimes.mockImplementation(async (params) =>
-      buildResponse((params?.page as number) ?? 1) as never
+    mockedGetAnimes.mockImplementation(
+      async (params) => buildResponse((params?.page as number) ?? 1) as never
     )
   })
 

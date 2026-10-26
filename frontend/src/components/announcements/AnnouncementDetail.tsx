@@ -4,11 +4,7 @@ import type { Route } from 'next'
 import { ChevronLeft } from 'lucide-react'
 import { CategoryBadge } from './CategoryBadge'
 import { formatAnnouncementDate } from './AnnouncementList'
-import type {
-  Announcement,
-  AnnouncementBlock,
-  AnnouncementInline,
-} from '@/constants/announcements'
+import type { Announcement, AnnouncementBlock, AnnouncementInline } from '@/constants/announcements'
 
 /** 外部リンクかどうか。スキーム付きなら別タブで開く */
 const isExternal = (href: string) => /^https?:\/\//.test(href)
@@ -30,7 +26,7 @@ const Inline: React.FC<{ nodes: AnnouncementInline[] }> = ({ nodes }) => (
         >
           {node.text}
         </Link>
-      ),
+      )
     )}
   </>
 )
@@ -70,9 +66,7 @@ const Block: React.FC<{ block: AnnouncementBlock }> = ({ block }) => {
  * 戻りリンクは上部の1つのみ。本文で終え、末尾に導線（前後の記事など）は置かない。
  * ただし `link` は運営者が意図して置く導線なので、本文の後に出す。
  */
-export const AnnouncementDetail: React.FC<{ announcement: Announcement }> = ({
-  announcement,
-}) => {
+export const AnnouncementDetail: React.FC<{ announcement: Announcement }> = ({ announcement }) => {
   const blocks: AnnouncementBlock[] = announcement.content ?? [
     { type: 'p', children: [announcement.body] },
   ]

@@ -56,6 +56,12 @@ jobs:
         working-directory: ./frontend
         run: npm ci
 
+      # 規約違反・書式のずれを main に入れない（#1147）。
+      # 警告は許容し、エラーだけで落とす
+      - name: Lint
+        working-directory: ./frontend
+        run: npm run lint
+
       # 型エラーはテストより先に落としたほうがフィードバックが速い。
       # jest は SWC でトランスパイルするだけで型を見ないため、
       # これがないと型エラーがテスト成功のまま本番まで抜ける（#872）。

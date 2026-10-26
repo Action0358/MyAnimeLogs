@@ -38,12 +38,7 @@ export const Skeleton: React.FC<SkeletonProps> = ({
 
   return (
     <div
-      className={cn(
-        'bg-gray-200',
-        variantStyles[variant],
-        animationStyles[animation],
-        className
-      )}
+      className={cn('bg-gray-200', variantStyles[variant], animationStyles[animation], className)}
       style={style}
     />
   )
@@ -54,7 +49,12 @@ export interface SkeletonCardProps {
 }
 
 export const SkeletonCard: React.FC<SkeletonCardProps> = ({ className }) => (
-  <div className={cn('bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden', className)}>
+  <div
+    className={cn(
+      'bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden',
+      className
+    )}
+  >
     <Skeleton variant="rectangular" className="aspect-[3/4]" />
     <div className="p-3 space-y-2">
       <Skeleton variant="text" className="h-4 w-3/4" />
@@ -71,7 +71,10 @@ export interface SkeletonListProps {
 export const SkeletonList: React.FC<SkeletonListProps> = ({ count = 5, className }) => (
   <div className={cn('space-y-3', className)}>
     {Array.from({ length: count }).map((_, i) => (
-      <div key={i} className="flex items-center gap-4 p-4 bg-white border border-gray-200 rounded-lg">
+      <div
+        key={i}
+        className="flex items-center gap-4 p-4 bg-white border border-gray-200 rounded-lg"
+      >
         <Skeleton variant="circular" width={40} height={40} />
         <div className="flex-1 space-y-2">
           <Skeleton variant="text" className="h-4 w-1/4" />

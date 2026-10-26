@@ -1,10 +1,10 @@
-'use client';
+'use client'
 
-import type React from 'react';
-import { Container } from '@/components/layout';
-import { CurrentSeasonAnime, PopularAnime } from '@/components/anime';
-import { HeroSection } from '@/components/home';
-import { AnnouncementSection } from '@/components/announcements';
+import type React from 'react'
+import { Container } from '@/components/layout'
+import { CurrentSeasonAnime, PopularAnime } from '@/components/anime'
+import { HeroSection } from '@/components/home'
+import { AnnouncementSection } from '@/components/announcements'
 
 const HomePage: React.FC = () => {
   return (
@@ -30,7 +30,7 @@ const HomePage: React.FC = () => {
           （セクション側で内側に Container を持つ） */}
       <AnnouncementSection />
     </>
-  );
-};
+  )
+}
 
-export default HomePage;
+export default HomePage

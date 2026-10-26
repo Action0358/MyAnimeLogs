@@ -1,25 +1,25 @@
 // バックエンドDBから取得するアニメの型
 export interface DBAnime {
-  id: number;
-  title: string;
-  image_url?: string;
-  season?: string;
-  status?: string;
-  released_on?: string;
-  watchers_count: number;
-  mal_anime_id?: string;
-  annict_id?: number;
-  media?: string;
-  created_at: string;
-  updated_at: string;
-  cover_image_large?: string;
-  cover_image_medium?: string;
-  genres?: string[];
+  id: number
+  title: string
+  image_url?: string
+  season?: string
+  status?: string
+  released_on?: string
+  watchers_count: number
+  mal_anime_id?: string
+  annict_id?: number
+  media?: string
+  created_at: string
+  updated_at: string
+  cover_image_large?: string
+  cover_image_medium?: string
+  genres?: string[]
 }
 
 export interface DBAnimeResponse {
-  animes: DBAnime[];
-  total: number;
+  animes: DBAnime[]
+  total: number
 }
 
 import { get, ApiClientError } from './client'

@@ -14,7 +14,10 @@ describe('ErrorState', () => {
   it('unknown: 読み込みエラーの文言とお問い合わせリンクを表示する', () => {
     render(<ErrorState type="unknown" onRetry={() => {}} />)
     expect(screen.getByText('読み込めませんでした')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '解決しない場合はお問い合わせ' })).toHaveAttribute('href', '/contact')
+    expect(screen.getByRole('link', { name: '解決しない場合はお問い合わせ' })).toHaveAttribute(
+      'href',
+      '/contact'
+    )
   })
 
   it('再読み込みボタンで onRetry が呼ばれる', () => {
@@ -52,8 +55,12 @@ describe('ErrorState type=notFound', () => {
   it('作品が見つからない文言を出し、ボタンは検索、サブリンクはトップへ向ける', () => {
     render(<ErrorState type="notFound" />)
     expect(screen.getByRole('alert')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { level: 1, name: '作品が見つかりません' })).toBeInTheDocument()
-    expect(screen.getByText('削除されたか、URLが間違っている可能性があります。')).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { level: 1, name: '作品が見つかりません' })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('削除されたか、URLが間違っている可能性があります。')
+    ).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '作品を検索' })).toHaveAttribute('href', '/search')
     expect(screen.getByRole('link', { name: 'トップへ戻る' })).toHaveAttribute('href', '/')
     // 再読み込みでは直らないので出さない
@@ -64,7 +71,9 @@ describe('ErrorState type=notFound', () => {
 describe('ErrorState type=pageNotFound', () => {
   it('作品ではなくページが無い文言を出し、操作は notFound と揃える', () => {
     render(<ErrorState type="pageNotFound" />)
-    expect(screen.getByRole('heading', { level: 1, name: 'ページが見つかりません' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'ページが見つかりません' })
+    ).toBeInTheDocument()
     expect(screen.getByRole('link', { name: '作品を検索' })).toHaveAttribute('href', '/search')
     expect(screen.getByRole('link', { name: 'トップへ戻る' })).toHaveAttribute('href', '/')
     expect(screen.queryByRole('button', { name: '再読み込み' })).not.toBeInTheDocument()

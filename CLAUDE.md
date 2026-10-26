@@ -22,6 +22,7 @@ cd backend && make migrate      # マイグレーション実行
 # フロントエンド
 cd frontend && npm run dev      # 起動
 cd frontend && npx tsc --noEmit # 型チェック
+cd frontend && npm run lint     # lint（ESLint + Prettier。--fix で自動修正）
 cd frontend && npm test         # テスト実行
 ```
 

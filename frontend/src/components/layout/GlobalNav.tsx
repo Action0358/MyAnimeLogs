@@ -12,11 +12,7 @@ export const GlobalNav: React.FC = () => {
   return (
     <nav className="hidden md:flex items-center gap-1.5" aria-label="グローバルナビゲーション">
       {NAV_ITEMS.map((item) => (
-        <NavLink
-          key={item.href}
-          href={item.href}
-          isHomePage={isHomePage}
-        >
+        <NavLink key={item.href} href={item.href} isHomePage={isHomePage}>
           {item.label}
         </NavLink>
       ))}

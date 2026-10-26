@@ -23,10 +23,7 @@ export const MediaTabs: React.FC<MediaTabsProps> = ({
   className,
 }) => (
   <div
-    className={cn(
-      'flex gap-1.5 overflow-x-auto scrollbar-hide touch-pan-x',
-      className
-    )}
+    className={cn('flex gap-1.5 overflow-x-auto scrollbar-hide touch-pan-x', className)}
     role="tablist"
     aria-label="メディアタイプフィルター"
   >
