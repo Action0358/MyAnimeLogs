@@ -1,5 +1,5 @@
-# Node.js 18 LTSを使用（開発環境最適化）
-FROM node:18-slim
+# Node.js 22 LTSを使用（開発環境最適化）
+FROM node:22-slim
 
 # 作業ディレクトリの設定
 WORKDIR /frontend
