@@ -1,11 +1,11 @@
 # --- Airビルドステージ ---
-FROM golang:1.26-alpine AS air-builder
+FROM golang:1.26.10-alpine3.24 AS air-builder
 WORKDIR /src
 # Airをインストール
 RUN go install github.com/cosmtrek/air@v1.49.0
 
 # --- メインアプリケーションステージ ---
-FROM golang:1.26-alpine
+FROM golang:1.26.10-alpine3.24
 # パッケージを更新して脆弱性を修正
 RUN apk update && apk upgrade
 # 開発ツールに必要なパッケージをインストール
