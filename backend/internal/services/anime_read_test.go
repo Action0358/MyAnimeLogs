@@ -1,6 +1,7 @@
 package services
 
 import (
+	"database/sql"
 	"testing"
 
 	"myanimelogs/internal/database"
@@ -51,4 +52,24 @@ func TestAttachGenresBulk_NoAnimes_SkipsQuery(t *testing.T) {
 	svc.attachGenresBulk([]models.Anime{})
 
 	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+// 外部URLは http/https のときだけ返し、javascript: 等や NULL は nil にすること
+func TestSafeExternalURLPtr(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  sql.NullString
+		want *string
+	}{
+		{name: "https はそのまま返す", raw: sql.NullString{String: "https://example.com", Valid: true}, want: strPtr("https://example.com")},
+		{name: "javascript: は nil", raw: sql.NullString{String: "javascript:alert(1)", Valid: true}, want: nil},
+		{name: "空文字列は nil", raw: sql.NullString{String: "", Valid: true}, want: nil},
+		{name: "NULL は nil", raw: sql.NullString{}, want: nil},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, safeExternalURLPtr(tt.raw))
+		})
+	}
 }
