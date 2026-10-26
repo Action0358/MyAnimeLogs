@@ -327,9 +327,7 @@ func (s *AnimeService) buildAnimeDetail(animeID int) (*models.AnimeWithUserData,
 	if media.Valid {
 		anime.Media = &media.String
 	}
-	if officialSiteURL.Valid {
-		anime.OfficialSiteURL = &officialSiteURL.String
-	}
+	anime.OfficialSiteURL = safeExternalURLPtr(officialSiteURL)
 	if titleKana.Valid {
 		anime.TitleKana = &titleKana.String
 	}
@@ -774,4 +772,19 @@ func (s *AnimeService) GetFilterOptions() (*models.FilterOptions, error) {
 	}
 
 	return filterOptions, nil
+}
+
+// safeExternalURLPtr は DB の外部URLを、リンク先として安全な場合だけ返す。
+//
+// 保存時（annict.go）にも http/https に絞っているが、それ以前に保存された値に
+// 備えて、返す前にも確かめる。安全でない値や NULL は nil（項目ごと非表示）にする。
+func safeExternalURLPtr(raw sql.NullString) *string {
+	if !raw.Valid {
+		return nil
+	}
+	safeURL := utils.SanitizeExternalURL(raw.String)
+	if safeURL == "" {
+		return nil
+	}
+	return &safeURL
 }

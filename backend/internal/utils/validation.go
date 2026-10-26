@@ -90,3 +90,16 @@ func ValidateURL(urlStr string) error {
 
 	return nil
 }
+
+// SanitizeExternalURL は外部API由来のURLを、リンク先として安全に使える値に絞る。
+//
+// Annict 等の外部データは第三者が編集できるため、javascript: や data: のURLが
+// 混入しうる。そのままフロントの href に入れると、リンクを押した利用者の
+// ブラウザでスクリプトが動く（XSS）。http/https 以外や不正な形式は空文字列を返す。
+func SanitizeExternalURL(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" || ValidateURL(trimmed) != nil {
+		return ""
+	}
+	return trimmed
+}
