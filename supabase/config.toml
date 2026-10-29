@@ -94,12 +94,13 @@ api_url = "http://127.0.0.1"
 # OpenAI API Key to use for Supabase AI in the Supabase Studio.
 openai_api_key = "env(OPENAI_API_KEY)"
 
-# Email testing server (現行 Supabase CLI では Mailpit が起動する: http://localhost:54324)。
-# TOML セクション名 `[inbucket]` は CLI 側の互換キーで変更不可。実体は Mailpit。
+# Email testing server (現行 Supabase CLI では Mailpit が起動する)。
+# ログインは Google のみでメールを送らないため無効化している（#738・#1169）。
+# Supabase 内部の通知メールに使われる可能性があるため、セクションは削除せず無効化にとどめる。
 # Emails sent with the local dev setup are not actually sent - rather, they
 # are monitored, and you can view the emails that would have been sent from the web interface.
 [inbucket]
-enabled = true
+enabled = false
 # Port to use for the email testing server web interface.
 port = 54324
 # Uncomment to expose additional ports for testing user applications that send emails.
@@ -223,13 +224,13 @@ web3 = 30
 
 [auth.email]
 # Allow/disallow new user signups via email to your project.
-enable_signup = true
+# ログインは Google のみ（#738）。メールでの新規登録はローカルでも受け付けない。
+# Google での新規登録は [auth] の enable_signup で許可している。
+enable_signup = false
 # If enabled, a user will be required to confirm any email change on both the old, and new email
 # addresses. If disabled, only the new email is required to confirm.
 double_confirm_changes = true
 # If enabled, users need to confirm their email address before signing in.
-# STG/本番と挙動を合わせるため有効化。確認メールは Mailpit (http://localhost:54324) で確認可能。
-# （TOML セクション名 `[inbucket]` は Supabase CLI 側で固定だが、実際に動くのは Mailpit）
 enable_confirmations = true
 # If enabled, users will need to reauthenticate or have logged in recently to change their password.
 secure_password_change = false
@@ -249,18 +250,6 @@ otp_expiry = 3600
 # pass = "env(SENDGRID_API_KEY)"
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
-
-# ローカル開発用カスタムメールテンプレート。
-# 件名の "【MyAnimeLogs LOCAL】" 接頭辞と本文の "🔧 LOCAL DEVELOPMENT" バナーで
-# 本番/STG のメールと区別できるようにしている。
-# 本番/STG では Supabase ダッシュボードからテンプレを別途設定する想定。
-[auth.email.template.confirmation]
-subject = "【MyAnimeLogs LOCAL】メールアドレスを確認してください"
-content_path = "./supabase/templates/confirmation.html"
-
-[auth.email.template.recovery]
-subject = "【MyAnimeLogs LOCAL】パスワードリセットのご案内"
-content_path = "./supabase/templates/recovery.html"
 
 # Uncomment to customize other email templates (magic_link / invite / email_change / reauthentication)
 # [auth.email.template.invite]

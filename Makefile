@@ -25,7 +25,6 @@ local-supabase-up:
 	@$(MAKE) sync-anon-key
 	@echo ""
 	@echo "Supabase Studio: http://localhost:54323"
-	@echo "Mailpit (mail):  http://localhost:54324"
 
 ## Supabase 停止
 local-supabase-down:
