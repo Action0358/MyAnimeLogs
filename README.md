@@ -225,7 +225,6 @@ http://localhost:3000/login を開き、「Googleでログイン」から同意�
 | Backend API | http://localhost:8080 | Go / Gin API |
 | Supabase API | http://localhost:54321 | Auth / REST / Storage |
 | Supabase Studio | http://localhost:54323 | DB 管理 GUI |
-| Mailpit | http://localhost:54324 | Supabase の送信メール確認（通常は使いません） |
 
 ### 6. 停止
 
