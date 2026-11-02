@@ -261,6 +261,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/WatchStatus"
+        "413":
+          description: リクエスト本文が上限(64KiB)を超えた
     delete:
       summary: 視聴ステータスを削除
       security:

@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"errors"
+	"net/http"
 	"strings"
 
 	"myanimelogs/internal/common"
@@ -181,6 +183,16 @@ func (h *AnimeHandler) UpdateWatchStatus(c *gin.Context) {
 
 	var req models.UserWatchStatusRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		// Content-Length の無いチャンク転送は、読み進めて初めて上限超過が分かる
+		var tooLarge *http.MaxBytesError
+		if errors.As(err, &tooLarge) {
+			c.JSON(http.StatusRequestEntityTooLarge, common.ErrorResponse{
+				Error:   common.ErrMsgRequestTooLarge,
+				Message: common.ErrMsgRequestTooLarge,
+				Code:    common.ErrCodeRequestTooLarge,
+			})
+			return
+		}
 		h.response.ValidationError(c, err.Error())
 		return
 	}
