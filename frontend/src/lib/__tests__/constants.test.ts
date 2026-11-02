@@ -40,8 +40,8 @@ describe('LOGOUT_REDIRECT_PATHS', () => {
     expect(LOGOUT_REDIRECT_PATHS['account-deleted']).toBe('/account-deleted')
   })
 
-  it('通常のログアウトはトップページへ戻す', () => {
-    expect(LOGOUT_REDIRECT_PATHS.manual).toBe('/')
+  it('自分で操作したログアウトでは移動しない', () => {
+    expect(LOGOUT_REDIRECT_PATHS.manual).toBeNull()
   })
 
   it('セッション切れはログイン画面へ理由付きで送る', () => {

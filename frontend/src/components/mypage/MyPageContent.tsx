@@ -74,7 +74,8 @@ export const MyPageContent: React.FC = () => {
     watchStatuses,
     isLoading: watchStatusesLoading,
     error: watchStatusesError,
-  } = useWatchStatus()
+    // ログアウトの瞬間に再取得すると 401 になり、ログイン画面へ送られてしまう
+  } = useWatchStatus({ enabled: isAuthenticated })
 
   const fetchData = useCallback(async () => {
     setIsLoading(true)

@@ -203,3 +203,84 @@ describe('AuthProvider のプロフィール取得', () => {
     })
   })
 })
+
+/**
+ * 自分で操作したログアウトは見ていたページにとどまり、完了をトーストで伝える（#1173）。
+ * タイムアウトとアカウント削除は、これまでどおり理由に応じたページへ移動する。
+ */
+describe('AuthProvider のログアウト', () => {
+  const mockPush = jest.fn()
+
+  const LogoutProbe: React.FC = () => {
+    const { logout, isAuthenticated, isManualLogout } = useAuth()
+    return (
+      <div>
+        <div>{isAuthenticated ? 'authenticated' : 'anonymous'}</div>
+        <div>{isManualLogout ? 'manual-logout' : 'other-logout'}</div>
+        <button onClick={() => logout()}>manual</button>
+        <button onClick={() => logout('timeout')}>timeout</button>
+        <button onClick={() => logout('account-deleted')}>deleted</button>
+      </div>
+    )
+  }
+
+  const renderLoggedIn = async () => {
+    await act(async () => {
+      render(
+        <AuthProvider>
+          <LogoutProbe />
+        </AuthProvider>
+      )
+    })
+    expect(await screen.findByText('authenticated')).toBeInTheDocument()
+  }
+
+  const clickLogout = async (name: string) => {
+    await act(async () => {
+      screen.getByRole('button', { name }).click()
+    })
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    mockUseRouter.mockReturnValue({ push: mockPush, replace: jest.fn() })
+    mockSupabase.auth.getSession.mockResolvedValue({
+      data: { session: { access_token: ACCESS_TOKEN } },
+    })
+    mockSupabase.auth.onAuthStateChange.mockReturnValue({
+      data: { subscription: { unsubscribe: jest.fn() } },
+    })
+    mockSupabase.auth.signOut.mockResolvedValue({ error: null })
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ id: 1, name: 'テストユーザー', email: 'test@example.com' }),
+    })
+    localStorage.clear()
+  })
+
+  it('自分で操作すると移動せず、完了をトーストで伝える', async () => {
+    await renderLoggedIn()
+
+    await clickLogout('manual')
+
+    expect(mockSupabase.auth.signOut).toHaveBeenCalled()
+    expect(screen.getByText('anonymous')).toBeInTheDocument()
+    expect(screen.getByText('manual-logout')).toBeInTheDocument()
+    expect(screen.getByText('ログアウトしました')).toBeInTheDocument()
+    expect(mockPush).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['timeout', '/signin?reason=timeout'],
+    ['deleted', '/account-deleted'],
+  ])('%s では理由に応じたページへ移動し、トーストは出さない', async (name, path) => {
+    await renderLoggedIn()
+
+    await clickLogout(name)
+
+    expect(mockPush).toHaveBeenCalledWith(path)
+    expect(screen.getByText('other-logout')).toBeInTheDocument()
+    expect(screen.queryByText('ログアウトしました')).not.toBeInTheDocument()
+  })
+})
