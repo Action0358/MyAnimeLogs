@@ -41,12 +41,14 @@ export type LogoutReason = 'timeout' | 'unauthorized' | 'manual' | 'account-dele
 export const LOGOUT_REDIRECT_PATHS = {
   timeout: '/signin?reason=timeout',
   unauthorized: '/signin?reason=unauthorized',
-  manual: '/',
+  // 自分で操作したログアウトは、見ていたページにとどまる（null = 移動しない）。
+  // ログイン必須のページからのトップへの移動は ProtectedRoute が担う。
+  manual: null,
   // 削除完了をトップページで伝えるのは難しいため専用ページへ送る。
   // 再ログインすれば新しいアカウントが作られる（データは戻らない）ことを
   // ここで明示しないと、削除できていないように見える。
   'account-deleted': '/account-deleted',
-} as const satisfies Record<LogoutReason, string>
+} as const satisfies Record<LogoutReason, string | null>
 
 // ========================
 // ストレージキー
