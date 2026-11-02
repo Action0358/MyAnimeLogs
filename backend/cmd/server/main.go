@@ -22,6 +22,32 @@ import (
 	"github.com/joho/godotenv"
 )
 
+const (
+	// ヘッダーを少しずつ送って接続を占有する攻撃(Slowloris)を防ぐ
+	serverReadHeaderTimeout = 5 * time.Second
+	// ヘッダーと本文を読み終えるまでの上限。本文は最大でも 64KiB なので短くできる。
+	// 読み終えた後のハンドラーの処理には影響しない。
+	serverReadTimeout = 15 * time.Second
+	// 応答を返し終えるまでの上限。カバー画像の取得は AniList のレート制限
+	// (90 req/分)を待つため、一覧表示でも1分を超えうる。
+	serverWriteTimeout = 120 * time.Second
+	// Fly のプロキシが再利用しようとした接続を先に閉じないよう、長めにとる
+	serverIdleTimeout = 120 * time.Second
+)
+
+// newHTTPServer はタイムアウトを設定した HTTP サーバーを作る。
+// 管理者の同期APIは middleware.ClearWriteDeadline で書き込み期限を外している。
+func newHTTPServer(addr string, handler http.Handler) *http.Server {
+	return &http.Server{
+		Addr:              addr,
+		Handler:           handler,
+		ReadHeaderTimeout: serverReadHeaderTimeout,
+		ReadTimeout:       serverReadTimeout,
+		WriteTimeout:      serverWriteTimeout,
+		IdleTimeout:       serverIdleTimeout,
+	}
+}
+
 // runMigrations executes database migrations using the migrator
 func runMigrations(db *database.DB) error {
 	// Check if migrations directory exists
@@ -160,10 +186,7 @@ func main() {
 	log.Printf("Health check available at /health on port %s", port)
 
 	// Create HTTP server for graceful shutdown
-	srv := &http.Server{
-		Addr:    "0.0.0.0:" + port,
-		Handler: r,
-	}
+	srv := newHTTPServer("0.0.0.0:"+port, r)
 
 	// Setup graceful shutdown
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

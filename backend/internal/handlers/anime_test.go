@@ -9,6 +9,7 @@ import (
 
 	"myanimelogs/internal/common"
 	"myanimelogs/internal/constants"
+	"myanimelogs/internal/middleware"
 	"myanimelogs/internal/mocks"
 	"myanimelogs/internal/models"
 
@@ -113,6 +114,29 @@ func TestAnimeHandler_GetFavorites_Unauthorized(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Contains(t, response, "message")
 	assert.Equal(t, "認証が必要です", response["message"])
+}
+
+func TestAnimeHandler_UpdateWatchStatus_BodyTooLarge(t *testing.T) {
+	handler := setupAnimeHandler()
+
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.Use(middleware.BodyLimitMiddleware(16))
+	router.PUT("/users/me/watch-status/:anime_id", func(c *gin.Context) {
+		c.Set("user_id", 123)
+		handler.UpdateWatchStatus(c)
+	})
+
+	// Content-Length の無いチャンク転送を再現する
+	req, _ := http.NewRequest("PUT", "/users/me/watch-status/1", bytes.NewBuffer([]byte(`{"status":"watching"}`)))
+	req.ContentLength = -1
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusRequestEntityTooLarge, w.Code)
+	assert.Contains(t, w.Body.String(), common.ErrCodeRequestTooLarge)
 }
 
 func TestAnimeHandler_UpdateWatchStatus_InvalidJSON(t *testing.T) {
