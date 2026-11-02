@@ -74,14 +74,6 @@ func (m *MockAnimeService) GetFilterOptions() (*models.FilterOptions, error) {
 	return args.Get(0).(*models.FilterOptions), args.Error(1)
 }
 
-func (m *MockAnimeService) GetPopularSearches(limit int) ([]string, error) {
-	args := m.Called(limit)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]string), args.Error(1)
-}
-
 func (m *MockAnimeService) GetSearchSuggestions(query string, limit int) ([]string, error) {
 	args := m.Called(query, limit)
 	if args.Get(0) == nil {

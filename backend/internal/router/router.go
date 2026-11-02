@@ -78,7 +78,6 @@ func Setup(db *database.DB, cfg *config.Config, syncScheduler handlers.SyncSched
 		api.GET("/search/animes", authOptional, animeHandler.GetAnimes)
 		api.GET("/search/advanced", authOptional, animeHandler.AdvancedSearchAnimes)
 		api.GET("/search/suggestions", animeHandler.GetSearchSuggestions)
-		api.GET("/search/popular", animeHandler.GetPopularSearches)
 
 		// フィルタールート
 		api.GET("/filters", animeHandler.GetFilterOptions)

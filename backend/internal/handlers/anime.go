@@ -283,32 +283,6 @@ func (h *AnimeHandler) GetFilterOptions(c *gin.Context) {
 	h.response.Success(c, filterOptions)
 }
 
-// GetPopularSearches 人気検索キーワード取得API
-func (h *AnimeHandler) GetPopularSearches(c *gin.Context) {
-	limitStr := c.DefaultQuery("limit", "10")
-	limit := utils.ParseLimitQuery(limitStr, 10, 50)
-
-	searches, err := h.animeService.GetPopularSearches(limit)
-	if err != nil {
-		h.logger.Error("Failed to get popular searches", "error", err)
-		// エラーでもデフォルト値を返す
-		// グローバルスライスを変更しないようにコピーを作成
-		defaultSearches := make([]string, len(constants.DefaultPopularSearches))
-		copy(defaultSearches, constants.DefaultPopularSearches)
-		if limit < len(defaultSearches) {
-			defaultSearches = defaultSearches[:limit]
-		}
-		h.response.Success(c, gin.H{
-			"popular_searches": defaultSearches,
-		})
-		return
-	}
-
-	h.response.Success(c, gin.H{
-		"popular_searches": searches,
-	})
-}
-
 // GetSearchSuggestions 検索候補取得API
 func (h *AnimeHandler) GetSearchSuggestions(c *gin.Context) {
 	query := c.Query("q")

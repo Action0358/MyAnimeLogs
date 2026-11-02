@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"myanimelogs/internal/common"
-	"myanimelogs/internal/constants"
 	"myanimelogs/internal/middleware"
 	"myanimelogs/internal/mocks"
 	"myanimelogs/internal/models"
@@ -40,10 +39,6 @@ func setupAnimeHandlerWithMock(mockService *mocks.MockAnimeService) (*AnimeHandl
 // Response structures for type-safe testing
 type searchSuggestionsResponse struct {
 	Suggestions []string `json:"suggestions"`
-}
-
-type popularSearchesResponse struct {
-	PopularSearches []string `json:"popular_searches"`
 }
 
 func TestAnimeHandler_GetAnimes_ValidationError(t *testing.T) {
@@ -391,111 +386,6 @@ func TestAnimeHandler_GetFilterOptions_Success(t *testing.T) {
 				assert.Equal(t, len(tt.mockReturn.Genres), len(response.Genres))
 				assert.Equal(t, len(tt.mockReturn.Years), len(response.Years))
 				assert.Equal(t, len(tt.mockReturn.Seasons), len(response.Seasons))
-			}
-
-			mockService.AssertExpectations(t)
-		})
-	}
-}
-
-func TestAnimeHandler_GetPopularSearches(t *testing.T) {
-	tests := []struct {
-		name              string
-		queryParams       string
-		expectedLimit     int
-		mockReturn        []string
-		mockError         error
-		expectedStatus    int
-		expectEmptyArray  bool
-		expectDefaultData bool
-	}{
-		{
-			name:           "デフォルトのlimit",
-			queryParams:    "",
-			expectedLimit:  10,
-			mockReturn:     []string{"進撃の巨人", "鬼滅の刃", "呪術廻戦"},
-			mockError:      nil,
-			expectedStatus: http.StatusOK,
-		},
-		{
-			name:           "limit指定",
-			queryParams:    "limit=5",
-			expectedLimit:  5,
-			mockReturn:     []string{"アニメ1", "アニメ2", "アニメ3", "アニメ4", "アニメ5"},
-			mockError:      nil,
-			expectedStatus: http.StatusOK,
-		},
-		{
-			name:             "空の結果",
-			queryParams:      "",
-			expectedLimit:    10,
-			mockReturn:       []string{},
-			mockError:        nil,
-			expectedStatus:   http.StatusOK,
-			expectEmptyArray: true,
-		},
-		{
-			name:           "無効なlimit（デフォルト値にフォールバック）",
-			queryParams:    "limit=abc",
-			expectedLimit:  10,
-			mockReturn:     []string{"test1", "test2"},
-			mockError:      nil,
-			expectedStatus: http.StatusOK,
-		},
-		{
-			name:              "サービスエラー時のnil戻り値（デフォルト値を返す）",
-			queryParams:       "",
-			expectedLimit:     10,
-			mockReturn:        nil,
-			mockError:         assert.AnError,
-			expectedStatus:    http.StatusOK,
-			expectDefaultData: true,
-		},
-		{
-			name:              "サービスエラー時のlimit指定",
-			queryParams:       "limit=3",
-			expectedLimit:     3,
-			mockReturn:        nil,
-			mockError:         assert.AnError,
-			expectedStatus:    http.StatusOK,
-			expectDefaultData: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mockService := new(mocks.MockAnimeService)
-			mockService.On("GetPopularSearches", tt.expectedLimit).Return(tt.mockReturn, tt.mockError)
-
-			handler, router := setupAnimeHandlerWithMock(mockService)
-			router.GET("/search/popular", handler.GetPopularSearches)
-
-			req, _ := http.NewRequest("GET", "/search/popular?"+tt.queryParams, nil)
-			w := httptest.NewRecorder()
-
-			router.ServeHTTP(w, req)
-
-			assert.Equal(t, tt.expectedStatus, w.Code)
-
-			var response popularSearchesResponse
-			err := json.Unmarshal(w.Body.Bytes(), &response)
-			assert.NoError(t, err)
-
-			if tt.expectEmptyArray {
-				assert.Equal(t, 0, len(response.PopularSearches))
-			} else if tt.expectDefaultData {
-				// デフォルト値が返されることを確認
-				expectedLen := len(constants.DefaultPopularSearches)
-				if tt.expectedLimit < expectedLen {
-					expectedLen = tt.expectedLimit
-				}
-				assert.Equal(t, expectedLen, len(response.PopularSearches))
-				// デフォルト値の内容を検証
-				for i, search := range response.PopularSearches {
-					assert.Equal(t, constants.DefaultPopularSearches[i], search)
-				}
-			} else {
-				assert.Equal(t, len(tt.mockReturn), len(response.PopularSearches))
 			}
 
 			mockService.AssertExpectations(t)

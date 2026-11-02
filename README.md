@@ -300,9 +300,8 @@ cd frontend && npm run generate:api   # OpenAPI からクライアントを生�
 <tr><td><code>GET /api/animes/current</code></td><td>今期アニメ</td><td>—</td></tr>
 <tr><td><code>GET /api/animes/popular</code></td><td>人気アニメ</td><td>—</td></tr>
 <tr><td><code>GET /api/filters</code></td><td>絞り込み条件の選択肢</td><td>—</td></tr>
-<tr><td rowspan="4">検索</td><td><code>GET /api/search/advanced</code></td><td>詳細検索</td><td>任意</td></tr>
+<tr><td rowspan="3">検索</td><td><code>GET /api/search/advanced</code></td><td>詳細検索</td><td>任意</td></tr>
 <tr><td><code>GET /api/search/suggestions</code></td><td>入力サジェスト</td><td>—</td></tr>
-<tr><td><code>GET /api/search/popular</code></td><td>人気の検索語</td><td>—</td></tr>
 <tr><td><code>GET · DELETE /api/search/history</code></td><td>検索履歴の取得・削除</td><td>必須</td></tr>
 <tr><td rowspan="2">ユーザー</td><td><code>GET /api/users/me</code></td><td>プロフィール取得</td><td>必須</td></tr>
 <tr><td><code>DELETE /api/users/me</code></td><td>アカウントの完全削除</td><td>必須</td></tr>
