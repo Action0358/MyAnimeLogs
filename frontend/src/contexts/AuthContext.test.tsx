@@ -282,4 +282,56 @@ describe('AuthProvider のログアウト', () => {
     expect(mockPush).toHaveBeenCalledWith(path)
     expect(screen.getByText('other-logout')).toBeInTheDocument()
   })
+
+  /**
+   * タブへの復帰などで始まったプロフィール取得が、ログアウト後に完了する競合（#1191）。
+   * 古い結果を反映すると、ユーザーが状態に戻り、手動ログアウトの印も消えて
+   * ProtectedRoute がトップではなく /signin へ送ってしまう。
+   */
+  it('ログアウト前に始まったプロフィール取得の結果は反映しない', async () => {
+    let emit: (event: string, session: unknown) => Promise<void> = async () => {}
+    mockSupabase.auth.onAuthStateChange.mockImplementation((callback) => {
+      emit = callback
+      return { data: { subscription: { unsubscribe: jest.fn() } } }
+    })
+    const UserProbe: React.FC = () => {
+      const { user } = useAuth()
+      return <div>{user ? 'has-user' : 'no-user'}</div>
+    }
+    await act(async () => {
+      render(
+        <AuthProvider>
+          <LogoutProbe />
+          <UserProbe />
+        </AuthProvider>
+      )
+    })
+    expect(await screen.findByText('authenticated')).toBeInTheDocument()
+
+    let finishProfile: (response: unknown) => void = () => {}
+    ;(global.fetch as jest.Mock).mockImplementationOnce(
+      () => new Promise((resolve) => (finishProfile = resolve))
+    )
+    let pendingSync: Promise<void> = Promise.resolve()
+    await act(async () => {
+      pendingSync = emit('SIGNED_IN', { access_token: ACCESS_TOKEN })
+    })
+    mockSupabase.auth.signOut.mockImplementation(async () => {
+      await emit('SIGNED_OUT', null)
+      return { error: null }
+    })
+
+    await clickLogout('manual')
+    await act(async () => {
+      finishProfile({
+        ok: true,
+        status: 200,
+        json: async () => ({ id: 1, name: 'テストユーザー', email: 'test@example.com' }),
+      })
+      await pendingSync
+    })
+
+    expect(screen.getByText('no-user')).toBeInTheDocument()
+    expect(screen.getByText('manual-logout')).toBeInTheDocument()
+  })
 })
