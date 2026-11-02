@@ -18,7 +18,7 @@ interface MobileNavProps {
    * 渡さないと、開いている状態でトグルを押したときに mousedown で閉じた直後
    * click でまた開き、ボタンを押しても閉じないように見える。
    */
-  triggerRef?: React.RefObject<HTMLElement>
+  triggerRef?: React.RefObject<HTMLElement | null>
 }
 
 /** セクションの見出しラベル。単なる区切り線より、group の意味が伝わる */

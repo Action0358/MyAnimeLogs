@@ -1,14 +1,11 @@
-const { fixupPluginRules } = require('@eslint/compat')
 const globals = require('globals')
 const tseslint = require('typescript-eslint')
 const nextPlugin = require('@next/eslint-plugin-next')
 const reactHooks = require('eslint-plugin-react-hooks')
 const prettierRecommended = require('eslint-plugin-prettier/recommended')
 
-// Next 14 系のプラグインは configs が旧形式（plugins: ['@next/next']）のため、
+// Next のプラグインは configs が旧形式（plugins: ['@next/next']）のため、
 // flat config には plugins とルールを取り出して組み立てる。
-// また ESLint 9 で廃止された API（context.getAncestors など）を使うため、
-// fixupPluginRules で包む。Next 15 へ上げたら外せる。
 module.exports = tseslint.config(
   {
     ignores: [
@@ -32,7 +29,7 @@ module.exports = tseslint.config(
     },
     plugins: {
       '@typescript-eslint': tseslint.plugin,
-      '@next/next': fixupPluginRules(nextPlugin),
+      '@next/next': nextPlugin,
       'react-hooks': reactHooks,
     },
     rules: {

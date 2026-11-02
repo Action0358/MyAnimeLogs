@@ -17,8 +17,8 @@ describe('お知らせ詳細ページ', () => {
     expect(generateStaticParams()).toEqual(ANNOUNCEMENTS.map((a) => ({ id: a.id })))
   })
 
-  it('日付・カテゴリ・タイトル・本文を出し、一覧への戻りリンクを1つだけ置く', () => {
-    render(<NewsDetailPage params={{ id: known.id }} />)
+  it('日付・カテゴリ・タイトル・本文を出し、一覧への戻りリンクを1つだけ置く', async () => {
+    render(await NewsDetailPage({ params: Promise.resolve({ id: known.id }) }))
 
     expect(screen.getByRole('heading', { level: 1, name: known.title })).toBeInTheDocument()
     expect(screen.getByText(known.body)).toBeInTheDocument()
@@ -27,13 +27,14 @@ describe('お知らせ詳細ページ', () => {
     expect(screen.getAllByRole('link')).toHaveLength(1)
   })
 
-  it('存在しないIDは404', () => {
-    expect(() => render(<NewsDetailPage params={{ id: 'unknown' }} />)).toThrow('NEXT_NOT_FOUND')
+  it('存在しないIDは404', async () => {
+    await expect(NewsDetailPage({ params: Promise.resolve({ id: 'unknown' }) })).rejects.toThrow(
+      'NEXT_NOT_FOUND'
+    )
   })
 
-  it('titleは「記事タイトル | お知らせ | MyAnimeLogs」', () => {
-    expect(generateMetadata({ params: { id: known.id } }).title).toBe(
-      `${known.title} | お知らせ | MyAnimeLogs`
-    )
+  it('titleは「記事タイトル | お知らせ | MyAnimeLogs」', async () => {
+    const metadata = await generateMetadata({ params: Promise.resolve({ id: known.id }) })
+    expect(metadata.title).toBe(`${known.title} | お知らせ | MyAnimeLogs`)
   })
 })
