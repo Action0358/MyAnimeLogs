@@ -7,6 +7,8 @@ import { useRouter } from 'next/navigation'
 import { supabase, initialUrlHadCode } from '@/lib/supabase'
 import { storage } from '@/lib/utils'
 import { ApiClientError, setUnauthorizedHandler, setRefreshTokenHandler } from '@/lib/api/client'
+import { useToast } from '@/hooks/useToast'
+import { ToastContainer } from '@/components/ui/Toast'
 import {
   INACTIVITY_TIMEOUT,
   STORAGE_KEYS,
@@ -81,6 +83,8 @@ interface AuthContextType {
    */
   loginWithGoogle: () => Promise<void>
   logout: (reason?: LogoutReason) => void
+  /** 自分で操作してログアウトした直後か。次にログインするまで true のまま */
+  isManualLogout: boolean
   updateUser: (userData: User) => void
   isLoading: boolean
   isAuthenticated: boolean
@@ -104,6 +108,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [token, setToken] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [lastActivityTime, setLastActivityTime] = useState<number>(0)
+  const [isManualLogout, setIsManualLogout] = useState(false)
+  const { toasts, success: showSuccessToast, removeToast } = useToast()
   const router = useRouter()
 
   const getLastActivityFromStorage = useCallback((): number => {
@@ -170,6 +176,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const result = await fetchUserProfile(accessToken)
       if (result.status === 'ok') {
         setUser(result.user)
+        setIsManualLogout(false)
         return
       }
 
@@ -298,14 +305,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = useCallback(
     async (reason: LogoutReason = 'manual') => {
+      // signOut の完了前に SIGNED_OUT でユーザーが消え、ProtectedRoute が転送先を
+      // 判断し始めるため、先に立てておく
+      setIsManualLogout(reason === 'manual')
       await supabase.auth.signOut()
       clearToken()
       storage.remove(STORAGE_KEYS.LAST_ACTIVITY_TIMESTAMP)
       setUser(null)
       setToken(null)
-      router.push(LOGOUT_REDIRECT_PATHS[reason])
+      const redirectPath = LOGOUT_REDIRECT_PATHS[reason]
+      if (redirectPath) {
+        router.push(redirectPath)
+      } else {
+        // 画面が移動しないため、完了したことをここで伝える
+        showSuccessToast('ログアウトしました')
+      }
     },
-    [router]
+    [router, showSuccessToast]
   )
 
   const updateUser = useCallback((userData: User) => {
@@ -398,6 +414,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         token,
         loginWithGoogle,
         logout,
+        isManualLogout,
         updateUser,
         isLoading,
         isAuthenticated: !!user && !!token,
@@ -406,6 +423,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }}
     >
       {children}
+      <ToastContainer toasts={toasts} onClose={removeToast} />
     </AuthContext.Provider>
   )
 }

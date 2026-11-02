@@ -40,6 +40,8 @@ func Setup(db *database.DB, cfg *config.Config, syncScheduler handlers.SyncSched
 
 	rateLimiter := middleware.NewRateLimiter(cfg.RateLimitPerMinute, time.Minute)
 	r.Use(middleware.RateLimitMiddleware(rateLimiter))
+	// CORS の後ろに置く。413 でもブラウザが本文を読めるよう CORS ヘッダーを付けるため
+	r.Use(middleware.BodyLimitMiddleware(middleware.MaxRequestBodyBytes))
 
 	animeService := services.NewAnimeService(db, logger)
 	// service_role キー未設定の環境でも起動は妨げない。
@@ -94,7 +96,8 @@ func Setup(db *database.DB, cfg *config.Config, syncScheduler handlers.SyncSched
 
 		// 管理者ルート（認証 + 管理者ロール必須）
 		admin := api.Group("/admin")
-		admin.Use(authRequired, middleware.RequireAdmin())
+		// 同期APIは応答まで長時間かかるため、管理者と確認できた後でだけ書き込み期限を外す
+		admin.Use(authRequired, middleware.RequireAdmin(), middleware.ClearWriteDeadline())
 		{
 			admin.POST("/sync/season", annictHandler.SyncWorksBySeason)
 			admin.POST("/sync/popular", annictHandler.SyncPopularWorks)

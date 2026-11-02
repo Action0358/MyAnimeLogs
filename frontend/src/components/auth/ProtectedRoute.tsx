@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Route } from 'next'
 import { useAuth } from '@/contexts/AuthContext'
@@ -13,13 +13,21 @@ interface ProtectedRouteProps {
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, redirectTo }) => {
-  const { isAuthenticated, isLoading } = useAuth()
+  const { isAuthenticated, isLoading, isManualLogout } = useAuth()
   const router = useRouter()
   const [shouldRender, setShouldRender] = useState(false)
+  // このページを開いたままログアウトしたかを見分ける。ログアウト後にブラウザの
+  // 「戻る」でログイン必須のページへ来た場合は、通常どおりログイン画面へ送る
+  const wasAuthenticated = useRef(false)
 
   useEffect(() => {
     if (!isLoading) {
       if (!isAuthenticated) {
+        // 自分でログアウトした場合は、ログインを促さずトップへ移す（履歴を残さない）
+        if (wasAuthenticated.current && isManualLogout) {
+          router.replace('/')
+          return
+        }
         // 認証されていない場合は即座にリダイレクト（履歴を残さない）
         // redirectTo は呼び出し側が渡す任意のパスで、typedRoutes の Route 型には収まらない
         const target =
@@ -30,10 +38,11 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, redire
         router.replace(target as Route)
       } else {
         // 認証されている場合のみレンダリングを許可
+        wasAuthenticated.current = true
         setShouldRender(true)
       }
     }
-  }, [isAuthenticated, isLoading, router, redirectTo])
+  }, [isAuthenticated, isLoading, isManualLogout, router, redirectTo])
 
   // ローディング中またはレンダリング準備ができていない場合はローディング画面を表示
   if (isLoading || !shouldRender) {
