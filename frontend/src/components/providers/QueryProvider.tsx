@@ -6,6 +6,7 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import axios from 'axios'
 import { storage } from '@/lib/utils'
 import { STORAGE_KEYS } from '@/lib/constants'
+import { useAuth } from '@/contexts/AuthContext'
 
 // axiosのデフォルト設定
 // バックエンドAPIは /api プレフィックスを使用
@@ -43,6 +44,17 @@ const queryClient = new QueryClient({
 })
 
 const QueryProvider: React.FC<QueryProviderProps> = ({ children }) => {
+  const { isAuthenticated } = useAuth()
+
+  // ログアウト後も同じページにとどまるため、そのユーザーのデータを残さない。
+  // 作品一覧など公開データまで消すと、表示中のページが再取得でちらつくので対象外
+  useEffect(() => {
+    if (isAuthenticated) return
+    queryClient.removeQueries({
+      predicate: (query) => String(query.queryKey[0]).startsWith('/users/me'),
+    })
+  }, [isAuthenticated])
+
   return (
     <QueryClientProvider client={queryClient}>
       {children}

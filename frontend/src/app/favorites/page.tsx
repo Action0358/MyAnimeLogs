@@ -6,6 +6,7 @@ import type { Route } from 'next'
 import { Heart } from 'lucide-react'
 import { Container } from '@/components/layout'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
+import { useAuth } from '@/contexts/AuthContext'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { ErrorState, getErrorStateType } from '@/components/ui/ErrorState'
 import { ExpandToggleButton } from '@/components/ui/ExpandToggleButton'
@@ -30,7 +31,9 @@ const filterValidFavorites = (favorites: FavoriteAnime[]): (FavoriteAnime & { id
 const FavoritesContent: React.FC = () => {
   const router = useRouter()
   // 解除は視聴ステータスと同様に詳細ページで行うため、一覧では取得のみ
-  const { favorites, isLoading, error } = useFavorites()
+  // ログアウトの瞬間に再取得すると 401 になり、ログイン画面へ送られてしまう
+  const { isAuthenticated } = useAuth()
+  const { favorites, isLoading, error } = useFavorites({ enabled: isAuthenticated })
 
   const validFavorites = useMemo(() => filterValidFavorites(favorites), [favorites])
   const { initialCount, oneRowAtWidest } = useResponsiveInitialCount(
