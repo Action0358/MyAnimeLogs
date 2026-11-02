@@ -39,6 +39,10 @@ const buildConfig = () => {
   const isProduction = process.env.NODE_ENV === 'production'
 
   const config = {
+    // リポジトリ直下にも package-lock.json（Supabase CLI 用）があり、Next が
+    // そちらをルートと推測して警告を出すため明示する
+    outputFileTracingRoot: __dirname,
+
     // 開発環境でのホットリロード最適化
     webpack: (config, { dev, isServer }) => {
       if (dev && !isServer) {
@@ -128,8 +132,8 @@ const buildConfig = () => {
   if (isDevelopment) {
     config.experimental = {
       optimizeCss: false,
-      typedRoutes: true,
     }
+    config.typedRoutes = true
 
     // 開発環境でもセキュアなCSPを適用
     config.headers = async () => [
