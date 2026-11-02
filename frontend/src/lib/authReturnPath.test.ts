@@ -61,6 +61,29 @@ describe('buildSignInHref', () => {
     expect(buildSignInHref('/')).toBe('/signin')
     expect(buildSignInHref('//evil.example.com')).toBe('/signin')
   })
+
+  // ログイン画面のヘッダーの「ログイン」を押しても戻り先を失わない（#1191）
+  it.each([
+    '/signin?next=%2Fmypage%2F',
+    '/signin/?next=%2Fmypage%2F',
+    '/signin/?next=%2Fmypage%2F#x',
+  ])('%s からは持っている戻り先を引き継ぐ', (path) => {
+    expect(buildSignInHref(path)).toBe('/signin?next=%2Fmypage%2F')
+  })
+
+  it('/signin に戻り先がなければ素の /signin', () => {
+    expect(buildSignInHref('/signin/')).toBe('/signin')
+  })
+
+  it('/signin が持つ外部サイトの戻り先は引き継がない', () => {
+    expect(buildSignInHref('/signin/?next=%2F%2Fevil.example.com')).toBe('/signin')
+  })
+
+  it('ほかのページのクエリの next は戻り先として読まない', () => {
+    expect(buildSignInHref('/search?next=%2Fmypage')).toBe(
+      '/signin?next=%2Fsearch%3Fnext%3D%252Fmypage'
+    )
+  })
 })
 
 describe('saveReturnPath / consumeReturnPath', () => {
