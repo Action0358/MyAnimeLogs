@@ -7,8 +7,6 @@ import { useRouter } from 'next/navigation'
 import { supabase, initialUrlHadCode } from '@/lib/supabase'
 import { storage } from '@/lib/utils'
 import { ApiClientError, setUnauthorizedHandler, setRefreshTokenHandler } from '@/lib/api/client'
-import { useToast } from '@/hooks/useToast'
-import { ToastContainer } from '@/components/ui/Toast'
 import {
   INACTIVITY_TIMEOUT,
   STORAGE_KEYS,
@@ -109,7 +107,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true)
   const [lastActivityTime, setLastActivityTime] = useState<number>(0)
   const [isManualLogout, setIsManualLogout] = useState(false)
-  const { toasts, success: showSuccessToast, removeToast } = useToast()
   const router = useRouter()
 
   const getLastActivityFromStorage = useCallback((): number => {
@@ -316,12 +313,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const redirectPath = LOGOUT_REDIRECT_PATHS[reason]
       if (redirectPath) {
         router.push(redirectPath)
-      } else {
-        // 画面が移動しないため、完了したことをここで伝える
-        showSuccessToast('ログアウトしました')
       }
     },
-    [router, showSuccessToast]
+    [router]
   )
 
   const updateUser = useCallback((userData: User) => {
@@ -423,7 +417,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }}
     >
       {children}
-      <ToastContainer toasts={toasts} onClose={removeToast} />
     </AuthContext.Provider>
   )
 }
