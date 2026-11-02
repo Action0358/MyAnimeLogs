@@ -615,17 +615,6 @@ export type GetSearchSuggestions200 = {
   suggestions?: string[];
 };
 
-export type GetSearchPopularParams = {
-/**
- * 取得件数
- */
-limit?: number;
-};
-
-export type GetSearchPopular200 = {
-  popular_searches?: string[];
-};
-
 export type GetSearchHistoryParams = {
 /**
  * 取得件数（最大50件）
@@ -1829,94 +1818,6 @@ export function useGetSearchSuggestions<TData = Awaited<ReturnType<typeof getSea
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
 
   const queryOptions = getGetSearchSuggestionsQueryOptions(params,options)
-
-  const query = useQuery(queryOptions , queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
-
-  query.queryKey = queryOptions.queryKey ;
-
-  return query;
-}
-
-
-
-
-/**
- * @summary 人気検索キーワードを取得
- */
-export const getSearchPopular = (
-    params?: GetSearchPopularParams, options?: AxiosRequestConfig
- ): Promise<AxiosResponse<GetSearchPopular200>> => {
-    
-    
-    return axios.get(
-      `/search/popular`,{
-    ...options,
-        params: {...params, ...options?.params},}
-    );
-  }
-
-
-export const getGetSearchPopularQueryKey = (params?: GetSearchPopularParams,) => {
-    return [`/search/popular`, ...(params ? [params]: [])] as const;
-    }
-
-    
-export const getGetSearchPopularQueryOptions = <TData = Awaited<ReturnType<typeof getSearchPopular>>, TError = AxiosError<unknown>>(params?: GetSearchPopularParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSearchPopular>>, TError, TData>>, axios?: AxiosRequestConfig}
-) => {
-
-const {query: queryOptions, axios: axiosOptions} = options ?? {};
-
-  const queryKey =  queryOptions?.queryKey ?? getGetSearchPopularQueryKey(params);
-
-  
-
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSearchPopular>>> = ({ signal }) => getSearchPopular(params, { signal, ...axiosOptions });
-
-      
-
-      
-
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSearchPopular>>, TError, TData> & { queryKey: DataTag<QueryKey, TData> }
-}
-
-export type GetSearchPopularQueryResult = NonNullable<Awaited<ReturnType<typeof getSearchPopular>>>
-export type GetSearchPopularQueryError = AxiosError<unknown>
-
-
-export function useGetSearchPopular<TData = Awaited<ReturnType<typeof getSearchPopular>>, TError = AxiosError<unknown>>(
- params: undefined |  GetSearchPopularParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSearchPopular>>, TError, TData>> & Pick<
-        DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getSearchPopular>>,
-          TError,
-          Awaited<ReturnType<typeof getSearchPopular>>
-        > , 'initialData'
-      >, axios?: AxiosRequestConfig}
- , queryClient?: QueryClient
-  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-export function useGetSearchPopular<TData = Awaited<ReturnType<typeof getSearchPopular>>, TError = AxiosError<unknown>>(
- params?: GetSearchPopularParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSearchPopular>>, TError, TData>> & Pick<
-        UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof getSearchPopular>>,
-          TError,
-          Awaited<ReturnType<typeof getSearchPopular>>
-        > , 'initialData'
-      >, axios?: AxiosRequestConfig}
- , queryClient?: QueryClient
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-export function useGetSearchPopular<TData = Awaited<ReturnType<typeof getSearchPopular>>, TError = AxiosError<unknown>>(
- params?: GetSearchPopularParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSearchPopular>>, TError, TData>>, axios?: AxiosRequestConfig}
- , queryClient?: QueryClient
-  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> }
-/**
- * @summary 人気検索キーワードを取得
- */
-
-export function useGetSearchPopular<TData = Awaited<ReturnType<typeof getSearchPopular>>, TError = AxiosError<unknown>>(
- params?: GetSearchPopularParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getSearchPopular>>, TError, TData>>, axios?: AxiosRequestConfig}
- , queryClient?: QueryClient 
- ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> } {
-
-  const queryOptions = getGetSearchPopularQueryOptions(params,options)
 
   const query = useQuery(queryOptions , queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData> };
 

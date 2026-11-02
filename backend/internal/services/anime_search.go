@@ -1,10 +1,8 @@
 package services
 
 import (
-	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"myanimelogs/internal/constants"
 	"myanimelogs/internal/models"
@@ -363,114 +361,6 @@ func (s *AnimeService) AdvancedSearchAnimes(params models.AdvancedSearchParams, 
 	}
 
 	return response, nil
-}
-
-// GetPopularSearches - 人気検索キーワードを取得
-func (s *AnimeService) GetPopularSearches(limit int) ([]string, error) {
-	if limit <= 0 {
-		limit = 10
-	}
-
-	// キャッシュキーを生成
-	cacheKey := fmt.Sprintf("%s%d", constants.CacheKeyPopularSearches, limit)
-
-	// Redisキャッシュから取得を試みる
-	if s.redisCache != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		defer cancel()
-
-		var cachedSearches []string
-		if found, err := s.redisCache.Get(ctx, cacheKey, &cachedSearches); found && err == nil {
-			s.logger.Debug("Redis cache hit for popular searches", "limit", limit)
-			// Redisから取得したデータでメモリキャッシュも更新（後続リクエストの高速化）
-			if cacheErr := s.cache.SetWithTTL(cacheKey, cachedSearches, constants.PopularSearchesCacheTTL); cacheErr != nil {
-				s.logger.Warn("Failed to update memory cache from Redis for popular searches", "error", cacheErr)
-			}
-			return cachedSearches, nil
-		}
-	}
-
-	// メモリキャッシュから取得を試みる
-	var cachedSearches []string
-	if found, err := s.cache.Get(cacheKey, &cachedSearches); found && err == nil {
-		s.logger.Debug("Memory cache hit for popular searches", "limit", limit)
-		return cachedSearches, nil
-	}
-
-	// まず検索ログが存在するかチェック
-	var logCount int
-	err := s.db.QueryRow("SELECT COUNT(*) FROM search_logs").Scan(&logCount)
-	if err != nil {
-		s.logger.Error("Failed to count search logs", "error", err)
-		return []string{}, nil
-	}
-
-	// ログが少ない場合は期間を拡張
-	intervalDays := 30
-	if logCount < 10 {
-		intervalDays = 365 // 1年に拡張
-	}
-
-	rows, err := s.db.Query(`
-		SELECT query, COUNT(*) as search_count
-		FROM search_logs
-		WHERE query IS NOT NULL 
-		  AND query != '' 
-		  AND LENGTH(TRIM(query)) > 0
-		  AND searched_at > CURRENT_TIMESTAMP - ($1 || ' days')::INTERVAL
-		GROUP BY query
-		ORDER BY search_count DESC, query ASC
-		LIMIT $2
-	`, intervalDays, limit)
-	if err != nil {
-		s.logger.Error("Failed to get popular searches", "error", err, "limit", limit)
-		return []string{}, nil // エラーでも空配列を返す
-	}
-	defer rows.Close()
-
-	searches := []string{}
-	for rows.Next() {
-		var query string
-		var count int
-		err := rows.Scan(&query, &count)
-		if err != nil {
-			s.logger.Error("Failed to scan popular search", "error", err)
-			continue
-		}
-		// 空文字列やnullをスキップ
-		if strings.TrimSpace(query) != "" {
-			searches = append(searches, query)
-		}
-	}
-
-	// 検索ログが少ない場合はデフォルトの人気検索を返す
-	if len(searches) == 0 {
-		// グローバルスライスを変更しないようにコピーを作成
-		searches = make([]string, len(constants.DefaultPopularSearches))
-		copy(searches, constants.DefaultPopularSearches)
-		if limit < len(searches) {
-			searches = searches[:limit]
-		}
-	}
-
-	// Redisキャッシュに保存
-	if s.redisCache != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		defer cancel()
-
-		if err := s.redisCache.Set(ctx, cacheKey, searches, constants.PopularSearchesCacheTTL); err != nil {
-			s.logger.Warn("Failed to cache popular searches in Redis", "error", err)
-		} else {
-			s.logger.Debug("Cached popular searches in Redis", "limit", limit)
-		}
-	}
-
-	// メモリキャッシュにも保存
-	if err := s.cache.SetWithTTL(cacheKey, searches, constants.PopularSearchesCacheTTL); err != nil {
-		s.logger.Warn("Failed to cache popular searches in memory", "error", err)
-	}
-
-	return searches, nil
 }
 
 // GetSearchSuggestions - 検索候補を取得
