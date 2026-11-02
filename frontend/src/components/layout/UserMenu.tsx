@@ -16,7 +16,7 @@ interface UserMenuProps {
    * 渡さないと、開いている状態でアイコンを押したときに mousedown で閉じた直後
    * click でまた開き、アイコンを押しても閉じないように見える。
    */
-  triggerRef?: React.RefObject<HTMLElement>
+  triggerRef?: React.RefObject<HTMLElement | null>
 }
 
 export const UserMenu: React.FC<UserMenuProps> = ({ isOpen, onClose, triggerRef }) => {

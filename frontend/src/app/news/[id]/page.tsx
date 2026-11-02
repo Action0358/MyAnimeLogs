@@ -10,10 +10,11 @@ export const dynamicParams = false
 
 export const generateStaticParams = () => ANNOUNCEMENTS.map((a) => ({ id: a.id }))
 
-type Props = { params: { id: string } }
+type Props = { params: Promise<{ id: string }> }
 
-export const generateMetadata = ({ params }: Props): Metadata => {
-  const announcement = getAnnouncementById(params.id)
+export const generateMetadata = async ({ params }: Props): Promise<Metadata> => {
+  const { id } = await params
+  const announcement = getAnnouncementById(id)
   if (!announcement) return { title: 'お知らせ | MyAnimeLogs' }
   return {
     title: `${announcement.title} | お知らせ | MyAnimeLogs`,
@@ -25,8 +26,9 @@ export const generateMetadata = ({ params }: Props): Metadata => {
  * お知らせの詳細（#1111）。データはリポジトリの定数なので全件を静的生成する。
  * 一覧と同じ共通コンテナ・760px読み幅列に置く。
  */
-const NewsDetailPage: React.FC<Props> = ({ params }) => {
-  const announcement = getAnnouncementById(params.id)
+const NewsDetailPage = async ({ params }: Props): Promise<React.JSX.Element> => {
+  const { id } = await params
+  const announcement = getAnnouncementById(id)
   if (!announcement) notFound()
 
   return (
