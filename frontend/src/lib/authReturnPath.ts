@@ -31,9 +31,20 @@ export const sanitizeReturnPath = (raw: string | null | undefined): string | nul
   return raw
 }
 
+/**
+ * /signin 自身のURLなら、それが持っている戻り先を返す。ログイン画面のヘッダーにも
+ * ログインリンクがあり、押すと戻り先を失ってトップへ戻されてしまうため引き継ぐ。
+ */
+const carryOverSignInNext = (path: string | null | undefined): string | null | undefined => {
+  if (!path) return path
+  const [pathname, query = ''] = path.split('#')[0].split('?')
+  if (pathname.replace(/\/$/, '') !== '/signin') return path
+  return new URLSearchParams(query).get('next')
+}
+
 /** 戻り先つきの /signin のURL。戻り先が無効ならクエリを付けない */
 export const buildSignInHref = (returnPath: string | null | undefined): string => {
-  const safe = sanitizeReturnPath(returnPath)
+  const safe = sanitizeReturnPath(carryOverSignInNext(returnPath))
   return safe ? `/signin?next=${encodeURIComponent(safe)}` : '/signin'
 }
 
