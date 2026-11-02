@@ -2,7 +2,7 @@
 
 import { reportMaintenanceIfNeeded } from '@/lib/maintenance/detection'
 import { getMaintenanceState } from '@/lib/maintenance/maintenanceStore'
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase, initialUrlHadCode } from '@/lib/supabase'
 import { storage } from '@/lib/utils'
@@ -107,6 +107,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true)
   const [lastActivityTime, setLastActivityTime] = useState<number>(0)
   const [isManualLogout, setIsManualLogout] = useState(false)
+  // ログアウトのたびに増やす。プロフィール取得中にログアウトされたら、完了した古い結果で
+  // ユーザーを戻したり手動ログアウトの印を消したりしないよう、取得の前後で比べる
+  const signOutCount = useRef(0)
   const router = useRouter()
 
   const getLastActivityFromStorage = useCallback((): number => {
@@ -162,6 +165,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const syncSession = useCallback(
     async (accessToken: string | null) => {
       if (!accessToken) {
+        signOutCount.current += 1
         setToken(null)
         setUser(null)
         clearToken()
@@ -170,7 +174,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       storeToken(accessToken)
       setToken(accessToken)
 
+      const signOutCountAtStart = signOutCount.current
       const result = await fetchUserProfile(accessToken)
+      if (signOutCount.current !== signOutCountAtStart) return
+
       if (result.status === 'ok') {
         setUser(result.user)
         setIsManualLogout(false)
@@ -217,6 +224,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const clearAuthData = useCallback(
     (redirectToLogin = true) => {
+      signOutCount.current += 1
       setUser(null)
       setToken(null)
       clearToken()
@@ -305,6 +313,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // signOut の完了前に SIGNED_OUT でユーザーが消え、ProtectedRoute が転送先を
       // 判断し始めるため、先に立てておく
       setIsManualLogout(reason === 'manual')
+      signOutCount.current += 1
       await supabase.auth.signOut()
       clearToken()
       storage.remove(STORAGE_KEYS.LAST_ACTIVITY_TIMESTAMP)
