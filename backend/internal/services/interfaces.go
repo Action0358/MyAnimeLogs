@@ -36,7 +36,6 @@ type AnimeServiceInterface interface {
 	UpdateWatchStatus(userID, animeID int, status string) (*models.UserWatchStatus, error)
 	DeleteWatchStatus(userID, animeID int) error
 	GetFilterOptions() (*models.FilterOptions, error)
-	GetPopularSearches(limit int) ([]string, error)
 	GetSearchSuggestions(query string, limit int) ([]string, error)
 	GetCurrentSeasonAnimes(limit int, random bool) ([]models.Anime, error)
 	GetPopularAnimes(limit int, random bool) ([]models.Anime, error)
