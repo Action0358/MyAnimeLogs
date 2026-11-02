@@ -245,12 +245,6 @@ GET {{baseUrl}}/api/filters
 ### 43. 検索候補取得
 GET {{baseUrl}}/api/search/suggestions?q=進撃
 
-### 44. 人気検索キーワード取得
-GET {{baseUrl}}/api/search/popular
-
-### 45. 人気検索キーワード取得（件数指定）
-GET {{baseUrl}}/api/search/popular?limit=5
-
 ### ===== 高度検索API =====
 
 ### 46. 高度検索（基本クエリ）

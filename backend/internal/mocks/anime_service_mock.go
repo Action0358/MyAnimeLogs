@@ -50,19 +50,6 @@ func (m *MockAnimeService) GetSearchSuggestions(query string, limit int) ([]stri
 	return result, args.Error(1)
 }
 
-// GetPopularSearches mocks the GetPopularSearches method
-func (m *MockAnimeService) GetPopularSearches(limit int) ([]string, error) {
-	args := m.Called(limit)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	result, ok := args.Get(0).([]string)
-	if !ok {
-		panic("mock: GetPopularSearches return value is not []string")
-	}
-	return result, args.Error(1)
-}
-
 // GetFilterOptions mocks the GetFilterOptions method
 func (m *MockAnimeService) GetFilterOptions() (*models.FilterOptions, error) {
 	args := m.Called()

@@ -162,7 +162,6 @@ func (s *AnimeService) ClearAnimeCache() {
 
 	// クリア対象のプレフィックス
 	prefixKeys := []string{
-		constants.CacheKeyPopularSearches,
 		constants.CacheKeyCurrentSeason,
 		constants.CacheKeyPopular,
 		constants.CacheKeySearch,

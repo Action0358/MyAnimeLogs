@@ -452,29 +452,6 @@ paths:
                     items:
                       type: string
                     example: ["進撃の巨人", "進撃の巨人 Season 2"]
-  /search/popular:
-    get:
-      summary: 人気検索キーワードを取得
-      parameters:
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            default: 10
-          description: 取得件数
-      responses:
-        "200":
-          description: 人気検索キーワード一覧
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  popular_searches:
-                    type: array
-                    items:
-                      type: string
-                    example: ["進撃の巨人", "鬼滅の刃", "呪術廻戦"]
   /search/history:
     get:
       summary: 検索履歴を取得
