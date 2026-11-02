@@ -14,7 +14,8 @@ import (
 )
 
 func Setup(db *database.DB, cfg *config.Config, syncScheduler handlers.SyncScheduler, logger *common.Logger, annictClient *services.AnnictClient) *gin.Engine {
-	if cfg.Environment == "production" {
+	// デバッグモードは開発環境だけで使う。staging も本番と同じ動作にする
+	if !config.Environment(cfg.Environment).IsDevelopment() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
@@ -61,15 +62,7 @@ func Setup(db *database.DB, cfg *config.Config, syncScheduler handlers.SyncSched
 	r.GET("/health", monitoringHandler.HealthCheck)
 	r.GET(middleware.MaintenanceStatusPath, middleware.MaintenanceStatusHandler(cfg.MaintenanceMode, cfg.MaintenanceEndsAt))
 
-	if gin.IsDebugging() {
-		r.GET("/test-hot-reload", func(c *gin.Context) {
-			c.JSON(200, gin.H{
-				"message":   "Hot reload is working!",
-				"timestamp": time.Now().Format(time.RFC3339),
-			})
-		})
-		r.GET("/annict/test", annictHandler.TestConnection)
-	}
+	registerDevelopmentRoutes(r, cfg.Environment, annictHandler)
 
 	// Supabase JWT ミドルウェア
 	authRequired := middleware.SupabaseAuthMiddleware(db, cfg.SupabaseJWTSecret, logger)
@@ -140,4 +133,20 @@ func Setup(db *database.DB, cfg *config.Config, syncScheduler handlers.SyncSched
 	// アイコンはプリセット方式へ移行し、フロントエンドの静的アセットとして
 	// 配信するため、バックエンドでのファイル配信は廃止した（#763）
 	return r
+}
+
+// registerDevelopmentRoutes は開発環境でだけ、確認用の認証なしルートを登録する。
+// /annict/test は呼ばれるたびに Annict API を使うため、公開先の環境には出さない。
+func registerDevelopmentRoutes(r *gin.Engine, environment string, annictHandler *handlers.AnnictHandler) {
+	if !config.Environment(environment).IsDevelopment() {
+		return
+	}
+
+	r.GET("/test-hot-reload", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"message":   "Hot reload is working!",
+			"timestamp": time.Now().Format(time.RFC3339),
+		})
+	})
+	r.GET("/annict/test", annictHandler.TestConnection)
 }
