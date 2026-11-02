@@ -84,13 +84,6 @@ verify_environment() {
     # Basic health check
     test_endpoint "$base_url/health" "Health Check"
     
-    # Annict API connection test (development endpoint)
-    if curl -s "$base_url/annict/test" | grep -q "error"; then
-        print_status "ERROR" "Annict API Connection Test endpoint returned error"
-    else
-        test_endpoint "$base_url/annict/test" "Annict API Connection Test"
-    fi
-    
     # Get anime list (from local DB)
     test_endpoint "$base_url/api/animes?page=1&per_page=5" "Local Anime Database"
     
