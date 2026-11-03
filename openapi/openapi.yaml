@@ -88,7 +88,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: ["airing", "finished", "not_yet_aired"]
+            enum: ["airing", "finished", "upcoming"]
         - name: genre
           in: query
           schema:
@@ -283,31 +283,45 @@ paths:
     get:
       summary: 基本的なアニメ検索
       parameters:
-        - name: q
+        - name: keyword
           in: query
           schema:
             type: string
             maxLength: 100
-          description: 検索クエリ
+          description: タイトル・説明で部分一致
+        - name: season
+          in: query
+          schema:
+            type: string
+          example: "2025-summer"
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: ["airing", "finished", "upcoming"]
         - name: genre
           in: query
           schema:
             type: string
           example: "アクション,ドラマ"
           description: >-
-            ジャンル絞り込み。カンマ区切りで複数指定でき、
+            ジャンルで絞り込み。カンマ区切りで複数指定でき、
             指定したいずれかのジャンルを持つ作品を返す（OR）。
-        - name: year
+        - name: media
           in: query
           schema:
-            type: integer
-          description: 放送年絞り込み
+            type: string
+            enum: ["tv", "web", "movie"]
+          description: メディア種別で絞り込み（大文字小文字を区別しない）
         - name: sort
           in: query
           schema:
             type: string
-            enum: ["title", "year"]
-          description: ソート条件
+            enum: ["title", "year", "popularity"]
+            default: "title"
+          description: >-
+            並び替え。title=タイトル順（五十音）、year=放送年順（新しい順）、
+            popularity=人気順（視聴者数の多い順）
         - name: page
           in: query
           schema:
@@ -353,7 +367,7 @@ paths:
             type: string
             maxLength: 100
           description: 検索クエリ
-        - name: genres
+        - name: genre
           in: query
           schema:
             type: array
@@ -375,7 +389,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: ["airing", "finished", "not_yet_aired"]
+            enum: ["airing", "finished", "upcoming"]
           description: 放送状態
         - name: user_status
           in: query

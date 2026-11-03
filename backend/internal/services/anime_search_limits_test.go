@@ -57,6 +57,18 @@ func TestLogSearch_SkipsAnonymousSearch(t *testing.T) {
 	})
 }
 
+func TestLogSearch_SkipsEmptyKeyword(t *testing.T) {
+	// DBを渡さないので、INSERTまで進むとpanicする
+	service := NewAnimeService(nil, newTestServiceLogger())
+	userID := 7
+
+	for _, keyword := range []string{"", "   ", "　"} {
+		assert.NotPanics(t, func() {
+			service.logSearch(keyword, map[string]interface{}{}, &userID, 1)
+		})
+	}
+}
+
 func TestLogSearch_RecordsLoggedInSearch(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)

@@ -3,15 +3,17 @@ package services
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"myanimelogs/internal/constants"
 	"myanimelogs/internal/models"
 )
 
 // logSearch - 検索ログを記録（非同期）
-// 未ログインの検索は記録しない。誰の検索でもなく、検索履歴にも使われない行が増えるだけになるため。
+// 記録するのはログイン中の、キーワードありの検索だけ。
+// 未ログインの検索は誰の履歴にもならず、キーワードなしは一覧を開いただけで検索ではない。
 func (s *AnimeService) logSearch(query string, filters map[string]interface{}, userID *int, resultCount int) {
-	if userID == nil {
+	if userID == nil || strings.TrimSpace(query) == "" {
 		return
 	}
 

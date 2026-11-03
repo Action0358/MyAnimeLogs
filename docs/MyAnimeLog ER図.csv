@@ -20,7 +20,7 @@
 * 1つのジャンルが複数のアニメに適用されます。"
 ,,last_failed_login_at,TIMESTAMPTZ,,,media,VARCHAR(50),,,,6,users ↔ search_logs (1対多)
 ,,locked_until,TIMESTAMPTZ,,,episodes_count,INTEGER,,,,"* 1人のユーザーが複数の検索ログを持ちます。
-* FK: search_logs.user_id → users.id (NULL可)"
+* FK: search_logs.user_id → users.id"
 ,,created_at,TIMESTAMP,,,official_site_url,VARCHAR(500),,,,7,animes ↔ search_logs (1対多)
 ,,updated_at,TIMESTAMP,,,wikipedia_url,VARCHAR(500),,,,"* 1つのアニメが複数の検索ログでクリックされます。
 * FK: search_logs.clicked_anime_id → animes.id (NULL可)"
