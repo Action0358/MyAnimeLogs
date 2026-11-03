@@ -3,11 +3,15 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"strings"
 	"testing"
 
 	"myanimelogs/internal/common"
+	"myanimelogs/internal/constants"
 	"myanimelogs/internal/middleware"
 	"myanimelogs/internal/mocks"
 	"myanimelogs/internal/models"
@@ -557,4 +561,55 @@ func TestAnimeHandler_AdvancedSearchAnimes(t *testing.T) {
 			mockService.AssertExpectations(t)
 		})
 	}
+}
+
+// 上限を超えた検索条件は、DBに届く前に400で止まる。
+func TestAnimeHandler_SearchLimits(t *testing.T) {
+	tooLongKeyword := url.QueryEscape(strings.Repeat("あ", constants.MaxSearchKeywordLength+1))
+	genres := make([]string, constants.MaxSearchGenres+1)
+	for i := range genres {
+		genres[i] = fmt.Sprintf("g%d", i)
+	}
+
+	tests := []struct {
+		name string
+		path string
+	}{
+		{"一覧: キーワード超過", "/animes?keyword=" + tooLongKeyword},
+		{"一覧: ジャンル数超過", "/animes?genre=" + strings.Join(genres, ",")},
+		{"高度検索: キーワード超過", "/search/advanced?q=" + tooLongKeyword},
+		{"高度検索: ジャンル数超過", "/search/advanced?genre=" + strings.Join(genres, "&genre=")},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockService := new(mocks.MockAnimeService)
+			handler, router := setupAnimeHandlerWithMock(mockService)
+			router.GET("/animes", handler.GetAnimes)
+			router.GET("/search/advanced", handler.AdvancedSearchAnimes)
+
+			w := httptest.NewRecorder()
+			req, _ := http.NewRequest("GET", tt.path, nil)
+			router.ServeHTTP(w, req)
+
+			assert.Equal(t, http.StatusBadRequest, w.Code)
+			mockService.AssertNotCalled(t, "SearchAnimes", mock.Anything, mock.Anything)
+			mockService.AssertNotCalled(t, "AdvancedSearchAnimes", mock.Anything, mock.Anything)
+		})
+	}
+}
+
+// 検索候補は入力途中に呼ばれるので、長すぎてもエラーにせず空で返す。
+func TestAnimeHandler_GetSearchSuggestions_TooLongQuery(t *testing.T) {
+	mockService := new(mocks.MockAnimeService)
+	handler, router := setupAnimeHandlerWithMock(mockService)
+	router.GET("/search/suggestions", handler.GetSearchSuggestions)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/search/suggestions?q="+strings.Repeat("a", constants.MaxSearchKeywordLength+1), nil)
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.JSONEq(t, `{"suggestions":[]}`, w.Body.String())
+	mockService.AssertNotCalled(t, "GetSearchSuggestions", mock.Anything, mock.Anything)
 }

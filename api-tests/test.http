@@ -433,3 +433,11 @@ Authorization: Bearer {{supabaseToken}}
 
 ### 82. ホットリロードテスト（開発環境のみ）
 GET {{baseUrl}}/test-hot-reload
+
+### ===== 検索条件の上限 =====
+
+### キーワードが100文字を超えると400
+GET {{baseUrl}}/api/animes?keyword=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+
+### % と _ は文字そのものとして検索する（全件にはヒットしない）
+GET {{baseUrl}}/api/animes?keyword=%25

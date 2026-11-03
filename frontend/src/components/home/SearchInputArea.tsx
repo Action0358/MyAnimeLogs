@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import type { Route } from 'next'
 import { ChevronRight } from 'lucide-react'
 import type { SearchTab } from './SearchContainer'
-import { GENRES, HERO_SEASON_OPTIONS } from '@/constants/search'
+import { GENRES, HERO_SEASON_OPTIONS, MAX_SEARCH_KEYWORD_LENGTH } from '@/constants/search'
 import { cn } from '@/lib/utils'
 import { useSearchHistory } from '@/hooks/useSearchHistory'
 import { RecentSearchesDropdown, useRecentSearches } from '@/components/search/RecentSearches'
@@ -106,6 +106,7 @@ const SearchInputArea: React.FC<SearchInputAreaProps> = ({ activeTab }) => {
               </svg>
               <input
                 type="text"
+                maxLength={MAX_SEARCH_KEYWORD_LENGTH}
                 value={keyword}
                 onChange={(e) => setKeyword(e.target.value)}
                 {...recent.inputProps}

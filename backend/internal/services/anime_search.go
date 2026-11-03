@@ -9,6 +9,9 @@ import (
 	"myanimelogs/internal/utils"
 )
 
+// likePatternEscaper - LIKEで特別な意味を持つ文字をエスケープする（PostgreSQLの既定のエスケープ文字はバックスラッシュ）
+var likePatternEscaper = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
+
 // buildKeywordSearchClause - キーワード検索用のWHERE句を構築するヘルパー関数
 // tableAlias: テーブルエイリアス（例: "a." または ""）
 // 戻り値: WHERE句の条件文字列、引数スライス、次の引数インデックス
@@ -20,7 +23,7 @@ func buildKeywordSearchClause(keyword string, argIndex int, tableAlias string) (
 		return "", nil, argIndex
 	}
 
-	likePattern := "%" + keyword + "%"
+	likePattern := "%" + likePatternEscaper.Replace(keyword) + "%"
 	hiraganaKeyword := utils.KatakanaToHiragana(keyword)
 	katakanaKeyword := utils.HiraganaToKatakana(keyword)
 
@@ -42,8 +45,8 @@ func buildKeywordSearchClause(keyword string, argIndex int, tableAlias string) (
 	// - title: 元のキーワード + カタカナ変換版で検索（ひらがな入力でもカタカナタイトルにヒット）
 	// - title_kana: ひらがな変換版で検索（カタカナ入力でもひらがなのtitle_kanaにヒット）
 	// - title_en: 元のキーワードで検索
-	hiraganaPattern := "%" + hiraganaKeyword + "%"
-	katakanaPattern := "%" + katakanaKeyword + "%"
+	hiraganaPattern := "%" + likePatternEscaper.Replace(hiraganaKeyword) + "%"
+	katakanaPattern := "%" + likePatternEscaper.Replace(katakanaKeyword) + "%"
 
 	clause := fmt.Sprintf(`
 		(%stitle ILIKE $%d 
@@ -384,7 +387,7 @@ func (s *AnimeService) GetSearchSuggestions(query string, limit int) ([]string, 
 		GROUP BY title
 		ORDER BY MAX(watchers_count) DESC NULLS LAST, title
 		LIMIT $2
-	`, query+"%", limit)
+	`, likePatternEscaper.Replace(query)+"%", limit)
 
 	if err != nil {
 		s.logger.Error("Failed to get search suggestions", "error", err, "query", query, "limit", limit)
