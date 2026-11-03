@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"strings"
+	"unicode/utf8"
 
 	"myanimelogs/internal/common"
 	"myanimelogs/internal/constants"
@@ -29,6 +30,10 @@ func NewAnimeHandler(animeService services.AnimeServiceInterface, logger *common
 func (h *AnimeHandler) GetAnimes(c *gin.Context) {
 	var params models.AnimeSearchParams
 	if err := c.ShouldBindQuery(&params); err != nil {
+		h.response.ValidationError(c, err.Error())
+		return
+	}
+	if err := params.Validate(); err != nil {
 		h.response.ValidationError(c, err.Error())
 		return
 	}
@@ -244,6 +249,10 @@ func (h *AnimeHandler) AdvancedSearchAnimes(c *gin.Context) {
 		h.response.ValidationError(c, err.Error())
 		return
 	}
+	if err := params.Validate(); err != nil {
+		h.response.ValidationError(c, err.Error())
+		return
+	}
 
 	// バリデーターを使用してデフォルト値を設定
 	params.Page, params.PerPage = h.validator.ValidatePagination(params.Page, params.PerPage)
@@ -286,7 +295,8 @@ func (h *AnimeHandler) GetFilterOptions(c *gin.Context) {
 // GetSearchSuggestions 検索候補取得API
 func (h *AnimeHandler) GetSearchSuggestions(c *gin.Context) {
 	query := c.Query("q")
-	if strings.TrimSpace(query) == "" {
+	// 入力途中に呼ばれる補助APIなので、長すぎる入力はエラーにせず候補なしとして返す
+	if strings.TrimSpace(query) == "" || utf8.RuneCountInString(query) > constants.MaxSearchKeywordLength {
 		h.response.Success(c, gin.H{
 			"suggestions": []string{},
 		})

@@ -195,6 +195,17 @@ const (
 
 // 検索履歴関連の定数
 const (
+	// MaxSearchKeywordLength - 検索キーワードの最大文字数
+	// 現在のタイトルは最長98文字。これより長い英語・かなのタイトルも、部分一致なので一部を入れれば見つかる
+	MaxSearchKeywordLength = 100
+
+	// MaxSearchGenres - 一度に指定できるジャンル数
+	// 画面から全ジャンル（18個）を選べるので、それを下回らない値にする
+	MaxSearchGenres = 20
+
+	// MaxSearchFilterLength - ジャンル名・シーズン・並び順など、キーワード以外の検索条件1つの最大文字数
+	MaxSearchFilterLength = 50
+
 	// SearchHistoryMaxItems - ユーザーごとの検索履歴の最大保持件数
 	SearchHistoryMaxItems = 50
 

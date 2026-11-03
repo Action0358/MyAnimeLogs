@@ -11,6 +11,14 @@ jest.mock('next/navigation', () => ({
 const HISTORY_KEY = 'anime_search_history'
 const storedHistory = () => JSON.parse(localStorage.getItem(HISTORY_KEY) ?? '[]')
 
+describe('トップページの検索欄の文字数', () => {
+  it('バックエンドの上限を超える入力はできない', () => {
+    render(<SearchInputArea activeTab="keyword" />)
+
+    expect(screen.getByPlaceholderText('作品を探す')).toHaveAttribute('maxLength', '100')
+  })
+})
+
 describe('トップページの検索欄の「最近の検索」', () => {
   beforeEach(() => {
     jest.clearAllMocks()

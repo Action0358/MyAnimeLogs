@@ -9,7 +9,12 @@ import (
 )
 
 // logSearch - 検索ログを記録（非同期）
+// 未ログインの検索は記録しない。誰の検索でもなく、検索履歴にも使われない行が増えるだけになるため。
 func (s *AnimeService) logSearch(query string, filters map[string]interface{}, userID *int, resultCount int) {
+	if userID == nil {
+		return
+	}
+
 	// 安全にJSONに変換
 	filtersJSON, err := json.Marshal(filters)
 	if err != nil {
