@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useRef, useEffect } from 'react'
+import { MAX_SEARCH_KEYWORD_LENGTH } from '@/constants/search'
 import { cn } from '@/lib/utils'
 import { RecentSearchesDropdown, useRecentSearches } from './RecentSearches'
 
@@ -72,6 +73,7 @@ export const SearchForm: React.FC<SearchFormProps> = ({
           <input
             ref={inputRef}
             type="text"
+            maxLength={MAX_SEARCH_KEYWORD_LENGTH}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             {...recent.inputProps}
