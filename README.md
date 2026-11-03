@@ -80,7 +80,7 @@ flowchart LR
 | レイヤー | 採用技術 |
 |---|---|
 | **Frontend** | Next.js 14 (App Router) · React 18 · TypeScript 5 · Tailwind CSS · TanStack Query · Orval（OpenAPI クライアント生成） |
-| **Frontend 開発** | Jest · Storybook 8 · MSW |
+| **Frontend 開発** | Jest · MSW |
 | **Backend** | Go 1.26 · Gin · golang-jwt（Supabase JWT の検証） · Redis（キャッシュ） |
 | **Database / Auth** | Supabase（PostgreSQL · Auth） |
 | **Infra** | Fly.io（Backend） · Cloudflare Pages（Frontend） · Cloudflare Access（STG / 本番の保護） |
@@ -278,7 +278,6 @@ cd frontend && npm run dev            # 開発サーバー
 cd frontend && npx tsc --noEmit       # 型チェック
 cd frontend && npm test               # テスト
 cd frontend && npm run lint           # Lint
-cd frontend && npm run storybook      # Storybook
 cd frontend && npm run generate:api   # OpenAPI からクライアントを生成
 ```
 

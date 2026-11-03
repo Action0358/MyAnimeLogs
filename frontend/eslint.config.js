@@ -11,7 +11,6 @@ module.exports = tseslint.config(
     ignores: [
       '.next/**',
       'out/**',
-      'storybook-static/**',
       'coverage/**',
       'next-env.d.ts',
       // msw が生成する Service Worker
