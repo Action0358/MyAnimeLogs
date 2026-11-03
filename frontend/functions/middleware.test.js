@@ -4,6 +4,7 @@
 import {
   BACKEND_TIMEOUT_MS,
   STATUS_CACHE_TTL_MS,
+  customDomainRedirectUrl,
   isPageRequest,
   onRequest,
   resetStatusCache,
@@ -289,5 +290,50 @@ describe('onRequest', () => {
     const ctx = makeContext(pageRequest('/'), files)
 
     await expect(onRequest(ctx)).resolves.toBe(ctx.nextResponse)
+  })
+})
+
+describe('pages.dev からカスタムドメインへの転送（#1205）', () => {
+  it.each([
+    ['https://myanimelogs.pages.dev/', 'https://myanimelogs.com/'],
+    ['https://abc123.myanimelogs.pages.dev/mypage/', 'https://myanimelogs.com/mypage/'],
+    [
+      'https://myanimelogs-staging.pages.dev/anime/1/?a=b',
+      'https://stg.myanimelogs.com/anime/1/?a=b',
+    ],
+    ['https://staging.myanimelogs-staging.pages.dev/news/', 'https://stg.myanimelogs.com/news/'],
+  ])('%s → %s', (from, to) => {
+    expect(customDomainRedirectUrl(from)).toBe(to)
+  })
+
+  it.each([
+    'https://myanimelogs.com/',
+    'https://stg.myanimelogs.com/',
+    'https://evilmyanimelogs.pages.dev/',
+    'https://myanimelogs.pages.dev.evil.com/',
+    'http://localhost:8788/',
+  ])('%s は転送しない', (url) => {
+    expect(customDomainRedirectUrl(url)).toBeNull()
+  })
+
+  it('pages.dev へのリクエストは、メンテナンス判定より先に 302 で転送する', async () => {
+    const context = makeContext(new Request('https://myanimelogs.pages.dev/mypage/?a=b'))
+    const fetchSpy = mockBackend(async () => json({ enabled: true }))
+
+    const res = await onRequest(context)
+
+    expect(res.status).toBe(302)
+    expect(res.headers.get('Location')).toBe('https://myanimelogs.com/mypage/?a=b')
+    expect(context.next).not.toHaveBeenCalled()
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('カスタムドメインへのリクエストは転送しない', async () => {
+    const context = makeContext(pageRequest('/'), defaultFiles())
+    mockBackend(async () => json({ enabled: false }))
+
+    const res = await onRequest(context)
+
+    expect(res).toBe(context.nextResponse)
   })
 })
