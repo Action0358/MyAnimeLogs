@@ -406,7 +406,7 @@ export type GetAnimesStatus = typeof GetAnimesStatus[keyof typeof GetAnimesStatu
 export const GetAnimesStatus = {
   airing: 'airing',
   finished: 'finished',
-  not_yet_aired: 'not_yet_aired',
+  upcoming: 'upcoming',
 } as const;
 
 export type GetAnimesMedia = typeof GetAnimesMedia[keyof typeof GetAnimesMedia];
@@ -471,24 +471,46 @@ export type PutUsersMeWatchStatusAnimeIdBody = {
 
 export type GetSearchAnimesParams = {
 /**
- * 検索クエリ
+ * タイトル・説明で部分一致
  */
-q?: string;
+keyword?: string;
+season?: string;
+status?: GetSearchAnimesStatus;
 /**
- * ジャンル絞り込み。カンマ区切りで複数指定でき、 指定したいずれかのジャンルを持つ作品を返す（OR）。
+ * ジャンルで絞り込み。カンマ区切りで複数指定でき、 指定したいずれかのジャンルを持つ作品を返す（OR）。
  */
 genre?: string;
 /**
- * 放送年絞り込み
+ * メディア種別で絞り込み（大文字小文字を区別しない）
  */
-year?: number;
+media?: GetSearchAnimesMedia;
 /**
- * ソート条件
+ * 並び替え。title=タイトル順（五十音）、year=放送年順（新しい順）、 popularity=人気順（視聴者数の多い順）
  */
 sort?: GetSearchAnimesSort;
 page?: number;
 per_page?: number;
 };
+
+export type GetSearchAnimesStatus = typeof GetSearchAnimesStatus[keyof typeof GetSearchAnimesStatus];
+
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const GetSearchAnimesStatus = {
+  airing: 'airing',
+  finished: 'finished',
+  upcoming: 'upcoming',
+} as const;
+
+export type GetSearchAnimesMedia = typeof GetSearchAnimesMedia[keyof typeof GetSearchAnimesMedia];
+
+
+// eslint-disable-next-line @typescript-eslint/no-redeclare
+export const GetSearchAnimesMedia = {
+  tv: 'tv',
+  web: 'web',
+  movie: 'movie',
+} as const;
 
 export type GetSearchAnimesSort = typeof GetSearchAnimesSort[keyof typeof GetSearchAnimesSort];
 
@@ -497,6 +519,7 @@ export type GetSearchAnimesSort = typeof GetSearchAnimesSort[keyof typeof GetSea
 export const GetSearchAnimesSort = {
   title: 'title',
   year: 'year',
+  popularity: 'popularity',
 } as const;
 
 export type GetSearchAnimes200Meta = {
@@ -519,7 +542,7 @@ q?: string;
 /**
  * ジャンル絞り込み（複数指定可）
  */
-genres?: string[];
+genre?: string[];
 /**
  * 放送年絞り込み
  */
@@ -555,7 +578,7 @@ export type GetSearchAdvancedStatus = typeof GetSearchAdvancedStatus[keyof typeo
 export const GetSearchAdvancedStatus = {
   airing: 'airing',
   finished: 'finished',
-  not_yet_aired: 'not_yet_aired',
+  upcoming: 'upcoming',
 } as const;
 
 export type GetSearchAdvancedUserStatus = typeof GetSearchAdvancedUserStatus[keyof typeof GetSearchAdvancedUserStatus];

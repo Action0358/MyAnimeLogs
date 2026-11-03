@@ -1,9 +1,14 @@
 package models
 
 import (
+	"errors"
+	"fmt"
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
+
+	"myanimelogs/internal/constants"
 )
 
 type Anime struct {
@@ -156,6 +161,22 @@ func (p AnimeSearchParams) GenreList() []string {
 	return genres
 }
 
+// Validate は検索条件の長さと個数を検査する。
+// 上限が無いと、重い検索や巨大な検索ログ行でDBに負荷をかけられる。
+func (p AnimeSearchParams) Validate() error {
+	if err := validateSearchKeyword(p.Keyword); err != nil {
+		return err
+	}
+	if err := validateSearchFilters(p.Season, p.Status, p.Media, p.Sort); err != nil {
+		return err
+	}
+	// 分解前の文字列も制限する。"a,a,a,..." は重複除去で1個になるが、検索ログには元の文字列が残る
+	if utf8.RuneCountInString(p.Genre) > constants.MaxSearchGenres*(constants.MaxSearchFilterLength+1) {
+		return errSearchGenreCount
+	}
+	return validateSearchGenres(p.GenreList())
+}
+
 // AdvancedSearchParams - 高度検索用のパラメータ
 type AdvancedSearchParams struct {
 	Query      string   `form:"q"`
@@ -168,6 +189,45 @@ type AdvancedSearchParams struct {
 	Order      string   `form:"order"`
 	Page       int      `form:"page"`
 	PerPage    int      `form:"per_page"`
+}
+
+// Validate は検索条件の長さと個数を検査する。
+func (p AdvancedSearchParams) Validate() error {
+	if err := validateSearchKeyword(p.Query); err != nil {
+		return err
+	}
+	if err := validateSearchFilters(p.Season, p.Status, p.UserStatus, p.Sort, p.Order); err != nil {
+		return err
+	}
+	return validateSearchGenres(p.Genres)
+}
+
+var (
+	errSearchGenreCount  = fmt.Errorf("ジャンルは%d個以内で指定してください", constants.MaxSearchGenres)
+	errSearchFilterValue = errors.New("検索条件の指定が長すぎます")
+)
+
+func validateSearchKeyword(keyword string) error {
+	if utf8.RuneCountInString(keyword) > constants.MaxSearchKeywordLength {
+		return fmt.Errorf("検索キーワードは%d文字以内で指定してください", constants.MaxSearchKeywordLength)
+	}
+	return nil
+}
+
+func validateSearchFilters(values ...string) error {
+	for _, value := range values {
+		if utf8.RuneCountInString(value) > constants.MaxSearchFilterLength {
+			return errSearchFilterValue
+		}
+	}
+	return nil
+}
+
+func validateSearchGenres(genres []string) error {
+	if len(genres) > constants.MaxSearchGenres {
+		return errSearchGenreCount
+	}
+	return validateSearchFilters(genres...)
 }
 
 // FilterOptions - フィルター情報

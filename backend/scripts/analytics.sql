@@ -101,8 +101,7 @@ ORDER BY records DESC;
 
 \echo ''
 \echo '=== 7) 検索キーワード 上位30（直近30日）==='
--- search_logs は未ログインの検索も記録している（user_id が NULL）。
--- 登録前の関心が見える数少ない手がかり。
+-- search_logs はログイン中の、キーワードありの検索だけを記録している（migration 055）。
 SELECT query, count(*) AS n
 FROM search_logs
 WHERE query <> ''
@@ -123,14 +122,3 @@ WHERE result_count = 0
 GROUP BY 1
 ORDER BY n DESC, 1
 LIMIT 30;
-
-\echo ''
-\echo '=== 9) 検索のログイン別内訳（直近30日）==='
--- 未ログインの検索がどれだけあるか。ここが多いなら、
--- 「使われてはいるが登録されていない」状態を意味する。
-SELECT
-    count(*)                                  AS searches,
-    count(user_id)                            AS by_logged_in,
-    count(*) - count(user_id)                 AS by_anonymous
-FROM search_logs
-WHERE searched_at >= now() - interval '30 days';

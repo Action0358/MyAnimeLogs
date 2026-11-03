@@ -2,6 +2,9 @@
  * 検索関連の定数
  */
 
+/** 検索キーワードの最大文字数（バックエンドの MaxSearchKeywordLength と揃える） */
+export const MAX_SEARCH_KEYWORD_LENGTH = 100
+
 /**
  * シーズン定義（時系列順）
  * 日本のアニメ放送クールに対応:
