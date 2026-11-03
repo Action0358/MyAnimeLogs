@@ -30,6 +30,28 @@ const DEFAULT_RETRY_AFTER_SECONDS = 300
 const NOT_IN_MAINTENANCE = { enabled: false }
 
 /**
+ * pages.dev の URL とカスタムドメインの対応（#1205）。
+ * Cloudflare Access はカスタムドメインにしかかからないため、pages.dev（プレビューの
+ * サブドメインを含む）のページはカスタムドメインへ転送し、Access を迂回させない。
+ */
+const CUSTOM_DOMAIN_BY_PAGES_HOST = {
+  'myanimelogs.pages.dev': 'myanimelogs.com',
+  'myanimelogs-staging.pages.dev': 'stg.myanimelogs.com',
+}
+
+/** pages.dev へのリクエストなら転送先の URL を返す。それ以外は null */
+export const customDomainRedirectUrl = (requestUrl) => {
+  const url = new URL(requestUrl)
+  for (const [pagesHost, customDomain] of Object.entries(CUSTOM_DOMAIN_BY_PAGES_HOST)) {
+    if (url.hostname === pagesHost || url.hostname.endsWith(`.${pagesHost}`)) {
+      url.hostname = customDomain
+      return url.toString()
+    }
+  }
+  return null
+}
+
+/**
  * ページ（HTML）の表示要求か。静的ファイル・Next.js のチャンク・RSC の取得
  * （サイト内遷移。拡張子 .txt）は対象外にし、余計な判定をしない。
  */
@@ -167,6 +189,9 @@ export const addMaintenanceMarker = (response, status) => {
 }
 
 export async function onRequest(context) {
+  const redirectUrl = customDomainRedirectUrl(context.request.url)
+  if (redirectUrl) return Response.redirect(redirectUrl, 302)
+
   if (!isPageRequest(context.request)) return context.next()
 
   const status = await resolveMaintenanceStatus(context)
