@@ -3,7 +3,6 @@
 - Next.js + TypeScript
 - App Router (Next.js 13+)
 - Tailwind CSS
-- Storybook
 - MSW (Mock Service Worker)
 - Orval (OpenAPI code generation)
 - Dockerによる環境構築
@@ -49,7 +48,6 @@ docker compose up -d
 ### 4. アプリケーションへのアクセス
 
 - Next.jsアプリ: http://localhost:3000/
-- Storybook: http://localhost:6006/ (npm run storybook実行時)
 
 ## 開発環境設定
 
@@ -75,17 +73,10 @@ Next.js 13+のApp Routerを使用したファイルベースルーティング�
 
 Tailwind CSSを使用したユーティリティファーストCSS
 
-### コンポーネント開発
-
-Storybookを使用したコンポーネント駆動開発
-
 ## ファイル構造
 
 ```
 frontend/
-├── .storybook/                 # Storybook設定
-│   ├── main.ts                 # メイン設定
-│   └── preview.ts              # プレビュー設定
 ├── env/                        # 環境変数テンプレート
 │   ├── local.example           # ローカル開発用
 │   ├── production.example      # 本番環境用
@@ -172,14 +163,6 @@ npm run generate:api
 ```
 
 生成されたコードは `src/lib/api/generated/` に出力されます。
-
-### Storybook
-
-コンポーネントの開発・テスト：
-
-```bash
-docker compose exec frontend npm run storybook
-```
 
 ### ビルド
 
