@@ -80,7 +80,7 @@ flowchart LR
 | レイヤー | 採用技術 |
 |---|---|
 | **Frontend** | Next.js 14 (App Router) · React 18 · TypeScript 5 · Tailwind CSS · TanStack Query · Orval（OpenAPI クライアント生成） |
-| **Frontend 開発** | Jest · MSW |
+| **Frontend 開発** | Jest |
 | **Backend** | Go 1.26 · Gin · golang-jwt（Supabase JWT の検証） · Redis（キャッシュ） |
 | **Database / Auth** | Supabase（PostgreSQL · Auth） |
 | **Infra** | Fly.io（Backend） · Cloudflare Pages（Frontend） · Cloudflare Access（STG / 本番の保護） |
@@ -113,8 +113,7 @@ MyAnimeLogs/
 │   │   ├── app/              # App Router のページ
 │   │   ├── components/       # UI コンポーネント
 │   │   ├── hooks/ contexts/  # カスタムフック・コンテキスト
-│   │   ├── lib/              # API クライアント・ユーティリティ
-│   │   └── testing/          # テスト用モック（MSW）
+│   │   └── lib/              # API クライアント・ユーティリティ
 │   ├── functions/            # Cloudflare Pages Functions
 │   └── env/                  # 環境変数テンプレート
 ├── supabase/                 # ローカル Supabase 設定
