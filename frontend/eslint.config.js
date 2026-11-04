@@ -13,8 +13,6 @@ module.exports = tseslint.config(
       'out/**',
       'coverage/**',
       'next-env.d.ts',
-      // msw が生成する Service Worker
-      'public/mockServiceWorker.js',
       // orval の生成物。手で直しても再生成で戻る
       'src/lib/api/generated/**',
     ],

@@ -3,7 +3,6 @@
 - Next.js + TypeScript
 - App Router (Next.js 13+)
 - Tailwind CSS
-- MSW (Mock Service Worker)
 - Orval (OpenAPI code generation)
 - Dockerによる環境構築
 - ホットリロード対応
@@ -67,7 +66,6 @@ Next.js 13+のApp Routerを使用したファイルベースルーティング�
 
 - OpenAPIスキーマから自動生成されたクライアントコード
 - Orvalを使用したコード生成
-- MSWによるモック対応
 
 ### スタイリング
 
@@ -86,7 +84,6 @@ frontend/
 │   ├── logo192.png
 │   ├── logo512.png
 │   ├── manifest.json
-│   ├── mockServiceWorker.js
 │   └── robots.txt
 ├── src/                        # ソースコード
 │   ├── app/                    # App Router (Next.js 13+)
