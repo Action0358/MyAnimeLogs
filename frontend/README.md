@@ -12,7 +12,7 @@
 - Docker
 - Docker Compose
 - Node.js 18+
-- Next.js 14
+- Next.js 15
 - React 19
 - TypeScript 5.0+
 - Tailwind CSS 3.4+
