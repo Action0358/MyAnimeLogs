@@ -39,19 +39,12 @@ const AuthCallbackInner: React.FC = () => {
     const successUrl = () => consumeReturnPath() as Route
     const finalize = async () => {
       try {
-        if (code) {
-          // PKCEフロー: exchangeCodeForSession の戻り値にセッションが含まれるため
-          // 後続の getSession() は呼ばない（ネットワーク往復を1回削減）
-          const { data, error } = await supabase.auth.exchangeCodeForSession(code)
-          router.replace(error || !data.session ? failureUrl : successUrl())
+        if (!code) {
+          router.replace(failureUrl)
           return
         }
-        // implicit フロー: URLハッシュ内のトークンをSupabaseクライアントが
-        // 自動で読み取りセッションを張る。読み取り結果をここで確認する。
-        const {
-          data: { session },
-        } = await supabase.auth.getSession()
-        router.replace(session ? successUrl() : failureUrl)
+        const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+        router.replace(error || !data.session ? failureUrl : successUrl())
       } catch {
         // ネットワーク/クライアント例外時もローディングのまま固まらないようにする
         router.replace(failureUrl)
