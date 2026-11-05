@@ -6,15 +6,10 @@ import { MyPageContent } from './MyPageContent'
 import { useAuth } from '@/contexts/AuthContext'
 import { useWatchStatus } from '@/hooks/useWatchStatus'
 import { useRouter } from 'next/navigation'
-import { get } from '@/lib/api/client'
 
 jest.mock('next/navigation')
 jest.mock('@/contexts/AuthContext', () => ({ useAuth: jest.fn() }))
 jest.mock('@/hooks/useWatchStatus', () => ({ useWatchStatus: jest.fn() }))
-jest.mock('@/lib/api/client', () => ({
-  get: jest.fn(),
-  ApiClientError: class extends Error {},
-}))
 
 const user = {
   id: 1,
@@ -42,7 +37,6 @@ describe('MyPageContent のタブ', () => {
       isLoading: false,
       isAuthenticated: true,
     })
-    ;(get as jest.Mock).mockResolvedValue(user)
     ;(useWatchStatus as jest.Mock).mockReturnValue({
       watchStatuses: [anime(1, 'planned', '予定の作品'), anime(2, 'watching', '視聴中の作品')],
       isLoading: false,
