@@ -12,7 +12,7 @@ type Config struct {
 	DatabaseURL  string
 	Port         string
 	Environment  string
-	// RateLimitPerMinute は1つのIPアドレスから1分間に受け付けるリクエスト数の上限
+	// RateLimitPerMinute は1つのIPアドレス(IPv6は/64単位)から1分間に受け付けるリクエスト数の上限
 	RateLimitPerMinute int
 	// Supabase Auth設定
 	SupabaseJWTSecret string
