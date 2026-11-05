@@ -7,7 +7,7 @@
 ## 技術スタック
 
 - **バックエンド**: Go 1.24+ / Gin / PostgreSQL（Supabase）
-- **フロントエンド**: Next.js 14（App Router）/ TypeScript / Tailwind CSS / TanStack Query
+- **フロントエンド**: Next.js 15（App Router）/ TypeScript / Tailwind CSS / TanStack Query
 - **インフラ**: Fly.io（バックエンド）/ Cloudflare Pages（フロントエンド）/ GitHub Actions
 
 ## 開発コマンド
