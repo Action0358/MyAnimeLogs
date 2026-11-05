@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import type { Route } from 'next'
@@ -15,7 +15,6 @@ import { useWatchStatus, WatchStatusAnime } from '@/hooks/useWatchStatus'
 import { useExpandableList } from '@/hooks/useExpandableList'
 import { useResponsiveInitialCount } from '@/hooks/useResponsiveInitialCount'
 import { WatchStatusStatus } from '@/lib/api/generated/myanimelogs'
-import { get, ApiClientError } from '@/lib/api/client'
 import { readMyPageTabFromUrl, myPageHref, myPageSettingsHref } from './myPageTab'
 
 // マイページの各タブで最初に表示する視聴ステータスの件数（超えた分は展開ボタンで表示する）。
@@ -61,11 +60,9 @@ const filterValidItems = (items: WatchStatusAnime[]): (WatchStatusAnime & { id: 
 }
 
 export const MyPageContent: React.FC = () => {
-  const { user: authUser, token, isLoading: authLoading, isAuthenticated } = useAuth()
+  // 表示するユーザー情報は AuthContext が取得済みのものを使う（#1236）
+  const { user, isAuthenticated } = useAuth()
   const router = useRouter()
-  const [user, setUser] = useState(authUser)
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<unknown>(null)
   const [activeTab, setActiveTab] = useState<WatchStatusTabKey>(readMyPageTabFromUrl)
   const [imageError, setImageError] = useState(false)
 
@@ -76,38 +73,6 @@ export const MyPageContent: React.FC = () => {
     error: watchStatusesError,
     // ログアウトの瞬間に再取得すると 401 になり、ログイン画面へ送られてしまう
   } = useWatchStatus({ enabled: isAuthenticated })
-
-  const fetchData = useCallback(async () => {
-    setIsLoading(true)
-    setError(null)
-
-    try {
-      const userData = await get('/api/users/me')
-      setUser(userData)
-    } catch (err) {
-      // 401エラーの場合はグローバルハンドラーが認証状態をクリアし、
-      // ProtectedRouteがリダイレクトを実行するため、エラー表示せずに処理を終了
-      if (err instanceof ApiClientError && err.status === 401) {
-        return
-      }
-
-      // その他のエラーはユーザーに通知（画面には生メッセージを出さず、種類だけで表示を決める）
-      setError(err ?? new Error('データの取得に失敗しました'))
-      console.error('Failed to fetch data:', err)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    // 認証チェックが完了し、認証されている場合のみデータを取得
-    if (!authLoading && isAuthenticated && authUser && token) {
-      fetchData()
-    } else if (!authLoading && !isAuthenticated) {
-      // 認証されていない場合はローディングを終了
-      setIsLoading(false)
-    }
-  }, [authUser, token, authLoading, isAuthenticated, fetchData])
 
   const changeTab = (tab: WatchStatusTabKey) => {
     setActiveTab(tab)
@@ -153,7 +118,7 @@ export const MyPageContent: React.FC = () => {
     reset: resetExpanded,
   } = useExpandableList(tabItems, initialCount, oneRowAtWidest)
 
-  if (isLoading || watchStatusesLoading) {
+  if (watchStatusesLoading) {
     return (
       <Container className="py-12">
         <div className="flex items-center justify-center min-h-[400px]">
@@ -166,13 +131,13 @@ export const MyPageContent: React.FC = () => {
     )
   }
 
-  if (error || watchStatusesError) {
+  if (watchStatusesError) {
     return (
       <Container className="py-12">
         <h1 className="text-xl md:text-2xl font-bold text-foreground">マイページ</h1>
         <ErrorState
-          type={getErrorStateType(error || watchStatusesError)}
-          onRetry={error ? fetchData : () => window.location.reload()}
+          type={getErrorStateType(watchStatusesError)}
+          onRetry={() => window.location.reload()}
         />
       </Container>
     )

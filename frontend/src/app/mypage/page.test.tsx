@@ -5,6 +5,7 @@ import MyPage from './page'
 import { useAuth } from '@/contexts/AuthContext'
 import { useRouter } from 'next/navigation'
 import { useWatchStatus } from '@/hooks/useWatchStatus'
+import { ApiClientError } from '@/lib/api/client'
 
 // Mock dependencies
 jest.mock('@/contexts/AuthContext')
@@ -14,7 +15,7 @@ jest.mock('@/components/auth/ProtectedRoute', () => ({
   ProtectedRoute: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }))
 
-// Mock fetch（ユーザー情報取得用）
+// ユーザー情報は AuthContext から受け取り、APIから取り直さないことを確認する
 global.fetch = jest.fn()
 
 const mockUseWatchStatus = useWatchStatus as jest.Mock
@@ -41,19 +42,6 @@ describe('MyPage', () => {
     id: 1,
     name: 'テストユーザー',
     email: 'test@example.com',
-  }
-
-  // ユーザー情報取得が成功する fetch モック
-  const createSuccessfulFetchMock = () => {
-    return (url: string) => {
-      if (url.endsWith('/api/users/me')) {
-        return Promise.resolve({
-          ok: true,
-          json: async () => mockUser,
-        })
-      }
-      return Promise.reject(new Error('Unknown URL'))
-    }
   }
 
   beforeEach(() => {
@@ -98,8 +86,6 @@ describe('MyPage', () => {
 
     // 表示名はGoogleアカウント由来。自由記述項目は #789 で廃止したため表示しない
     it('ユーザー情報を表示する', async () => {
-      ;(global.fetch as jest.Mock).mockImplementation(createSuccessfulFetchMock())
-
       render(<MyPage />)
 
       await waitFor(() => {
@@ -108,8 +94,6 @@ describe('MyPage', () => {
     })
 
     it('視聴ステータス別タブを表示し、すべて・中断・視聴履歴タブは表示しない', async () => {
-      ;(global.fetch as jest.Mock).mockImplementation(createSuccessfulFetchMock())
-
       render(<MyPage />)
 
       await waitFor(() => {
@@ -128,7 +112,6 @@ describe('MyPage', () => {
     })
 
     it('視聴ステータスをカードとして表示する', async () => {
-      ;(global.fetch as jest.Mock).mockImplementation(createSuccessfulFetchMock())
       mockUseWatchStatus.mockReturnValue(
         createWatchStatusResult({
           // デフォルトタブ（視聴予定）に表示されるよう status: 'planned'
@@ -149,19 +132,22 @@ describe('MyPage', () => {
       })
     })
 
-    it('データローディング中は読み込み表示を出す', () => {
-      // fetchを未解決のPromiseとしてモック
-      ;(global.fetch as jest.Mock).mockImplementation(
-        () => new Promise(() => {}) // 永遠に解決しないPromise
-      )
+    it('視聴ステータスの読み込み中は読み込み表示を出す', () => {
+      mockUseWatchStatus.mockReturnValue(createWatchStatusResult({ isLoading: true }))
 
       render(<MyPage />)
 
       expect(screen.getByText('読み込み中...')).toBeInTheDocument()
     })
 
+    it('ユーザー情報をAPIから取り直さない（#1236）', () => {
+      render(<MyPage />)
+
+      expect(global.fetch).not.toHaveBeenCalled()
+      expect(screen.getByText('テストユーザー')).toBeInTheDocument()
+    })
+
     it('視聴ステータス取得エラー時にエラーメッセージを表示する', async () => {
-      ;(global.fetch as jest.Mock).mockImplementation(createSuccessfulFetchMock())
       mockUseWatchStatus.mockReturnValue(
         createWatchStatusResult({
           error: new Error('視聴ステータスの取得に失敗しました'),
@@ -177,32 +163,14 @@ describe('MyPage', () => {
       })
     })
 
-    it('データ取得エラー時にエラーメッセージを表示する', async () => {
-      ;(global.fetch as jest.Mock).mockImplementation((url: string) => {
-        // ユーザー情報取得でエラーを返す
-        return Promise.resolve({
-          ok: false,
-          status: 500,
-          json: async () => ({ message: 'Server error' }),
-        })
-      })
-
-      render(<MyPage />)
-
-      await waitFor(() => {
-        expect(screen.getByText('読み込めませんでした')).toBeInTheDocument()
-        expect(screen.queryByText('Server error')).not.toBeInTheDocument()
-      })
-    })
-
     it('ネットワークエラー時にエラーメッセージを表示する', async () => {
-      // TypeErrorを投げることでネットワークエラーをシミュレート
-      ;(global.fetch as jest.Mock).mockRejectedValue(new TypeError('Failed to fetch'))
+      mockUseWatchStatus.mockReturnValue(
+        createWatchStatusResult({ error: new ApiClientError('通信エラー', 0) })
+      )
 
       render(<MyPage />)
 
       await waitFor(() => {
-        // APIクライアントがTypeErrorをstatus 0のエラーに変換し、通信エラー表示になる
         expect(screen.getByText('接続できませんでした')).toBeInTheDocument()
       })
     })

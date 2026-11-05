@@ -110,6 +110,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // ログアウトのたびに増やす。プロフィール取得中にログアウトされたら、完了した古い結果で
   // ユーザーを戻したり手動ログアウトの印を消したりしないよう、取得の前後で比べる
   const signOutCount = useRef(0)
+  // 同期中または同期済みのトークン。Supabase は起動時の INITIAL_SESSION やタブ復帰時の
+  // SIGNED_IN で同じトークンを繰り返し通知するため、そのたびに取得しないようまとめる（#1236）
+  const currentSync = useRef<{
+    token: string
+    signOutCount: number
+    promise: Promise<void>
+  } | null>(null)
   const router = useRouter()
 
   const getLastActivityFromStorage = useCallback((): number => {
@@ -171,40 +178,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         clearToken()
         return
       }
-      storeToken(accessToken)
-      setToken(accessToken)
 
+      // ログアウトを挟んだ場合は、同じトークンでも結果が破棄されているのでまとめない
       const signOutCountAtStart = signOutCount.current
-      const result = await fetchUserProfile(accessToken)
-      if (signOutCount.current !== signOutCountAtStart) return
-
-      if (result.status === 'ok') {
-        setUser(result.user)
-        setIsManualLogout(false)
-        return
+      const current = currentSync.current
+      if (current?.token === accessToken && current.signOutCount === signOutCountAtStart) {
+        return current.promise
       }
 
-      // メンテナンス中はプロフィールを取れないのが正常。ここでセッションを破棄して
-      // /signin へ送ると、メンテナンス中に開ける /news を見ていた人がログアウトされ、
-      // メンテナンス画面へ戻される。セッションは残し、明けてから再読み込みで取り直す。
-      // maintenance.json による宣言（バックエンド停止中で通信障害になる）も同じ扱い
-      if (result.status === 'maintenance' || getMaintenanceState().active) return
+      const run = async () => {
+        storeToken(accessToken)
+        setToken(accessToken)
 
-      // プロフィールを取れないまま進むと、トークンだけあってユーザーが無い状態が
-      // 残り、画面上は未ログインと区別がつかなくなる。Supabase側のセッションごと
-      // 破棄して状態を揃えたうえで、理由を添えて /signin へ送る（#797）。
-      // signOut により SIGNED_OUT が発火し syncSession(null) が走るため、
-      // ここで失敗を繰り返すループにはならない。
-      await supabase.auth.signOut()
-      clearToken()
-      storage.remove(STORAGE_KEYS.LAST_ACTIVITY_TIMESTAMP)
-      setUser(null)
-      setToken(null)
-      router.push(
-        result.status === 'unauthorized'
-          ? '/signin?reason=unauthorized'
-          : '/signin?reason=profile-unavailable'
-      )
+        const result = await fetchUserProfile(accessToken)
+        if (signOutCount.current !== signOutCountAtStart) return
+
+        if (result.status === 'ok') {
+          setUser(result.user)
+          setIsManualLogout(false)
+          return
+        }
+
+        // 取得できなかったトークンは、次の通知で取得し直せるようにしておく
+        currentSync.current = null
+
+        // メンテナンス中はプロフィールを取れないのが正常。ここでセッションを破棄して
+        // /signin へ送ると、メンテナンス中に開ける /news を見ていた人がログアウトされ、
+        // メンテナンス画面へ戻される。セッションは残し、明けてから再読み込みで取り直す。
+        // maintenance.json による宣言（バックエンド停止中で通信障害になる）も同じ扱い
+        if (result.status === 'maintenance' || getMaintenanceState().active) return
+
+        // プロフィールを取れないまま進むと、トークンだけあってユーザーが無い状態が
+        // 残り、画面上は未ログインと区別がつかなくなる。Supabase側のセッションごと
+        // 破棄して状態を揃えたうえで、理由を添えて /signin へ送る（#797）。
+        // signOut により SIGNED_OUT が発火し syncSession(null) が走るため、
+        // ここで失敗を繰り返すループにはならない。
+        await supabase.auth.signOut()
+        clearToken()
+        storage.remove(STORAGE_KEYS.LAST_ACTIVITY_TIMESTAMP)
+        setUser(null)
+        setToken(null)
+        router.push(
+          result.status === 'unauthorized'
+            ? '/signin?reason=unauthorized'
+            : '/signin?reason=profile-unavailable'
+        )
+      }
+
+      const promise = run()
+      currentSync.current = { token: accessToken, signOutCount: signOutCountAtStart, promise }
+      return promise
     },
     [fetchUserProfile, router]
   )

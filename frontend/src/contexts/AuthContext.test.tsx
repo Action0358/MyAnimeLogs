@@ -314,7 +314,8 @@ describe('AuthProvider のログアウト', () => {
     )
     let pendingSync: Promise<void> = Promise.resolve()
     await act(async () => {
-      pendingSync = emit('SIGNED_IN', { access_token: ACCESS_TOKEN })
+      // 同じトークンの再通知は取得しないため、取得が走る更新後のトークンで競合を再現する
+      pendingSync = emit('TOKEN_REFRESHED', { access_token: 'refreshed-token' })
     })
     mockSupabase.auth.signOut.mockImplementation(async () => {
       await emit('SIGNED_OUT', null)
@@ -333,5 +334,109 @@ describe('AuthProvider のログアウト', () => {
 
     expect(screen.getByText('no-user')).toBeInTheDocument()
     expect(screen.getByText('manual-logout')).toBeInTheDocument()
+  })
+})
+
+/**
+ * 同じトークンのプロフィール取得をまとめる（#1236）。
+ * Supabase は起動時の INITIAL_SESSION やタブ復帰時の SIGNED_IN で同じトークンを何度も
+ * 通知する。そのたびに取得すると、1回のページ表示で /api/users/me が何度も呼ばれる。
+ */
+describe('AuthProvider のプロフィール取得の回数', () => {
+  const profile = { id: 1, name: 'テストユーザー', email: 'test@example.com' }
+  const okResponse = { ok: true, status: 200, json: async () => profile }
+  let emit: (event: string, session: unknown) => void = () => {}
+
+  const session = (token: string) => ({ access_token: token })
+
+  const renderProvider = async () => {
+    await act(async () => {
+      render(
+        <AuthProvider>
+          <AuthProbe />
+        </AuthProvider>
+      )
+    })
+  }
+
+  const emitAndSettle = async (event: string, value: unknown) => {
+    await act(async () => {
+      emit(event, value)
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    mockUseRouter.mockReturnValue({ push: jest.fn(), replace: jest.fn() })
+    mockSupabase.auth.getSession.mockResolvedValue({ data: { session: session(ACCESS_TOKEN) } })
+    mockSupabase.auth.onAuthStateChange.mockImplementation((callback) => {
+      emit = callback
+      return { data: { subscription: { unsubscribe: jest.fn() } } }
+    })
+    mockSupabase.auth.signOut.mockResolvedValue({ error: null })
+    global.fetch = jest.fn().mockResolvedValue(okResponse)
+    localStorage.clear()
+  })
+
+  it('起動時に getSession と INITIAL_SESSION が重なっても1回だけ取得する', async () => {
+    mockSupabase.auth.onAuthStateChange.mockImplementation((callback) => {
+      emit = callback
+      callback('INITIAL_SESSION', session(ACCESS_TOKEN))
+      return { data: { subscription: { unsubscribe: jest.fn() } } }
+    })
+
+    await renderProvider()
+
+    expect(await screen.findByText('authenticated')).toBeInTheDocument()
+    expect(global.fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('取得済みのトークンが再通知されても取得し直さない', async () => {
+    await renderProvider()
+    expect(await screen.findByText('authenticated')).toBeInTheDocument()
+
+    await emitAndSettle('SIGNED_IN', session(ACCESS_TOKEN))
+
+    expect(global.fetch).toHaveBeenCalledTimes(1)
+    expect(screen.getByText('authenticated')).toBeInTheDocument()
+  })
+
+  it('トークンが変われば取得する', async () => {
+    await renderProvider()
+    expect(await screen.findByText('authenticated')).toBeInTheDocument()
+
+    await emitAndSettle('TOKEN_REFRESHED', session('refreshed-token'))
+
+    expect(global.fetch).toHaveBeenCalledTimes(2)
+    expect(localStorage.getItem('auth_token')).toBe(JSON.stringify('refreshed-token'))
+  })
+
+  it('サインアウト後は同じトークンでも取得し直してログイン状態に戻す', async () => {
+    await renderProvider()
+    expect(await screen.findByText('authenticated')).toBeInTheDocument()
+
+    await emitAndSettle('SIGNED_OUT', null)
+    expect(screen.getByText('anonymous')).toBeInTheDocument()
+
+    await emitAndSettle('SIGNED_IN', session(ACCESS_TOKEN))
+
+    expect(global.fetch).toHaveBeenCalledTimes(2)
+    expect(screen.getByText('authenticated')).toBeInTheDocument()
+  })
+
+  it('メンテナンス中で取得できなかったトークンは、次の通知で取得し直す', async () => {
+    const body = { code: 'MAINTENANCE', ends_at: '2026-10-25T06:00:00Z' }
+    const res = { ok: false, status: 503, json: async () => body }
+    ;(global.fetch as jest.Mock).mockResolvedValueOnce({ ...res, clone: () => res })
+
+    await renderProvider()
+    await waitFor(() => expect(getMaintenanceState().active).toBe(true))
+    resetMaintenance()
+
+    await emitAndSettle('SIGNED_IN', session(ACCESS_TOKEN))
+
+    expect(global.fetch).toHaveBeenCalledTimes(2)
+    expect(screen.getByText('authenticated')).toBeInTheDocument()
   })
 })
