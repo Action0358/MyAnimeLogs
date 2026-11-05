@@ -6,7 +6,7 @@
 今期アニメのチェックから視聴記録まで、アニメファンのための視聴管理 Web アプリ
 
 [![Go](https://img.shields.io/badge/Go-1.26-00ADD8?logo=go&logoColor=white)](./backend/go.mod)
-[![Next.js](https://img.shields.io/badge/Next.js-14-000000?logo=nextdotjs&logoColor=white)](./frontend/package.json)
+[![Next.js](https://img.shields.io/badge/Next.js-15-000000?logo=nextdotjs&logoColor=white)](./frontend/package.json)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)](./frontend/package.json)
 [![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3FCF8E?logo=supabase&logoColor=white)](./supabase)
 [![Fly.io](https://img.shields.io/badge/Backend-Fly.io-7B3BE2?logo=flydotio&logoColor=white)](./backend/fly.toml)
@@ -41,7 +41,7 @@ flowchart LR
     User((ユーザー)) --> FE
 
     subgraph CF["Cloudflare"]
-        FE["Frontend<br/>Next.js 14 / Pages"]
+        FE["Frontend<br/>Next.js 15 / Pages"]
     end
 
     subgraph Fly["Fly.io"]
@@ -79,7 +79,7 @@ flowchart LR
 
 | レイヤー | 採用技術 |
 |---|---|
-| **Frontend** | Next.js 14 (App Router) · React 18 · TypeScript 5 · Tailwind CSS · TanStack Query · Orval（OpenAPI クライアント生成） |
+| **Frontend** | Next.js 15 (App Router) · React 19 · TypeScript 5 · Tailwind CSS · TanStack Query · Orval（OpenAPI クライアント生成） |
 | **Frontend 開発** | Jest |
 | **Backend** | Go 1.26 · Gin · golang-jwt（Supabase JWT の検証） · Redis（キャッシュ） |
 | **Database / Auth** | Supabase（PostgreSQL · Auth） |
