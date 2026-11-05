@@ -30,6 +30,7 @@ func Setup(db *database.DB, cfg *config.Config, syncScheduler handlers.SyncSched
 
 	r.Use(middleware.RequestIDMiddleware())
 	r.Use(middleware.LoggingMiddleware(logger))
+	r.Use(middleware.RecoveryMiddleware(errorMonitor))
 	r.Use(middleware.CORSMiddleware())
 	// CORS の後ろに置く。503 でもブラウザが本文を読めるよう CORS ヘッダーを付けるため。
 	// レート制限の前に置き、メンテナンス中のリクエストでカウントを消費しない
