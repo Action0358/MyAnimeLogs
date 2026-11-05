@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"myanimelogs/internal/common"
+	"myanimelogs/internal/config"
 	"myanimelogs/internal/database"
 	"myanimelogs/internal/repository"
 
@@ -216,6 +217,27 @@ func nameFromClaims(claims *SupabaseClaims) string {
 	return "ユーザー"
 }
 
+// supabaseBaseURL は SUPABASE_URL を末尾のスラッシュを除いて返す。
+func supabaseBaseURL() string {
+	supabaseURL := os.Getenv("SUPABASE_URL")
+	if supabaseURL == "" {
+		supabaseURL = "http://localhost:54321"
+	}
+	return strings.TrimRight(supabaseURL, "/")
+}
+
+// supabaseParserOptions はトークンの署名以外の検証条件を返す。
+//
+// 開発環境では iss を確かめない。Docker 内の SUPABASE_URL は host.docker.internal を指すが、
+// ローカルの Supabase が発行する iss は別のホスト名になり、一致しないため。
+func supabaseParserOptions() []jwt.ParserOption {
+	options := []jwt.ParserOption{jwt.WithAudience("authenticated")}
+	if !config.GetEnvironment().IsDevelopment() {
+		options = append(options, jwt.WithIssuer(supabaseBaseURL()+"/auth/v1"))
+	}
+	return options
+}
+
 // validateSupabaseJWT parses and validates a Supabase-issued JWT.
 // Supports both HS256 (cloud Supabase) and ES256 (new local CLI) signing methods.
 func validateSupabaseJWT(tokenStr, jwtSecret string) (*SupabaseClaims, error) {
@@ -244,7 +266,7 @@ func validateHS256JWT(tokenStr, jwtSecret string) (*SupabaseClaims, error) {
 			}
 			return []byte(jwtSecret), nil
 		},
-		jwt.WithAudience("authenticated"),
+		supabaseParserOptions()...,
 	)
 	if err != nil {
 		return nil, err
@@ -259,11 +281,7 @@ func validateHS256JWT(tokenStr, jwtSecret string) (*SupabaseClaims, error) {
 // validateES256JWT validates a Supabase JWT signed with ES256 (new local Supabase CLI).
 // Public keys are fetched from the Supabase JWKS endpoint and cached for 15 minutes.
 func validateES256JWT(tokenStr string) (*SupabaseClaims, error) {
-	supabaseURL := os.Getenv("SUPABASE_URL")
-	if supabaseURL == "" {
-		supabaseURL = "http://localhost:54321"
-	}
-	jwksURL := supabaseURL + "/auth/v1/.well-known/jwks.json"
+	jwksURL := supabaseBaseURL() + "/auth/v1/.well-known/jwks.json"
 
 	token, err := jwt.ParseWithClaims(
 		tokenStr,
@@ -275,7 +293,7 @@ func validateES256JWT(tokenStr string) (*SupabaseClaims, error) {
 			kid, _ := t.Header["kid"].(string)
 			return getJWKSPublicKey(kid, jwksURL)
 		},
-		jwt.WithAudience("authenticated"),
+		supabaseParserOptions()...,
 	)
 	if err != nil {
 		return nil, err
