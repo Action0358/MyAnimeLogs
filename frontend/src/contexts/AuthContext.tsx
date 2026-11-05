@@ -273,15 +273,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // 認証状態変化を購読
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       if (!mounted) return
       // PKCEフロー初期時は /auth/callback がセッション確立を担うため、
       // 先行して発火する INITIAL_SESSION では何もしない
       if (event === 'INITIAL_SESSION' && hadCode) {
         return
       }
-      await syncSession(session?.access_token ?? null)
-      if (!session) setIsLoading(false)
+      // 同期の完了を待たずに返す。Supabase はロックを持ったままこのコールバックを待つので、
+      // 待たせると syncSession 内の signOut がロックの解放を待ち、互いに止まってしまう
+      void syncSession(session?.access_token ?? null).then(() => {
+        if (!session) setIsLoading(false)
+      })
     })
 
     return () => {

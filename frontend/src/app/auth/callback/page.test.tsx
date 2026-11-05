@@ -9,7 +9,6 @@ jest.mock('@/lib/supabase', () => ({
   supabase: {
     auth: {
       exchangeCodeForSession: jest.fn(),
-      getSession: jest.fn(),
     },
   },
 }))
@@ -20,7 +19,6 @@ jest.mock('@/components/layout', () => ({
 const mockUseRouter = useRouter as jest.Mock
 const mockUseSearchParams = useSearchParams as jest.Mock
 const mockExchange = supabase.auth.exchangeCodeForSession as jest.Mock
-const mockGetSession = supabase.auth.getSession as jest.Mock
 
 describe('AuthCallbackPage', () => {
   const mockReplace = jest.fn()
@@ -48,14 +46,16 @@ describe('AuthCallbackPage', () => {
     expect(sessionStorage.getItem('auth_return_path')).toBeNull()
   })
 
-  it('implicit フローでも戻り先へ遷移する', async () => {
+  // PKCE だけを受け付ける。既存のセッションがあっても成功扱いにしない
+  it('code が無ければログイン画面へ戻す', async () => {
     mockUseSearchParams.mockReturnValue(new URLSearchParams(''))
-    mockGetSession.mockResolvedValue({ data: { session: { access_token: 't' } } })
-    sessionStorage.setItem('auth_return_path', '/anime/123')
 
     render(<AuthCallbackPage />)
 
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/anime/123'))
+    await waitFor(() =>
+      expect(mockReplace).toHaveBeenCalledWith('/signin?reason=auth-callback-failed')
+    )
+    expect(mockExchange).not.toHaveBeenCalled()
   })
 
   // 失敗時はログイン画面で再試行するため、戻り先は使わない
