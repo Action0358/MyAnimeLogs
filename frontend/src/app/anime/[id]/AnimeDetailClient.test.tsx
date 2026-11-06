@@ -16,8 +16,9 @@ jest.mock('next/navigation', () => ({
 jest.mock('@/lib/api/generated/myanimelogs', () => ({
   getAnimesId: jest.fn(),
 }))
+let mockAuth: { isAuthenticated: boolean; isLoading?: boolean } = { isAuthenticated: false }
 jest.mock('@/contexts/AuthContext', () => ({
-  useAuth: () => ({ isAuthenticated: false }),
+  useAuth: () => mockAuth,
 }))
 jest.mock('@/hooks/useFavorites', () => ({
   useFavorites: () => ({
@@ -142,6 +143,47 @@ describe('公式サイトのリンク', () => {
     await screen.findAllByRole('heading', { name: 'テスト作品' })
     expect(screen.queryAllByText('公式サイト')).toHaveLength(0)
     expect(document.querySelector('a[href^="javascript:" i]')).toBeNull()
+  })
+})
+
+// 認証状態の確認中に「ログインして記録する」を出すと、ログイン済みの人にも先に出て切り替わる
+describe('認証状態による操作部分の出し分け', () => {
+  const anime = { id: 123, title: 'テスト作品', genres: [] }
+
+  beforeEach(() => {
+    jest.clearAllMocks()
+    mockParams = { id: '123' }
+    mockGetAnimesId.mockResolvedValue({ data: anime })
+  })
+
+  afterEach(() => {
+    mockAuth = { isAuthenticated: false }
+  })
+
+  it('確認中は「ログインして記録する」を出さない', async () => {
+    mockAuth = { isAuthenticated: false, isLoading: true }
+
+    renderDetail()
+    await screen.findAllByRole('heading', { name: 'テスト作品' })
+
+    expect(screen.queryByText('ログインして記録する')).not.toBeInTheDocument()
+  })
+
+  it('未ログインなら、確認が終わったあとに「ログインして記録する」を出す', async () => {
+    mockAuth = { isAuthenticated: false, isLoading: false }
+
+    renderDetail()
+
+    expect((await screen.findAllByText('ログインして記録する')).length).toBeGreaterThan(0)
+  })
+
+  it('ログイン済みなら「ログインして記録する」を出さない', async () => {
+    mockAuth = { isAuthenticated: true, isLoading: false }
+
+    renderDetail()
+    await screen.findAllByRole('heading', { name: 'テスト作品' })
+
+    expect(screen.queryByText('ログインして記録する')).not.toBeInTheDocument()
   })
 })
 

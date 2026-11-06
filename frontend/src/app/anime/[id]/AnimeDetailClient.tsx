@@ -110,7 +110,7 @@ const AnimeDetailClient: React.FC = () => {
   // 関連作品へ渡す戻り先（この作品の詳細ページ。この作品自身の戻り先を含む）
   const [relatedFrom, setRelatedFrom] = useState<string | undefined>(undefined)
   const pathname = usePathname()
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, isLoading: isAuthLoading } = useAuth()
   const { isFavorite, addFavorite, removeFavorite } = useFavorites({ enabled: isAuthenticated })
   const { getStatus, updateStatus, removeStatus } = useWatchStatus({ enabled: isAuthenticated })
   const [imageError, setImageError] = useState(false)
@@ -318,7 +318,11 @@ const AnimeDetailClient: React.FC = () => {
   // ログイン後は「視聴ステータス」を主ボタン（塗り）、お気に入りを48px角の
   // アイコンボタンにする。ログイン前のCTAと高さ48pxを揃え、状態が変わっても
   // 操作の重さが揃って見えるようにする（アニメ詳細UI刷新v2）
-  const actionsEl = isAuthenticated ? (
+  // 認証状態の確認中は、ログイン前のCTAを出さない。出すと、ログイン済みの人にも先に出て
+  // 切り替わる。同じ高さ（48px）の場所だけ確保して、レイアウトがずれないようにする
+  const actionsEl = isAuthLoading ? (
+    <div className="h-12 animate-pulse rounded-md bg-muted" aria-hidden="true" />
+  ) : isAuthenticated ? (
     <div className="flex items-stretch gap-2">
       <div className="flex-1 min-w-0 h-12">
         <StatusSelector
