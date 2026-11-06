@@ -52,7 +52,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.13.0",
     "jest": "^29.7.0",
-    "jest-environment-jsdom": "^29.7.0",
+    "jest-environment-jsdom": "^30.5.2",
     "orval": "^8.46.0",
     "prettier": "^3.6.2",
     "svgo": "^4.0.0",
