@@ -96,13 +96,25 @@ describe('SignInPage', () => {
       await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'))
     })
 
-    it('認証状態の確認中は移さない', async () => {
+    it('認証状態の確認中は移さず、ログイン画面も見せない', async () => {
       mockUseAuth.mockReturnValue({ ...LOGGED_IN, isLoading: true })
 
       render(<SignInPage />)
-      await screen.findByRole('button', { name: 'Googleで続ける' })
+      await waitFor(() => expect(document.querySelector('.animate-pulse')).toBeInTheDocument())
 
+      expect(screen.queryByRole('button', { name: 'Googleで続ける' })).not.toBeInTheDocument()
       expect(mockReplace).not.toHaveBeenCalled()
+    })
+
+    // 移動までの間に、ログイン画面が一瞬見えるちらつきを防ぐ
+    it('移動するまでの間、ログイン画面を見せない', async () => {
+      mockUseAuth.mockReturnValue(LOGGED_IN)
+
+      render(<SignInPage />)
+      await waitFor(() => expect(mockReplace).toHaveBeenCalled())
+
+      expect(screen.queryByRole('heading', { name: 'はじめる' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Googleで続ける' })).not.toBeInTheDocument()
     })
   })
 

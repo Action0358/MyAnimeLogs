@@ -68,6 +68,14 @@ const SignInPanel: React.FC = () => (
   </AuthPosterPanel>
 )
 
+const SignInFallback: React.FC = () => (
+  <div className="animate-pulse">
+    <div className="mb-3 h-7 w-56 rounded bg-muted" />
+    <div className="mb-6 h-4 w-64 rounded bg-muted" />
+    <div className="h-14 rounded-md bg-muted" />
+  </div>
+)
+
 const SignInInner: React.FC = () => {
   const router = useRouter()
   const pathname = usePathname()
@@ -124,6 +132,10 @@ const SignInInner: React.FC = () => {
     }
   }
 
+  // 認証状態の確認中と、ログイン済みで移動する間は、ログイン画面を見せない。
+  // 見せると、ログイン済みの人に一瞬ちらつく（#1265）
+  if (isAuthLoading || isAuthenticated) return <SignInFallback />
+
   return (
     <>
       {/*
@@ -178,14 +190,6 @@ const SignInInner: React.FC = () => {
     </>
   )
 }
-
-const SignInFallback: React.FC = () => (
-  <div className="animate-pulse">
-    <div className="mb-3 h-7 w-56 rounded bg-muted" />
-    <div className="mb-6 h-4 w-64 rounded bg-muted" />
-    <div className="h-14 rounded-md bg-muted" />
-  </div>
-)
 
 const SignInPage: React.FC = () => (
   <AuthLayout panel={<SignInPanel />}>
