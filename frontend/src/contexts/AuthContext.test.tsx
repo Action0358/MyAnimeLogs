@@ -213,11 +213,12 @@ describe('AuthProvider のログアウト', () => {
   const mockPush = jest.fn()
 
   const LogoutProbe: React.FC = () => {
-    const { logout, isAuthenticated, isManualLogout } = useAuth()
+    const { logout, isAuthenticated, isManualLogout, isAccountDeleted } = useAuth()
     return (
       <div>
         <div>{isAuthenticated ? 'authenticated' : 'anonymous'}</div>
         <div>{isManualLogout ? 'manual-logout' : 'other-logout'}</div>
+        <div>{isAccountDeleted ? 'account-deleted' : 'not-deleted'}</div>
         <button onClick={() => logout()}>manual</button>
         <button onClick={() => logout('timeout')}>timeout</button>
         <button onClick={() => logout('account-deleted')}>deleted</button>
@@ -269,6 +270,24 @@ describe('AuthProvider のログアウト', () => {
     expect(screen.getByText('anonymous')).toBeInTheDocument()
     expect(screen.getByText('manual-logout')).toBeInTheDocument()
     expect(mockPush).not.toHaveBeenCalled()
+  })
+
+  // #1265: ProtectedRoute が、削除後の移動先（/account-deleted）を邪魔しないための印
+  it('アカウント削除だけが isAccountDeleted を立てる', async () => {
+    await renderLoggedIn()
+    expect(screen.getByText('not-deleted')).toBeInTheDocument()
+
+    await clickLogout('deleted')
+
+    expect(screen.getByText('account-deleted')).toBeInTheDocument()
+  })
+
+  it('手動ログアウトでは isAccountDeleted を立てない', async () => {
+    await renderLoggedIn()
+
+    await clickLogout('manual')
+
+    expect(screen.getByText('not-deleted')).toBeInTheDocument()
   })
 
   it.each([

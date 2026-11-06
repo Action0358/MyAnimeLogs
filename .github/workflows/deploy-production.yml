@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
 
+# GITHUB_TOKEN はリポジトリの読み取りだけに絞る。どのジョブも書き込み(PRへのコメントなど)をしない
+permissions:
+  contents: read
+
 jobs:
   # テストはPRマージ前にtest-and-build.ymlで実施済みのため、ここでは再実行しない
   deploy-backend-production:
@@ -98,7 +102,8 @@ jobs:
 
       - name: Deploy to Cloudflare Pages (Production)
         working-directory: ./frontend
-        run: npx wrangler@3 pages deploy out --project-name=myanimelogs --branch=main --commit-message="Deploy production $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        # 実行のたびに中身が変わらないよう、版を完全に固定する
+        run: npx wrangler@3.114.17 pages deploy out --project-name=myanimelogs --branch=main --commit-message="Deploy production $(date -u +%Y-%m-%dT%H:%M:%SZ)"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

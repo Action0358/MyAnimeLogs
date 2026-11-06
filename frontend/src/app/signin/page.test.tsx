@@ -62,6 +62,78 @@ describe('SignInPage', () => {
     expect(screen.queryByLabelText(/パスワード/)).not.toBeInTheDocument()
   })
 
+  // #1265: 再ログイン後にヘッダーはログイン済みなのにログイン画面が残っていた
+  describe('ログイン済みのとき', () => {
+    const LOGGED_IN = {
+      loginWithGoogle: jest.fn(),
+      isAuthenticated: true,
+      isLoading: false,
+    }
+
+    it('戻り先が無ければトップへ移す', async () => {
+      mockUseAuth.mockReturnValue(LOGGED_IN)
+
+      render(<SignInPage />)
+
+      await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'))
+    })
+
+    it('next があればそのページへ移す', async () => {
+      mockUseAuth.mockReturnValue(LOGGED_IN)
+      setSearchParams('next=%2Fmypage%2F')
+
+      render(<SignInPage />)
+
+      await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/mypage/'))
+    })
+
+    it('外部サイトの next は無視してトップへ移す', async () => {
+      mockUseAuth.mockReturnValue(LOGGED_IN)
+      setSearchParams('next=%2F%2Fevil.example')
+
+      render(<SignInPage />)
+
+      await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/'))
+    })
+
+    it('認証状態の確認中は移さず、ログイン画面も見せない', async () => {
+      mockUseAuth.mockReturnValue({ ...LOGGED_IN, isLoading: true })
+
+      render(<SignInPage />)
+      expect(await screen.findByText('認証情報を確認中...')).toBeInTheDocument()
+
+      expect(screen.queryByRole('button', { name: 'Googleで続ける' })).not.toBeInTheDocument()
+      expect(screen.queryByText('観た作品を、')).not.toBeInTheDocument()
+      expect(mockReplace).not.toHaveBeenCalled()
+    })
+
+    // 移動までの間に、ログイン画面が一瞬見えるちらつきを防ぐ
+    it('移動するまでの間、ログイン画面を見せない', async () => {
+      mockUseAuth.mockReturnValue(LOGGED_IN)
+
+      render(<SignInPage />)
+      await waitFor(() => expect(mockReplace).toHaveBeenCalled())
+
+      expect(screen.queryByRole('heading', { name: 'はじめる' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Googleで続ける' })).not.toBeInTheDocument()
+      // フォームだけでなく、ポスター付きの画面全体を見せない
+      expect(screen.queryByText('観た作品を、')).not.toBeInTheDocument()
+    })
+  })
+
+  it('未ログインのときは移さない', async () => {
+    mockUseAuth.mockReturnValue({
+      loginWithGoogle: mockLoginWithGoogle,
+      isAuthenticated: false,
+      isLoading: false,
+    })
+
+    render(<SignInPage />)
+    await screen.findByRole('button', { name: 'Googleで続ける' })
+
+    expect(mockReplace).not.toHaveBeenCalled()
+  })
+
   // 登録もこの画面で発生するため、同意文言が必要
   it('利用規約とプライバシーポリシーへのリンクを表示する', async () => {
     render(<SignInPage />)

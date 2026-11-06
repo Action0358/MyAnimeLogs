@@ -83,6 +83,11 @@ interface AuthContextType {
   logout: (reason?: LogoutReason) => void
   /** 自分で操作してログアウトした直後か。次にログインするまで true のまま */
   isManualLogout: boolean
+  /**
+   * アカウントを削除してログアウトした直後か。次にログインするまで true のまま。
+   * 移動先（/account-deleted）は logout が決めるため、ProtectedRoute はログイン画面へ送らない
+   */
+  isAccountDeleted: boolean
   updateUser: (userData: User) => void
   isLoading: boolean
   isAuthenticated: boolean
@@ -107,6 +112,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true)
   const [lastActivityTime, setLastActivityTime] = useState<number>(0)
   const [isManualLogout, setIsManualLogout] = useState(false)
+  const [isAccountDeleted, setIsAccountDeleted] = useState(false)
   // ログアウトのたびに増やす。プロフィール取得中にログアウトされたら、完了した古い結果で
   // ユーザーを戻したり手動ログアウトの印を消したりしないよう、取得の前後で比べる
   const signOutCount = useRef(0)
@@ -196,6 +202,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (result.status === 'ok') {
           setUser(result.user)
           setIsManualLogout(false)
+          setIsAccountDeleted(false)
           return
         }
 
@@ -339,6 +346,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // signOut の完了前に SIGNED_OUT でユーザーが消え、ProtectedRoute が転送先を
       // 判断し始めるため、先に立てておく
       setIsManualLogout(reason === 'manual')
+      setIsAccountDeleted(reason === 'account-deleted')
       signOutCount.current += 1
       await supabase.auth.signOut()
       clearToken()
@@ -444,6 +452,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         loginWithGoogle,
         logout,
         isManualLogout,
+        isAccountDeleted,
         updateUser,
         isLoading,
         isAuthenticated: !!user && !!token,
