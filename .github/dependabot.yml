@@ -1,0 +1,58 @@
+# 依存関係の更新PRを自動で作る。
+# PRは develop に向け、いつもの develop → staging → main の流れでリリースする。
+# 1人で回せる量に収めるため、週1回にし、マイナー・パッチ更新はまとめて1本のPRにする。
+version: 2
+updates:
+  # ワークフローの Action(コミットSHAで固定済み。SHAとコメントの版を更新する)
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: develop
+    schedule:
+      interval: weekly
+      timezone: Asia/Tokyo
+    commit-message:
+      prefix: ci
+    groups:
+      github-actions:
+        patterns: ["*"]
+
+  # フロントエンド
+  - package-ecosystem: npm
+    directory: /frontend
+    target-branch: develop
+    schedule:
+      interval: weekly
+      timezone: Asia/Tokyo
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      npm-minor-patch:
+        update-types: [minor, patch]
+
+  # バックエンドのGoモジュール
+  - package-ecosystem: gomod
+    directory: /backend
+    target-branch: develop
+    schedule:
+      interval: weekly
+      timezone: Asia/Tokyo
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      gomod-minor-patch:
+        update-types: [minor, patch]
+
+  # バックエンドのコンテナイメージ(Dockerfile / Dockerfile.prod の golang・alpine)
+  - package-ecosystem: docker
+    directory: /backend
+    target-branch: develop
+    schedule:
+      interval: weekly
+      timezone: Asia/Tokyo
+    commit-message:
+      prefix: chore
+      include: scope

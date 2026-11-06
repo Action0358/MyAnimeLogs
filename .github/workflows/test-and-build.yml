@@ -4,6 +4,10 @@ on:
   pull_request:
     branches: [ main, staging, develop ]
 
+# GITHUB_TOKEN はリポジトリの読み取りだけに絞る。どのジョブも書き込み(PRへのコメントなど)をしない
+permissions:
+  contents: read
+
 jobs:
   backend-test:
     runs-on: ubuntu-latest
