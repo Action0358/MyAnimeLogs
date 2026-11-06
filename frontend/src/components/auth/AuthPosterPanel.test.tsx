@@ -19,7 +19,7 @@ const createAnime = (id: number, overrides: Partial<DBAnime> = {}): DBAnime => (
   watchers_count: 0,
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-01T00:00:00Z',
-  cover_image_large: `https://example.com/large-${id}.jpg`,
+  cover_image_large: `https://s4.anilist.co/large-${id}.jpg`,
   ...overrides,
 })
 
@@ -61,7 +61,7 @@ describe('AuthPosterPanel', () => {
       expect(container.querySelectorAll('img')).toHaveLength(2)
     })
     const images = container.querySelectorAll('img')
-    expect(images[0]).toHaveAttribute('src', 'https://example.com/large-1.jpg')
+    expect(images[0]).toHaveAttribute('src', 'https://s4.anilist.co/large-1.jpg')
     // 装飾目的の画像のため、読み上げ対象にしない
     expect(images[0]).toHaveAttribute('alt', '')
   })
@@ -71,12 +71,12 @@ describe('AuthPosterPanel', () => {
       animes: [
         createAnime(1, {
           cover_image_large: undefined,
-          cover_image_medium: 'https://example.com/medium.jpg',
+          cover_image_medium: 'https://s4.anilist.co/medium.jpg',
         }),
         createAnime(2, {
           cover_image_large: undefined,
           cover_image_medium: undefined,
-          image_url: 'https://example.com/fallback.jpg',
+          image_url: 'https://cdn.myanimelist.net/fallback.jpg',
         }),
       ],
       total: 2,
@@ -88,7 +88,10 @@ describe('AuthPosterPanel', () => {
       expect(container.querySelectorAll('img')).toHaveLength(2)
     })
     const srcs = Array.from(container.querySelectorAll('img')).map((img) => img.getAttribute('src'))
-    expect(srcs).toEqual(['https://example.com/medium.jpg', 'https://example.com/fallback.jpg'])
+    expect(srcs).toEqual([
+      'https://s4.anilist.co/medium.jpg',
+      'https://cdn.myanimelist.net/fallback.jpg',
+    ])
   })
 
   it('画像URLを一つも持たないアニメは描画しない', async () => {
@@ -105,6 +108,29 @@ describe('AuthPosterPanel', () => {
   })
 
   // 認証画面の装飾でしかないため、画像が取れなくてもログイン導線は成立させる
+  it('CSP で許可されないドメインの画像（公式サイトの OGP 画像など）は描画しない', async () => {
+    mockGetPopularAnimes.mockResolvedValue({
+      animes: [
+        createAnime(1, {
+          cover_image_large: undefined,
+          image_url: 'https://sekiro-anime.jp/og-image4.jpg',
+        }),
+        createAnime(2),
+      ],
+      total: 2,
+    })
+
+    const { container } = renderPanel(<AuthPosterPanel headline="見出し" />)
+
+    await waitFor(() => {
+      expect(container.querySelectorAll('img')).toHaveLength(1)
+    })
+    expect(container.querySelector('img')).toHaveAttribute(
+      'src',
+      'https://s4.anilist.co/large-2.jpg'
+    )
+  })
+
   it('API が失敗しても見出しを表示し続ける', async () => {
     mockGetPopularAnimes.mockRejectedValue(new Error('人気アニメの取得に失敗しました'))
 

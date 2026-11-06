@@ -3,13 +3,14 @@
 import React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { animeApi, type DBAnime } from '@/lib/api/annict'
+import { pickAllowedImageUrl } from '@/lib/allowedImageUrl'
 
 /** デスクトップは3×3、モバイルは横1列4枚 */
 const DESKTOP_POSTER_COUNT = 9
 const MOBILE_POSTER_COUNT = 4
 
 const posterUrl = (anime: DBAnime): string | undefined =>
-  anime.cover_image_large ?? anime.cover_image_medium ?? anime.image_url
+  pickAllowedImageUrl(anime.cover_image_large, anime.cover_image_medium, anime.image_url)
 
 interface AuthPosterPanelProps {
   /** パネル下部の見出し。ログインと新規登録で出し分ける */

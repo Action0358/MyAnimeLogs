@@ -10,6 +10,7 @@ import { formatSeason } from '@/utils/formatSeason'
 import { getAnimeStatusLabel, type BroadcastStatusLabel } from '@/utils/animeStatus'
 import type { Anime } from '@/lib/api/generated/myanimelogs'
 import { PosterFallback } from './PosterFallback'
+import { pickAllowedImageUrl } from '@/lib/allowedImageUrl'
 
 /** AnimeCard用の共有型定義 */
 export type AnimeCardData = Anime & { id: number }
@@ -71,11 +72,12 @@ export const AnimeCard: React.FC<AnimeCardProps> = ({
     setStatusInfo(getAnimeStatusLabel(anime.status, anime.released_on))
   }, [anime.status, anime.released_on])
 
-  const imageUrl =
-    anime.cover_image_extra_large ||
-    anime.cover_image_large ||
-    anime.cover_image_medium ||
+  const imageUrl = pickAllowedImageUrl(
+    anime.cover_image_extra_large,
+    anime.cover_image_large,
+    anime.cover_image_medium,
     anime.image_url
+  )
 
   const handleClick = (e: React.MouseEvent) => {
     if (onClick) {
