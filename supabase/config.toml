@@ -96,10 +96,11 @@ openai_api_key = "env(OPENAI_API_KEY)"
 
 # Email testing server (現行 Supabase CLI では Mailpit が起動する)。
 # ログインは Google のみでメールを送らないため無効化している（#738・#1169）。
+# CLI 2.122 で [inbucket] から [local_smtp] に改名された（#1231）。
 # Supabase 内部の通知メールに使われる可能性があるため、セクションは削除せず無効化にとどめる。
 # Emails sent with the local dev setup are not actually sent - rather, they
 # are monitored, and you can view the emails that would have been sent from the web interface.
-[inbucket]
+[local_smtp]
 enabled = false
 # Port to use for the email testing server web interface.
 port = 54324
