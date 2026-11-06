@@ -4,9 +4,14 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"regexp"
 
 	"github.com/gin-gonic/gin"
 )
+
+// クライアントから受け取る X-Request-ID の形式。英数字とハイフンだけを、64文字まで許す。
+// ログやレスポンスヘッダーに任意の文字列が入らないようにするため
+var validRequestID = regexp.MustCompile(`^[A-Za-z0-9-]{1,64}$`)
 
 // RequestIDMiddleware generates and adds request ID to context
 func RequestIDMiddleware() gin.HandlerFunc {
@@ -14,8 +19,8 @@ func RequestIDMiddleware() gin.HandlerFunc {
 		// Check if request ID already exists in header
 		requestID := c.GetHeader("X-Request-ID")
 
-		// Generate new request ID if not provided
-		if requestID == "" {
+		// 指定がないか、形式に合わない場合は新しく生成する
+		if !validRequestID.MatchString(requestID) {
 			requestID = generateRequestID()
 		}
 
