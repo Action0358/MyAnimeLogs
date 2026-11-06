@@ -80,19 +80,11 @@ const SignInInner: React.FC = () => {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const { loginWithGoogle, isAuthenticated, isLoading: isAuthLoading } = useAuth()
+  const { loginWithGoogle } = useAuth()
 
   const [error, setError] = useState('')
   const [info, setInfo] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-
-  // ログイン済みの人にログイン画面を見せない。ログイン直後にプロフィールの取得が
-  // 終わる前に着地した場合も、取得が終わった時点でここから移す（#1265）
-  useEffect(() => {
-    if (isAuthLoading || !isAuthenticated) return
-    // 戻り先は任意のサイト内パスで、typedRoutes の Route 型には収まらない
-    router.replace((sanitizeReturnPath(searchParams.get('next')) ?? '/') as Route)
-  }, [isAuthLoading, isAuthenticated, router, searchParams])
 
   useEffect(() => {
     const reason = searchParams.get('reason')
@@ -131,10 +123,6 @@ const SignInInner: React.FC = () => {
       setIsLoading(false)
     }
   }
-
-  // 認証状態の確認中と、ログイン済みで移動する間は、ログイン画面を見せない。
-  // 見せると、ログイン済みの人に一瞬ちらつく（#1265）
-  if (isAuthLoading || isAuthenticated) return <SignInFallback />
 
   return (
     <>
@@ -191,12 +179,57 @@ const SignInInner: React.FC = () => {
   )
 }
 
-const SignInPage: React.FC = () => (
-  <AuthLayout panel={<SignInPanel />}>
-    <Suspense fallback={<SignInFallback />}>
-      <SignInInner />
-    </Suspense>
-  </AuthLayout>
+/**
+ * ログイン済みの人を、戻り先（無ければトップ）へ移す。
+ * ログイン直後にプロフィールの取得が終わる前に着地した場合も、終わった時点で移す（#1265）
+ */
+const RedirectWhenAuthenticated: React.FC = () => {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const { isAuthenticated, isLoading } = useAuth()
+
+  useEffect(() => {
+    if (isLoading || !isAuthenticated) return
+    // 戻り先は任意のサイト内パスで、typedRoutes の Route 型には収まらない
+    router.replace((sanitizeReturnPath(searchParams.get('next')) ?? '/') as Route)
+  }, [isLoading, isAuthenticated, router, searchParams])
+
+  return null
+}
+
+const AuthChecking: React.FC = () => (
+  <div className="flex min-h-[60vh] items-center justify-center">
+    <div className="text-center">
+      <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-b-2 border-primary" />
+      <p className="text-muted-foreground">認証情報を確認中...</p>
+    </div>
+  </div>
 )
+
+const SignInPage: React.FC = () => {
+  const { isAuthenticated, isLoading } = useAuth()
+
+  // 認証状態の確認中と、ログイン済みで移動する間は、ポスター付きのログイン画面ごと
+  // 見せない。静的な HTML には確認中の表示しか入らないため、ログイン済みの人に
+  // 画面が一瞬ちらつくことがない（#1265）
+  if (isLoading || isAuthenticated) {
+    return (
+      <>
+        <Suspense fallback={null}>
+          <RedirectWhenAuthenticated />
+        </Suspense>
+        <AuthChecking />
+      </>
+    )
+  }
+
+  return (
+    <AuthLayout panel={<SignInPanel />}>
+      <Suspense fallback={<SignInFallback />}>
+        <SignInInner />
+      </Suspense>
+    </AuthLayout>
+  )
+}
 
 export default SignInPage
