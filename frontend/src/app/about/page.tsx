@@ -15,6 +15,7 @@ import { Container } from '@/components/layout'
 import { useAuth } from '@/contexts/AuthContext'
 import { SignInLink } from '@/components/auth/SignInLink'
 import { currentSeasonAnimeQuery } from '@/lib/queries/currentSeasonAnime'
+import { pickAllowedImageUrl } from '@/lib/allowedImageUrl'
 
 interface Feature {
   icon: LucideIcon
@@ -93,7 +94,9 @@ const AboutHero: React.FC = () => {
   const { data } = useQuery(currentSeasonAnimeQuery)
 
   const posters = (data?.animes ?? [])
-    .map((anime) => anime.cover_image_large || anime.cover_image_medium || anime.image_url)
+    .map((anime) =>
+      pickAllowedImageUrl(anime.cover_image_large, anime.cover_image_medium, anime.image_url)
+    )
     .filter((url): url is string => Boolean(url))
     .slice(0, HERO_POSTER_COUNT)
 

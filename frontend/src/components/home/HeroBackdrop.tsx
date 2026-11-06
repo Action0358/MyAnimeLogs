@@ -3,6 +3,7 @@
 import React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { currentSeasonAnimeQuery } from '@/lib/queries/currentSeasonAnime'
+import { pickAllowedImageUrl } from '@/lib/allowedImageUrl'
 
 /** 背景に敷くタイル数（レスポンシブで表示数を絞る） */
 const BACKDROP_TILE_COUNT = 12
@@ -28,7 +29,7 @@ const HeroBackdrop: React.FC = () => {
   const tiles = (data?.animes ?? [])
     .map((anime) => ({
       id: anime.id,
-      url: anime.cover_image_large || anime.cover_image_medium || anime.image_url,
+      url: pickAllowedImageUrl(anime.cover_image_large, anime.cover_image_medium, anime.image_url),
     }))
     .filter((tile): tile is { id: number; url: string } => Boolean(tile.url))
     .slice(0, BACKDROP_TILE_COUNT)

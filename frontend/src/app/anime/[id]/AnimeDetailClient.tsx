@@ -30,6 +30,7 @@ import { getAnimeStatusLabel, type BroadcastStatusLabel } from '@/utils/animeSta
 import { formatSeason } from '@/utils/formatSeason'
 import { resolveBackTarget, type BackTarget } from '@/lib/animeListOrigin'
 import { toSafeExternalUrl } from '@/lib/externalUrl'
+import { pickAllowedImageUrl } from '@/lib/allowedImageUrl'
 
 /** あらすじの既定表示行数。作品ごとの文字数差でカード高さが大きくぶれるため折りたたむ。
  *  Tailwind のJITは動的なクラス名を検出できないためリテラルで指定する */
@@ -228,11 +229,12 @@ const AnimeDetailClient: React.FC = () => {
   }
 
   const anime = animeData
-  const imageUrl =
-    anime.cover_image_extra_large ||
-    anime.cover_image_large ||
-    anime.cover_image_medium ||
+  const imageUrl = pickAllowedImageUrl(
+    anime.cover_image_extra_large,
+    anime.cover_image_large,
+    anime.cover_image_medium,
     anime.image_url
+  )
 
   // メディアタイプの日本語変換
   const getMediaLabel = (media: string | undefined | null) => {
