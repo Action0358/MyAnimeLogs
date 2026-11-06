@@ -110,12 +110,7 @@ func (s *AnimeService) startBackgroundTaskWorkers() {
 			for task := range s.backgroundTaskQueue {
 				// パニックからの復帰（アプリケーション全体のクラッシュを防止）
 				func() {
-					defer func() {
-						if r := recover(); r != nil {
-							s.logger.Error("Panic recovered in image update worker",
-								"panic", r)
-						}
-					}()
+					defer common.RecoverGoroutine(s.logger, "image update worker")
 					task()
 				}()
 			}
@@ -183,6 +178,7 @@ func (s *AnimeService) ClearAnimeCache() {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			defer common.RecoverGoroutine(s.logger, "memory cache clear")
 			for _, key := range exactKeys {
 				s.cache.Delete(key)
 			}
@@ -198,6 +194,7 @@ func (s *AnimeService) ClearAnimeCache() {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			defer common.RecoverGoroutine(s.logger, "redis cache clear")
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 

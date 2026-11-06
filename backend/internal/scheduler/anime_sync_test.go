@@ -536,3 +536,36 @@ func TestRunTMDBMetadataStage(t *testing.T) {
 		assert.Len(t, errs, 1)
 	})
 }
+
+func TestRunSyncSafely_RecoversPanicAndEndsSync(t *testing.T) {
+	scheduler, err := NewAnimeSyncScheduler(newTestAnnictClient(), newTestAnimeService(), nil, newTestLogger(), true, 3, 0)
+	assert.NoError(t, err)
+
+	assert.NotPanics(t, func() {
+		scheduler.runSyncSafely("scheduled sync", func() {
+			scheduler.statusTracker.StartSync(time.Now().Add(24 * time.Hour))
+			panic("boom")
+		})
+	})
+
+	status := scheduler.statusTracker.GetStatus(time.Now())
+	// 同期中のまま残らず、失敗として記録される
+	assert.False(t, status.IsRunning)
+	assert.False(t, status.LastSyncSuccess)
+	assert.Equal(t, []string{"scheduled sync panicked: boom"}, status.LastSyncErrors)
+}
+
+func TestRunSyncSafely_NoPanicKeepsResult(t *testing.T) {
+	scheduler, err := NewAnimeSyncScheduler(newTestAnnictClient(), newTestAnimeService(), nil, newTestLogger(), true, 3, 0)
+	assert.NoError(t, err)
+
+	scheduler.runSyncSafely("scheduled sync", func() {
+		scheduler.statusTracker.StartSync(time.Now().Add(24 * time.Hour))
+		scheduler.statusTracker.EndSync(true, 10, time.Second, nil)
+	})
+
+	status := scheduler.statusTracker.GetStatus(time.Now())
+	assert.False(t, status.IsRunning)
+	assert.True(t, status.LastSyncSuccess)
+	assert.Equal(t, 10, status.LastSyncCount)
+}
