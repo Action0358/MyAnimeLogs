@@ -140,6 +140,8 @@ func (s *AnimeSyncScheduler) releaseSyncLock() {
 // runBackgroundSync runs heavy sync operations in background after initial sync
 // with proper shutdown handling and mutual exclusion
 func (s *AnimeSyncScheduler) runBackgroundSync() {
+	defer common.RecoverGoroutine(s.logger, "background sync")
+
 	s.logger.Info("Starting background sync of genres and episode details")
 
 	// Wait for initial sync to complete, with shutdown handling
@@ -291,10 +293,12 @@ func (s *AnimeSyncScheduler) Start() {
 
 	// Wait until first execution
 	go func() {
+		defer common.RecoverGoroutine(s.logger, "anime sync scheduler")
+
 		// Perform initial full sync immediately on first startup
 		if !s.initialSynced {
 			s.logger.Info("Performing initial full sync of all seasons")
-			s.syncAllSeasons(next)
+			s.runSyncSafely("initial full sync", func() { s.syncAllSeasons(next) })
 			s.initialSynced = true
 
 			// Run heavy operations in background after initial sync
@@ -308,7 +312,7 @@ func (s *AnimeSyncScheduler) Start() {
 		select {
 		case <-timer.C:
 			// First scheduled execution (incremental sync)
-			s.syncCurrentSeasonAnimes()
+			s.runSyncSafely("scheduled sync", s.syncCurrentSeasonAnimes)
 		case <-s.stopChan:
 			if s.logger != nil {
 				s.logger.Info("Anime sync scheduler stopped before first execution")
@@ -327,7 +331,7 @@ func (s *AnimeSyncScheduler) Start() {
 		for {
 			select {
 			case <-ticker.C:
-				s.syncCurrentSeasonAnimes()
+				s.runSyncSafely("scheduled sync", s.syncCurrentSeasonAnimes)
 			case <-s.stopChan:
 				if s.logger != nil {
 					s.logger.Info("Anime sync scheduler stopped")
@@ -336,6 +340,19 @@ func (s *AnimeSyncScheduler) Start() {
 			}
 		}
 	}()
+}
+
+// runSyncSafely は同期を1回実行し、panic しても止めずに記録する。
+//
+// 初回フル同期は起動のたびに走るため、そこで panic してプロセスが落ちると
+// 再起動 → 同期 → panic を繰り返す。また定期同期のループが止まらないよう、
+// 1回分の同期ごとに panic を止めて次回の実行を続ける。
+// 同期中の状態（isRunning）が残らないよう、失敗として終了させる。
+func (s *AnimeSyncScheduler) runSyncSafely(name string, run func()) {
+	defer common.RecoverGoroutine(s.logger, name, func(r any) {
+		s.statusTracker.EndSync(false, 0, 0, []string{fmt.Sprintf("%s panicked: %v", name, r)})
+	})
+	run()
 }
 
 // Stop stops the scheduler

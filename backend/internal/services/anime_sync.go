@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"myanimelogs/internal/common"
 	"myanimelogs/internal/constants"
 	"myanimelogs/internal/models"
 
@@ -353,6 +354,10 @@ func (s *AnimeService) SyncCoverImagesForAllAnimes() (int, int, []string, error)
 		wg.Add(1)
 		go func(anime animeToSync) {
 			defer wg.Done()
+			// panic しても集計から漏れないよう、失敗として結果を送る（results はバッファ付き）
+			defer common.RecoverGoroutine(s.logger, "cover image sync worker", func(r any) {
+				results <- syncResult{success: false, errMsg: fmt.Sprintf("anime_id=%d (%s): panic: %v", anime.ID, anime.Title, r)}
+			})
 			semaphore <- struct{}{}        // セマフォ取得
 			defer func() { <-semaphore }() // セマフォ解放
 

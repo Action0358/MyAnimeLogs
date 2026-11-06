@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"myanimelogs/internal/common"
 	"myanimelogs/internal/constants"
 	"myanimelogs/internal/models"
 )
@@ -122,6 +123,8 @@ func (s *AnimeService) enrichAnimesWithCoverImages(animes []models.Anime) {
 		wg.Add(1)
 		go func(index int) {
 			defer wg.Done()
+			// panic した作品は画像なしのまま返す
+			defer common.RecoverGoroutine(s.logger, "cover image enrich")
 			s.enrichAnimeWithCoverImage(&animes[index])
 		}(i)
 	}
@@ -619,6 +622,8 @@ func (s *AnimeService) enrichAnimesWithCoverImagesIfNeeded(animes []models.Anime
 		wg.Add(1)
 		go func(index int) {
 			defer wg.Done()
+			// panic した作品は画像なしのまま返す
+			defer common.RecoverGoroutine(s.logger, "cover image enrich")
 			s.enrichAnimeWithCoverImage(&animes[index])
 		}(i)
 	}
@@ -642,6 +647,8 @@ func (s *AnimeService) enrichAnimesWithUserDataCoverImages(animes []models.Anime
 		wg.Add(1)
 		go func(index int) {
 			defer wg.Done()
+			// panic した作品は画像なしのまま返す
+			defer common.RecoverGoroutine(s.logger, "cover image enrich")
 			s.enrichAnimeWithCoverImage(&animes[index].Anime)
 		}(i)
 	}
@@ -665,6 +672,8 @@ func (s *AnimeService) enrichAnimesWithUserDataCoverImagesIfNeeded(animes []mode
 		wg.Add(1)
 		go func(index int) {
 			defer wg.Done()
+			// panic した作品は画像なしのまま返す
+			defer common.RecoverGoroutine(s.logger, "cover image enrich")
 			s.enrichAnimeWithCoverImage(&animes[index].Anime)
 		}(i)
 	}
