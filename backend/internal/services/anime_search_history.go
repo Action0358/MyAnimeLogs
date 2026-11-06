@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"myanimelogs/internal/common"
 	"myanimelogs/internal/constants"
 	"myanimelogs/internal/models"
 )
@@ -46,7 +47,10 @@ func (s *AnimeService) logAdvancedSearch(params models.AdvancedSearchParams, use
 		"sort":        params.Sort,
 		"order":       params.Order,
 	}
-	go s.logSearch(params.Query, filters, userID, resultCount)
+	go func() {
+		defer common.RecoverGoroutine(s.logger, "search log")
+		s.logSearch(params.Query, filters, userID, resultCount)
+	}()
 }
 
 // logBasicSearch - 基本検索のログを記録（非同期）
@@ -57,7 +61,10 @@ func (s *AnimeService) logBasicSearch(params models.AnimeSearchParams, userID *i
 		"status": params.Status,
 		"sort":   params.Sort,
 	}
-	go s.logSearch(params.Keyword, filters, userID, resultCount)
+	go func() {
+		defer common.RecoverGoroutine(s.logger, "search log")
+		s.logSearch(params.Keyword, filters, userID, resultCount)
+	}()
 }
 
 // GetSearchHistory - ユーザーの検索履歴を取得
