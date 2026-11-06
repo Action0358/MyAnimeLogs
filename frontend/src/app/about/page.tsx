@@ -155,7 +155,7 @@ const SectionHeading: React.FC<SectionHeadingProps> = ({ number, title }) => (
 )
 
 const AboutPage: React.FC = () => {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, isLoading } = useAuth()
 
   return (
     <div className="bg-muted/40">
@@ -242,7 +242,8 @@ const AboutPage: React.FC = () => {
           </p>
         </section>
 
-        {!isAuthenticated && (
+        {/* 認証状態の確認中は出さない。出すと、ログイン済みの人にも先に出て消え、レイアウトがずれる */}
+        {!isLoading && !isAuthenticated && (
           <section className="mt-9 rounded-xl bg-foreground px-6 py-7 sm:mt-[72px] sm:flex sm:items-center sm:justify-between sm:gap-8 sm:px-12 sm:py-11">
             <div>
               <div className="text-lg font-bold leading-snug text-background sm:text-[22px]">
