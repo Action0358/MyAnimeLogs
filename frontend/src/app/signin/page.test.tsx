@@ -100,9 +100,10 @@ describe('SignInPage', () => {
       mockUseAuth.mockReturnValue({ ...LOGGED_IN, isLoading: true })
 
       render(<SignInPage />)
-      await waitFor(() => expect(document.querySelector('.animate-pulse')).toBeInTheDocument())
+      expect(await screen.findByText('認証情報を確認中...')).toBeInTheDocument()
 
       expect(screen.queryByRole('button', { name: 'Googleで続ける' })).not.toBeInTheDocument()
+      expect(screen.queryByText('観た作品を、')).not.toBeInTheDocument()
       expect(mockReplace).not.toHaveBeenCalled()
     })
 
@@ -115,6 +116,8 @@ describe('SignInPage', () => {
 
       expect(screen.queryByRole('heading', { name: 'はじめる' })).not.toBeInTheDocument()
       expect(screen.queryByRole('button', { name: 'Googleで続ける' })).not.toBeInTheDocument()
+      // フォームだけでなく、ポスター付きの画面全体を見せない
+      expect(screen.queryByText('観た作品を、')).not.toBeInTheDocument()
     })
   })
 
