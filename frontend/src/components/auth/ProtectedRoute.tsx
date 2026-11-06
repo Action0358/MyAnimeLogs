@@ -13,7 +13,7 @@ interface ProtectedRouteProps {
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, redirectTo }) => {
-  const { isAuthenticated, isLoading, isManualLogout } = useAuth()
+  const { isAuthenticated, isLoading, isManualLogout, isAccountDeleted } = useAuth()
   const router = useRouter()
   const [shouldRender, setShouldRender] = useState(false)
   // このページを開いたままログアウトしたかを見分ける。ログアウト後にブラウザの
@@ -28,6 +28,9 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, redire
           router.replace('/')
           return
         }
+        // アカウントを削除した場合は、logout が削除完了画面へ移す。ここでログイン画面へ
+        // 送ると競合し、削除完了画面が見られず、戻り先つきのログイン画面が残る（#1265）
+        if (wasAuthenticated.current && isAccountDeleted) return
         // 認証されていない場合は即座にリダイレクト（履歴を残さない）
         // redirectTo は呼び出し側が渡す任意のパスで、typedRoutes の Route 型には収まらない
         const target =
@@ -42,7 +45,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, redire
         setShouldRender(true)
       }
     }
-  }, [isAuthenticated, isLoading, isManualLogout, router, redirectTo])
+  }, [isAuthenticated, isLoading, isManualLogout, isAccountDeleted, router, redirectTo])
 
   // ローディング中またはレンダリング準備ができていない場合はローディング画面を表示
   if (isLoading || !shouldRender) {
