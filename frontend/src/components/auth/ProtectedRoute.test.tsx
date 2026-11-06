@@ -68,6 +68,26 @@ describe('ProtectedRoute', () => {
     expect(mockReplace).not.toHaveBeenCalledWith('/')
   })
 
+  // #1265: logout の移動先（/account-deleted）と競合し、ログイン画面が残っていた
+  it('開いたままアカウントを削除したときは、どこへも転送しない（移動先は logout が決める）', () => {
+    mockUseAuth.mockReturnValue(LOGGED_IN)
+    const { rerender } = render(ui())
+
+    mockUseAuth.mockReturnValue({ ...LOGGED_OUT, isAccountDeleted: true })
+    rerender(ui())
+
+    expect(mockReplace).not.toHaveBeenCalled()
+  })
+
+  it('アカウント削除後に「戻る」で来た場合はログイン画面へ送る', () => {
+    mockUseAuth.mockReturnValue({ ...LOGGED_OUT, isAccountDeleted: true })
+
+    render(ui())
+
+    expect(mockReplace).toHaveBeenCalledTimes(1)
+    expect(mockReplace.mock.calls[0][0]).toMatch(/^\/signin/)
+  })
+
   it('ログアウト後に「戻る」で来た場合はログイン画面へ送る', () => {
     mockUseAuth.mockReturnValue({ ...LOGGED_OUT, isManualLogout: true })
 

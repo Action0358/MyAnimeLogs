@@ -10,7 +10,7 @@ import { AuthPosterPanel } from '@/components/auth/AuthPosterPanel'
 import { AuthMessages } from '@/components/auth/AuthMessages'
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton'
 import { LOGOUT_REASON_MESSAGES } from '@/lib/constants'
-import { saveReturnPath } from '@/lib/authReturnPath'
+import { saveReturnPath, sanitizeReturnPath } from '@/lib/authReturnPath'
 
 const EXTRA_MESSAGES: Record<string, string> = {
   'auth-callback-failed': 'Googleログインを完了できませんでした。お手数ですが再度お試しください。',
@@ -72,11 +72,19 @@ const SignInInner: React.FC = () => {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const { loginWithGoogle } = useAuth()
+  const { loginWithGoogle, isAuthenticated, isLoading: isAuthLoading } = useAuth()
 
   const [error, setError] = useState('')
   const [info, setInfo] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+
+  // ログイン済みの人にログイン画面を見せない。ログイン直後にプロフィールの取得が
+  // 終わる前に着地した場合も、取得が終わった時点でここから移す（#1265）
+  useEffect(() => {
+    if (isAuthLoading || !isAuthenticated) return
+    // 戻り先は任意のサイト内パスで、typedRoutes の Route 型には収まらない
+    router.replace((sanitizeReturnPath(searchParams.get('next')) ?? '/') as Route)
+  }, [isAuthLoading, isAuthenticated, router, searchParams])
 
   useEffect(() => {
     const reason = searchParams.get('reason')
