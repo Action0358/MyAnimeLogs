@@ -41,7 +41,7 @@
     "format": "prettier --write ."
   },
   "devDependencies": {
-    "@next/eslint-plugin-next": "^15.5.28",
+    "@next/eslint-plugin-next": "^16.4.4",
     "@tanstack/react-query-devtools": "^5.51.1",
     "@testing-library/jest-dom": "^6.4.8",
     "@types/he": "^1.2.3",
