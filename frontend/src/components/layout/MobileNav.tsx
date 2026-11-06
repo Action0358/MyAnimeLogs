@@ -30,7 +30,7 @@ const SectionLabel: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 
 export const MobileNav: React.FC<MobileNavProps> = ({ isOpen, onClose, triggerRef }) => {
   const menuRef = useRef<HTMLDivElement>(null)
-  const { user, logout } = useAuth()
+  const { user, logout, isLoading } = useAuth()
 
   // メニュー外クリックで閉じる
   useEffect(() => {
@@ -202,7 +202,10 @@ export const MobileNav: React.FC<MobileNavProps> = ({ isOpen, onClose, triggerRe
 
         {/* フッター。ログアウトは他のリンクと役割が違うため色で分け、最下部に隔離する */}
         <div className="flex-shrink-0 border-t border-border px-3 pb-4 pt-2.5">
-          {user ? (
+          {isLoading ? (
+            // 認証状態の確認中は、ログイン / ログアウトのどちらも出さない（出し間違いを防ぐ）
+            <div className="h-11" aria-hidden="true" />
+          ) : user ? (
             <button
               onClick={handleLogout}
               className={cn(
