@@ -9,6 +9,7 @@ import { formatSeason } from '@/utils/formatSeason'
 import { Anime } from '@/lib/api/generated/myanimelogs'
 import { withBackParam } from '@/lib/animeListOrigin'
 import { PosterFallback } from '@/components/anime'
+import { pickAllowedImageUrl } from '@/lib/allowedImageUrl'
 
 interface FavoriteCardProps {
   anime: Anime & { id: number } // id is required
@@ -23,11 +24,12 @@ interface FavoriteCardProps {
  */
 export const FavoriteCard: React.FC<FavoriteCardProps> = ({ anime }) => {
   const [imageError, setImageError] = useState(false)
-  const imageUrl =
-    anime.cover_image_extra_large ||
-    anime.cover_image_large ||
-    anime.cover_image_medium ||
+  const imageUrl = pickAllowedImageUrl(
+    anime.cover_image_extra_large,
+    anime.cover_image_large,
+    anime.cover_image_medium,
     anime.image_url
+  )
   const formattedSeason = formatSeason(anime.season)
 
   return (
