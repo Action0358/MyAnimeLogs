@@ -2,7 +2,7 @@ import './globals.css'
 import type { Metadata } from 'next'
 import { Noto_Sans_JP } from 'next/font/google'
 import { Header, Footer } from '@/components/layout'
-import { QueryProvider } from '@/components/providers'
+import { QueryProvider, BuildSkewGuard } from '@/components/providers'
 import { MaintenanceGate } from '@/components/maintenance'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { TokenDebug } from '@/components/debug/TokenDebug'
@@ -32,6 +32,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     // メンテナンス中の /news では、エッジが data-maintenance を付ける（React の描画には無い属性）
     <html lang="ja" className={notoSansJP.variable} suppressHydrationWarning>
       <body className="min-h-screen bg-background flex flex-col">
+        {/* デプロイ前から開いていたタブの画面遷移が、生テキストの .txt へ移るのを防ぐ（#1311） */}
+        <BuildSkewGuard />
         <MaintenanceGate>
           <AuthProvider>
             <QueryProvider>
