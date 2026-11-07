@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"syscall"
 	"testing"
 	"time"
 
@@ -102,14 +103,10 @@ func TestRecoveryMiddleware_BrokenConnectionIsNotRecordedAsPanic(t *testing.T) {
 	var logs bytes.Buffer
 	r, monitor := newRecoveryEngine(&logs)
 	r.GET("/", func(c *gin.Context) {
-		panic(&net.OpError{Err: os.NewSyscallError("write", errBrokenPipe{})})
+		panic(&net.OpError{Err: os.NewSyscallError("write", syscall.EPIPE)})
 	})
 
 	r.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil))
 
 	assert.Equal(t, 0, monitor.GetTotalErrorCount())
 }
-
-type errBrokenPipe struct{}
-
-func (errBrokenPipe) Error() string { return "broken pipe" }
