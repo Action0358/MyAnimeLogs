@@ -43,6 +43,21 @@ describe('getClientBuildId', () => {
     expect(getClientBuildId()).toBe('build-A')
   })
 
+  // Next.js は読み込み後に self.__next_f を空にするため、本番ではこちらで読むことになる（STG で確認）
+  it('self.__next_f が空でも、HTML のインライン script から読む', () => {
+    ;(self as unknown as { __next_f: unknown[][] }).__next_f = [[0]]
+    const script = document.createElement('script')
+    script.textContent =
+      'self.__next_f.push([1,"0:{\\"P\\":null,\\"b\\":\\"build-DOM\\",\\"p\\":\\"\\"}"])'
+    document.head.appendChild(script)
+
+    try {
+      expect(getClientBuildId()).toBe('build-DOM')
+    } finally {
+      script.remove()
+    }
+  })
+
   it('読めない環境（開発サーバーなど）では null', () => {
     expect(getClientBuildId()).toBeNull()
   })
