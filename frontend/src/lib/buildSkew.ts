@@ -11,15 +11,26 @@
 export const extractBuildId = (payload: string): string | null =>
   payload.match(/"b":"([^"]+)"/)?.[1] ?? null
 
+/** インラインの script に埋め込まれた RSC データは、引用符が `\"` とエスケープされている */
+const EMBEDDED_BUILD_ID = /\\"b\\":\\"([^"\\]+)\\"/
+
 /**
- * 開いているページのビルド ID。ページに埋め込まれた RSC データ（self.__next_f）から読む。
- * 読めない環境（開発サーバーなど）では null
+ * 開いているページのビルド ID。ページに埋め込まれた RSC データから読む。
+ * Next.js は読み込み後に self.__next_f を空にするため、まず self.__next_f を見て、
+ * 無ければ HTML に残っているインラインの script を読む。
+ * 読めない環境では null
  */
 export const getClientBuildId = (): string | null => {
   const chunks = (self as unknown as { __next_f?: unknown[][] }).__next_f
-  if (!Array.isArray(chunks)) return null
-  for (const chunk of chunks) {
-    const id = typeof chunk?.[1] === 'string' ? extractBuildId(chunk[1]) : null
+  if (Array.isArray(chunks)) {
+    for (const chunk of chunks) {
+      const id = typeof chunk?.[1] === 'string' ? extractBuildId(chunk[1]) : null
+      if (id) return id
+    }
+  }
+  for (const script of Array.from(document.scripts)) {
+    if (script.src) continue
+    const id = script.textContent?.match(EMBEDDED_BUILD_ID)?.[1]
     if (id) return id
   }
   return null
