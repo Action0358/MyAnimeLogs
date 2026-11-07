@@ -29,6 +29,8 @@ func Setup(db *database.DB, cfg *config.Config, syncScheduler handlers.SyncSched
 	configureClientIP(r, cfg.Environment)
 
 	r.Use(middleware.RequestIDMiddleware())
+	// 先頭近くに置き、後ろのミドルウェアが返す 429・413・503 や panic の 500 にも付ける
+	r.Use(middleware.SecurityHeadersMiddleware())
 	r.Use(middleware.LoggingMiddleware(logger))
 	r.Use(middleware.RecoveryMiddleware(errorMonitor))
 	r.Use(middleware.CORSMiddleware())
