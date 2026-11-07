@@ -50,6 +50,12 @@ updates:
       # Tailwind CSS 4 への移行(#1292)
       - dependency-name: tailwindcss
         update-types: ["version-update:semver-major"]
+      # 実行環境(CI・デプロイ)の Node 22 に型定義をそろえる。Node 本体を上げるときに一緒に上げる
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+      # he 2.0 は ESM 専用で Jest 29 から読めない。1.x に既知の脆弱性はなく、2.0 で必要な変更もない
+      - dependency-name: he
+        update-types: ["version-update:semver-major"]
     groups:
       npm-minor-patch:
         update-types: [minor, patch]
