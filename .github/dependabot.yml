@@ -1,6 +1,9 @@
 # 依存関係の更新PRを自動で作る。
 # PRは develop に向け、いつもの develop → staging → main の流れでリリースする。
 # 1人で回せる量に収めるため、週1回にし、マイナー・パッチ更新はまとめて1本のPRにする。
+# 公開直後の版は問題が見つかる前なので、公開から7日たった版だけを対象にする(cooldown)。
+# 移行作業として別の issue で扱う更新は ignore に入れ、毎週PRが出ないようにする。
+# その issue を終えたら、対応する ignore を消す。
 version: 2
 updates:
   # ワークフローの Action(コミットSHAで固定済み。SHAとコメントの版を更新する)
@@ -10,6 +13,8 @@ updates:
     schedule:
       interval: weekly
       timezone: Asia/Tokyo
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: ci
     groups:
@@ -23,10 +28,28 @@ updates:
     schedule:
       interval: weekly
       timezone: Asia/Tokyo
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 5
     commit-message:
       prefix: chore
       include: scope
+    ignore:
+      # Next.js 16 と一緒に上げる(#1293)
+      - dependency-name: next
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@next/eslint-plugin-next"
+        update-types: ["version-update:semver-major"]
+      # jest 30 にそろえて上げる(#1291)
+      - dependency-name: jest
+        update-types: ["version-update:semver-major"]
+      - dependency-name: jest-environment-jsdom
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/jest"
+        update-types: ["version-update:semver-major"]
+      # Tailwind CSS 4 への移行(#1292)
+      - dependency-name: tailwindcss
+        update-types: ["version-update:semver-major"]
     groups:
       npm-minor-patch:
         update-types: [minor, patch]
@@ -38,6 +61,8 @@ updates:
     schedule:
       interval: weekly
       timezone: Asia/Tokyo
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 5
     commit-message:
       prefix: chore
@@ -53,6 +78,12 @@ updates:
     schedule:
       interval: weekly
       timezone: Asia/Tokyo
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: chore
       include: scope
+    ignore:
+      # Go 1.27 は go.mod・CI とそろえて上げる(#1290)。golang の 1.26 → 1.27 はマイナー扱い
+      - dependency-name: golang
+        update-types: ["version-update:semver-minor"]
